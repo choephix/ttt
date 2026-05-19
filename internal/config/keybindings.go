@@ -129,5 +129,6 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+pgup", Command: "tab.prev"},
 		{Key: "ctrl+w", Command: "tab.close"},
 		{Key: "escape", Command: "editor.focus"},
+		{Key: "ctrl+t", Command: "panel.toggle"},
 	}
 }

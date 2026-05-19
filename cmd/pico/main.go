@@ -34,6 +34,20 @@ func main() {
 		editorGroup.OpenFile(os.Args[1])
 	}
 
+	// Bottom panel: plugin tabs
+	bottomPanel := ui.NewBottomPanelWidget(&borders)
+	bottomPanel.AddPanel("output", "OUTPUT", ui.NewPlaceholderWidget(""))
+	bottomPanel.AddPanel("debug", "DEBUG", ui.NewPlaceholderWidget(""))
+	bottomPanel.AddPanel("terminal", "TERMINAL", ui.NewPlaceholderWidget(""))
+	bottomPanel.AddPanel("ports", "PORTS", ui.NewPlaceholderWidget(""))
+
+	// Content split: editor on top, bottom panel below
+	contentSplit := ui.NewContentSplitWidget()
+	contentSplit.Top = editorGroup
+	contentSplit.Bottom = bottomPanel
+	contentSplit.Borders = &borders
+	contentSplit.ShowBottom = false
+
 	status := &view.StatusBar{FileName: editorGroup.ActiveFilePath()}
 	statusBar := ui.NewStatusBarWidget(status)
 
@@ -66,7 +80,7 @@ func main() {
 	// Layout
 	splitPanel := ui.NewSplitPanelWidget()
 	splitPanel.Left = sidebar
-	splitPanel.Right = editorGroup
+	splitPanel.Right = contentSplit
 	splitPanel.Borders = &borders
 	splitPanel.DividerPos = sidebarWidth
 	splitPanel.ShowLeft = sidebar.Visible
@@ -202,6 +216,34 @@ func main() {
 	})
 
 	cmdRegistry.Register(command.Command{
+		ID: "panel.toggle", Title: "Toggle Panel",
+		Handler: func() {
+			contentSplit.ShowBottom = !contentSplit.ShowBottom
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "panel.focus", Title: "Focus Panel",
+		Handler: func() {
+			if !contentSplit.ShowBottom {
+				contentSplit.ShowBottom = true
+			}
+			if w := bottomPanel.ActiveWidget(); w != nil {
+				root.SetFocus(w)
+			}
+		},
+	})
+
+	contentSplit.OnResize = func(height int) {
+		if height <= 0 {
+			contentSplit.ShowBottom = false
+		} else {
+			contentSplit.ShowBottom = true
+			contentSplit.BottomH = height
+		}
+	}
+
+	cmdRegistry.Register(command.Command{
 		ID: "command.palette", Title: "Command Palette",
 		Handler: func() {
 			palette := ui.NewCommandPaletteWidget(cmdRegistry.List())
@@ -289,6 +331,11 @@ func main() {
 			btn := tev.Buttons()
 
 			if splitPanel.HandleEvent(tev) == ui.EventConsumed {
+				redraw()
+				continue
+			}
+
+			if contentSplit.HandleEvent(tev) == ui.EventConsumed {
 				redraw()
 				continue
 			}
