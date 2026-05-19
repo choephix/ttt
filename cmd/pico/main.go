@@ -126,6 +126,8 @@ func main() {
 	sidebar.AddPanel("explorer", explorer)
 	sidebar.AddPanel("search", search)
 	sidebar.Visible = cfg.Settings.SidebarVisible
+	sidebar.Title = "EXPLORER"
+	sidebar.Borders = &borders
 
 	sidebarWidth := cfg.Settings.SidebarWidth
 	if sidebarWidth <= 0 {
@@ -134,7 +136,7 @@ func main() {
 	const resizeStep = 1
 
 	editorArea := &ui.VBox{}
-	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
+	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 3})
 	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 
 	splitPanel := ui.NewSplitPanelWidget()
@@ -143,8 +145,9 @@ func main() {
 	splitPanel.Borders = &borders
 	splitPanel.DividerPos = sidebarWidth
 	splitPanel.ShowLeft = sidebar.Visible
-	splitPanel.LeftTitle = "EXPLORER"
+	splitPanel.LeftTitle = ""
 	splitPanel.RightTitle = ""
+	splitPanel.RightBorderStartY = 2
 
 	var setSidebarWidth func(int)
 
@@ -193,7 +196,7 @@ func main() {
 		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
 			sidebar.SetActivePanel("explorer")
-			splitPanel.LeftTitle = "EXPLORER"
+			sidebar.Title = "EXPLORER"
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -205,7 +208,7 @@ func main() {
 		ID: "sidebar.search", Title: "Show Search",
 		Handler: func() {
 			sidebar.SetActivePanel("search")
-			splitPanel.LeftTitle = "SEARCH"
+			sidebar.Title = "SEARCH"
 			if !sidebar.Visible {
 				showSidebar()
 			}

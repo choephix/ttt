@@ -8,13 +8,14 @@ import (
 
 type SplitPanelWidget struct {
 	BaseWidget
-	Left       Widget
-	Right      Widget
-	LeftTitle  string
-	RightTitle string
-	DividerPos int
-	Borders    *term.BorderSet
-	ShowLeft   bool
+	Left          Widget
+	Right         Widget
+	LeftTitle     string
+	RightTitle    string
+	DividerPos        int
+	Borders           *term.BorderSet
+	ShowLeft          bool
+	RightBorderStartY int
 }
 
 func NewSplitPanelWidget() *SplitPanelWidget {
@@ -52,18 +53,14 @@ func (s *SplitPanelWidget) Render(surface *RenderSurface) {
 		divX = w - 3
 	}
 
-	// Top border
+	// Top border — left side only: ┌───┐
 	surface.SetCell(0, 0, term.Cell{Ch: b.TopLeft, Style: bs})
 	for x := 1; x < divX; x++ {
 		surface.SetCell(x, 0, term.Cell{Ch: b.Horizontal, Style: bs})
 	}
-	surface.SetCell(divX, 0, term.Cell{Ch: b.TopTee, Style: bs})
-	for x := divX + 1; x < w-1; x++ {
-		surface.SetCell(x, 0, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	surface.SetCell(w-1, 0, term.Cell{Ch: b.TopRight, Style: bs})
+	surface.SetCell(divX, 0, term.Cell{Ch: b.TopRight, Style: bs})
 
-	// Bottom border
+	// Bottom border — full width: └───┴───┘
 	surface.SetCell(0, h-1, term.Cell{Ch: b.BottomLeft, Style: bs})
 	for x := 1; x < divX; x++ {
 		surface.SetCell(x, h-1, term.Cell{Ch: b.Horizontal, Style: bs})
@@ -74,49 +71,53 @@ func (s *SplitPanelWidget) Render(surface *RenderSurface) {
 	}
 	surface.SetCell(w-1, h-1, term.Cell{Ch: b.BottomRight, Style: bs})
 
-	// Left border, divider, right border
+	// Left border
 	for y := 1; y < h-1; y++ {
 		surface.SetCell(0, y, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(divX, y, term.Cell{Ch: b.Vertical, Style: bs})
+	}
+
+	// Right border — starts at RightBorderStartY to skip tab bar area
+	rbStart := s.RightBorderStartY
+	if rbStart > 0 && rbStart < h-1 {
+		surface.SetCell(w-1, rbStart, term.Cell{Ch: b.TopRight, Style: bs})
+		rbStart++
+	}
+	for y := rbStart; y < h-1; y++ {
 		surface.SetCell(w-1, y, term.Cell{Ch: b.Vertical, Style: bs})
 	}
 
-	// Left title in top border
-	s.drawTitle(surface, 1, 0, divX-1, s.LeftTitle, b, bs)
-
-	// Right title in top border
-	s.drawTitle(surface, divX+1, 0, w-1-divX-1, s.RightTitle, b, bs)
-
-	// Render left content (absolute coords for SetRect, local for Sub)
-	if s.Left != nil {
-		leftW := divX - 1
-		leftH := h - 2
-		if leftW > 0 && leftH > 0 {
-			s.Left.SetRect(Rect{X: r.X + 1, Y: r.Y + 1, W: leftW, H: leftH})
-			leftSurface := surface.Sub(Rect{X: 1, Y: 1, W: leftW, H: leftH})
-			s.Left.Render(leftSurface)
-		}
+	// Divider
+	for y := 1; y < h-1; y++ {
+		surface.SetCell(divX, y, term.Cell{Ch: b.Vertical, Style: bs})
 	}
 
-	// Render right content (absolute coords for SetRect, local for Sub)
-	if s.Right != nil {
-		rightW := w - divX - 2
-		rightH := h - 2
-		if rightW > 0 && rightH > 0 {
-			s.Right.SetRect(Rect{X: r.X + divX + 1, Y: r.Y + 1, W: rightW, H: rightH})
-			rightSurface := surface.Sub(Rect{X: divX + 1, Y: 1, W: rightW, H: rightH})
-			s.Right.Render(rightSurface)
-		}
+	// Left title
+	if s.LeftTitle != "" {
+		s.drawTitle(surface, 1, 0, divX-1, s.LeftTitle, b, bs)
+	}
+
+	// Left content — inside left border, below top border, above bottom border
+	leftW := divX - 1
+	leftH := h - 2
+	if s.Left != nil && leftW > 0 && leftH > 0 {
+		s.Left.SetRect(Rect{X: r.X + 1, Y: r.Y + 1, W: leftW, H: leftH})
+		leftSurface := surface.Sub(Rect{X: 1, Y: 1, W: leftW, H: leftH})
+		s.Left.Render(leftSurface)
+	}
+
+	// Right content — right of divider, full height (no top border), above bottom border
+	rightX := divX + 1
+	rightW := w - 1 - rightX
+	rightH := h - 1
+	if s.Right != nil && rightW > 0 && rightH > 0 {
+		s.Right.SetRect(Rect{X: r.X + rightX, Y: r.Y, W: rightW, H: rightH})
+		rightSurface := surface.Sub(Rect{X: rightX, Y: 0, W: rightW, H: rightH})
+		s.Right.Render(rightSurface)
 	}
 }
 
 func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b term.BorderSet, bs term.Style) {
-	// Top border
-	surface.SetCell(0, 0, term.Cell{Ch: b.TopLeft, Style: bs})
-	for x := 1; x < w-1; x++ {
-		surface.SetCell(x, 0, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	surface.SetCell(w-1, 0, term.Cell{Ch: b.TopRight, Style: bs})
+	r := s.GetRect()
 
 	// Bottom border
 	surface.SetCell(0, h-1, term.Cell{Ch: b.BottomLeft, Style: bs})
@@ -125,25 +126,28 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 	}
 	surface.SetCell(w-1, h-1, term.Cell{Ch: b.BottomRight, Style: bs})
 
-	// Side borders
-	for y := 1; y < h-1; y++ {
+	// Left border
+	for y := 0; y < h-1; y++ {
 		surface.SetCell(0, y, term.Cell{Ch: b.Vertical, Style: bs})
+	}
+
+	// Right border — starts at RightBorderStartY
+	rbStart := s.RightBorderStartY
+	if rbStart > 0 && rbStart < h-1 {
+		surface.SetCell(w-1, rbStart, term.Cell{Ch: b.TopRight, Style: bs})
+		rbStart++
+	}
+	for y := rbStart; y < h-1; y++ {
 		surface.SetCell(w-1, y, term.Cell{Ch: b.Vertical, Style: bs})
 	}
 
-	// Title
-	s.drawTitle(surface, 1, 0, w-2, s.RightTitle, b, bs)
-
-	// Content (absolute coords for SetRect, local for Sub)
-	r := s.GetRect()
-	if s.Right != nil {
-		cw := w - 2
-		ch := h - 2
-		if cw > 0 && ch > 0 {
-			s.Right.SetRect(Rect{X: r.X + 1, Y: r.Y + 1, W: cw, H: ch})
-			sub := surface.Sub(Rect{X: 1, Y: 1, W: cw, H: ch})
-			s.Right.Render(sub)
-		}
+	// Content — no top border, inside side borders, above bottom border
+	cw := w - 2
+	ch := h - 1
+	if s.Right != nil && cw > 0 && ch > 0 {
+		s.Right.SetRect(Rect{X: r.X + 1, Y: r.Y, W: cw, H: ch})
+		sub := surface.Sub(Rect{X: 1, Y: 0, W: cw, H: ch})
+		s.Right.Render(sub)
 	}
 }
 

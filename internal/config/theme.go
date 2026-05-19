@@ -48,7 +48,7 @@ func DefaultTheme() ThemeConfig {
 		StatusBar:     StyleDef{Fg: "black", Bg: "silver"},
 
 		// Tabs: accent for active, default bg for inactive
-		ActiveTab:   StyleDef{Fg: "white", Bg: "darkcyan", Bold: true},
+		ActiveTab:   StyleDef{Fg: "darkcyan", Bold: true},
 		InactiveTab: StyleDef{Fg: "gray"},
 
 		// Activity bar (kept for theme compatibility)

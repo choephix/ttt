@@ -26,8 +26,8 @@ func TestThemePartialJSON(t *testing.T) {
 		t.Fatalf("expected StatusBar.Bg '#ff0000', got '%s'", th.StatusBar.Bg)
 	}
 	// Other styles unchanged
-	if th.ActiveTab.Fg != "white" {
-		t.Fatalf("ActiveTab.Fg should still be 'white', got '%s'", th.ActiveTab.Fg)
+	if th.ActiveTab.Fg != "darkcyan" {
+		t.Fatalf("ActiveTab.Fg should still be 'darkcyan', got '%s'", th.ActiveTab.Fg)
 	}
 }
 
