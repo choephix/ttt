@@ -20,6 +20,7 @@ const (
 	StyleResizeHandle
 	StyleMenuBar
 	StyleMenuBarActive
+	StyleBorder
 )
 
 // Cell represents a single character cell on the screen.

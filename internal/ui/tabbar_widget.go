@@ -12,7 +12,8 @@ type Tab struct {
 
 type TabBarWidget struct {
 	BaseWidget
-	Tabs []Tab
+	Tabs    []Tab
+	Borders *term.BorderSet
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -49,7 +50,11 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 		}
 
 		if x < w {
-			surface.SetCell(x, 0, term.Cell{Ch: '│', Style: term.StyleInactiveTab})
+			sep := '│'
+			if t.Borders != nil {
+				sep = t.Borders.Vertical
+			}
+			surface.SetCell(x, 0, term.Cell{Ch: sep, Style: term.StyleBorder})
 			x++
 		}
 	}

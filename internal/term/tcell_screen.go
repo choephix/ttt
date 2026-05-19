@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 17
+const StyleCount = 18
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -12,22 +12,23 @@ func DefaultStyleMap() StyleMap {
 	var m StyleMap
 	base := tcell.StyleDefault
 	m[StyleDefault] = base
-	m[StyleStatusBar] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite)
-	m[StyleActiveTab] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite).Bold(true)
-	m[StyleInactiveTab] = base.Background(tcell.ColorDarkGray).Foreground(tcell.ColorSilver)
-	m[StyleActivityBar] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorSilver)
-	m[StyleActivityBarActive] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorWhite).Bold(true)
-	m[StyleSidebarHeader] = base.Foreground(tcell.ColorWhite).Bold(true)
+	m[StyleStatusBar] = base.Background(tcell.ColorSilver).Foreground(tcell.ColorBlack)
+	m[StyleActiveTab] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite).Bold(true)
+	m[StyleInactiveTab] = base.Foreground(tcell.ColorGray)
+	m[StyleActivityBar] = base.Foreground(tcell.ColorGray)
+	m[StyleActivityBarActive] = base.Foreground(tcell.ColorDarkCyan).Bold(true)
+	m[StyleSidebarHeader] = base.Foreground(tcell.ColorDarkCyan).Bold(true)
 	m[StyleSidebarItem] = base.Foreground(tcell.ColorSilver)
-	m[StyleSidebarSelected] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
+	m[StyleSidebarSelected] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite)
 	m[StylePaletteBorder] = base.Foreground(tcell.ColorDarkCyan)
 	m[StylePaletteInput] = base.Foreground(tcell.ColorWhite)
 	m[StylePaletteItem] = base.Foreground(tcell.ColorSilver)
-	m[StylePaletteSelected] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
-	m[StyleLineNumber] = base.Foreground(tcell.ColorDarkGray)
-	m[StyleResizeHandle] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorGray)
+	m[StylePaletteSelected] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite)
+	m[StyleLineNumber] = base.Foreground(tcell.ColorGray)
+	m[StyleResizeHandle] = base.Foreground(tcell.ColorDarkCyan)
 	m[StyleMenuBar] = base.Background(tcell.ColorSilver).Foreground(tcell.ColorBlack)
 	m[StyleMenuBarActive] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite).Bold(true)
+	m[StyleBorder] = base.Foreground(tcell.ColorDarkCyan)
 	return m
 }
 

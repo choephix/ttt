@@ -7,8 +7,8 @@ import (
 
 func TestDefaultTheme(t *testing.T) {
 	th := DefaultTheme()
-	if th.StatusBar.Fg != "white" {
-		t.Fatalf("expected StatusBar.Fg 'white', got '%s'", th.StatusBar.Fg)
+	if th.StatusBar.Fg != "black" {
+		t.Fatalf("expected StatusBar.Fg 'black', got '%s'", th.StatusBar.Fg)
 	}
 	if th.ActiveTab.Bold != true {
 		t.Fatal("expected ActiveTab.Bold true")

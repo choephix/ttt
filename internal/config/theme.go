@@ -16,43 +16,59 @@ type BorderChars struct {
 }
 
 type ThemeConfig struct {
-	StatusBar         StyleDef `json:"statusBar"`
-	ActiveTab         StyleDef `json:"activeTab"`
-	InactiveTab       StyleDef `json:"inactiveTab"`
-	ActivityBar       StyleDef `json:"activityBar"`
-	ActivityBarActive StyleDef `json:"activityBarActive"`
-	SidebarHeader     StyleDef `json:"sidebarHeader"`
-	SidebarItem       StyleDef `json:"sidebarItem"`
-	SidebarSelected   StyleDef `json:"sidebarSelected"`
-	PaletteBorder     StyleDef `json:"paletteBorder"`
-	PaletteInput      StyleDef `json:"paletteInput"`
-	PaletteItem       StyleDef `json:"paletteItem"`
-	PaletteSelected   StyleDef `json:"paletteSelected"`
-	LineNumber        StyleDef `json:"lineNumber"`
-	ResizeHandle      StyleDef `json:"resizeHandle"`
-	MenuBar           StyleDef `json:"menuBar"`
-	MenuBarActive     StyleDef `json:"menuBarActive"`
+	StatusBar         StyleDef    `json:"statusBar"`
+	ActiveTab         StyleDef    `json:"activeTab"`
+	InactiveTab       StyleDef    `json:"inactiveTab"`
+	ActivityBar       StyleDef    `json:"activityBar"`
+	ActivityBarActive StyleDef    `json:"activityBarActive"`
+	SidebarHeader     StyleDef    `json:"sidebarHeader"`
+	SidebarItem       StyleDef    `json:"sidebarItem"`
+	SidebarSelected   StyleDef    `json:"sidebarSelected"`
+	PaletteBorder     StyleDef    `json:"paletteBorder"`
+	PaletteInput      StyleDef    `json:"paletteInput"`
+	PaletteItem       StyleDef    `json:"paletteItem"`
+	PaletteSelected   StyleDef    `json:"paletteSelected"`
+	LineNumber        StyleDef    `json:"lineNumber"`
+	ResizeHandle      StyleDef    `json:"resizeHandle"`
+	MenuBar           StyleDef    `json:"menuBar"`
+	MenuBarActive     StyleDef    `json:"menuBarActive"`
+	Border            StyleDef    `json:"border"`
 	Borders           BorderChars `json:"borders"`
 }
 
 func DefaultTheme() ThemeConfig {
 	return ThemeConfig{
-		StatusBar:         StyleDef{Fg: "white", Bg: "darkcyan"},
-		ActiveTab:         StyleDef{Fg: "white", Bg: "darkblue", Bold: true},
-		InactiveTab:       StyleDef{Fg: "silver", Bg: "darkgray"},
-		ActivityBar:       StyleDef{Fg: "silver", Bg: "darkslategray"},
-		ActivityBarActive: StyleDef{Fg: "white", Bg: "darkslategray", Bold: true},
-		SidebarHeader:     StyleDef{Fg: "white", Bold: true},
-		SidebarItem:       StyleDef{Fg: "silver"},
-		SidebarSelected:   StyleDef{Fg: "white", Bg: "darkblue"},
-		PaletteBorder:     StyleDef{Fg: "darkcyan"},
-		PaletteInput:      StyleDef{Fg: "white"},
-		PaletteItem:       StyleDef{Fg: "silver"},
-		PaletteSelected:   StyleDef{Fg: "white", Bg: "darkblue"},
-		LineNumber:        StyleDef{Fg: "darkgray"},
-		ResizeHandle:      StyleDef{Fg: "gray", Bg: "darkslategray"},
-		MenuBar:           StyleDef{Fg: "black", Bg: "silver"},
-		MenuBarActive:     StyleDef{Fg: "white", Bg: "darkcyan", Bold: true},
+		// Frame: menu bar and status bar match as bookends
+		MenuBar:       StyleDef{Fg: "black", Bg: "silver"},
+		MenuBarActive: StyleDef{Fg: "white", Bg: "darkcyan", Bold: true},
+		StatusBar:     StyleDef{Fg: "black", Bg: "silver"},
+
+		// Tabs: accent for active, default bg for inactive
+		ActiveTab:   StyleDef{Fg: "white", Bg: "darkcyan", Bold: true},
+		InactiveTab: StyleDef{Fg: "gray"},
+
+		// Activity bar (kept for theme compatibility)
+		ActivityBar:       StyleDef{Fg: "gray"},
+		ActivityBarActive: StyleDef{Fg: "darkcyan", Bold: true},
+
+		// Sidebar: clean with accent selection
+		SidebarHeader:   StyleDef{Fg: "darkcyan", Bold: true},
+		SidebarItem:     StyleDef{Fg: "silver"},
+		SidebarSelected: StyleDef{Fg: "white", Bg: "darkcyan"},
+
+		// Command palette: accent borders, accent selection
+		PaletteBorder:   StyleDef{Fg: "darkcyan"},
+		PaletteInput:    StyleDef{Fg: "white"},
+		PaletteItem:     StyleDef{Fg: "silver"},
+		PaletteSelected: StyleDef{Fg: "white", Bg: "darkcyan"},
+
+		// Editor chrome
+		LineNumber: StyleDef{Fg: "gray"},
+
+		// Borders and separators: accent color
+		ResizeHandle: StyleDef{Fg: "darkcyan"},
+		Border:       StyleDef{Fg: "darkcyan"},
+
 		Borders: BorderChars{
 			Horizontal:  "═",
 			Vertical:    "║",

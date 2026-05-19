@@ -48,6 +48,7 @@ func main() {
 	editorPane.TabSize = cfg.Settings.TabSize
 	statusBar := ui.NewStatusBarWidget(status)
 	tabBar := ui.NewTabBarWidget()
+	tabBar.Borders = &borders
 	tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
 
 	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{
@@ -58,8 +59,6 @@ func main() {
 		{Name: "Help"},
 	})
 
-	activityBar := ui.NewActivityBarWidget()
-
 	cwd, _ := os.Getwd()
 	explorer := ui.NewExplorerWidget(cwd)
 	search := ui.NewSearchWidget()
@@ -68,7 +67,6 @@ func main() {
 	sidebar.AddPanel("explorer", explorer)
 	sidebar.AddPanel("search", search)
 	sidebar.Visible = cfg.Settings.SidebarVisible
-	activityBar.ActiveID = "explorer"
 
 	editorArea := &ui.VBox{}
 	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
@@ -77,9 +75,8 @@ func main() {
 	resizeHandle := ui.NewResizeHandleWidget(&borders)
 
 	mainArea := &ui.HBox{}
-	mainArea.AddChild(activityBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 2})
-	sidebarIdx := 1
-	handleIdx := 2
+	sidebarIdx := 0
+	handleIdx := 1
 	sidebarWidth := cfg.Settings.SidebarWidth
 	if sidebarWidth <= 0 {
 		sidebarWidth = 30
@@ -142,7 +139,6 @@ func main() {
 		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
 			sidebar.SetActivePanel("explorer")
-			activityBar.SetActiveByID("explorer")
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -154,7 +150,6 @@ func main() {
 		ID: "sidebar.search", Title: "Show Search",
 		Handler: func() {
 			sidebar.SetActivePanel("search")
-			activityBar.SetActiveByID("search")
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -246,15 +241,6 @@ func main() {
 		root.SetFocus(editorPane)
 	}
 
-	activityBar.OnSelect = func(id string) {
-		switch id {
-		case "explorer":
-			cmdRegistry.Execute("sidebar.explorer")
-		case "search":
-			cmdRegistry.Execute("sidebar.search")
-		}
-	}
-
 	// Apply keybindings from config
 	for _, kb := range cfg.Keybindings {
 		if len(kb.Steps) == 0 {
@@ -295,7 +281,7 @@ func main() {
 	redraw()
 
 	draggingSidebar := false
-	activityBarWidth := 2
+	sidebarStartX := 0
 
 	for {
 		ev := screen.PollEvent()
@@ -318,7 +304,7 @@ func main() {
 
 			if draggingSidebar {
 				if btn&tcell.Button1 != 0 {
-					newWidth := mx - activityBarWidth
+					newWidth := mx - sidebarStartX
 					setSidebarWidth(newWidth)
 					redraw()
 				} else {
@@ -330,17 +316,17 @@ func main() {
 
 				if my < statusRow {
 					if sidebar.Visible {
-						handleX := activityBarWidth + sidebarWidth
+						handleX := sidebarStartX + sidebarWidth
 						if mx == handleX {
 							draggingSidebar = true
-						} else if mx >= activityBarWidth && mx < handleX {
+						} else if mx >= sidebarStartX && mx < handleX {
 							cmdRegistry.Execute("sidebar.focus")
 							redraw()
 						} else if mx > handleX {
 							cmdRegistry.Execute("editor.focus")
 							redraw()
 						}
-					} else if mx >= activityBarWidth {
+					} else if mx >= sidebarStartX {
 						cmdRegistry.Execute("editor.focus")
 						redraw()
 					}
@@ -433,6 +419,7 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleResizeHandle, theme.ResizeHandle)
 	applyStyleDef(&m, term.StyleMenuBar, theme.MenuBar)
 	applyStyleDef(&m, term.StyleMenuBarActive, theme.MenuBarActive)
+	applyStyleDef(&m, term.StyleBorder, theme.Border)
 	return m
 }
 

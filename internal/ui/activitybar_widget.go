@@ -17,6 +17,7 @@ type ActivityBarWidget struct {
 	ActiveID string
 	Selected int
 	OnSelect func(id string)
+	Borders  *term.BorderSet
 }
 
 func NewActivityBarWidget() *ActivityBarWidget {
@@ -36,6 +37,12 @@ func (a *ActivityBarWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' ', Style: term.StyleActivityBar})
 
+	borderCol := w - 1
+	borderCh := '║'
+	if a.Borders != nil {
+		borderCh = a.Borders.Vertical
+	}
+
 	for i, item := range a.Items {
 		if i >= h {
 			break
@@ -45,10 +52,15 @@ func (a *ActivityBarWidget) Render(surface *RenderSurface) {
 			style = term.StyleActivityBarActive
 		}
 
-		surface.SetCell(0, i, term.Cell{Ch: item.Icon, Style: style})
-		for x := 1; x < w; x++ {
+		surface.SetCell(0, i, term.Cell{Ch: ' ', Style: style})
+		surface.SetCell(1, i, term.Cell{Ch: item.Icon, Style: style})
+		for x := 2; x < borderCol; x++ {
 			surface.SetCell(x, i, term.Cell{Ch: ' ', Style: style})
 		}
+	}
+
+	for y := 0; y < h; y++ {
+		surface.SetCell(borderCol, y, term.Cell{Ch: borderCh, Style: term.StyleBorder})
 	}
 }
 
