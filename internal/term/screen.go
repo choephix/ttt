@@ -18,6 +18,9 @@ const (
 	StyleMenuBar
 	StyleMenuBarActive
 	StyleBorder
+	StyleSelection
+	StyleSearchMatch
+	StyleSearchActive
 )
 
 // Cell represents a single character cell on the screen.

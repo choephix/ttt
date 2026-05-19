@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 18
+const StyleCount = 21
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -13,6 +13,7 @@ func DefaultStyleMap() StyleMap {
 	for i := range m {
 		m[i] = tcell.StyleDefault
 	}
+	m[StyleSelection] = tcell.StyleDefault.Reverse(true)
 	return m
 }
 

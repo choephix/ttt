@@ -220,3 +220,178 @@ func (c *InsertStringCommand) Undo(b *buffer.Buffer) {
 	b.Lines[c.Line] = string(newRunes)
 	b.Dirty = true
 }
+
+// DeleteSelectionCommand deletes a multi-line range and stores the deleted text for undo.
+type DeleteSelectionCommand struct {
+	StartLine, StartCol int
+	EndLine, EndCol     int
+	Deleted             string
+}
+
+func (c *DeleteSelectionCommand) Apply(b *buffer.Buffer) {
+	if c.StartLine >= len(b.Lines) {
+		return
+	}
+
+	startRunes := []rune(b.Lines[c.StartLine])
+	sc := c.StartCol
+	if sc > len(startRunes) {
+		sc = len(startRunes)
+	}
+
+	if c.StartLine == c.EndLine {
+		endRunes := []rune(b.Lines[c.StartLine])
+		ec := c.EndCol
+		if ec > len(endRunes) {
+			ec = len(endRunes)
+		}
+		c.Deleted = string(endRunes[sc:ec])
+		b.Lines[c.StartLine] = string(startRunes[:sc]) + string(endRunes[ec:])
+		b.Dirty = true
+		return
+	}
+
+	endRunes := []rune(b.Lines[c.EndLine])
+	ec := c.EndCol
+	if ec > len(endRunes) {
+		ec = len(endRunes)
+	}
+
+	// Build deleted text
+	var del []rune
+	del = append(del, startRunes[sc:]...)
+	del = append(del, '\n')
+	for l := c.StartLine + 1; l < c.EndLine; l++ {
+		del = append(del, []rune(b.Lines[l])...)
+		del = append(del, '\n')
+	}
+	del = append(del, endRunes[:ec]...)
+	c.Deleted = string(del)
+
+	// Merge start prefix with end suffix
+	b.Lines[c.StartLine] = string(startRunes[:sc]) + string(endRunes[ec:])
+
+	// Remove lines between
+	if c.EndLine > c.StartLine {
+		b.Lines = append(b.Lines[:c.StartLine+1], b.Lines[c.EndLine+1:]...)
+	}
+	b.Dirty = true
+}
+
+func (c *DeleteSelectionCommand) Undo(b *buffer.Buffer) {
+	if c.StartLine >= len(b.Lines) {
+		return
+	}
+
+	// Split current merged line at StartCol
+	runes := []rune(b.Lines[c.StartLine])
+	sc := c.StartCol
+	if sc > len(runes) {
+		sc = len(runes)
+	}
+	prefix := string(runes[:sc])
+	suffix := string(runes[sc:])
+
+	// Re-insert deleted text
+	delLines := splitLines(c.Deleted)
+	if len(delLines) == 1 {
+		b.Lines[c.StartLine] = prefix + delLines[0] + suffix
+	} else {
+		newLines := make([]string, 0, len(b.Lines)+len(delLines)-1)
+		newLines = append(newLines, b.Lines[:c.StartLine]...)
+		newLines = append(newLines, prefix+delLines[0])
+		for i := 1; i < len(delLines)-1; i++ {
+			newLines = append(newLines, delLines[i])
+		}
+		newLines = append(newLines, delLines[len(delLines)-1]+suffix)
+		newLines = append(newLines, b.Lines[c.StartLine+1:]...)
+		b.Lines = newLines
+	}
+	b.Dirty = true
+}
+
+type PasteCommand struct {
+	Line, Col int
+	Text      string
+	Suffix    string
+}
+
+func (c *PasteCommand) Apply(b *buffer.Buffer) {
+	if c.Line < 0 || c.Line >= len(b.Lines) {
+		return
+	}
+	lines := splitLines(c.Text)
+	currentRunes := []rune(b.Lines[c.Line])
+	col := c.Col
+	if col > len(currentRunes) {
+		col = len(currentRunes)
+	}
+	prefix := string(currentRunes[:col])
+
+	if len(lines) == 1 {
+		b.Lines[c.Line] = prefix + lines[0] + c.Suffix
+	} else {
+		newLines := make([]string, 0, len(b.Lines)+len(lines)-1)
+		newLines = append(newLines, b.Lines[:c.Line]...)
+		newLines = append(newLines, prefix+lines[0])
+		for i := 1; i < len(lines)-1; i++ {
+			newLines = append(newLines, lines[i])
+		}
+		newLines = append(newLines, lines[len(lines)-1]+c.Suffix)
+		newLines = append(newLines, b.Lines[c.Line+1:]...)
+		b.Lines = newLines
+	}
+	b.Dirty = true
+}
+
+func (c *PasteCommand) Undo(b *buffer.Buffer) {
+	lines := splitLines(c.Text)
+	if len(lines) == 1 {
+		if c.Line < 0 || c.Line >= len(b.Lines) {
+			return
+		}
+		runes := []rune(b.Lines[c.Line])
+		tLen := len([]rune(lines[0]))
+		col := c.Col
+		if col+tLen > len(runes) {
+			return
+		}
+		newRunes := append(runes[:col], runes[col+tLen:]...)
+		b.Lines[c.Line] = string(newRunes)
+	} else {
+		if c.Line < 0 || c.Line >= len(b.Lines) {
+			return
+		}
+		runes := []rune(b.Lines[c.Line])
+		col := c.Col
+		if col > len(runes) {
+			col = len(runes)
+		}
+		restored := string(runes[:col]) + c.Suffix
+		endLine := c.Line + len(lines) - 1
+		if endLine >= len(b.Lines) {
+			endLine = len(b.Lines) - 1
+		}
+		newLines := make([]string, 0, len(b.Lines)-(endLine-c.Line))
+		newLines = append(newLines, b.Lines[:c.Line]...)
+		newLines = append(newLines, restored)
+		if endLine+1 < len(b.Lines) {
+			newLines = append(newLines, b.Lines[endLine+1:]...)
+		}
+		b.Lines = newLines
+	}
+	b.Dirty = true
+}
+
+func splitLines(s string) []string {
+	var lines []string
+	start := 0
+	for i, ch := range s {
+		if ch == '\n' {
+			lines = append(lines, s[start:i])
+			start = i + 1
+		}
+	}
+	lines = append(lines, s[start:])
+	return lines
+}

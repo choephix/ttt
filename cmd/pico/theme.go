@@ -23,6 +23,9 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleMenuBar, theme.MenuBar)
 	applyStyleDef(&m, term.StyleMenuBarActive, theme.MenuBarActive)
 	applyStyleDef(&m, term.StyleBorder, theme.Border)
+	applyStyleDef(&m, term.StyleSelection, theme.Selection)
+	applyStyleDef(&m, term.StyleSearchMatch, theme.SearchMatch)
+	applyStyleDef(&m, term.StyleSearchActive, theme.SearchActive)
 	return m
 }
 
@@ -50,6 +53,9 @@ func buildBorderSet(bc config.BorderChars) term.BorderSet {
 }
 
 func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
+	if def.Fg == "" && def.Bg == "" && !def.Bold {
+		return
+	}
 	base := tcell.StyleDefault
 	if def.Fg != "" {
 		base = base.Foreground(tcell.GetColor(def.Fg))

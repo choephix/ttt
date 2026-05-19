@@ -3,7 +3,9 @@ package ui
 import (
 	"macro/internal/config"
 	"macro/internal/core/buffer"
+	"macro/internal/core/clipboard"
 	"macro/internal/core/cursor"
+	"macro/internal/core/selection"
 	"macro/internal/core/undo"
 	"macro/internal/term"
 	"macro/internal/view"
@@ -17,6 +19,7 @@ type editorTab struct {
 	Cur      *cursor.Cursor
 	Vp       *view.Viewport
 	Undo     *undo.UndoStack
+	Sel      *selection.Selection
 	TabSize  int
 }
 
@@ -51,13 +54,16 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int) *EditorGroupWidg
 		g.SwitchTab(index)
 	}
 	undoStack := &undo.UndoStack{}
+	sel := &selection.Selection{}
 	editor.Undo = undoStack
+	editor.Selection = sel
 	g.tabs = []editorTab{{
 		FilePath: "untitled",
 		Buf:      editor.Buf,
 		Cur:      editor.Cursor,
 		Vp:       editor.Viewport,
 		Undo:     undoStack,
+		Sel:      sel,
 	}}
 	g.syncTabs()
 	return g
@@ -87,6 +93,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
 		Undo:     &undo.UndoStack{},
+		Sel:      &selection.Selection{},
 		TabSize:  tabSize,
 	})
 	g.SwitchTab(len(g.tabs) - 1)
@@ -105,6 +112,7 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
 		Undo:     &undo.UndoStack{},
+		Sel:      &selection.Selection{},
 	})
 	g.SwitchTab(len(g.tabs) - 1)
 }
@@ -182,12 +190,76 @@ func (g *EditorGroupWidget) Redo() {
 	}
 }
 
+func (g *EditorGroupWidget) SelectAll() {
+	t := &g.tabs[g.active]
+	if t.Sel == nil {
+		return
+	}
+	t.Sel.Start(0, 0)
+	lastLine := len(t.Buf.Lines) - 1
+	t.Cur.Line = lastLine
+	t.Cur.Col = len([]rune(t.Buf.Lines[lastLine]))
+}
+
+func (g *EditorGroupWidget) SetSearchQuery(query string) {
+	g.Editor.SearchQuery = query
+}
+
+func (g *EditorGroupWidget) SetSearchActive(idx int) {
+	g.Editor.SearchActive = idx
+}
+
+func (g *EditorGroupWidget) GoToLine(line int) {
+	if line < 1 {
+		line = 1
+	}
+	if line > len(g.Editor.Buf.Lines) {
+		line = len(g.Editor.Buf.Lines)
+	}
+	g.Editor.Cursor.Line = line - 1
+	g.Editor.Cursor.Col = 0
+	g.Editor.scrollViewport()
+}
+
+func (g *EditorGroupWidget) ClearSearch() {
+	g.Editor.SearchQuery = ""
+	g.Editor.SearchActive = 0
+}
+
+func (g *EditorGroupWidget) Copy() {
+	t := &g.tabs[g.active]
+	if t.Sel == nil || !t.Sel.Active {
+		return
+	}
+	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
+	clipboard.Set(text)
+}
+
+func (g *EditorGroupWidget) Cut() {
+	t := &g.tabs[g.active]
+	if t.Sel == nil || !t.Sel.Active {
+		return
+	}
+	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
+	clipboard.Set(text)
+	g.Editor.deleteSelection()
+}
+
+func (g *EditorGroupWidget) Paste() {
+	text := clipboard.Get()
+	if text == "" {
+		return
+	}
+	g.Editor.pasteText(text)
+}
+
 func (g *EditorGroupWidget) syncTabs() {
 	t := g.tabs[g.active]
 	g.Editor.Buf = t.Buf
 	g.Editor.Cursor = t.Cur
 	g.Editor.Viewport = t.Vp
 	g.Editor.Undo = t.Undo
+	g.Editor.Selection = t.Sel
 	if t.TabSize > 0 {
 		g.Editor.TabSize = t.TabSize
 	}

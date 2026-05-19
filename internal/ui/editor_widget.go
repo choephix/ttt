@@ -3,6 +3,7 @@ package ui
 import (
 	"macro/internal/core/buffer"
 	"macro/internal/core/cursor"
+	"macro/internal/core/selection"
 	"macro/internal/core/undo"
 	"macro/internal/term"
 	"macro/internal/view"
@@ -13,13 +14,16 @@ import (
 
 type EditorPaneWidget struct {
 	BaseWidget
-	Buf      *buffer.Buffer
-	Cursor   *cursor.Cursor
-	Viewport *view.Viewport
-	Undo     *undo.UndoStack
-	CursorX  int
-	CursorY  int
-	TabSize  int
+	Buf          *buffer.Buffer
+	Cursor       *cursor.Cursor
+	Viewport     *view.Viewport
+	Undo         *undo.UndoStack
+	Selection    *selection.Selection
+	CursorX      int
+	CursorY      int
+	TabSize      int
+	SearchQuery  string
+	SearchActive int
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -37,6 +41,15 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	e.Viewport.Width = w
 	e.Viewport.Height = h
 
+	sel := e.Selection
+	hasSel := sel != nil && sel.Active
+
+	hasSearch := e.SearchQuery != ""
+	var searchMatches []FindMatch
+	if hasSearch {
+		searchMatches = FindInLines(e.Buf.Lines, e.SearchQuery)
+	}
+
 	for y := 0; y < h; y++ {
 		lineIdx := e.Viewport.TopLine + y
 		if lineIdx < len(e.Buf.Lines) {
@@ -47,7 +60,23 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				if colIdx < len(line) {
 					ch = line[colIdx]
 				}
-				surface.SetCell(x, y, term.Cell{Ch: ch})
+				style := term.StyleDefault
+				if hasSearch {
+					for mi, m := range searchMatches {
+						if m.Line == lineIdx && colIdx >= m.Col && colIdx < m.Col+m.Len {
+							if mi == e.SearchActive {
+								style = term.StyleSearchActive
+							} else {
+								style = term.StyleSearchMatch
+							}
+							break
+						}
+					}
+				}
+				if hasSel && sel.Contains(lineIdx, colIdx, e.Cursor.Line, e.Cursor.Col) {
+					style = term.StyleSelection
+				}
+				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
 			}
 		} else {
 			surface.SetCell(0, y, term.Cell{Ch: '~', Style: term.StyleLineNumber})
@@ -69,14 +98,74 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	}
 }
 
+func (e *EditorPaneWidget) deleteSelection() {
+	if e.Selection == nil || !e.Selection.Active {
+		return
+	}
+	start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+	cmd := &undo.DeleteSelectionCommand{
+		StartLine: start.Line, StartCol: start.Col,
+		EndLine: end.Line, EndCol: end.Col,
+	}
+	e.exec(cmd)
+	e.Cursor.Line = start.Line
+	e.Cursor.Col = start.Col
+	e.Selection.Clear()
+}
+
+func (e *EditorPaneWidget) startOrExtendSelection(shift bool) {
+	if e.Selection == nil {
+		return
+	}
+	if shift {
+		if !e.Selection.Active {
+			e.Selection.Start(e.Cursor.Line, e.Cursor.Col)
+		}
+	} else {
+		e.Selection.Clear()
+	}
+}
+
+func (e *EditorPaneWidget) pasteText(text string) {
+	if e.Selection != nil && e.Selection.Active {
+		e.deleteSelection()
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) == 1 {
+		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: lines[0]})
+		e.Cursor.Col += len([]rune(lines[0]))
+	} else {
+		currentLine := []rune(e.Buf.Lines[e.Cursor.Line])
+		col := e.Cursor.Col
+		if col > len(currentLine) {
+			col = len(currentLine)
+		}
+		suffix := string(currentLine[col:])
+		e.exec(&undo.PasteCommand{
+			Line:   e.Cursor.Line,
+			Col:    col,
+			Text:   text,
+			Suffix: suffix,
+		})
+		e.Cursor.Line += len(lines) - 1
+		e.Cursor.Col = len([]rune(lines[len(lines)-1]))
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
 func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
 		return EventIgnored
 	}
 
+	shift := kev.Modifiers()&tcell.ModShift != 0
+	hasSel := e.Selection != nil && e.Selection.Active
+
 	switch kev.Key() {
 	case tcell.KeyUp:
+		e.startOrExtendSelection(shift)
 		if e.Cursor.Line > 0 {
 			e.Cursor.Line--
 			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
@@ -85,6 +174,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		}
 	case tcell.KeyDown:
+		e.startOrExtendSelection(shift)
 		if e.Cursor.Line < len(e.Buf.Lines)-1 {
 			e.Cursor.Line++
 			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
@@ -93,6 +183,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		}
 	case tcell.KeyLeft:
+		e.startOrExtendSelection(shift)
 		if e.Cursor.Col > 0 {
 			e.Cursor.Col--
 		} else if e.Cursor.Line > 0 {
@@ -100,6 +191,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
 		}
 	case tcell.KeyRight:
+		e.startOrExtendSelection(shift)
 		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
 		if e.Cursor.Col < lineLen {
 			e.Cursor.Col++
@@ -107,7 +199,36 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.Cursor.Line++
 			e.Cursor.Col = 0
 		}
+	case tcell.KeyHome:
+		e.startOrExtendSelection(shift)
+		e.Cursor.Col = 0
+	case tcell.KeyEnd:
+		e.startOrExtendSelection(shift)
+		e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
+	case tcell.KeyPgUp:
+		e.startOrExtendSelection(shift)
+		e.Cursor.Line -= e.Viewport.Height
+		if e.Cursor.Line < 0 {
+			e.Cursor.Line = 0
+		}
+		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		if e.Cursor.Col > lineLen {
+			e.Cursor.Col = lineLen
+		}
+	case tcell.KeyPgDn:
+		e.startOrExtendSelection(shift)
+		e.Cursor.Line += e.Viewport.Height
+		if e.Cursor.Line >= len(e.Buf.Lines) {
+			e.Cursor.Line = len(e.Buf.Lines) - 1
+		}
+		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		if e.Cursor.Col > lineLen {
+			e.Cursor.Col = lineLen
+		}
 	case tcell.KeyEnter:
+		if hasSel {
+			e.deleteSelection()
+		}
 		col := e.Cursor.Col
 		if col < 0 {
 			col = 0
@@ -125,7 +246,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.Cursor.Col = len([]rune(indent))
 		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		if e.Cursor.Col > 0 {
+		if hasSel {
+			e.deleteSelection()
+		} else if e.Cursor.Col > 0 {
 			e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col - 1})
 			e.Cursor.Col--
 		} else if e.Cursor.Line > 0 {
@@ -135,38 +258,23 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.Cursor.Col = cmd.PrevLen
 		}
 	case tcell.KeyDelete:
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if e.Cursor.Col < lineLen {
-			e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
-		} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
-			e.exec(&undo.JoinLineCommand{Line: e.Cursor.Line + 1})
-		}
-	case tcell.KeyHome:
-		e.Cursor.Col = 0
-	case tcell.KeyEnd:
-		e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
-	case tcell.KeyPgUp:
-		e.Cursor.Line -= e.Viewport.Height
-		if e.Cursor.Line < 0 {
-			e.Cursor.Line = 0
-		}
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if e.Cursor.Col > lineLen {
-			e.Cursor.Col = lineLen
-		}
-	case tcell.KeyPgDn:
-		e.Cursor.Line += e.Viewport.Height
-		if e.Cursor.Line >= len(e.Buf.Lines) {
-			e.Cursor.Line = len(e.Buf.Lines) - 1
-		}
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if e.Cursor.Col > lineLen {
-			e.Cursor.Col = lineLen
+		if hasSel {
+			e.deleteSelection()
+		} else {
+			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+			if e.Cursor.Col < lineLen {
+				e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+			} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
+				e.exec(&undo.JoinLineCommand{Line: e.Cursor.Line + 1})
+			}
 		}
 	case tcell.KeyRune:
 		if kev.Modifiers() == 0 {
 			r := kev.Rune()
 			if r != 0 {
+				if hasSel {
+					e.deleteSelection()
+				}
 				e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 				e.Cursor.Col++
 			}
@@ -174,6 +282,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventIgnored
 		}
 	case tcell.KeyTab:
+		if hasSel {
+			e.deleteSelection()
+		}
 		tabSize := e.TabSize
 		if tabSize <= 0 {
 			tabSize = 4

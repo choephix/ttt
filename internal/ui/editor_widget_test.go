@@ -3,6 +3,7 @@ package ui
 import (
 	"macro/internal/core/buffer"
 	"macro/internal/core/cursor"
+	"macro/internal/core/selection"
 	"macro/internal/term"
 	"macro/internal/view"
 	"testing"
@@ -133,6 +134,40 @@ func TestEditorEnter(t *testing.T) {
 	}
 	if e.Cursor.Line != 1 || e.Cursor.Col != 0 {
 		t.Fatalf("expected cursor at (1,0), got (%d,%d)", e.Cursor.Line, e.Cursor.Col)
+	}
+}
+
+func TestEditorSelectionHighlight(t *testing.T) {
+	e := newTestEditor()
+	e.SetRect(Rect{X: 0, Y: 0, W: 20, H: 10})
+	e.Selection = &selection.Selection{}
+
+	// Select "ell" in "Hello" via Shift+Right from col 1
+	e.Cursor.Col = 1
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
+
+	if !e.Selection.Active {
+		t.Fatal("selection should be active")
+	}
+
+	grid := makeGrid(20, 10)
+	surface := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 10})
+	e.Render(surface)
+
+	// Cols 1,2,3 should be StyleSelection (anchor=1, cursor=4)
+	for col := 1; col <= 3; col++ {
+		if grid[0][col].Style != term.StyleSelection {
+			t.Errorf("col %d: expected StyleSelection, got %d", col, grid[0][col].Style)
+		}
+	}
+	// Col 0 and col 4 should NOT be selected
+	if grid[0][0].Style == term.StyleSelection {
+		t.Error("col 0 should not be selected")
+	}
+	if grid[0][4].Style == term.StyleSelection {
+		t.Error("col 4 should not be selected")
 	}
 }
 

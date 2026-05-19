@@ -35,6 +35,9 @@ type ThemeConfig struct {
 	MenuBar         StyleDef    `json:"menuBar"`
 	MenuBarActive   StyleDef    `json:"menuBarActive"`
 	Border          StyleDef    `json:"border"`
+	Selection       StyleDef    `json:"selection"`
+	SearchMatch     StyleDef    `json:"searchMatch"`
+	SearchActive    StyleDef    `json:"searchActive"`
 	Borders         BorderChars `json:"borders"`
 }
 

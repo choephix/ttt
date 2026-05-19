@@ -121,7 +121,8 @@ func DefaultKeybindings() []KeyBinding {
 	return []KeyBinding{
 		{Key: "ctrl+b", Command: "sidebar.toggle"},
 		{Key: "ctrl+e", Command: "sidebar.explorer"},
-		{Key: "ctrl+f", Command: "sidebar.search"},
+		{Key: "ctrl+f", Command: "search.find"},
+		{Key: "ctrl+g", Command: "editor.goToLine"},
 		{Key: "ctrl+p", Command: "command.palette"},
 		{Key: "ctrl+s", Command: "file.save"},
 		{Key: "ctrl+z", Command: "editor.undo"},
@@ -131,6 +132,10 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+pgdn", Command: "tab.next"},
 		{Key: "ctrl+pgup", Command: "tab.prev"},
 		{Key: "ctrl+w", Command: "tab.close"},
+		{Key: "ctrl+a", Command: "editor.selectAll"},
+		{Key: "ctrl+c", Command: "editor.copy"},
+		{Key: "ctrl+x", Command: "editor.cut"},
+		{Key: "ctrl+v", Command: "editor.paste"},
 		{Key: "escape", Command: "editor.focus"},
 		{Key: "ctrl+t", Command: "panel.toggle"},
 	}

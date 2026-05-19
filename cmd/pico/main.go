@@ -225,6 +225,26 @@ func main() {
 		Handler: func() { editorGroup.Redo() },
 	})
 
+	cmdRegistry.Register(command.Command{
+		ID: "editor.selectAll", Title: "Select All",
+		Handler: func() { editorGroup.SelectAll() },
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "editor.copy", Title: "Copy",
+		Handler: func() { editorGroup.Copy() },
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "editor.cut", Title: "Cut",
+		Handler: func() { editorGroup.Cut() },
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "editor.paste", Title: "Paste",
+		Handler: func() { editorGroup.Paste() },
+	})
+
 	quitPending := false
 	running := true
 	cmdRegistry.Register(command.Command{
@@ -266,6 +286,49 @@ func main() {
 			contentSplit.BottomH = height
 		}
 	}
+
+	cmdRegistry.Register(command.Command{
+		ID: "editor.goToLine", Title: "Go to Line",
+		Handler: func() {
+			dialog := ui.NewGoToLineWidget()
+			dialog.Borders = &borders
+			dialog.OnSubmit = func(line int) {
+				editorGroup.GoToLine(line)
+				root.PopOverlay()
+				root.SetFocus(editorGroup)
+			}
+			dialog.OnDismiss = func() {
+				root.PopOverlay()
+				root.SetFocus(editorGroup)
+			}
+			root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
+			root.SetFocus(dialog)
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "search.find", Title: "Find",
+		Handler: func() {
+			findBar := ui.NewFindBarWidget()
+			findBar.Borders = &borders
+			findBar.OnSearch = func(query string) []ui.FindMatch {
+				editorGroup.SetSearchQuery(query)
+				return ui.FindInLines(editorGroup.Editor.Buf.Lines, query)
+			}
+			findBar.OnNavigate = func(match ui.FindMatch) {
+				editorGroup.SetSearchActive(findBar.Current)
+				editorGroup.Editor.Cursor.Line = match.Line
+				editorGroup.Editor.Cursor.Col = match.Col
+			}
+			findBar.OnDismiss = func() {
+				editorGroup.ClearSearch()
+				root.PopOverlay()
+				root.SetFocus(editorGroup)
+			}
+			root.PushOverlay(ui.Overlay{Widget: findBar, Modal: true})
+			root.SetFocus(findBar)
+		},
+	})
 
 	cmdRegistry.Register(command.Command{
 		ID: "command.palette", Title: "Command Palette",
@@ -343,9 +406,6 @@ func main() {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
 		case *tcell.EventKey:
-			if tev.Key() == tcell.KeyCtrlC {
-				return
-			}
 			if quitPending && !(tev.Key() == tcell.KeyCtrlQ) {
 				quitPending = false
 				status.Message = ""
