@@ -144,7 +144,7 @@ func main() {
 	splitPanel.DividerPos = sidebarWidth
 	splitPanel.ShowLeft = sidebar.Visible
 	splitPanel.LeftTitle = "EXPLORER"
-	splitPanel.RightTitle = initialPath
+	splitPanel.RightTitle = ""
 
 	var setSidebarWidth func(int)
 
@@ -376,11 +376,6 @@ func main() {
 			status.FileName = t.FilePath
 			status.Dirty = t.Buf.Dirty
 			syncTabs()
-			title := t.FilePath
-			if t.Buf.Dirty {
-				title += "*"
-			}
-			splitPanel.RightTitle = title
 			redraw()
 
 		case *tcell.EventMouse:
