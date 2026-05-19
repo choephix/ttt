@@ -43,6 +43,9 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int) *EditorGroupWidg
 		TabSize: tabSize,
 		Borders: borders,
 	}
+	tabBar.OnTabClick = func(index int) {
+		g.SwitchTab(index)
+	}
 	g.tabs = []editorTab{{
 		FilePath: "untitled",
 		Buf:      editor.Buf,
@@ -177,5 +180,8 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 }
 
 func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
+	if g.TabBar.HandleEvent(ev) == EventConsumed {
+		return EventConsumed
+	}
 	return g.Editor.HandleEvent(ev)
 }

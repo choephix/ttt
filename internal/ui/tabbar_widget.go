@@ -3,7 +3,15 @@ package ui
 import (
 	"macro/internal/term"
 	"path/filepath"
+
+	"github.com/gdamore/tcell/v2"
 )
+
+type tabSpan struct {
+	start, end int
+	label      string
+	active     bool
+}
 
 type Tab struct {
 	Name   string
@@ -13,9 +21,11 @@ type Tab struct {
 
 type TabBarWidget struct {
 	BaseWidget
-	Tabs        []Tab
-	Borders     *term.BorderSet
+	Tabs         []Tab
+	Borders      *term.BorderSet
 	ScrollOffset int
+	OnTabClick   func(index int)
+	tabSpans     []tabSpan
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -45,12 +55,6 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 	}
 	bs := term.StyleBorder
 
-	type tabSpan struct {
-		start, end int
-		label      string
-		active     bool
-	}
-
 	// Compute spans: active tab needs 2 extra cols for │ │ side borders
 	spans := make([]tabSpan, len(t.Tabs))
 	pos := 0
@@ -68,6 +72,7 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 		}
 		pos += spanW
 	}
+	t.tabSpans = spans
 
 	// Scroll to keep active tab visible
 	if activeIdx >= 0 {
@@ -154,4 +159,27 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 			surface.SetCell(ex-1, 2, term.Cell{Ch: b.BottomLeft, Style: bs})
 		}
 	}
+}
+
+func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
+	mev, ok := ev.(*tcell.EventMouse)
+	if !ok || t.OnTabClick == nil {
+		return EventIgnored
+	}
+	if mev.Buttons()&tcell.Button1 == 0 {
+		return EventIgnored
+	}
+	r := t.GetRect()
+	mx, my := mev.Position()
+	if my < r.Y || my >= r.Y+r.H || mx < r.X || mx >= r.X+r.W {
+		return EventIgnored
+	}
+	localX := mx - r.X + t.ScrollOffset
+	for i, s := range t.tabSpans {
+		if localX >= s.start && localX < s.end {
+			t.OnTabClick(i)
+			return EventConsumed
+		}
+	}
+	return EventIgnored
 }

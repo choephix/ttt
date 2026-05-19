@@ -353,9 +353,11 @@ func main() {
 								w.HandleEvent(tev)
 							}
 						} else {
+							editorGroup.HandleEvent(tev)
 							cmdRegistry.Execute("editor.focus")
 						}
 					} else {
+						editorGroup.HandleEvent(tev)
 						cmdRegistry.Execute("editor.focus")
 					}
 					redraw()
