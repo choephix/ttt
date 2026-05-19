@@ -20,6 +20,7 @@ type BorderChars struct {
 }
 
 type ThemeConfig struct {
+	AccentColor     string      `json:"accentColor,omitempty"`
 	StatusBar       StyleDef    `json:"statusBar"`
 	ActiveTab       StyleDef    `json:"activeTab"`
 	InactiveTab     StyleDef    `json:"inactiveTab"`
@@ -38,32 +39,25 @@ type ThemeConfig struct {
 }
 
 func DefaultTheme() ThemeConfig {
-	return ThemeConfig{
-		// Frame: menu bar and status bar match as bookends
-		MenuBar:       StyleDef{Fg: "black", Bg: "silver"},
-		MenuBarActive: StyleDef{Fg: "white", Bg: "darkcyan", Bold: true},
-		StatusBar:     StyleDef{Fg: "black", Bg: "silver"},
+	t := ThemeConfig{
+		AccentColor: "darkcyan",
 
-		// Tabs: accent for active, default bg for inactive
-		ActiveTab:   StyleDef{Fg: "darkcyan", Bold: true},
-		InactiveTab: StyleDef{Fg: "gray"},
+		MenuBar:   StyleDef{Fg: "black", Bg: "silver"},
+		StatusBar: StyleDef{Fg: "black", Bg: "silver"},
 
-		// Sidebar: clean with accent selection
-		SidebarHeader:   StyleDef{Fg: "darkcyan", Bold: true},
+		MenuBarActive: StyleDef{Fg: "white", Bold: true},
+		ActiveTab:     StyleDef{Bold: true},
+		InactiveTab:   StyleDef{Fg: "gray"},
+
+		SidebarHeader:   StyleDef{Bold: true},
 		SidebarItem:     StyleDef{Fg: "silver"},
-		SidebarSelected: StyleDef{Fg: "white", Bg: "darkcyan"},
+		SidebarSelected: StyleDef{Fg: "white"},
 
-		// Command palette: accent borders, accent selection
-		PaletteBorder:   StyleDef{Fg: "darkcyan"},
 		PaletteInput:    StyleDef{Fg: "white"},
 		PaletteItem:     StyleDef{Fg: "silver"},
-		PaletteSelected: StyleDef{Fg: "white", Bg: "darkcyan"},
+		PaletteSelected: StyleDef{Fg: "white"},
 
-		// Editor chrome
 		LineNumber: StyleDef{Fg: "gray"},
-
-		// Borders and separators: accent color
-		Border: StyleDef{Fg: "darkcyan"},
 
 		Borders: BorderChars{
 			Horizontal:  "─",
@@ -77,5 +71,32 @@ func DefaultTheme() ThemeConfig {
 			LeftTee:     "├",
 			RightTee:    "┤",
 		},
+	}
+	return t
+}
+
+func (t *ThemeConfig) ResolveAccentColor() {
+	ac := t.AccentColor
+	if ac == "" {
+		ac = "darkcyan"
+	}
+	fillBg(&t.MenuBarActive, ac)
+	fillFg(&t.ActiveTab, ac)
+	fillFg(&t.SidebarHeader, ac)
+	fillBg(&t.SidebarSelected, ac)
+	fillFg(&t.PaletteBorder, ac)
+	fillBg(&t.PaletteSelected, ac)
+	fillFg(&t.Border, ac)
+}
+
+func fillFg(s *StyleDef, color string) {
+	if s.Fg == "" {
+		s.Fg = color
+	}
+}
+
+func fillBg(s *StyleDef, color string) {
+	if s.Bg == "" {
+		s.Bg = color
 	}
 }

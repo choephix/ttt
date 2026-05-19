@@ -36,11 +36,15 @@ func Load() AppConfig {
 		json.Unmarshal(data, &cfg.Theme)
 	}
 
+	cfg.Theme.ResolveAccentColor()
+
 	return cfg
 }
 
 func configPaths() []string {
 	var paths []string
+
+	paths = append(paths, ".config")
 
 	if exe, err := os.Executable(); err == nil {
 		paths = append(paths, filepath.Join(filepath.Dir(exe), "config"))
