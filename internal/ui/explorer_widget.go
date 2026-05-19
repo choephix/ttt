@@ -95,20 +95,8 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 
-	// Header
-	header := "EXPLORER"
-	for i, ch := range header {
-		if i < w {
-			surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StyleSidebarHeader})
-		}
-	}
-
-	for i := len(header); i < w; i++ {
-		surface.SetCell(i, 0, term.Cell{Ch: ' ', Style: term.StyleSidebarHeader})
-	}
-
 	// Ensure scroll follows selected
-	visibleHeight := h - 1
+	visibleHeight := h
 	if visibleHeight <= 0 {
 		return
 	}
@@ -125,7 +113,7 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 			break
 		}
 		node := e.FlatList[idx]
-		y := i + 1
+		y := i
 
 		style := term.StyleSidebarItem
 		if idx == e.Selected {
@@ -151,8 +139,12 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 				surface.SetCell(x, y, term.Cell{Ch: chevron, Style: style})
 			}
 			x++
+			if x < w {
+				surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
+			}
+			x++
 		} else {
-			x++ // align with dir names
+			x += 2
 		}
 
 		// Name
@@ -167,33 +159,42 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 }
 
 func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
-	kev, ok := ev.(*tcell.EventKey)
-	if !ok {
-		return EventIgnored
-	}
-
-	switch kev.Key() {
-	case tcell.KeyUp:
-		if e.Selected > 0 {
-			e.Selected--
+	switch tev := ev.(type) {
+	case *tcell.EventMouse:
+		if tev.Buttons()&tcell.Button1 != 0 {
+			_, my := tev.Position()
+			r := e.GetRect()
+			localY := my - r.Y
+			idx := e.ScrollTop + localY
+			if idx >= 0 && idx < len(e.FlatList) {
+				e.Selected = idx
+				e.activateSelected()
+			}
+			return EventConsumed
 		}
-		return EventConsumed
-	case tcell.KeyDown:
-		if e.Selected < len(e.FlatList)-1 {
-			e.Selected++
+	case *tcell.EventKey:
+		switch tev.Key() {
+		case tcell.KeyUp:
+			if e.Selected > 0 {
+				e.Selected--
+			}
+			return EventConsumed
+		case tcell.KeyDown:
+			if e.Selected < len(e.FlatList)-1 {
+				e.Selected++
+			}
+			return EventConsumed
+		case tcell.KeyEnter:
+			e.activateSelected()
+			return EventConsumed
+		case tcell.KeyLeft:
+			e.collapseSelected()
+			return EventConsumed
+		case tcell.KeyRight:
+			e.expandSelected()
+			return EventConsumed
 		}
-		return EventConsumed
-	case tcell.KeyEnter:
-		e.activateSelected()
-		return EventConsumed
-	case tcell.KeyLeft:
-		e.collapseSelected()
-		return EventConsumed
-	case tcell.KeyRight:
-		e.expandSelected()
-		return EventConsumed
 	}
-
 	return EventIgnored
 }
 

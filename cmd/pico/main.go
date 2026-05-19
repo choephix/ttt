@@ -14,23 +14,35 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type tabState struct {
+	FilePath string
+	Buf      *buffer.Buffer
+	Cur      *cursor.Cursor
+	Vp       *view.Viewport
+}
+
 func main() {
 	cfg := config.Load()
 	config.ParseKeyBindings(cfg.Keybindings)
 
-	buf := &buffer.Buffer{Lines: []string{""}}
+	initialBuf := &buffer.Buffer{Lines: []string{""}}
+	initialPath := "untitled"
 	if len(os.Args) > 1 {
-		if err := buf.LoadFile(os.Args[1]); err != nil {
-			buf = &buffer.Buffer{Lines: []string{"Error: " + err.Error()}}
+		if err := initialBuf.LoadFile(os.Args[1]); err != nil {
+			initialBuf = &buffer.Buffer{Lines: []string{"Error: " + err.Error()}}
 		}
+		initialPath = os.Args[1]
 	}
 
-	cur := &cursor.Cursor{Line: 0, Col: 0}
-	vp := &view.Viewport{}
-	status := &view.StatusBar{FileName: "untitled", Dirty: false}
-	if len(os.Args) > 1 {
-		status.FileName = os.Args[1]
-	}
+	tabs := []tabState{{
+		FilePath: initialPath,
+		Buf:      initialBuf,
+		Cur:      &cursor.Cursor{},
+		Vp:       &view.Viewport{},
+	}}
+	activeTab := 0
+
+	status := &view.StatusBar{FileName: initialPath, Dirty: false}
 
 	screen, err := term.NewTcellScreen()
 	if err != nil {
@@ -44,9 +56,59 @@ func main() {
 	cmdRegistry := command.NewRegistry()
 	borders := buildBorderSet(cfg.Theme.Borders)
 
-	editorPane := ui.NewEditorPaneWidget(buf, cur, vp)
+	editorPane := ui.NewEditorPaneWidget(tabs[0].Buf, tabs[0].Cur, tabs[0].Vp)
 	editorPane.TabSize = cfg.Settings.TabSize
 	statusBar := ui.NewStatusBarWidget(status)
+
+	tabBar := ui.NewTabBarWidget()
+	tabBar.Borders = &borders
+
+	syncTabs := func() {
+		t := tabs[activeTab]
+		editorPane.Buf = t.Buf
+		editorPane.Cursor = t.Cur
+		editorPane.Viewport = t.Vp
+		status.FileName = t.FilePath
+		status.Dirty = t.Buf.Dirty
+		var uiTabs []ui.Tab
+		for i, ts := range tabs {
+			uiTabs = append(uiTabs, ui.Tab{
+				Name:   ts.FilePath,
+				Active: i == activeTab,
+				Dirty:  ts.Buf.Dirty,
+			})
+		}
+		tabBar.SetTabs(uiTabs)
+	}
+
+	switchTab := func(idx int) {
+		if idx >= 0 && idx < len(tabs) {
+			activeTab = idx
+			syncTabs()
+		}
+	}
+
+	openFile := func(path string) {
+		for i, t := range tabs {
+			if t.FilePath == path {
+				switchTab(i)
+				return
+			}
+		}
+		newBuf := &buffer.Buffer{Lines: []string{""}}
+		if err := newBuf.LoadFile(path); err != nil {
+			return
+		}
+		tabs = append(tabs, tabState{
+			FilePath: path,
+			Buf:      newBuf,
+			Cur:      &cursor.Cursor{},
+			Vp:       &view.Viewport{},
+		})
+		switchTab(len(tabs) - 1)
+	}
+
+	syncTabs()
 
 	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{
 		{Name: "File"},
@@ -69,29 +131,22 @@ func main() {
 	if sidebarWidth <= 0 {
 		sidebarWidth = 30
 	}
-	const minSidebarWidth = 10
-	const maxSidebarWidth = 80
-	const resizeStep = 2
+	const resizeStep = 1
+
+	editorArea := &ui.VBox{}
+	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
+	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 
 	splitPanel := ui.NewSplitPanelWidget()
 	splitPanel.Left = sidebar
-	splitPanel.Right = editorPane
+	splitPanel.Right = editorArea
 	splitPanel.Borders = &borders
 	splitPanel.DividerPos = sidebarWidth
 	splitPanel.ShowLeft = sidebar.Visible
 	splitPanel.LeftTitle = "EXPLORER"
-	splitPanel.RightTitle = status.FileName
+	splitPanel.RightTitle = initialPath
 
-	setSidebarWidth := func(w int) {
-		if w < minSidebarWidth {
-			w = minSidebarWidth
-		}
-		if w > maxSidebarWidth {
-			w = maxSidebarWidth
-		}
-		sidebarWidth = w
-		splitPanel.DividerPos = sidebarWidth
-	}
+	var setSidebarWidth func(int)
 
 	rootBox := &ui.VBox{}
 	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
@@ -109,6 +164,18 @@ func main() {
 	hideSidebar := func() {
 		sidebar.Visible = false
 		splitPanel.ShowLeft = false
+	}
+
+	setSidebarWidth = func(w int) {
+		if w <= 0 {
+			hideSidebar()
+			return
+		}
+		if !sidebar.Visible {
+			showSidebar()
+		}
+		sidebarWidth = w
+		splitPanel.DividerPos = sidebarWidth
 	}
 
 	cmdRegistry.Register(command.Command{
@@ -188,12 +255,44 @@ func main() {
 	})
 
 	cmdRegistry.Register(command.Command{
+		ID: "tab.next", Title: "Next Tab",
+		Handler: func() {
+			if len(tabs) > 1 {
+				switchTab((activeTab + 1) % len(tabs))
+			}
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "tab.prev", Title: "Previous Tab",
+		Handler: func() {
+			if len(tabs) > 1 {
+				switchTab((activeTab - 1 + len(tabs)) % len(tabs))
+			}
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "tab.close", Title: "Close Tab",
+		Handler: func() {
+			if len(tabs) <= 1 {
+				return
+			}
+			tabs = append(tabs[:activeTab], tabs[activeTab+1:]...)
+			if activeTab >= len(tabs) {
+				activeTab = len(tabs) - 1
+			}
+			syncTabs()
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
 		ID: "file.save", Title: "Save File",
 		Handler: func() {
-			if len(os.Args) > 1 {
-				buf.SaveFile(os.Args[1])
-				status.Dirty = false
-				splitPanel.RightTitle = status.FileName
+			t := &tabs[activeTab]
+			if t.FilePath != "untitled" {
+				t.Buf.SaveFile(t.FilePath)
+				syncTabs()
 			}
 		},
 	})
@@ -217,16 +316,7 @@ func main() {
 	})
 
 	explorer.OnOpenFile = func(path string) {
-		if err := buf.LoadFile(path); err != nil {
-			return
-		}
-		cur.Line = 0
-		cur.Col = 0
-		vp.TopLine = 0
-		vp.LeftCol = 0
-		status.FileName = path
-		status.Dirty = false
-		splitPanel.RightTitle = path
+		openFile(path)
 		root.SetFocus(editorPane)
 	}
 
@@ -280,11 +370,14 @@ func main() {
 			}
 			root.HandleEvent(tev)
 
-			status.Line = cur.Line
-			status.Col = cur.Col
-			status.Dirty = buf.Dirty
-			title := status.FileName
-			if buf.Dirty {
+			t := tabs[activeTab]
+			status.Line = t.Cur.Line
+			status.Col = t.Cur.Col
+			status.FileName = t.FilePath
+			status.Dirty = t.Buf.Dirty
+			syncTabs()
+			title := t.FilePath
+			if t.Buf.Dirty {
 				title += "*"
 			}
 			splitPanel.RightTitle = title
@@ -313,6 +406,10 @@ func main() {
 						draggingSidebar = true
 					} else if mx < divX {
 						cmdRegistry.Execute("sidebar.focus")
+						active := sidebar.ActiveWidget()
+						if active != nil {
+							active.HandleEvent(tev)
+						}
 						redraw()
 					} else {
 						cmdRegistry.Execute("editor.focus")

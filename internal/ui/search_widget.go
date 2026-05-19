@@ -22,18 +22,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 
-	// Header
-	header := "SEARCH"
-	for i, ch := range header {
-		if i < w {
-			surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StyleSidebarHeader})
-		}
-	}
-	for i := len(header); i < w; i++ {
-		surface.SetCell(i, 0, term.Cell{Ch: ' ', Style: term.StyleSidebarHeader})
-	}
-
-	if h < 3 {
+	if h < 2 {
 		return
 	}
 
@@ -41,13 +30,13 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 	prompt := "> " + s.Query + "_"
 	for i, ch := range prompt {
 		if i < w {
-			surface.SetCell(i, 2, term.Cell{Ch: ch})
+			surface.SetCell(i, 0, term.Cell{Ch: ch})
 		}
 	}
 
 	// Results
 	for i, result := range s.Results {
-		y := 4 + i
+		y := 2 + i
 		if y >= h {
 			break
 		}
