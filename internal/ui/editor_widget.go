@@ -16,6 +16,7 @@ type EditorPaneWidget struct {
 	Viewport *view.Viewport
 	CursorX  int
 	CursorY  int
+	TabSize  int
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -154,7 +155,11 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventIgnored
 		}
 	case tcell.KeyTab:
-		for i := 0; i < 4; i++ {
+		tabSize := e.TabSize
+		if tabSize <= 0 {
+			tabSize = 4
+		}
+		for i := 0; i < tabSize; i++ {
 			e.Buf.InsertRune(e.Cursor.Line, e.Cursor.Col, ' ')
 			e.Cursor.Col++
 		}

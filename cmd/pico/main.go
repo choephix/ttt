@@ -2,6 +2,7 @@ package main
 
 import (
 	"macro/internal/command"
+	"macro/internal/config"
 	"macro/internal/core/buffer"
 	"macro/internal/core/cursor"
 	"macro/internal/render"
@@ -14,6 +15,9 @@ import (
 )
 
 func main() {
+	cfg := config.Load()
+	config.ParseKeyBindings(cfg.Keybindings)
+
 	buf := &buffer.Buffer{Lines: []string{""}}
 	if len(os.Args) > 1 {
 		if err := buf.LoadFile(os.Args[1]); err != nil {
@@ -34,11 +38,13 @@ func main() {
 	}
 	defer screen.Fini()
 
+	screen.SetStyleMap(buildStyleMap(cfg.Theme))
+
 	renderer := &render.Renderer{}
 	cmdRegistry := command.NewRegistry()
 
-	// Build widgets
 	editorPane := ui.NewEditorPaneWidget(buf, cur, vp)
+	editorPane.TabSize = cfg.Settings.TabSize
 	statusBar := ui.NewStatusBarWidget(status)
 	tabBar := ui.NewTabBarWidget()
 	tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
@@ -52,21 +58,27 @@ func main() {
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", explorer)
 	sidebar.AddPanel("search", search)
+	sidebar.Visible = cfg.Settings.SidebarVisible
 	activityBar.ActiveID = "explorer"
 
-	// Editor area: tab bar + editor pane
 	editorArea := &ui.VBox{}
 	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 
-	// Main area: activity bar + sidebar + editor area
 	mainArea := &ui.HBox{}
 	mainArea.AddChild(activityBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 2})
 	sidebarIdx := 1
-	mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Fixed, Value: 30})
+	sidebarWidth := cfg.Settings.SidebarWidth
+	if sidebarWidth <= 0 {
+		sidebarWidth = 30
+	}
+	if sidebar.Visible {
+		mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+	} else {
+		mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Hidden})
+	}
 	mainArea.AddChild(editorArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 
-	// Root layout: main area + status bar
 	rootBox := &ui.VBox{}
 	rootBox.AddChild(mainArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
@@ -80,7 +92,7 @@ func main() {
 		Handler: func() {
 			sidebar.Visible = !sidebar.Visible
 			if sidebar.Visible {
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: 30})
+				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
 			} else {
 				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Hidden})
 			}
@@ -94,7 +106,7 @@ func main() {
 			activityBar.SetActiveByID("explorer")
 			if !sidebar.Visible {
 				sidebar.Visible = true
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: 30})
+				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
 			}
 			root.SetFocus(explorer)
 		},
@@ -107,7 +119,7 @@ func main() {
 			activityBar.SetActiveByID("search")
 			if !sidebar.Visible {
 				sidebar.Visible = true
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: 30})
+				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
 			}
 			root.SetFocus(search)
 		},
@@ -116,11 +128,41 @@ func main() {
 	cmdRegistry.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
 		Handler: func() {
+			if len(root.Overlays) > 0 {
+				root.PopOverlay()
+			}
 			root.SetFocus(editorPane)
 		},
 	})
 
-	// File open from explorer
+	cmdRegistry.Register(command.Command{
+		ID: "file.save", Title: "Save File",
+		Handler: func() {
+			if len(os.Args) > 1 {
+				buf.SaveFile(os.Args[1])
+				status.Dirty = false
+				tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
+			}
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "command.palette", Title: "Command Palette",
+		Handler: func() {
+			palette := ui.NewCommandPaletteWidget(cmdRegistry.List())
+			palette.OnExecute = func(id string) {
+				root.PopOverlay()
+				root.SetFocus(editorPane)
+				cmdRegistry.Execute(id)
+			}
+			palette.OnDismiss = func() {
+				root.PopOverlay()
+				root.SetFocus(editorPane)
+			}
+			root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
+		},
+	})
+
 	explorer.OnOpenFile = func(path string) {
 		if err := buf.LoadFile(path); err != nil {
 			return
@@ -135,7 +177,6 @@ func main() {
 		root.SetFocus(editorPane)
 	}
 
-	// Activity bar callback
 	activityBar.OnSelect = func(id string) {
 		switch id {
 		case "explorer":
@@ -145,60 +186,29 @@ func main() {
 		}
 	}
 
-	// Command palette
-	openPalette := func() {
-		palette := ui.NewCommandPaletteWidget(cmdRegistry.List())
-		palette.OnExecute = func(id string) {
-			root.PopOverlay()
-			root.SetFocus(editorPane)
-			cmdRegistry.Execute(id)
+	// Apply keybindings from config
+	for _, kb := range cfg.Keybindings {
+		if len(kb.Steps) == 0 {
+			continue
 		}
-		palette.OnDismiss = func() {
-			root.PopOverlay()
-			root.SetFocus(editorPane)
+		cmdID := kb.Command
+		if kb.IsChord() {
+			steps := make([]ui.GlobalKeyBinding, len(kb.Steps))
+			for i, step := range kb.Steps {
+				key, mod, rn := comboToTcell(step)
+				steps[i] = ui.GlobalKeyBinding{Key: key, Mod: mod, Rune: rn}
+			}
+			root.AddChordKey(steps, func() {
+				cmdRegistry.Execute(cmdID)
+			})
+		} else {
+			key, mod, rn := comboToTcell(kb.Steps[0])
+			root.AddGlobalKey(key, mod, rn, func() {
+				cmdRegistry.Execute(cmdID)
+			})
 		}
-		root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
 	}
 
-	// Global keybindings
-	// Ctrl+B -> toggle sidebar
-	root.AddGlobalKey(tcell.KeyCtrlB, tcell.ModCtrl, 0, func() {
-		cmdRegistry.Execute("sidebar.toggle")
-	})
-
-	// Ctrl+E -> explorer
-	root.AddGlobalKey(tcell.KeyCtrlE, tcell.ModCtrl, 0, func() {
-		cmdRegistry.Execute("sidebar.explorer")
-	})
-
-	// Ctrl+F -> search (project-wide; in-file find will use Ctrl+/ later)
-	root.AddGlobalKey(tcell.KeyCtrlF, tcell.ModCtrl, 0, func() {
-		cmdRegistry.Execute("sidebar.search")
-	})
-
-	// Ctrl+P -> command palette
-	root.AddGlobalKey(tcell.KeyCtrlP, tcell.ModCtrl, 0, func() {
-		openPalette()
-	})
-
-	// Ctrl+S -> save
-	root.AddGlobalKey(tcell.KeyCtrlS, tcell.ModCtrl, 0, func() {
-		if len(os.Args) > 1 {
-			buf.SaveFile(os.Args[1])
-			status.Dirty = false
-			tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
-		}
-	})
-
-	// Escape -> focus editor (or dismiss overlay)
-	root.AddGlobalKey(tcell.KeyEscape, 0, 0, func() {
-		if len(root.Overlays) > 0 {
-			root.PopOverlay()
-		}
-		root.SetFocus(editorPane)
-	})
-
-	// Initial size
 	w, h := screen.Size()
 	root.SetSize(w, h)
 
@@ -237,4 +247,95 @@ func main() {
 			redraw()
 		}
 	}
+}
+
+var canonicalKeyToTcell = map[string]tcell.Key{
+	"Escape":    tcell.KeyEscape,
+	"Enter":     tcell.KeyEnter,
+	"Tab":       tcell.KeyTab,
+	"Backspace": tcell.KeyBackspace,
+	"Delete":    tcell.KeyDelete,
+	"Insert":    tcell.KeyInsert,
+	"Up":        tcell.KeyUp,
+	"Down":      tcell.KeyDown,
+	"Left":      tcell.KeyLeft,
+	"Right":     tcell.KeyRight,
+	"Home":      tcell.KeyHome,
+	"End":       tcell.KeyEnd,
+	"PgUp":      tcell.KeyPgUp,
+	"PgDn":      tcell.KeyPgDn,
+	"Space":     tcell.KeyRune,
+	"F1":        tcell.KeyF1,
+	"F2":        tcell.KeyF2,
+	"F3":        tcell.KeyF3,
+	"F4":        tcell.KeyF4,
+	"F5":        tcell.KeyF5,
+	"F6":        tcell.KeyF6,
+	"F7":        tcell.KeyF7,
+	"F8":        tcell.KeyF8,
+	"F9":        tcell.KeyF9,
+	"F10":       tcell.KeyF10,
+	"F11":       tcell.KeyF11,
+	"F12":       tcell.KeyF12,
+}
+
+func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
+	var mod tcell.ModMask
+	if combo.Ctrl {
+		mod |= tcell.ModCtrl
+	}
+	if combo.Alt {
+		mod |= tcell.ModAlt
+	}
+	if combo.Shift {
+		mod |= tcell.ModShift
+	}
+
+	if combo.KeyName != "" {
+		if combo.KeyName == "Space" {
+			return tcell.KeyRune, mod, ' '
+		}
+		key := canonicalKeyToTcell[combo.KeyName]
+		return key, mod, 0
+	}
+
+	// Ctrl+letter → tcell.KeyCtrl<Letter>
+	if combo.Ctrl && combo.Rune >= 'a' && combo.Rune <= 'z' {
+		key := tcell.KeyCtrlA + tcell.Key(combo.Rune-'a')
+		return key, mod, 0
+	}
+
+	return tcell.KeyRune, mod, combo.Rune
+}
+
+func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
+	m := term.DefaultStyleMap()
+	applyStyleDef(&m, term.StyleStatusBar, theme.StatusBar)
+	applyStyleDef(&m, term.StyleActiveTab, theme.ActiveTab)
+	applyStyleDef(&m, term.StyleInactiveTab, theme.InactiveTab)
+	applyStyleDef(&m, term.StyleActivityBar, theme.ActivityBar)
+	applyStyleDef(&m, term.StyleActivityBarActive, theme.ActivityBarActive)
+	applyStyleDef(&m, term.StyleSidebarHeader, theme.SidebarHeader)
+	applyStyleDef(&m, term.StyleSidebarItem, theme.SidebarItem)
+	applyStyleDef(&m, term.StyleSidebarSelected, theme.SidebarSelected)
+	applyStyleDef(&m, term.StylePaletteBorder, theme.PaletteBorder)
+	applyStyleDef(&m, term.StylePaletteInput, theme.PaletteInput)
+	applyStyleDef(&m, term.StylePaletteItem, theme.PaletteItem)
+	applyStyleDef(&m, term.StylePaletteSelected, theme.PaletteSelected)
+	applyStyleDef(&m, term.StyleLineNumber, theme.LineNumber)
+	return m
+}
+
+func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
+	base := tcell.StyleDefault
+	if def.Fg != "" {
+		base = base.Foreground(tcell.GetColor(def.Fg))
+	}
+	if def.Bg != "" {
+		base = base.Background(tcell.GetColor(def.Bg))
+	}
+	if def.Bold {
+		base = base.Bold(true)
+	}
+	m[idx] = base
 }

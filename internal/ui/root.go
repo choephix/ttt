@@ -18,6 +18,16 @@ type GlobalKeyBinding struct {
 	Handler  func()
 }
 
+type ChordKeyBinding struct {
+	Steps   []GlobalKeyBinding
+	Handler func()
+}
+
+type chordState struct {
+	candidates []int
+	stepIdx    int
+}
+
 type Root struct {
 	Main       Widget
 	Overlays   []Overlay
@@ -25,6 +35,8 @@ type Root struct {
 	Width      int
 	Height     int
 	GlobalKeys []GlobalKeyBinding
+	ChordKeys  []ChordKeyBinding
+	chord      *chordState
 }
 
 func NewRoot(main Widget) *Root {
@@ -41,8 +53,18 @@ func (r *Root) AddGlobalKey(key tcell.Key, mod tcell.ModMask, rn rune, handler f
 	r.GlobalKeys = append(r.GlobalKeys, GlobalKeyBinding{Key: key, Mod: mod, Rune: rn, Handler: handler})
 }
 
+func (r *Root) AddChordKey(steps []GlobalKeyBinding, handler func()) {
+	r.ChordKeys = append(r.ChordKeys, ChordKeyBinding{Steps: steps, Handler: handler})
+}
+
+func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
+	if gk.Key != tcell.KeyRune {
+		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
+	}
+	return kev.Key() == tcell.KeyRune && kev.Rune() == gk.Rune && kev.Modifiers() == gk.Mod
+}
+
 func (r *Root) HandleEvent(ev tcell.Event) EventResult {
-	// Modal overlay captures all events
 	if len(r.Overlays) > 0 {
 		top := r.Overlays[len(r.Overlays)-1]
 		if top.Modal {
@@ -50,21 +72,56 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	// Check global keybindings
-	if kev, ok := ev.(*tcell.EventKey); ok {
-		for _, gk := range r.GlobalKeys {
-			if gk.Key != tcell.KeyRune && kev.Key() == gk.Key && kev.Modifiers() == gk.Mod {
-				gk.Handler()
-				return EventConsumed
+	kev, isKey := ev.(*tcell.EventKey)
+	if !isKey {
+		if r.Focused != nil {
+			return r.Focused.HandleEvent(ev)
+		}
+		return EventIgnored
+	}
+
+	// Mid-chord: try matching next step
+	if r.chord != nil {
+		var next []int
+		for _, ci := range r.chord.candidates {
+			chord := r.ChordKeys[ci]
+			if r.chord.stepIdx < len(chord.Steps) && matchKey(kev, chord.Steps[r.chord.stepIdx]) {
+				if r.chord.stepIdx+1 == len(chord.Steps) {
+					r.chord = nil
+					chord.Handler()
+					return EventConsumed
+				}
+				next = append(next, ci)
 			}
-			if gk.Key == tcell.KeyRune && kev.Key() == tcell.KeyRune && kev.Rune() == gk.Rune && kev.Modifiers() == gk.Mod {
-				gk.Handler()
-				return EventConsumed
-			}
+		}
+		if len(next) > 0 {
+			r.chord.candidates = next
+			r.chord.stepIdx++
+			return EventConsumed
+		}
+		r.chord = nil
+	}
+
+	// Check if key starts a chord
+	var candidates []int
+	for i, chord := range r.ChordKeys {
+		if len(chord.Steps) > 1 && matchKey(kev, chord.Steps[0]) {
+			candidates = append(candidates, i)
+		}
+	}
+	if len(candidates) > 0 {
+		r.chord = &chordState{candidates: candidates, stepIdx: 1}
+		return EventConsumed
+	}
+
+	// Single-key global bindings
+	for _, gk := range r.GlobalKeys {
+		if matchKey(kev, gk) {
+			gk.Handler()
+			return EventConsumed
 		}
 	}
 
-	// Route to focused widget
 	if r.Focused != nil {
 		return r.Focused.HandleEvent(ev)
 	}

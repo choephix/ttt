@@ -128,3 +128,102 @@ func TestRootPushPopOverlay(t *testing.T) {
 	// Pop on empty should not panic
 	root.PopOverlay()
 }
+
+func TestChordKeysFire(t *testing.T) {
+	main := &mockWidget{}
+	root := NewRoot(main)
+	root.SetSize(80, 24)
+	root.SetFocus(&mockWidget{focusable: true})
+
+	fired := false
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyCtrlC, Mod: tcell.ModCtrl},
+	}, func() { fired = true })
+
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
+	if fired {
+		t.Fatal("chord should not fire after first key")
+	}
+
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlC, tcell.ModCtrl))
+	if !fired {
+		t.Fatal("chord should fire after second key")
+	}
+}
+
+func TestChordResetsOnMismatch(t *testing.T) {
+	main := &mockWidget{}
+	focused := &mockWidget{focusable: true}
+	root := NewRoot(main)
+	root.SetSize(80, 24)
+	root.SetFocus(focused)
+
+	fired := false
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyCtrlC, Mod: tcell.ModCtrl},
+	}, func() { fired = true })
+
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
+	// Wrong second key
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlX, tcell.ModCtrl))
+
+	if fired {
+		t.Fatal("chord should not fire on mismatch")
+	}
+	// After mismatch, the wrong key falls through to focused widget
+	if focused.eventCount != 1 {
+		t.Fatalf("expected mismatched key to reach focused widget, got eventCount=%d", focused.eventCount)
+	}
+}
+
+func TestChordSharedPrefix(t *testing.T) {
+	root := NewRoot(&mockWidget{})
+	root.SetSize(80, 24)
+	root.SetFocus(&mockWidget{focusable: true})
+
+	firedA := false
+	firedB := false
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyCtrlC, Mod: tcell.ModCtrl},
+	}, func() { firedA = true })
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyCtrlU, Mod: tcell.ModCtrl},
+	}, func() { firedB = true })
+
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlU, tcell.ModCtrl))
+
+	if firedA {
+		t.Fatal("chord A should not have fired")
+	}
+	if !firedB {
+		t.Fatal("chord B should have fired")
+	}
+}
+
+func TestModalOverlayBlocksChord(t *testing.T) {
+	modal := &mockWidget{focusable: true}
+	root := NewRoot(&mockWidget{})
+	root.SetSize(80, 24)
+	root.PushOverlay(Overlay{Widget: modal, Modal: true})
+
+	fired := false
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyCtrlC, Mod: tcell.ModCtrl},
+	}, func() { fired = true })
+
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlC, tcell.ModCtrl))
+
+	if fired {
+		t.Fatal("chord should not fire when modal overlay is active")
+	}
+	if modal.eventCount != 2 {
+		t.Fatalf("modal should have received both events, got %d", modal.eventCount)
+	}
+}

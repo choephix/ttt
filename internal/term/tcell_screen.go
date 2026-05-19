@@ -4,9 +4,34 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const StyleCount = 14
+
+type StyleMap [StyleCount]tcell.Style
+
+func DefaultStyleMap() StyleMap {
+	var m StyleMap
+	base := tcell.StyleDefault
+	m[StyleDefault] = base
+	m[StyleStatusBar] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite)
+	m[StyleActiveTab] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite).Bold(true)
+	m[StyleInactiveTab] = base.Background(tcell.ColorDarkGray).Foreground(tcell.ColorSilver)
+	m[StyleActivityBar] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorSilver)
+	m[StyleActivityBarActive] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorWhite).Bold(true)
+	m[StyleSidebarHeader] = base.Foreground(tcell.ColorWhite).Bold(true)
+	m[StyleSidebarItem] = base.Foreground(tcell.ColorSilver)
+	m[StyleSidebarSelected] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
+	m[StylePaletteBorder] = base.Foreground(tcell.ColorDarkCyan)
+	m[StylePaletteInput] = base.Foreground(tcell.ColorWhite)
+	m[StylePaletteItem] = base.Foreground(tcell.ColorSilver)
+	m[StylePaletteSelected] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
+	m[StyleLineNumber] = base.Foreground(tcell.ColorDarkGray)
+	return m
+}
+
 // TcellScreen implements the Screen interface using tcell.
 type TcellScreen struct {
-	scr tcell.Screen
+	scr      tcell.Screen
+	styleMap StyleMap
 }
 
 func NewTcellScreen() (*TcellScreen, error) {
@@ -17,7 +42,11 @@ func NewTcellScreen() (*TcellScreen, error) {
 	if err := s.Init(); err != nil {
 		return nil, err
 	}
-	return &TcellScreen{scr: s}, nil
+	return &TcellScreen{scr: s, styleMap: DefaultStyleMap()}, nil
+}
+
+func (t *TcellScreen) SetStyleMap(m StyleMap) {
+	t.styleMap = m
 }
 
 func (t *TcellScreen) Size() (w, h int) {
@@ -25,41 +54,7 @@ func (t *TcellScreen) Size() (w, h int) {
 }
 
 func (t *TcellScreen) SetCell(x, y int, c Cell) {
-	t.scr.SetContent(x, y, c.Ch, nil, mapStyle(c.Style))
-}
-
-func mapStyle(s Style) tcell.Style {
-	base := tcell.StyleDefault
-	switch s {
-	case StyleStatusBar:
-		return base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite)
-	case StyleActiveTab:
-		return base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite).Bold(true)
-	case StyleInactiveTab:
-		return base.Background(tcell.ColorDarkGray).Foreground(tcell.ColorSilver)
-	case StyleActivityBar:
-		return base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorSilver)
-	case StyleActivityBarActive:
-		return base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorWhite).Bold(true)
-	case StyleSidebarHeader:
-		return base.Foreground(tcell.ColorWhite).Bold(true)
-	case StyleSidebarItem:
-		return base.Foreground(tcell.ColorSilver)
-	case StyleSidebarSelected:
-		return base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
-	case StylePaletteBorder:
-		return base.Foreground(tcell.ColorDarkCyan)
-	case StylePaletteInput:
-		return base.Foreground(tcell.ColorWhite)
-	case StylePaletteItem:
-		return base.Foreground(tcell.ColorSilver)
-	case StylePaletteSelected:
-		return base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
-	case StyleLineNumber:
-		return base.Foreground(tcell.ColorDarkGray)
-	default:
-		return base
-	}
+	t.scr.SetContent(x, y, c.Ch, nil, t.styleMap[c.Style])
 }
 
 func (t *TcellScreen) Show() {
