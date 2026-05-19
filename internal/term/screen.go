@@ -3,12 +3,10 @@ package term
 type Style int
 
 const (
-	StyleDefault  Style = iota
+	StyleDefault Style = iota
 	StyleStatusBar
 	StyleActiveTab
 	StyleInactiveTab
-	StyleActivityBar
-	StyleActivityBarActive
 	StyleSidebarHeader
 	StyleSidebarItem
 	StyleSidebarSelected
@@ -17,7 +15,6 @@ const (
 	StylePaletteItem
 	StylePaletteSelected
 	StyleLineNumber
-	StyleResizeHandle
 	StyleMenuBar
 	StyleMenuBarActive
 	StyleBorder

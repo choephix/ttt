@@ -3,8 +3,6 @@ package main
 import (
 	"macro/internal/command"
 	"macro/internal/config"
-	"macro/internal/core/buffer"
-	"macro/internal/core/cursor"
 	"macro/internal/render"
 	"macro/internal/term"
 	"macro/internal/ui"
@@ -14,35 +12,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type tabState struct {
-	FilePath string
-	Buf      *buffer.Buffer
-	Cur      *cursor.Cursor
-	Vp       *view.Viewport
-}
-
 func main() {
 	cfg := config.Load()
 	config.ParseKeyBindings(cfg.Keybindings)
-
-	initialBuf := &buffer.Buffer{Lines: []string{""}}
-	initialPath := "untitled"
-	if len(os.Args) > 1 {
-		if err := initialBuf.LoadFile(os.Args[1]); err != nil {
-			initialBuf = &buffer.Buffer{Lines: []string{"Error: " + err.Error()}}
-		}
-		initialPath = os.Args[1]
-	}
-
-	tabs := []tabState{{
-		FilePath: initialPath,
-		Buf:      initialBuf,
-		Cur:      &cursor.Cursor{},
-		Vp:       &view.Viewport{},
-	}}
-	activeTab := 0
-
-	status := &view.StatusBar{FileName: initialPath, Dirty: false}
 
 	screen, err := term.NewTcellScreen()
 	if err != nil {
@@ -56,60 +28,16 @@ func main() {
 	cmdRegistry := command.NewRegistry()
 	borders := buildBorderSet(cfg.Theme.Borders)
 
-	editorPane := ui.NewEditorPaneWidget(tabs[0].Buf, tabs[0].Cur, tabs[0].Vp)
-	editorPane.TabSize = cfg.Settings.TabSize
+	// Editor group: tabs + editor pane
+	editorGroup := ui.NewEditorGroupWidget(&borders, cfg.Settings.TabSize)
+	if len(os.Args) > 1 {
+		editorGroup.OpenFile(os.Args[1])
+	}
+
+	status := &view.StatusBar{FileName: editorGroup.ActiveFilePath()}
 	statusBar := ui.NewStatusBarWidget(status)
 
-	tabBar := ui.NewTabBarWidget()
-	tabBar.Borders = &borders
-
-	syncTabs := func() {
-		t := tabs[activeTab]
-		editorPane.Buf = t.Buf
-		editorPane.Cursor = t.Cur
-		editorPane.Viewport = t.Vp
-		status.FileName = t.FilePath
-		status.Dirty = t.Buf.Dirty
-		var uiTabs []ui.Tab
-		for i, ts := range tabs {
-			uiTabs = append(uiTabs, ui.Tab{
-				Name:   ts.FilePath,
-				Active: i == activeTab,
-				Dirty:  ts.Buf.Dirty,
-			})
-		}
-		tabBar.SetTabs(uiTabs)
-	}
-
-	switchTab := func(idx int) {
-		if idx >= 0 && idx < len(tabs) {
-			activeTab = idx
-			syncTabs()
-		}
-	}
-
-	openFile := func(path string) {
-		for i, t := range tabs {
-			if t.FilePath == path {
-				switchTab(i)
-				return
-			}
-		}
-		newBuf := &buffer.Buffer{Lines: []string{""}}
-		if err := newBuf.LoadFile(path); err != nil {
-			return
-		}
-		tabs = append(tabs, tabState{
-			FilePath: path,
-			Buf:      newBuf,
-			Cur:      &cursor.Cursor{},
-			Vp:       &view.Viewport{},
-		})
-		switchTab(len(tabs) - 1)
-	}
-
-	syncTabs()
-
+	// Menu bar
 	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{
 		{Name: "File"},
 		{Name: "Edit"},
@@ -118,6 +46,7 @@ func main() {
 		{Name: "Help"},
 	})
 
+	// Sidebar
 	cwd, _ := os.Getwd()
 	explorer := ui.NewExplorerWidget(cwd)
 	search := ui.NewSearchWidget()
@@ -133,23 +62,15 @@ func main() {
 	if sidebarWidth <= 0 {
 		sidebarWidth = 30
 	}
-	const resizeStep = 1
 
-	editorArea := &ui.VBox{}
-	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 3})
-	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
-
+	// Layout
 	splitPanel := ui.NewSplitPanelWidget()
 	splitPanel.Left = sidebar
-	splitPanel.Right = editorArea
+	splitPanel.Right = editorGroup
 	splitPanel.Borders = &borders
 	splitPanel.DividerPos = sidebarWidth
 	splitPanel.ShowLeft = sidebar.Visible
-	splitPanel.LeftTitle = ""
-	splitPanel.RightTitle = ""
 	splitPanel.RightBorderStartY = 2
-
-	var setSidebarWidth func(int)
 
 	rootBox := &ui.VBox{}
 	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
@@ -157,9 +78,9 @@ func main() {
 	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 
 	root := ui.NewRoot(rootBox)
-	root.SetFocus(editorPane)
+	root.SetFocus(editorGroup)
 
-	// Commands
+	// Sidebar helpers
 	showSidebar := func() {
 		sidebar.Visible = true
 		splitPanel.ShowLeft = true
@@ -168,8 +89,7 @@ func main() {
 		sidebar.Visible = false
 		splitPanel.ShowLeft = false
 	}
-
-	setSidebarWidth = func(w int) {
+	setSidebarWidth := func(w int) {
 		if w <= 0 {
 			hideSidebar()
 			return
@@ -181,6 +101,11 @@ func main() {
 		splitPanel.DividerPos = sidebarWidth
 	}
 
+	splitPanel.OnResize = func(width int) {
+		setSidebarWidth(width)
+	}
+
+	// Commands
 	cmdRegistry.Register(command.Command{
 		ID: "sidebar.toggle", Title: "Toggle Sidebar",
 		Handler: func() {
@@ -220,7 +145,7 @@ func main() {
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
 		Handler: func() {
 			if sidebar.Visible {
-				setSidebarWidth(sidebarWidth + resizeStep)
+				setSidebarWidth(sidebarWidth + 1)
 			}
 		},
 	})
@@ -229,7 +154,7 @@ func main() {
 		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
 		Handler: func() {
 			if sidebar.Visible {
-				setSidebarWidth(sidebarWidth - resizeStep)
+				setSidebarWidth(sidebarWidth - 1)
 			}
 		},
 	})
@@ -240,9 +165,8 @@ func main() {
 			if !sidebar.Visible {
 				showSidebar()
 			}
-			active := sidebar.ActiveWidget()
-			if active != nil {
-				root.SetFocus(active)
+			if w := sidebar.ActiveWidget(); w != nil {
+				root.SetFocus(w)
 			}
 		},
 	})
@@ -253,51 +177,28 @@ func main() {
 			if len(root.Overlays) > 0 {
 				root.PopOverlay()
 			}
-			root.SetFocus(editorPane)
+			root.SetFocus(editorGroup)
 		},
 	})
 
 	cmdRegistry.Register(command.Command{
 		ID: "tab.next", Title: "Next Tab",
-		Handler: func() {
-			if len(tabs) > 1 {
-				switchTab((activeTab + 1) % len(tabs))
-			}
-		},
+		Handler: func() { editorGroup.NextTab() },
 	})
 
 	cmdRegistry.Register(command.Command{
 		ID: "tab.prev", Title: "Previous Tab",
-		Handler: func() {
-			if len(tabs) > 1 {
-				switchTab((activeTab - 1 + len(tabs)) % len(tabs))
-			}
-		},
+		Handler: func() { editorGroup.PrevTab() },
 	})
 
 	cmdRegistry.Register(command.Command{
 		ID: "tab.close", Title: "Close Tab",
-		Handler: func() {
-			if len(tabs) <= 1 {
-				return
-			}
-			tabs = append(tabs[:activeTab], tabs[activeTab+1:]...)
-			if activeTab >= len(tabs) {
-				activeTab = len(tabs) - 1
-			}
-			syncTabs()
-		},
+		Handler: func() { editorGroup.CloseTab() },
 	})
 
 	cmdRegistry.Register(command.Command{
 		ID: "file.save", Title: "Save File",
-		Handler: func() {
-			t := &tabs[activeTab]
-			if t.FilePath != "untitled" {
-				t.Buf.SaveFile(t.FilePath)
-				syncTabs()
-			}
-		},
+		Handler: func() { editorGroup.Save() },
 	})
 
 	cmdRegistry.Register(command.Command{
@@ -307,23 +208,23 @@ func main() {
 			palette.Borders = &borders
 			palette.OnExecute = func(id string) {
 				root.PopOverlay()
-				root.SetFocus(editorPane)
+				root.SetFocus(editorGroup)
 				cmdRegistry.Execute(id)
 			}
 			palette.OnDismiss = func() {
 				root.PopOverlay()
-				root.SetFocus(editorPane)
+				root.SetFocus(editorGroup)
 			}
 			root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
 		},
 	})
 
 	explorer.OnOpenFile = func(path string) {
-		openFile(path)
-		root.SetFocus(editorPane)
+		editorGroup.OpenFile(path)
+		root.SetFocus(editorGroup)
 	}
 
-	// Apply keybindings from config
+	// Keybindings
 	for _, kb := range cfg.Keybindings {
 		if len(kb.Steps) == 0 {
 			continue
@@ -346,8 +247,17 @@ func main() {
 		}
 	}
 
+	// Initial layout
 	w, h := screen.Size()
 	root.SetSize(w, h)
+
+	syncStatus := func() {
+		line, col := editorGroup.ActiveCursor()
+		status.FileName = editorGroup.ActiveFilePath()
+		status.Line = line
+		status.Col = col
+		status.Dirty = editorGroup.IsDirty()
+	}
 
 	redraw := func() {
 		cells := make([][]term.Cell, root.Height)
@@ -356,14 +266,13 @@ func main() {
 		}
 		root.Render(cells)
 		renderer.SetCurrent(cells)
-		screen.ShowCursor(editorPane.CursorX, editorPane.CursorY)
+		screen.ShowCursor(editorGroup.Editor.CursorX, editorGroup.Editor.CursorY)
 		renderer.Render(screen)
 	}
 
 	redraw()
 
-	draggingSidebar := false
-
+	// Event loop
 	for {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
@@ -372,49 +281,36 @@ func main() {
 				return
 			}
 			root.HandleEvent(tev)
-
-			t := tabs[activeTab]
-			status.Line = t.Cur.Line
-			status.Col = t.Cur.Col
-			status.FileName = t.FilePath
-			status.Dirty = t.Buf.Dirty
-			syncTabs()
+			syncStatus()
 			redraw()
 
 		case *tcell.EventMouse:
 			mx, my := tev.Position()
 			btn := tev.Buttons()
 
-			panelRect := splitPanel.GetRect()
-			inPanel := my >= panelRect.Y && my < panelRect.Y+panelRect.H &&
-				mx >= panelRect.X && mx < panelRect.X+panelRect.W
+			if splitPanel.HandleEvent(tev) == ui.EventConsumed {
+				redraw()
+				continue
+			}
 
-			if draggingSidebar {
-				if btn&tcell.Button1 != 0 {
-					newWidth := mx - panelRect.X - 1
-					setSidebarWidth(newWidth)
-					redraw()
-				} else {
-					draggingSidebar = false
-				}
-			} else if btn&tcell.Button1 != 0 && inPanel {
-				if sidebar.Visible {
-					divX := splitPanel.DividerScreenX()
-					if mx == divX {
-						draggingSidebar = true
-					} else if mx < divX {
-						cmdRegistry.Execute("sidebar.focus")
-						active := sidebar.ActiveWidget()
-						if active != nil {
-							active.HandleEvent(tev)
+			if btn&tcell.Button1 != 0 {
+				panelRect := splitPanel.GetRect()
+				inPanel := my >= panelRect.Y && my < panelRect.Y+panelRect.H &&
+					mx >= panelRect.X && mx < panelRect.X+panelRect.W
+				if inPanel {
+					if sidebar.Visible {
+						divX := splitPanel.DividerScreenX()
+						if mx < divX {
+							cmdRegistry.Execute("sidebar.focus")
+							if w := sidebar.ActiveWidget(); w != nil {
+								w.HandleEvent(tev)
+							}
+						} else {
+							cmdRegistry.Execute("editor.focus")
 						}
-						redraw()
 					} else {
 						cmdRegistry.Execute("editor.focus")
-						redraw()
 					}
-				} else {
-					cmdRegistry.Execute("editor.focus")
 					redraw()
 				}
 			}
@@ -478,7 +374,6 @@ func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
 		return key, mod, 0
 	}
 
-	// Ctrl+letter → tcell.KeyCtrl<Letter>
 	if combo.Ctrl && combo.Rune >= 'a' && combo.Rune <= 'z' {
 		key := tcell.KeyCtrlA + tcell.Key(combo.Rune-'a')
 		return key, mod, 0
@@ -492,8 +387,6 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleStatusBar, theme.StatusBar)
 	applyStyleDef(&m, term.StyleActiveTab, theme.ActiveTab)
 	applyStyleDef(&m, term.StyleInactiveTab, theme.InactiveTab)
-	applyStyleDef(&m, term.StyleActivityBar, theme.ActivityBar)
-	applyStyleDef(&m, term.StyleActivityBarActive, theme.ActivityBarActive)
 	applyStyleDef(&m, term.StyleSidebarHeader, theme.SidebarHeader)
 	applyStyleDef(&m, term.StyleSidebarItem, theme.SidebarItem)
 	applyStyleDef(&m, term.StyleSidebarSelected, theme.SidebarSelected)
@@ -502,7 +395,6 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StylePaletteItem, theme.PaletteItem)
 	applyStyleDef(&m, term.StylePaletteSelected, theme.PaletteSelected)
 	applyStyleDef(&m, term.StyleLineNumber, theme.LineNumber)
-	applyStyleDef(&m, term.StyleResizeHandle, theme.ResizeHandle)
 	applyStyleDef(&m, term.StyleMenuBar, theme.MenuBar)
 	applyStyleDef(&m, term.StyleMenuBarActive, theme.MenuBarActive)
 	applyStyleDef(&m, term.StyleBorder, theme.Border)

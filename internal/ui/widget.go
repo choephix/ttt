@@ -2,6 +2,10 @@ package ui
 
 import "github.com/gdamore/tcell/v2"
 
+type Rect struct {
+	X, Y, W, H int
+}
+
 type EventResult int
 
 const (

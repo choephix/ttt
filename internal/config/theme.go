@@ -20,24 +20,21 @@ type BorderChars struct {
 }
 
 type ThemeConfig struct {
-	StatusBar         StyleDef    `json:"statusBar"`
-	ActiveTab         StyleDef    `json:"activeTab"`
-	InactiveTab       StyleDef    `json:"inactiveTab"`
-	ActivityBar       StyleDef    `json:"activityBar"`
-	ActivityBarActive StyleDef    `json:"activityBarActive"`
-	SidebarHeader     StyleDef    `json:"sidebarHeader"`
-	SidebarItem       StyleDef    `json:"sidebarItem"`
-	SidebarSelected   StyleDef    `json:"sidebarSelected"`
-	PaletteBorder     StyleDef    `json:"paletteBorder"`
-	PaletteInput      StyleDef    `json:"paletteInput"`
-	PaletteItem       StyleDef    `json:"paletteItem"`
-	PaletteSelected   StyleDef    `json:"paletteSelected"`
-	LineNumber        StyleDef    `json:"lineNumber"`
-	ResizeHandle      StyleDef    `json:"resizeHandle"`
-	MenuBar           StyleDef    `json:"menuBar"`
-	MenuBarActive     StyleDef    `json:"menuBarActive"`
-	Border            StyleDef    `json:"border"`
-	Borders           BorderChars `json:"borders"`
+	StatusBar       StyleDef    `json:"statusBar"`
+	ActiveTab       StyleDef    `json:"activeTab"`
+	InactiveTab     StyleDef    `json:"inactiveTab"`
+	SidebarHeader   StyleDef    `json:"sidebarHeader"`
+	SidebarItem     StyleDef    `json:"sidebarItem"`
+	SidebarSelected StyleDef    `json:"sidebarSelected"`
+	PaletteBorder   StyleDef    `json:"paletteBorder"`
+	PaletteInput    StyleDef    `json:"paletteInput"`
+	PaletteItem     StyleDef    `json:"paletteItem"`
+	PaletteSelected StyleDef    `json:"paletteSelected"`
+	LineNumber      StyleDef    `json:"lineNumber"`
+	MenuBar         StyleDef    `json:"menuBar"`
+	MenuBarActive   StyleDef    `json:"menuBarActive"`
+	Border          StyleDef    `json:"border"`
+	Borders         BorderChars `json:"borders"`
 }
 
 func DefaultTheme() ThemeConfig {
@@ -50,10 +47,6 @@ func DefaultTheme() ThemeConfig {
 		// Tabs: accent for active, default bg for inactive
 		ActiveTab:   StyleDef{Fg: "darkcyan", Bold: true},
 		InactiveTab: StyleDef{Fg: "gray"},
-
-		// Activity bar (kept for theme compatibility)
-		ActivityBar:       StyleDef{Fg: "gray"},
-		ActivityBarActive: StyleDef{Fg: "darkcyan", Bold: true},
 
 		// Sidebar: clean with accent selection
 		SidebarHeader:   StyleDef{Fg: "darkcyan", Bold: true},
@@ -70,8 +63,7 @@ func DefaultTheme() ThemeConfig {
 		LineNumber: StyleDef{Fg: "gray"},
 
 		// Borders and separators: accent color
-		ResizeHandle: StyleDef{Fg: "darkcyan"},
-		Border:       StyleDef{Fg: "darkcyan"},
+		Border: StyleDef{Fg: "darkcyan"},
 
 		Borders: BorderChars{
 			Horizontal:  "─",

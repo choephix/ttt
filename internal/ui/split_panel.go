@@ -8,14 +8,14 @@ import (
 
 type SplitPanelWidget struct {
 	BaseWidget
-	Left          Widget
-	Right         Widget
-	LeftTitle     string
-	RightTitle    string
+	Left              Widget
+	Right             Widget
 	DividerPos        int
 	Borders           *term.BorderSet
 	ShowLeft          bool
 	RightBorderStartY int
+	OnResize          func(width int)
+	dragging          bool
 }
 
 func NewSplitPanelWidget() *SplitPanelWidget {
@@ -91,11 +91,6 @@ func (s *SplitPanelWidget) Render(surface *RenderSurface) {
 		surface.SetCell(divX, y, term.Cell{Ch: b.Vertical, Style: bs})
 	}
 
-	// Left title
-	if s.LeftTitle != "" {
-		s.drawTitle(surface, 1, 0, divX-1, s.LeftTitle, b, bs)
-	}
-
 	// Left content — inside left border, below top border, above bottom border
 	leftW := divX - 1
 	leftH := h - 2
@@ -151,27 +146,35 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 	}
 }
 
-func (s *SplitPanelWidget) drawTitle(surface *RenderSurface, startX, y, maxW int, title string, b term.BorderSet, bs term.Style) {
-	if title == "" || maxW < 3 {
-		return
-	}
-	runes := []rune(title)
-	avail := maxW - 2
-	if len(runes) > avail {
-		runes = runes[:avail]
-	}
-
-	x := startX
-	surface.SetCell(x, y, term.Cell{Ch: b.Horizontal, Style: bs})
-	x++
-	for _, ch := range runes {
-		surface.SetCell(x, y, term.Cell{Ch: ch, Style: bs})
-		x++
-	}
-	surface.SetCell(x, y, term.Cell{Ch: b.Horizontal, Style: bs})
-}
-
 func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
+	mev, ok := ev.(*tcell.EventMouse)
+	if !ok || s.OnResize == nil {
+		return EventIgnored
+	}
+
+	r := s.GetRect()
+	mx, my := mev.Position()
+	btn := mev.Buttons()
+	inBounds := my >= r.Y && my < r.Y+r.H && mx >= r.X && mx < r.X+r.W
+
+	if s.dragging {
+		if btn&tcell.Button1 != 0 {
+			newWidth := mx - r.X - 1
+			s.OnResize(newWidth)
+			return EventConsumed
+		}
+		s.dragging = false
+		return EventIgnored
+	}
+
+	if btn&tcell.Button1 != 0 && inBounds && s.ShowLeft {
+		divX := r.X + s.DividerPos + 1
+		if mx == divX {
+			s.dragging = true
+			return EventConsumed
+		}
+	}
+
 	return EventIgnored
 }
 
