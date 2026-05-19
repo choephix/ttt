@@ -216,6 +216,30 @@ func main() {
 	})
 
 	cmdRegistry.Register(command.Command{
+		ID: "editor.undo", Title: "Undo",
+		Handler: func() { editorGroup.Undo() },
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "editor.redo", Title: "Redo",
+		Handler: func() { editorGroup.Redo() },
+	})
+
+	quitPending := false
+	running := true
+	cmdRegistry.Register(command.Command{
+		ID: "editor.quit", Title: "Quit",
+		Handler: func() {
+			if !editorGroup.AnyDirty() || quitPending {
+				running = false
+				return
+			}
+			quitPending = true
+			status.Message = "Unsaved changes. Press Ctrl+Q again to quit."
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
 		ID: "panel.toggle", Title: "Toggle Panel",
 		Handler: func() {
 			contentSplit.ShowBottom = !contentSplit.ShowBottom
@@ -315,12 +339,16 @@ func main() {
 	redraw()
 
 	// Event loop
-	for {
+	for running {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
 		case *tcell.EventKey:
 			if tev.Key() == tcell.KeyCtrlC {
 				return
+			}
+			if quitPending && !(tev.Key() == tcell.KeyCtrlQ) {
+				quitPending = false
+				status.Message = ""
 			}
 			root.HandleEvent(tev)
 			syncStatus()

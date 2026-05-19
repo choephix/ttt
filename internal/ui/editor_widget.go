@@ -3,8 +3,10 @@ package ui
 import (
 	"macro/internal/core/buffer"
 	"macro/internal/core/cursor"
+	"macro/internal/core/undo"
 	"macro/internal/term"
 	"macro/internal/view"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -14,6 +16,7 @@ type EditorPaneWidget struct {
 	Buf      *buffer.Buffer
 	Cursor   *cursor.Cursor
 	Viewport *view.Viewport
+	Undo     *undo.UndoStack
 	CursorX  int
 	CursorY  int
 	TabSize  int
@@ -59,6 +62,13 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
 }
 
+func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
+	cmd.Apply(e.Buf)
+	if e.Undo != nil {
+		e.Undo.Push(cmd)
+	}
+}
+
 func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
@@ -98,29 +108,38 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.Cursor.Col = 0
 		}
 	case tcell.KeyEnter:
-		line := []rune(e.Buf.Lines[e.Cursor.Line])
-		if e.Cursor.Col < 0 {
-			e.Cursor.Col = 0
+		col := e.Cursor.Col
+		if col < 0 {
+			col = 0
 		}
-		if e.Cursor.Col > len(line) {
-			e.Cursor.Col = len(line)
+		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		if col > lineLen {
+			col = lineLen
 		}
-		left := string(line[:e.Cursor.Col])
-		right := string(line[e.Cursor.Col:])
-		e.Buf.Lines[e.Cursor.Line] = left
-		e.Buf.InsertLine(e.Cursor.Line+1, right)
+		indent := leadingWhitespace(e.Buf.Lines[e.Cursor.Line])
+		e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
 		e.Cursor.Line++
 		e.Cursor.Col = 0
+		if len(indent) > 0 {
+			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: indent})
+			e.Cursor.Col = len([]rune(indent))
+		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if e.Cursor.Col > 0 {
-			e.Buf.DeleteRune(e.Cursor.Line, e.Cursor.Col-1)
+			e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col - 1})
 			e.Cursor.Col--
 		} else if e.Cursor.Line > 0 {
-			prevLen := len([]rune(e.Buf.Lines[e.Cursor.Line-1]))
-			e.Buf.Lines[e.Cursor.Line-1] += e.Buf.Lines[e.Cursor.Line]
-			e.Buf.DeleteLine(e.Cursor.Line)
+			cmd := &undo.JoinLineCommand{Line: e.Cursor.Line}
+			e.exec(cmd)
 			e.Cursor.Line--
-			e.Cursor.Col = prevLen
+			e.Cursor.Col = cmd.PrevLen
+		}
+	case tcell.KeyDelete:
+		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		if e.Cursor.Col < lineLen {
+			e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+		} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
+			e.exec(&undo.JoinLineCommand{Line: e.Cursor.Line + 1})
 		}
 	case tcell.KeyHome:
 		e.Cursor.Col = 0
@@ -148,7 +167,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if kev.Modifiers() == 0 {
 			r := kev.Rune()
 			if r != 0 {
-				e.Buf.InsertRune(e.Cursor.Line, e.Cursor.Col, r)
+				e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 				e.Cursor.Col++
 			}
 		} else {
@@ -159,10 +178,8 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if tabSize <= 0 {
 			tabSize = 4
 		}
-		for i := 0; i < tabSize; i++ {
-			e.Buf.InsertRune(e.Cursor.Line, e.Cursor.Col, ' ')
-			e.Cursor.Col++
-		}
+		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: strings.Repeat(" ", tabSize)})
+		e.Cursor.Col += tabSize
 	default:
 		return EventIgnored
 	}
@@ -170,6 +187,15 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	e.clampCursor()
 	e.scrollViewport()
 	return EventConsumed
+}
+
+func leadingWhitespace(s string) string {
+	for i, r := range s {
+		if r != ' ' && r != '\t' {
+			return s[:i]
+		}
+	}
+	return s
 }
 
 func (e *EditorPaneWidget) clampCursor() {

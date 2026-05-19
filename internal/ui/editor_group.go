@@ -3,6 +3,7 @@ package ui
 import (
 	"macro/internal/core/buffer"
 	"macro/internal/core/cursor"
+	"macro/internal/core/undo"
 	"macro/internal/term"
 	"macro/internal/view"
 
@@ -14,6 +15,7 @@ type editorTab struct {
 	Buf      *buffer.Buffer
 	Cur      *cursor.Cursor
 	Vp       *view.Viewport
+	Undo     *undo.UndoStack
 }
 
 type EditorGroupWidget struct {
@@ -46,11 +48,14 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int) *EditorGroupWidg
 	tabBar.OnTabClick = func(index int) {
 		g.SwitchTab(index)
 	}
+	undoStack := &undo.UndoStack{}
+	editor.Undo = undoStack
 	g.tabs = []editorTab{{
 		FilePath: "untitled",
 		Buf:      editor.Buf,
 		Cur:      editor.Cursor,
 		Vp:       editor.Viewport,
+		Undo:     undoStack,
 	}}
 	g.syncTabs()
 	return g
@@ -74,6 +79,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Buf:      newBuf,
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
+		Undo:     &undo.UndoStack{},
 	})
 	g.SwitchTab(len(g.tabs) - 1)
 }
@@ -90,6 +96,7 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 		Buf:      buf,
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
+		Undo:     &undo.UndoStack{},
 	})
 	g.SwitchTab(len(g.tabs) - 1)
 }
@@ -144,11 +151,35 @@ func (g *EditorGroupWidget) IsDirty() bool {
 	return g.tabs[g.active].Buf.Dirty
 }
 
+func (g *EditorGroupWidget) AnyDirty() bool {
+	for _, t := range g.tabs {
+		if t.Buf.Dirty {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *EditorGroupWidget) Undo() {
+	t := &g.tabs[g.active]
+	if t.Undo != nil {
+		t.Undo.Undo(t.Buf)
+	}
+}
+
+func (g *EditorGroupWidget) Redo() {
+	t := &g.tabs[g.active]
+	if t.Undo != nil {
+		t.Undo.Redo(t.Buf)
+	}
+}
+
 func (g *EditorGroupWidget) syncTabs() {
 	t := g.tabs[g.active]
 	g.Editor.Buf = t.Buf
 	g.Editor.Cursor = t.Cur
 	g.Editor.Viewport = t.Vp
+	g.Editor.Undo = t.Undo
 	var uiTabs []Tab
 	for i, ts := range g.tabs {
 		uiTabs = append(uiTabs, Tab{

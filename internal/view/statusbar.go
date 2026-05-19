@@ -10,10 +10,21 @@ type StatusBar struct {
 	Line     int
 	Col      int
 	Dirty    bool
+	Message  string
 }
 
 // RenderStatusBar returns a string representing the status bar.
 func (s *StatusBar) RenderStatusBar(width int) string {
+	if s.Message != "" {
+		msg := " " + s.Message
+		for len(msg) < width {
+			msg += " "
+		}
+		if len(msg) > width {
+			msg = msg[:width]
+		}
+		return msg
+	}
 	dirtyMark := ""
 	if s.Dirty {
 		dirtyMark = "*"
