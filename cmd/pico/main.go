@@ -70,11 +70,10 @@ func main() {
 	changes := ui.NewChangesWidget(cwd)
 
 	sidebar := ui.NewSidebarWidget()
-	sidebar.AddPanel("explorer", explorer)
-	sidebar.AddPanel("search", search)
-	sidebar.AddPanel("changes", changes)
+	sidebar.AddPanel("explorer", "Files", explorer)
+	sidebar.AddPanel("search", "Search", search)
+	sidebar.AddPanel("changes", "Changes", changes)
 	sidebar.Visible = cfg.Settings.SidebarVisible
-	sidebar.Title = "EXPLORER"
 	sidebar.Borders = &borders
 
 	sidebarWidth := cfg.Settings.SidebarWidth
@@ -140,7 +139,6 @@ func main() {
 		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
 			sidebar.SetActivePanel("explorer")
-			sidebar.Title = "EXPLORER"
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -152,7 +150,6 @@ func main() {
 		ID: "sidebar.search", Title: "Show Search",
 		Handler: func() {
 			sidebar.SetActivePanel("search")
-			sidebar.Title = "SEARCH"
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -165,7 +162,6 @@ func main() {
 		Handler: func() {
 			changes.Refresh()
 			sidebar.SetActivePanel("changes")
-			sidebar.Title = "CHANGES"
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -476,10 +472,8 @@ func main() {
 					if sidebar.Visible {
 						divX := splitPanel.DividerScreenX()
 						if mx < divX {
+							sidebar.HandleEvent(tev)
 							cmdRegistry.Execute("sidebar.focus")
-							if w := sidebar.ActiveWidget(); w != nil {
-								w.HandleEvent(tev)
-							}
 						} else {
 							editorGroup.HandleEvent(tev)
 							cmdRegistry.Execute("editor.focus")

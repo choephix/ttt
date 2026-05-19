@@ -103,8 +103,8 @@ func TestSidebarPanelSwitching(t *testing.T) {
 	explorer := makeTestTree()
 	search := NewSearchWidget()
 
-	sidebar.AddPanel("explorer", explorer)
-	sidebar.AddPanel("search", search)
+	sidebar.AddPanel("explorer", "EXPLORER", explorer)
+	sidebar.AddPanel("search", "SEARCH", search)
 
 	if sidebar.ActivePanel != "explorer" {
 		t.Fatal("first added panel should be active")

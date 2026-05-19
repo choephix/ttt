@@ -4,8 +4,10 @@ import "macro/internal/term"
 
 type PanelTabBarWidget struct {
 	BaseWidget
-	Tabs    []Tab
-	Borders *term.BorderSet
+	Tabs     []Tab
+	Borders  *term.BorderSet
+	ShowMore bool
+	OnMore   func()
 }
 
 func NewPanelTabBarWidget() *PanelTabBarWidget {
@@ -39,5 +41,9 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
 			x++
 		}
+	}
+
+	if p.ShowMore && w >= 3 {
+		surface.SetCell(w-2, 0, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
 	}
 }
