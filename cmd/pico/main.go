@@ -3,11 +3,14 @@ package main
 import (
 	"macro/internal/command"
 	"macro/internal/config"
+	"macro/internal/core/diff"
+	"macro/internal/git"
 	"macro/internal/render"
 	"macro/internal/term"
 	"macro/internal/ui"
 	"macro/internal/view"
 	"os"
+	"path/filepath"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -64,10 +67,12 @@ func main() {
 	cwd, _ := os.Getwd()
 	explorer := ui.NewExplorerWidget(cwd)
 	search := ui.NewSearchWidget()
+	changes := ui.NewChangesWidget(cwd)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", explorer)
 	sidebar.AddPanel("search", search)
+	sidebar.AddPanel("changes", changes)
 	sidebar.Visible = cfg.Settings.SidebarVisible
 	sidebar.Title = "EXPLORER"
 	sidebar.Borders = &borders
@@ -154,6 +159,37 @@ func main() {
 			root.SetFocus(search)
 		},
 	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "sidebar.changes", Title: "Show Changes",
+		Handler: func() {
+			changes.Refresh()
+			sidebar.SetActivePanel("changes")
+			sidebar.Title = "CHANGES"
+			if !sidebar.Visible {
+				showSidebar()
+			}
+			root.SetFocus(changes)
+		},
+	})
+
+	changes.OnOpenDiff = func(status git.FileStatus) {
+		fullPath := filepath.Join(cwd, status.Path)
+		if status.Status == "??" {
+			editorGroup.OpenFile(fullPath)
+			root.SetFocus(editorGroup)
+			return
+		}
+		diffText, err := git.DiffFile(cwd, status.Path)
+		if err != nil || diffText == "" {
+			editorGroup.OpenFile(fullPath)
+			root.SetFocus(editorGroup)
+			return
+		}
+		parsed := diff.Parse(diffText)
+		editorGroup.OpenDiff(status.Path, parsed)
+		root.SetFocus(editorGroup)
+	}
 
 	cmdRegistry.Register(command.Command{
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
@@ -395,7 +431,11 @@ func main() {
 		}
 		root.Render(cells)
 		renderer.SetCurrent(cells)
-		screen.ShowCursor(editorGroup.Editor.CursorX, editorGroup.Editor.CursorY)
+		if editorGroup.IsEditorActive() {
+			screen.ShowCursor(editorGroup.Editor.CursorX, editorGroup.Editor.CursorY)
+		} else {
+			screen.HideCursor()
+		}
 		renderer.Render(screen)
 	}
 

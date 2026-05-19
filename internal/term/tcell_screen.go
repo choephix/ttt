@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 21
+const StyleCount = 24
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -65,4 +65,8 @@ func (t *TcellScreen) Fini() {
 
 func (t *TcellScreen) ShowCursor(x, y int) {
 	t.scr.ShowCursor(x, y)
+}
+
+func (t *TcellScreen) HideCursor() {
+	t.scr.HideCursor()
 }

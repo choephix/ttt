@@ -21,6 +21,9 @@ const (
 	StyleSelection
 	StyleSearchMatch
 	StyleSearchActive
+	StyleDiffAdded
+	StyleDiffDeleted
+	StyleDiffModified
 )
 
 // Cell represents a single character cell on the screen.
@@ -36,6 +39,7 @@ type Screen interface {
 	Show()
 	Clear()
 	ShowCursor(x, y int)
+	HideCursor()
 }
 
 // MockScreen is a test/mock implementation of Screen.
@@ -63,3 +67,4 @@ func (m *MockScreen) SetCell(x, y int, c Cell) {
 func (m *MockScreen) Show()               {}
 func (m *MockScreen) Clear()              { m.Cells = make(map[[2]int]Cell) }
 func (m *MockScreen) ShowCursor(x, y int) {}
+func (m *MockScreen) HideCursor()         {}

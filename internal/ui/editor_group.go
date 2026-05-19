@@ -5,6 +5,7 @@ import (
 	"macro/internal/core/buffer"
 	"macro/internal/core/clipboard"
 	"macro/internal/core/cursor"
+	"macro/internal/core/diff"
 	"macro/internal/core/selection"
 	"macro/internal/core/undo"
 	"macro/internal/term"
@@ -21,6 +22,7 @@ type editorTab struct {
 	Undo     *undo.UndoStack
 	Sel      *selection.Selection
 	TabSize  int
+	Content  Widget
 }
 
 type EditorGroupWidget struct {
@@ -117,6 +119,26 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 	g.SwitchTab(len(g.tabs) - 1)
 }
 
+func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff) {
+	tabName := path + " (diff)"
+	for i, t := range g.tabs {
+		if t.FilePath == tabName {
+			g.SwitchTab(i)
+			return
+		}
+	}
+	widget := NewDiffViewWidget(path, fd)
+	g.tabs = append(g.tabs, editorTab{
+		FilePath: tabName,
+		Content:  widget,
+	})
+	g.SwitchTab(len(g.tabs) - 1)
+}
+
+func (g *EditorGroupWidget) IsEditorActive() bool {
+	return g.tabs[g.active].Content == nil
+}
+
 func (g *EditorGroupWidget) SwitchTab(idx int) {
 	if idx >= 0 && idx < len(g.tabs) {
 		g.active = idx
@@ -149,6 +171,9 @@ func (g *EditorGroupWidget) CloseTab() {
 
 func (g *EditorGroupWidget) Save() {
 	t := &g.tabs[g.active]
+	if t.Content != nil {
+		return
+	}
 	if t.FilePath != "untitled" {
 		t.Buf.SaveFile(t.FilePath)
 	}
@@ -160,15 +185,25 @@ func (g *EditorGroupWidget) ActiveFilePath() string {
 
 func (g *EditorGroupWidget) ActiveCursor() (line, col int) {
 	t := g.tabs[g.active]
+	if t.Content != nil {
+		return 0, 0
+	}
 	return t.Cur.Line, t.Cur.Col
 }
 
 func (g *EditorGroupWidget) IsDirty() bool {
-	return g.tabs[g.active].Buf.Dirty
+	t := g.tabs[g.active]
+	if t.Content != nil {
+		return false
+	}
+	return t.Buf.Dirty
 }
 
 func (g *EditorGroupWidget) AnyDirty() bool {
 	for _, t := range g.tabs {
+		if t.Content != nil {
+			continue
+		}
 		if t.Buf.Dirty {
 			return true
 		}
@@ -178,6 +213,9 @@ func (g *EditorGroupWidget) AnyDirty() bool {
 
 func (g *EditorGroupWidget) Undo() {
 	t := &g.tabs[g.active]
+	if t.Content != nil {
+		return
+	}
 	if t.Undo != nil {
 		t.Undo.Undo(t.Buf)
 	}
@@ -185,6 +223,9 @@ func (g *EditorGroupWidget) Undo() {
 
 func (g *EditorGroupWidget) Redo() {
 	t := &g.tabs[g.active]
+	if t.Content != nil {
+		return
+	}
 	if t.Undo != nil {
 		t.Undo.Redo(t.Buf)
 	}
@@ -192,7 +233,7 @@ func (g *EditorGroupWidget) Redo() {
 
 func (g *EditorGroupWidget) SelectAll() {
 	t := &g.tabs[g.active]
-	if t.Sel == nil {
+	if t.Content != nil || t.Sel == nil {
 		return
 	}
 	t.Sel.Start(0, 0)
@@ -202,14 +243,23 @@ func (g *EditorGroupWidget) SelectAll() {
 }
 
 func (g *EditorGroupWidget) SetSearchQuery(query string) {
+	if !g.IsEditorActive() {
+		return
+	}
 	g.Editor.SearchQuery = query
 }
 
 func (g *EditorGroupWidget) SetSearchActive(idx int) {
+	if !g.IsEditorActive() {
+		return
+	}
 	g.Editor.SearchActive = idx
 }
 
 func (g *EditorGroupWidget) GoToLine(line int) {
+	if !g.IsEditorActive() {
+		return
+	}
 	if line < 1 {
 		line = 1
 	}
@@ -222,13 +272,16 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 }
 
 func (g *EditorGroupWidget) ClearSearch() {
+	if !g.IsEditorActive() {
+		return
+	}
 	g.Editor.SearchQuery = ""
 	g.Editor.SearchActive = 0
 }
 
 func (g *EditorGroupWidget) Copy() {
 	t := &g.tabs[g.active]
-	if t.Sel == nil || !t.Sel.Active {
+	if t.Content != nil || t.Sel == nil || !t.Sel.Active {
 		return
 	}
 	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
@@ -237,7 +290,7 @@ func (g *EditorGroupWidget) Copy() {
 
 func (g *EditorGroupWidget) Cut() {
 	t := &g.tabs[g.active]
-	if t.Sel == nil || !t.Sel.Active {
+	if t.Content != nil || t.Sel == nil || !t.Sel.Active {
 		return
 	}
 	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
@@ -246,6 +299,9 @@ func (g *EditorGroupWidget) Cut() {
 }
 
 func (g *EditorGroupWidget) Paste() {
+	if !g.IsEditorActive() {
+		return
+	}
 	text := clipboard.Get()
 	if text == "" {
 		return
@@ -255,20 +311,26 @@ func (g *EditorGroupWidget) Paste() {
 
 func (g *EditorGroupWidget) syncTabs() {
 	t := g.tabs[g.active]
-	g.Editor.Buf = t.Buf
-	g.Editor.Cursor = t.Cur
-	g.Editor.Viewport = t.Vp
-	g.Editor.Undo = t.Undo
-	g.Editor.Selection = t.Sel
-	if t.TabSize > 0 {
-		g.Editor.TabSize = t.TabSize
+	if t.Content == nil {
+		g.Editor.Buf = t.Buf
+		g.Editor.Cursor = t.Cur
+		g.Editor.Viewport = t.Vp
+		g.Editor.Undo = t.Undo
+		g.Editor.Selection = t.Sel
+		if t.TabSize > 0 {
+			g.Editor.TabSize = t.TabSize
+		}
 	}
 	var uiTabs []Tab
 	for i, ts := range g.tabs {
+		dirty := false
+		if ts.Buf != nil {
+			dirty = ts.Buf.Dirty
+		}
 		uiTabs = append(uiTabs, Tab{
 			Name:   ts.FilePath,
 			Active: i == g.active,
-			Dirty:  ts.Buf.Dirty,
+			Dirty:  dirty,
 		})
 	}
 	g.TabBar.SetTabs(uiTabs)
@@ -287,15 +349,27 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 	tabSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: tabBarH})
 	g.TabBar.Render(tabSurface)
 
-	editorH := h - tabBarH
-	g.Editor.SetRect(Rect{X: r.X, Y: r.Y + tabBarH, W: r.W, H: editorH})
-	editorSurface := surface.Sub(Rect{X: 0, Y: tabBarH, W: w, H: editorH})
-	g.Editor.Render(editorSurface)
+	contentH := h - tabBarH
+	contentRect := Rect{X: r.X, Y: r.Y + tabBarH, W: r.W, H: contentH}
+	contentSurface := surface.Sub(Rect{X: 0, Y: tabBarH, W: w, H: contentH})
+
+	t := g.tabs[g.active]
+	if t.Content != nil {
+		t.Content.SetRect(contentRect)
+		t.Content.Render(contentSurface)
+	} else {
+		g.Editor.SetRect(contentRect)
+		g.Editor.Render(contentSurface)
+	}
 }
 
 func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
 	if g.TabBar.HandleEvent(ev) == EventConsumed {
 		return EventConsumed
+	}
+	t := g.tabs[g.active]
+	if t.Content != nil {
+		return t.Content.HandleEvent(ev)
 	}
 	return g.Editor.HandleEvent(ev)
 }

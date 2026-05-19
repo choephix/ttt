@@ -21,6 +21,9 @@ type BorderChars struct {
 
 type ThemeConfig struct {
 	AccentColor     string      `json:"accentColor,omitempty"`
+	SuccessColor    string      `json:"successColor,omitempty"`
+	DangerColor     string      `json:"dangerColor,omitempty"`
+	WarningColor    string      `json:"warningColor,omitempty"`
 	StatusBar       StyleDef    `json:"statusBar"`
 	ActiveTab       StyleDef    `json:"activeTab"`
 	InactiveTab     StyleDef    `json:"inactiveTab"`
@@ -38,6 +41,9 @@ type ThemeConfig struct {
 	Selection       StyleDef    `json:"selection"`
 	SearchMatch     StyleDef    `json:"searchMatch"`
 	SearchActive    StyleDef    `json:"searchActive"`
+	DiffAdded       StyleDef    `json:"diffAdded"`
+	DiffDeleted     StyleDef    `json:"diffDeleted"`
+	DiffModified    StyleDef    `json:"diffModified"`
 	Borders         BorderChars `json:"borders"`
 }
 
@@ -75,7 +81,7 @@ func DefaultTheme() ThemeConfig {
 	return t
 }
 
-func (t *ThemeConfig) ResolveAccentColor() {
+func (t *ThemeConfig) ResolveColors() {
 	ac := t.AccentColor
 	if ac == "" {
 		ac = "darkcyan"
@@ -87,6 +93,24 @@ func (t *ThemeConfig) ResolveAccentColor() {
 	fillFg(&t.PaletteBorder, ac)
 	fillBg(&t.PaletteSelected, ac)
 	fillFg(&t.Border, ac)
+
+	sc := t.SuccessColor
+	if sc == "" {
+		sc = "green"
+	}
+	fillFg(&t.DiffAdded, sc)
+
+	dc := t.DangerColor
+	if dc == "" {
+		dc = "red"
+	}
+	fillFg(&t.DiffDeleted, dc)
+
+	wc := t.WarningColor
+	if wc == "" {
+		wc = "yellow"
+	}
+	fillFg(&t.DiffModified, wc)
 }
 
 func fillFg(s *StyleDef, color string) {

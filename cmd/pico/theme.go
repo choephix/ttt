@@ -26,6 +26,9 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleSelection, theme.Selection)
 	applyStyleDef(&m, term.StyleSearchMatch, theme.SearchMatch)
 	applyStyleDef(&m, term.StyleSearchActive, theme.SearchActive)
+	applyStyleDef(&m, term.StyleDiffAdded, theme.DiffAdded)
+	applyStyleDef(&m, term.StyleDiffDeleted, theme.DiffDeleted)
+	applyStyleDef(&m, term.StyleDiffModified, theme.DiffModified)
 	return m
 }
 

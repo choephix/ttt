@@ -36,7 +36,7 @@ func Load() AppConfig {
 		json.Unmarshal(data, &cfg.Theme)
 	}
 
-	cfg.Theme.ResolveAccentColor()
+	cfg.Theme.ResolveColors()
 
 	return cfg
 }

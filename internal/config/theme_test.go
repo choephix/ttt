@@ -18,7 +18,7 @@ func TestDefaultTheme(t *testing.T) {
 func TestThemePartialJSON(t *testing.T) {
 	th := DefaultTheme()
 	json.Unmarshal([]byte(`{"statusBar": {"fg": "yellow", "bg": "#ff0000"}}`), &th)
-	th.ResolveAccentColor()
+	th.ResolveColors()
 
 	if th.StatusBar.Fg != "yellow" {
 		t.Fatalf("expected StatusBar.Fg 'yellow', got '%s'", th.StatusBar.Fg)

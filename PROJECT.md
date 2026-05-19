@@ -351,7 +351,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ## Phase 4 — Line Numbers, Gutter, and Indentation (partially done)
 
-- [ ] Line number gutter on the left edge of each editor pane
+- [ ] Line number gutter on the left edge of each editor pane (extract a shared gutter renderer that both the editor and DiffViewWidget can use — the diff viewer already has an inline `renderGutter()`)
 - [ ] Gutter width adjusts dynamically based on total line count
 - [x] Auto-indent: new line inherits indentation of the previous line
 - [ ] Tab/Shift+Tab indent/dedent selected lines
@@ -390,9 +390,13 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Enter or click to open file in active pane
 - [x] Ctrl+B toggle sidebar visibility
 - [x] Visual indicators: directory chevrons (▶/▼)
+- [x] Git changes panel (Ctrl+D) — lists modified/added/deleted files, opens diff in editor; untracked files open as regular files
+- [ ] Changes panel: tree view mode (`changesView: "list" | "tree"` setting, default list)
+- [ ] Changes panel: show `filename  path/to/dir` with muted directory path (useful when multiple files share a name)
 - [ ] Highlight the currently open file in the tree
 - [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
 - [ ] File icons (using Unicode/Nerd Font glyphs if available)
+- [ ] Open folder support — currently uses `os.Getwd()` for explorer, git changes, and all path resolution. When folder-opening is added (`pico /path` or Open Folder dialog), replace cwd with the opened folder path everywhere.
 
 ---
 
