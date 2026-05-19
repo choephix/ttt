@@ -47,9 +47,6 @@ func main() {
 	editorPane := ui.NewEditorPaneWidget(buf, cur, vp)
 	editorPane.TabSize = cfg.Settings.TabSize
 	statusBar := ui.NewStatusBarWidget(status)
-	tabBar := ui.NewTabBarWidget()
-	tabBar.Borders = &borders
-	tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
 
 	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{
 		{Name: "File"},
@@ -68,15 +65,6 @@ func main() {
 	sidebar.AddPanel("search", search)
 	sidebar.Visible = cfg.Settings.SidebarVisible
 
-	editorArea := &ui.VBox{}
-	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
-	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
-
-	resizeHandle := ui.NewResizeHandleWidget(&borders)
-
-	mainArea := &ui.HBox{}
-	sidebarIdx := 0
-	handleIdx := 1
 	sidebarWidth := cfg.Settings.SidebarWidth
 	if sidebarWidth <= 0 {
 		sidebarWidth = 30
@@ -84,14 +72,15 @@ func main() {
 	const minSidebarWidth = 10
 	const maxSidebarWidth = 80
 	const resizeStep = 2
-	if sidebar.Visible {
-		mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
-		mainArea.AddChild(resizeHandle, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
-	} else {
-		mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Hidden})
-		mainArea.AddChild(resizeHandle, ui.LayoutConstraint{Type: ui.Hidden})
-	}
-	mainArea.AddChild(editorArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
+
+	splitPanel := ui.NewSplitPanelWidget()
+	splitPanel.Left = sidebar
+	splitPanel.Right = editorPane
+	splitPanel.Borders = &borders
+	splitPanel.DividerPos = sidebarWidth
+	splitPanel.ShowLeft = sidebar.Visible
+	splitPanel.LeftTitle = "EXPLORER"
+	splitPanel.RightTitle = status.FileName
 
 	setSidebarWidth := func(w int) {
 		if w < minSidebarWidth {
@@ -101,12 +90,12 @@ func main() {
 			w = maxSidebarWidth
 		}
 		sidebarWidth = w
-		mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+		splitPanel.DividerPos = sidebarWidth
 	}
 
 	rootBox := &ui.VBox{}
 	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
-	rootBox.AddChild(mainArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
+	rootBox.AddChild(splitPanel, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 
 	root := ui.NewRoot(rootBox)
@@ -115,13 +104,11 @@ func main() {
 	// Commands
 	showSidebar := func() {
 		sidebar.Visible = true
-		mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
-		mainArea.SetChildConstraint(handleIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
+		splitPanel.ShowLeft = true
 	}
 	hideSidebar := func() {
 		sidebar.Visible = false
-		mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Hidden})
-		mainArea.SetChildConstraint(handleIdx, ui.LayoutConstraint{Type: ui.Hidden})
+		splitPanel.ShowLeft = false
 	}
 
 	cmdRegistry.Register(command.Command{
@@ -139,6 +126,7 @@ func main() {
 		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
 			sidebar.SetActivePanel("explorer")
+			splitPanel.LeftTitle = "EXPLORER"
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -150,6 +138,7 @@ func main() {
 		ID: "sidebar.search", Title: "Show Search",
 		Handler: func() {
 			sidebar.SetActivePanel("search")
+			splitPanel.LeftTitle = "SEARCH"
 			if !sidebar.Visible {
 				showSidebar()
 			}
@@ -204,7 +193,7 @@ func main() {
 			if len(os.Args) > 1 {
 				buf.SaveFile(os.Args[1])
 				status.Dirty = false
-				tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
+				splitPanel.RightTitle = status.FileName
 			}
 		},
 	})
@@ -237,7 +226,7 @@ func main() {
 		vp.LeftCol = 0
 		status.FileName = path
 		status.Dirty = false
-		tabBar.SetTabs([]ui.Tab{{Name: path, Active: true}})
+		splitPanel.RightTitle = path
 		root.SetFocus(editorPane)
 	}
 
@@ -281,7 +270,6 @@ func main() {
 	redraw()
 
 	draggingSidebar := false
-	sidebarStartX := 0
 
 	for {
 		ev := screen.PollEvent()
@@ -295,41 +283,44 @@ func main() {
 			status.Line = cur.Line
 			status.Col = cur.Col
 			status.Dirty = buf.Dirty
-			tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: buf.Dirty}})
+			title := status.FileName
+			if buf.Dirty {
+				title += "*"
+			}
+			splitPanel.RightTitle = title
 			redraw()
 
 		case *tcell.EventMouse:
 			mx, my := tev.Position()
 			btn := tev.Buttons()
 
+			panelRect := splitPanel.GetRect()
+			inPanel := my >= panelRect.Y && my < panelRect.Y+panelRect.H &&
+				mx >= panelRect.X && mx < panelRect.X+panelRect.W
+
 			if draggingSidebar {
 				if btn&tcell.Button1 != 0 {
-					newWidth := mx - sidebarStartX
+					newWidth := mx - panelRect.X - 1
 					setSidebarWidth(newWidth)
 					redraw()
 				} else {
 					draggingSidebar = false
 				}
-			} else if btn&tcell.Button1 != 0 {
-				_, screenH := screen.Size()
-				statusRow := screenH - 1
-
-				if my < statusRow {
-					if sidebar.Visible {
-						handleX := sidebarStartX + sidebarWidth
-						if mx == handleX {
-							draggingSidebar = true
-						} else if mx >= sidebarStartX && mx < handleX {
-							cmdRegistry.Execute("sidebar.focus")
-							redraw()
-						} else if mx > handleX {
-							cmdRegistry.Execute("editor.focus")
-							redraw()
-						}
-					} else if mx >= sidebarStartX {
+			} else if btn&tcell.Button1 != 0 && inPanel {
+				if sidebar.Visible {
+					divX := splitPanel.DividerScreenX()
+					if mx == divX {
+						draggingSidebar = true
+					} else if mx < divX {
+						cmdRegistry.Execute("sidebar.focus")
+						redraw()
+					} else {
 						cmdRegistry.Execute("editor.focus")
 						redraw()
 					}
+				} else {
+					cmdRegistry.Execute("editor.focus")
+					redraw()
 				}
 			}
 
@@ -431,7 +422,7 @@ func firstRune(s string, fallback rune) rune {
 }
 
 func buildBorderSet(bc config.BorderChars) term.BorderSet {
-	d := term.DoubleBorderSet()
+	d := term.SingleBorderSet()
 	return term.BorderSet{
 		Horizontal:  firstRune(bc.Horizontal, d.Horizontal),
 		Vertical:    firstRune(bc.Vertical, d.Vertical),
@@ -439,6 +430,10 @@ func buildBorderSet(bc config.BorderChars) term.BorderSet {
 		TopRight:    firstRune(bc.TopRight, d.TopRight),
 		BottomLeft:  firstRune(bc.BottomLeft, d.BottomLeft),
 		BottomRight: firstRune(bc.BottomRight, d.BottomRight),
+		TopTee:      firstRune(bc.TopTee, d.TopTee),
+		BottomTee:   firstRune(bc.BottomTee, d.BottomTee),
+		LeftTee:     firstRune(bc.LeftTee, d.LeftTee),
+		RightTee:    firstRune(bc.RightTee, d.RightTee),
 	}
 }
 

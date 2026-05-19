@@ -13,6 +13,10 @@ type BorderChars struct {
 	TopRight    string `json:"topRight"`
 	BottomLeft  string `json:"bottomLeft"`
 	BottomRight string `json:"bottomRight"`
+	TopTee      string `json:"topTee"`
+	BottomTee   string `json:"bottomTee"`
+	LeftTee     string `json:"leftTee"`
+	RightTee    string `json:"rightTee"`
 }
 
 type ThemeConfig struct {
@@ -70,12 +74,16 @@ func DefaultTheme() ThemeConfig {
 		Border:       StyleDef{Fg: "darkcyan"},
 
 		Borders: BorderChars{
-			Horizontal:  "═",
-			Vertical:    "║",
-			TopLeft:     "╔",
-			TopRight:    "╗",
-			BottomLeft:  "╚",
-			BottomRight: "╝",
+			Horizontal:  "─",
+			Vertical:    "│",
+			TopLeft:     "┌",
+			TopRight:    "┐",
+			BottomLeft:  "└",
+			BottomRight: "┘",
+			TopTee:      "┬",
+			BottomTee:   "┴",
+			LeftTee:     "├",
+			RightTee:    "┤",
 		},
 	}
 }
