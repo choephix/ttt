@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 14
+const StyleCount = 15
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -25,6 +25,7 @@ func DefaultStyleMap() StyleMap {
 	m[StylePaletteItem] = base.Foreground(tcell.ColorSilver)
 	m[StylePaletteSelected] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
 	m[StyleLineNumber] = base.Foreground(tcell.ColorDarkGray)
+	m[StyleResizeHandle] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorGray)
 	return m
 }
 
@@ -42,6 +43,7 @@ func NewTcellScreen() (*TcellScreen, error) {
 	if err := s.Init(); err != nil {
 		return nil, err
 	}
+	s.EnableMouse()
 	return &TcellScreen{scr: s, styleMap: DefaultStyleMap()}, nil
 }
 

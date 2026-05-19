@@ -20,6 +20,7 @@ type ThemeConfig struct {
 	PaletteItem       StyleDef `json:"paletteItem"`
 	PaletteSelected   StyleDef `json:"paletteSelected"`
 	LineNumber        StyleDef `json:"lineNumber"`
+	ResizeHandle      StyleDef `json:"resizeHandle"`
 }
 
 func DefaultTheme() ThemeConfig {
@@ -37,5 +38,6 @@ func DefaultTheme() ThemeConfig {
 		PaletteItem:       StyleDef{Fg: "silver"},
 		PaletteSelected:   StyleDef{Fg: "white", Bg: "darkblue"},
 		LineNumber:        StyleDef{Fg: "darkgray"},
+		ResizeHandle:      StyleDef{Fg: "gray", Bg: "darkslategray"},
 	}
 }

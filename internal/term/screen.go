@@ -17,6 +17,7 @@ const (
 	StylePaletteItem
 	StylePaletteSelected
 	StyleLineNumber
+	StyleResizeHandle
 )
 
 // Cell represents a single character cell on the screen.

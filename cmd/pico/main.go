@@ -65,19 +65,38 @@ func main() {
 	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 
+	resizeHandle := ui.NewResizeHandleWidget()
+
 	mainArea := &ui.HBox{}
 	mainArea.AddChild(activityBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 2})
 	sidebarIdx := 1
+	handleIdx := 2
 	sidebarWidth := cfg.Settings.SidebarWidth
 	if sidebarWidth <= 0 {
 		sidebarWidth = 30
 	}
+	const minSidebarWidth = 10
+	const maxSidebarWidth = 80
+	const resizeStep = 2
 	if sidebar.Visible {
 		mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+		mainArea.AddChild(resizeHandle, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 	} else {
 		mainArea.AddChild(sidebar, ui.LayoutConstraint{Type: ui.Hidden})
+		mainArea.AddChild(resizeHandle, ui.LayoutConstraint{Type: ui.Hidden})
 	}
 	mainArea.AddChild(editorArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
+
+	setSidebarWidth := func(w int) {
+		if w < minSidebarWidth {
+			w = minSidebarWidth
+		}
+		if w > maxSidebarWidth {
+			w = maxSidebarWidth
+		}
+		sidebarWidth = w
+		mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+	}
 
 	rootBox := &ui.VBox{}
 	rootBox.AddChild(mainArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
@@ -87,14 +106,24 @@ func main() {
 	root.SetFocus(editorPane)
 
 	// Commands
+	showSidebar := func() {
+		sidebar.Visible = true
+		mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+		mainArea.SetChildConstraint(handleIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
+	}
+	hideSidebar := func() {
+		sidebar.Visible = false
+		mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Hidden})
+		mainArea.SetChildConstraint(handleIdx, ui.LayoutConstraint{Type: ui.Hidden})
+	}
+
 	cmdRegistry.Register(command.Command{
 		ID: "sidebar.toggle", Title: "Toggle Sidebar",
 		Handler: func() {
-			sidebar.Visible = !sidebar.Visible
 			if sidebar.Visible {
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+				hideSidebar()
 			} else {
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Hidden})
+				showSidebar()
 			}
 		},
 	})
@@ -105,8 +134,7 @@ func main() {
 			sidebar.SetActivePanel("explorer")
 			activityBar.SetActiveByID("explorer")
 			if !sidebar.Visible {
-				sidebar.Visible = true
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+				showSidebar()
 			}
 			root.SetFocus(explorer)
 		},
@@ -118,10 +146,40 @@ func main() {
 			sidebar.SetActivePanel("search")
 			activityBar.SetActiveByID("search")
 			if !sidebar.Visible {
-				sidebar.Visible = true
-				mainArea.SetChildConstraint(sidebarIdx, ui.LayoutConstraint{Type: ui.Fixed, Value: sidebarWidth})
+				showSidebar()
 			}
 			root.SetFocus(search)
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "sidebar.wider", Title: "Increase Sidebar Width",
+		Handler: func() {
+			if sidebar.Visible {
+				setSidebarWidth(sidebarWidth + resizeStep)
+			}
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
+		Handler: func() {
+			if sidebar.Visible {
+				setSidebarWidth(sidebarWidth - resizeStep)
+			}
+		},
+	})
+
+	cmdRegistry.Register(command.Command{
+		ID: "sidebar.focus", Title: "Focus Sidebar",
+		Handler: func() {
+			if !sidebar.Visible {
+				showSidebar()
+			}
+			active := sidebar.ActiveWidget()
+			if active != nil {
+				root.SetFocus(active)
+			}
 		},
 	})
 
@@ -225,6 +283,9 @@ func main() {
 
 	redraw()
 
+	draggingSidebar := false
+	activityBarWidth := 2
+
 	for {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
@@ -239,6 +300,41 @@ func main() {
 			status.Dirty = buf.Dirty
 			tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: buf.Dirty}})
 			redraw()
+
+		case *tcell.EventMouse:
+			mx, my := tev.Position()
+			btn := tev.Buttons()
+
+			if draggingSidebar {
+				if btn&tcell.Button1 != 0 {
+					newWidth := mx - activityBarWidth
+					setSidebarWidth(newWidth)
+					redraw()
+				} else {
+					draggingSidebar = false
+				}
+			} else if btn&tcell.Button1 != 0 {
+				_, screenH := screen.Size()
+				statusRow := screenH - 1
+
+				if my < statusRow {
+					if sidebar.Visible {
+						handleX := activityBarWidth + sidebarWidth
+						if mx == handleX {
+							draggingSidebar = true
+						} else if mx >= activityBarWidth && mx < handleX {
+							cmdRegistry.Execute("sidebar.focus")
+							redraw()
+						} else if mx > handleX {
+							cmdRegistry.Execute("editor.focus")
+							redraw()
+						}
+					} else if mx >= activityBarWidth {
+						cmdRegistry.Execute("editor.focus")
+						redraw()
+					}
+				}
+			}
 
 		case *tcell.EventResize:
 			w, h := screen.Size()
@@ -323,6 +419,7 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StylePaletteItem, theme.PaletteItem)
 	applyStyleDef(&m, term.StylePaletteSelected, theme.PaletteSelected)
 	applyStyleDef(&m, term.StyleLineNumber, theme.LineNumber)
+	applyStyleDef(&m, term.StyleResizeHandle, theme.ResizeHandle)
 	return m
 }
 

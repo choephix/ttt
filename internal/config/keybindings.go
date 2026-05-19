@@ -124,6 +124,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+f", Command: "sidebar.search"},
 		{Key: "ctrl+p", Command: "command.palette"},
 		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+0", Command: "sidebar.focus"},
 		{Key: "escape", Command: "editor.focus"},
 	}
 }
