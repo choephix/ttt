@@ -121,8 +121,13 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 	}
 	surface.SetCell(w-1, h-1, term.Cell{Ch: b.BottomRight, Style: bs})
 
-	// Left border
-	for y := 0; y < h-1; y++ {
+	// Left border — starts at RightBorderStartY
+	lbStart := s.RightBorderStartY
+	if lbStart > 0 && lbStart < h-1 {
+		surface.SetCell(0, lbStart, term.Cell{Ch: b.TopLeft, Style: bs})
+		lbStart++
+	}
+	for y := lbStart; y < h-1; y++ {
 		surface.SetCell(0, y, term.Cell{Ch: b.Vertical, Style: bs})
 	}
 
