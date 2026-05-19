@@ -8,21 +8,23 @@ import (
 
 type ResizeHandleWidget struct {
 	BaseWidget
-	Dragging  bool
-	OnResize  func(deltaX int)
-	lastMouseX int
+	Borders *term.BorderSet
 }
 
-func NewResizeHandleWidget() *ResizeHandleWidget {
-	return &ResizeHandleWidget{}
+func NewResizeHandleWidget(borders *term.BorderSet) *ResizeHandleWidget {
+	return &ResizeHandleWidget{Borders: borders}
 }
 
 func (r *ResizeHandleWidget) Focusable() bool { return false }
 
 func (r *ResizeHandleWidget) Render(surface *RenderSurface) {
 	_, h := surface.Size()
+	ch := '║'
+	if r.Borders != nil {
+		ch = r.Borders.Vertical
+	}
 	for y := 0; y < h; y++ {
-		surface.SetCell(0, y, term.Cell{Ch: '│', Style: term.StyleResizeHandle})
+		surface.SetCell(0, y, term.Cell{Ch: ch, Style: term.StyleResizeHandle})
 	}
 }
 

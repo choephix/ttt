@@ -16,6 +16,7 @@ type CommandPaletteWidget struct {
 	Selected  int
 	OnExecute func(id string)
 	OnDismiss func()
+	Borders   *term.BorderSet
 }
 
 func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
@@ -49,18 +50,22 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	boxY := 2
 
 	// Draw border
+	b := term.DoubleBorderSet()
+	if p.Borders != nil {
+		b = *p.Borders
+	}
 	for x := boxX; x < boxX+boxW; x++ {
-		surface.SetCell(x, boxY, term.Cell{Ch: '─', Style: term.StylePaletteBorder})
-		surface.SetCell(x, boxY+boxH-1, term.Cell{Ch: '─', Style: term.StylePaletteBorder})
+		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: term.StylePaletteBorder})
+		surface.SetCell(x, boxY+boxH-1, term.Cell{Ch: b.Horizontal, Style: term.StylePaletteBorder})
 	}
 	for y := boxY; y < boxY+boxH; y++ {
-		surface.SetCell(boxX, y, term.Cell{Ch: '│', Style: term.StylePaletteBorder})
-		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: '│', Style: term.StylePaletteBorder})
+		surface.SetCell(boxX, y, term.Cell{Ch: b.Vertical, Style: term.StylePaletteBorder})
+		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: b.Vertical, Style: term.StylePaletteBorder})
 	}
-	surface.SetCell(boxX, boxY, term.Cell{Ch: '┌', Style: term.StylePaletteBorder})
-	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: '┐', Style: term.StylePaletteBorder})
-	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: '└', Style: term.StylePaletteBorder})
-	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: '┘', Style: term.StylePaletteBorder})
+	surface.SetCell(boxX, boxY, term.Cell{Ch: b.TopLeft, Style: term.StylePaletteBorder})
+	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: b.TopRight, Style: term.StylePaletteBorder})
+	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: term.StylePaletteBorder})
+	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: term.StylePaletteBorder})
 
 	// Clear interior
 	for y := boxY + 1; y < boxY+boxH-1; y++ {
@@ -80,7 +85,7 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 
 	// Separator
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
-		surface.SetCell(x, boxY+2, term.Cell{Ch: '─', Style: term.StylePaletteBorder})
+		surface.SetCell(x, boxY+2, term.Cell{Ch: b.Horizontal, Style: term.StylePaletteBorder})
 	}
 
 	// Command list

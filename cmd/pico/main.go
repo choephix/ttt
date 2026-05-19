@@ -42,12 +42,21 @@ func main() {
 
 	renderer := &render.Renderer{}
 	cmdRegistry := command.NewRegistry()
+	borders := buildBorderSet(cfg.Theme.Borders)
 
 	editorPane := ui.NewEditorPaneWidget(buf, cur, vp)
 	editorPane.TabSize = cfg.Settings.TabSize
 	statusBar := ui.NewStatusBarWidget(status)
 	tabBar := ui.NewTabBarWidget()
 	tabBar.SetTabs([]ui.Tab{{Name: status.FileName, Active: true, Dirty: false}})
+
+	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{
+		{Name: "File"},
+		{Name: "Edit"},
+		{Name: "Selection"},
+		{Name: "View"},
+		{Name: "Help"},
+	})
 
 	activityBar := ui.NewActivityBarWidget()
 
@@ -65,7 +74,7 @@ func main() {
 	editorArea.AddChild(tabBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 	editorArea.AddChild(editorPane, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 
-	resizeHandle := ui.NewResizeHandleWidget()
+	resizeHandle := ui.NewResizeHandleWidget(&borders)
 
 	mainArea := &ui.HBox{}
 	mainArea.AddChild(activityBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 2})
@@ -99,6 +108,7 @@ func main() {
 	}
 
 	rootBox := &ui.VBox{}
+	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 	rootBox.AddChild(mainArea, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
 	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 
@@ -208,6 +218,7 @@ func main() {
 		ID: "command.palette", Title: "Command Palette",
 		Handler: func() {
 			palette := ui.NewCommandPaletteWidget(cmdRegistry.List())
+			palette.Borders = &borders
 			palette.OnExecute = func(id string) {
 				root.PopOverlay()
 				root.SetFocus(editorPane)
@@ -420,7 +431,28 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StylePaletteSelected, theme.PaletteSelected)
 	applyStyleDef(&m, term.StyleLineNumber, theme.LineNumber)
 	applyStyleDef(&m, term.StyleResizeHandle, theme.ResizeHandle)
+	applyStyleDef(&m, term.StyleMenuBar, theme.MenuBar)
+	applyStyleDef(&m, term.StyleMenuBarActive, theme.MenuBarActive)
 	return m
+}
+
+func firstRune(s string, fallback rune) rune {
+	for _, r := range s {
+		return r
+	}
+	return fallback
+}
+
+func buildBorderSet(bc config.BorderChars) term.BorderSet {
+	d := term.DoubleBorderSet()
+	return term.BorderSet{
+		Horizontal:  firstRune(bc.Horizontal, d.Horizontal),
+		Vertical:    firstRune(bc.Vertical, d.Vertical),
+		TopLeft:     firstRune(bc.TopLeft, d.TopLeft),
+		TopRight:    firstRune(bc.TopRight, d.TopRight),
+		BottomLeft:  firstRune(bc.BottomLeft, d.BottomLeft),
+		BottomRight: firstRune(bc.BottomRight, d.BottomRight),
+	}
 }
 
 func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {

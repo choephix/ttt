@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 15
+const StyleCount = 17
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -26,6 +26,8 @@ func DefaultStyleMap() StyleMap {
 	m[StylePaletteSelected] = base.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
 	m[StyleLineNumber] = base.Foreground(tcell.ColorDarkGray)
 	m[StyleResizeHandle] = base.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorGray)
+	m[StyleMenuBar] = base.Background(tcell.ColorSilver).Foreground(tcell.ColorBlack)
+	m[StyleMenuBarActive] = base.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite).Bold(true)
 	return m
 }
 

@@ -18,6 +18,8 @@ const (
 	StylePaletteSelected
 	StyleLineNumber
 	StyleResizeHandle
+	StyleMenuBar
+	StyleMenuBarActive
 )
 
 // Cell represents a single character cell on the screen.
