@@ -42,20 +42,17 @@ func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
 		AccentColor: "darkcyan",
 
-		MenuBar:   StyleDef{Fg: "black", Bg: "silver"},
-		StatusBar: StyleDef{Fg: "black", Bg: "silver"},
+		MenuBar:   StyleDef{},
+		StatusBar: StyleDef{},
 
-		MenuBarActive: StyleDef{Fg: "white", Bold: true},
+		MenuBarActive: StyleDef{Bold: true},
 		ActiveTab:     StyleDef{Bold: true},
 		InactiveTab:   StyleDef{Fg: "gray"},
 
 		SidebarHeader:   StyleDef{Bold: true},
-		SidebarItem:     StyleDef{Fg: "silver"},
-		SidebarSelected: StyleDef{Fg: "white"},
+		SidebarSelected: StyleDef{},
 
-		PaletteInput:    StyleDef{Fg: "white"},
-		PaletteItem:     StyleDef{Fg: "silver"},
-		PaletteSelected: StyleDef{Fg: "white"},
+		PaletteSelected: StyleDef{},
 
 		LineNumber: StyleDef{Fg: "gray"},
 

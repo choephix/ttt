@@ -8,10 +8,10 @@ func TestRenderStatusBar(t *testing.T) {
 	if len(s) != 30 {
 		t.Errorf("expected status bar length 30, got %d", len(s))
 	}
-	if s[:7] != "file.go" {
-		t.Errorf("expected file name prefix, got %q", s[:7])
+	if s[:8] != " file.go" {
+		t.Errorf("expected file name prefix with space, got %q", s[:8])
 	}
-	if s[7] != '*' {
-		t.Errorf("expected dirty mark '*', got %q", s[7])
+	if s[8] != '*' {
+		t.Errorf("expected dirty mark '*', got %q", s[8])
 	}
 }

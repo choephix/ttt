@@ -14,8 +14,8 @@ func TestLoadNoFiles(t *testing.T) {
 	if cfg.Settings.TabSize != 4 {
 		t.Fatalf("expected default TabSize 4, got %d", cfg.Settings.TabSize)
 	}
-	if cfg.Theme.StatusBar.Fg != "black" {
-		t.Fatalf("expected default StatusBar.Fg 'black', got '%s'", cfg.Theme.StatusBar.Fg)
+	if cfg.Theme.AccentColor != "darkcyan" {
+		t.Fatalf("expected default AccentColor 'darkcyan', got '%s'", cfg.Theme.AccentColor)
 	}
 }
 

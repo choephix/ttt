@@ -18,7 +18,7 @@ func (s *StatusBar) RenderStatusBar(width int) string {
 	if s.Dirty {
 		dirtyMark = "*"
 	}
-	status := fmt.Sprintf("%s%s [%d, %d]", s.FileName, dirtyMark, s.Line+1, s.Col+1)
+	status := fmt.Sprintf(" %s%s [%d, %d]", s.FileName, dirtyMark, s.Line+1, s.Col+1)
 	if len(status) > width {
 		return status[:width]
 	}
