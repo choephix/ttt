@@ -289,9 +289,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ---
 
-## Phase 1 — Core Editing (current state, mostly done)
-
-What exists today:
+## Phase 1 — Core Editing ✅
 
 - [x] Line-based buffer with rune-level insert/delete
 - [x] File load/save
@@ -303,93 +301,74 @@ What exists today:
 - [x] Diff-based renderer (double-buffered)
 - [x] tcell abstraction with mock screen for testing
 - [x] Window and WindowManager structs
-
-What's missing from Phase 1:
-
-- [ ] Accept filename as CLI argument
-- [ ] Ctrl+S save, Ctrl+Q quit with dirty-file warning
-- [ ] Ctrl+Z / Ctrl+Y wired to the undo system (undo exists but isn't connected to key events)
-- [ ] Tab key inserts spaces (configurable tab width)
-- [ ] Home/End keys (line start/end)
-- [ ] PageUp/PageDown keys
-
----
-
-## Phase 2 — Widget Framework
-
-This is the critical phase. Everything from tabs onward depends on the abstractions built here. The goal is to replace main.go's monolithic event loop and manual coordinate math with the widget tree described in the UI Architecture section.
-
-### Step 1: Primitives
-- [ ] `RenderSurface` — wraps Screen with clipping and coordinate translation, supports `Sub()` for nesting
-- [ ] `Widget` interface — SetRect, Rect, HandleEvent, Render, Focusable
-- [ ] `EventResult` type (Consumed / Ignored)
-- [ ] Unit tests: RenderSurface clips correctly, Sub() composes offsets, writes outside bounds are dropped
-
-### Step 2: Containers
-- [ ] `VBox` — lays out children vertically with Fixed/Flex/Hidden constraints
-- [ ] `HBox` — lays out children horizontally with Fixed/Flex/Hidden constraints
-- [ ] `Split` — two children with a ratio-based divider (vertical or horizontal)
-- [ ] Unit tests: containers compute child Rects correctly under resize, hidden children are skipped, flex distributes remaining space
-
-### Step 3: Event Routing and Focus
-- [ ] `Root` struct — owns the main widget tree, overlay stack, focus pointer
-- [ ] Focus tracking: set focus by widget reference, Tab/Shift+Tab cycles within focus group
-- [ ] Event dispatch: overlays first (modal captures all, non-modal hit-tests), then global bindings, then focused widget with bubble-up
-- [ ] Unit tests: events route to focused widget, modals trap focus, bubble-up works, global bindings fire regardless of focus
-
-### Step 4: Overlay System
-- [ ] Overlay stack on Root — push/pop overlays with Modal flag
-- [ ] Overlays render after the main tree (on top)
-- [ ] Events route to topmost overlay first
-- [ ] Unit tests: overlays render on top, modal overlay captures events, dismissing overlay restores focus
-
-### Step 5: Migrate main.go
-- [ ] `EditorPaneWidget` — wraps buffer, cursor, viewport, and the existing redraw logic into a Widget
-- [ ] `StatusBarWidget` — wraps the existing StatusBar into a Widget
-- [ ] Root tree: VBox with EditorPaneWidget (flex) and StatusBarWidget (fixed: 1)
-- [ ] main.go event loop simplifies to: poll event → Root.HandleEvent → Root.Layout → Root.Render
-- [ ] All existing functionality works identically after migration — this is a refactor, not a feature
+- [x] Accept filename as CLI argument
+- [x] Ctrl+S save, Ctrl+Q quit with dirty-file warning
+- [x] Ctrl+Z / Ctrl+Y wired to the undo system
+- [x] Tab key inserts spaces (configurable tab width via .editorconfig)
+- [x] Home/End keys (line start/end)
+- [x] PageUp/PageDown keys
+- [x] Delete key support
+- [x] Auto-indent (new line inherits whitespace)
 
 ---
 
-## Phase 3 — Selection, Clipboard, and Search
+## Phase 2 — Widget Framework ✅
 
-Text selection is the foundation for copy/paste, cut, search-and-replace, and later multi-cursor.
+- [x] `RenderSurface` — wraps cell grid with clipping and coordinate translation, supports `Sub()` for nesting
+- [x] `Widget` interface — SetRect, GetRect, HandleEvent, Render, Focusable
+- [x] `EventResult` type (Consumed / Ignored)
+- [x] `VBox` — lays out children vertically with Fixed/Flex constraints
+- [x] `HBox` — lays out children horizontally with Fixed/Flex constraints
+- [x] `SplitPanelWidget` — sidebar/content split with draggable divider
+- [x] `ContentSplitWidget` — editor/bottom-panel split with draggable divider
+- [x] `Root` struct — owns widget tree, overlay stack, focus pointer, global/chord keybindings
+- [x] Focus tracking via `Root.SetFocus()`
+- [x] Event dispatch: modal overlays → chord bindings → global bindings → focused widget
+- [x] Overlay stack with push/pop and Modal flag
+- [x] `EditorPaneWidget`, `EditorGroupWidget` (tabs + editor), `StatusBarWidget`, `MenuBarWidget`
+- [x] `ExplorerWidget`, `SearchWidget`, `SidebarWidget`
+- [x] `CommandPaletteWidget` with fuzzy filtering
+- [x] `TabBarWidget` with click support and dirty indicators
+- [x] `BottomPanelWidget` with tab switching
+- [x] main.go event loop: poll event → Root.HandleEvent → render
 
-- [ ] Selection model: anchor + cursor defining a range, rendered with inverted style
-- [ ] Shift+Arrow / Shift+Home / Shift+End to extend selection
-- [ ] Ctrl+A select all
-- [ ] Ctrl+C / Ctrl+X / Ctrl+V — copy, cut, paste (system clipboard via OSC 52 or xclip/xsel fallback)
-- [ ] Typing or backspace with an active selection replaces the selected text
-- [ ] Ctrl+F opens a find bar (inline, not a dialog) — forward search with highlighting of all matches
+---
+
+## Phase 3 — Selection, Clipboard, and Search (in progress)
+
+- [x] Selection model: anchor + cursor defining a range, rendered with inverted style
+- [x] Shift+Arrow / Shift+Home / Shift+End / Shift+PgUp / Shift+PgDn to extend selection
+- [x] Ctrl+A select all
+- [x] Ctrl+C / Ctrl+X / Ctrl+V — copy, cut, paste (internal clipboard)
+- [x] Typing or backspace with an active selection replaces the selected text
+- [x] Ctrl+F opens a find bar with case-insensitive incremental search and match highlighting
+- [x] Ctrl+G go-to-line dialog
+- [ ] System clipboard integration (OSC 52 or xclip/xsel fallback)
 - [ ] Ctrl+H opens find-and-replace bar
 - [ ] F3 / Shift+F3 for next/previous match
-- [ ] Ctrl+G go-to-line dialog
 
 ---
 
-## Phase 4 — Line Numbers, Gutter, and Indentation
+## Phase 4 — Line Numbers, Gutter, and Indentation (partially done)
 
 - [ ] Line number gutter on the left edge of each editor pane
 - [ ] Gutter width adjusts dynamically based on total line count
-- [ ] Auto-indent: new line inherits indentation of the previous line
+- [x] Auto-indent: new line inherits indentation of the previous line
 - [ ] Tab/Shift+Tab indent/dedent selected lines
 - [ ] Visible whitespace option (show tabs and trailing spaces)
 - [ ] Soft wrap toggle (per-buffer setting)
 
 ---
 
-## Phase 4 — Tabs and Multi-Buffer Workflow
+## Phase 4b — Tabs and Multi-Buffer Workflow ✅
 
-The `buffers` package exists but isn't wired into the UI.
-
-- [ ] Tab bar rendered above the editor area, showing open buffer names
-- [ ] Ctrl+Tab / Ctrl+Shift+Tab to cycle tabs
-- [ ] Click tab to switch (once mouse support exists)
-- [ ] Close tab with middle-click or close button; prompt if dirty
-- [ ] Ctrl+W close current tab
-- [ ] Modified indicator on tab (dot or icon)
-- [ ] Tab overflow: scroll or truncate when too many tabs to fit
+- [x] Tab bar rendered above the editor area, showing open buffer names
+- [x] Ctrl+PgDn / Ctrl+PgUp to cycle tabs
+- [x] Click tab to switch
+- [x] Ctrl+W close current tab
+- [x] Modified indicator on tab (dot)
+- [x] Tab overflow: scroll with arrows when too many tabs to fit
+- [x] Per-tab undo/redo, cursor, viewport, and selection state
 
 ---
 
@@ -404,59 +383,60 @@ The `buffers` package exists but isn't wired into the UI.
 
 ---
 
-## Phase 6 — File Explorer Sidebar
+## Phase 6 — File Explorer Sidebar (partially done)
 
-- [ ] Tree view of the working directory, rendered in a fixed-width left panel
-- [ ] Expand/collapse directories
-- [ ] Enter or click to open file in active pane
-- [ ] Ctrl+B toggle sidebar visibility
-- [ ] Visual indicators: file icons (using Unicode/Nerd Font glyphs if available), directory chevrons
+- [x] Tree view of the working directory, rendered in a fixed-width left panel
+- [x] Expand/collapse directories
+- [x] Enter or click to open file in active pane
+- [x] Ctrl+B toggle sidebar visibility
+- [x] Visual indicators: directory chevrons (▶/▼)
 - [ ] Highlight the currently open file in the tree
 - [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
+- [ ] File icons (using Unicode/Nerd Font glyphs if available)
 
 ---
 
-## Phase 7 — Menu Bar and Command Palette
+## Phase 7 — Menu Bar and Command Palette (partially done)
 
 ### Menu Bar
-- [ ] Top-row menu bar: File, Edit, View, Help
+- [x] Top-row menu bar: File, Edit, Selection, View, Help
 - [ ] Keyboard-driven: Alt+F opens File menu, arrow keys navigate, Enter selects
 - [ ] Menus show keybinding hints on the right side
-- [ ] Submenus where appropriate
+- [ ] Dropdown menus with actions
 
 ### Command Palette
-- [ ] Ctrl+Shift+P opens a fuzzy-search dialog listing all available commands
-- [ ] Commands are registered with name, keybinding, and handler
-- [ ] Typing filters the list; Enter executes; Esc dismisses
+- [x] Ctrl+P opens a fuzzy-search dialog listing all available commands
+- [x] Commands are registered with name, keybinding, and handler
+- [x] Typing filters the list; Enter executes; Esc dismisses
 - [ ] Recently used commands float to the top
 
 ---
 
-## Phase 8 — Dialogs and Modals
+## Phase 8 — Dialogs and Modals (partially done)
 
-- [ ] Dialog system: floating, centered panels rendered on top of the editor (z-order)
-- [ ] Focus is trapped inside the dialog while open; Esc or Cancel dismisses
-- [ ] Standard dialogs:
-  - Open file (with path input and file list)
-  - Save as
-  - Go to line
-  - Find/replace (can be inline bar or dialog)
-  - Confirm (unsaved changes, delete file)
-  - About/help
-- [ ] Dialogs are Windows with `Modal: true` — the WindowManager already has this field
+- [x] Dialog system: floating, centered panels rendered on top of the editor (z-order)
+- [x] Focus is trapped inside the dialog while open; Esc dismisses
+- [x] Go to line dialog (Ctrl+G)
+- [x] Command palette (modal overlay)
+- [x] Find bar (modal overlay)
+- [ ] Open file dialog (with path input and file list)
+- [ ] Save as dialog
+- [ ] Confirm dialog (unsaved changes, delete file)
+- [ ] About/help dialog
 
 ---
 
-## Phase 9 — Mouse Support
+## Phase 9 — Mouse Support (partially done)
 
-- [ ] Click to position cursor
+- [x] Click to position cursor
+- [x] Click on tab bar to switch tabs
+- [x] Click on sidebar entries to open files
+- [x] Drag sidebar divider to resize
+- [x] Drag bottom panel divider to resize
 - [ ] Click+drag to select text
 - [ ] Double-click to select word, triple-click to select line
 - [ ] Scroll wheel for vertical scrolling
-- [ ] Click on tab bar to switch tabs
-- [ ] Click on sidebar entries to open files
 - [ ] Click on menu bar to open menus
-- [ ] Drag pane dividers to resize splits
 - [ ] Right-click context menu (stretch goal)
 
 ---
@@ -482,28 +462,34 @@ The current highlighter is single-line regex. This phase makes it real.
 
 ---
 
-## Phase 12 — Configuration
+## Phase 12 — Configuration (partially done)
 
-- [ ] Config file in `~/.config/pico/config.toml` (or JSON)
-- [ ] Settings:
-  - Theme
-  - Tab width and tabs-vs-spaces
-  - Word wrap
-  - Line numbers on/off
-  - Font/glyph preferences (Nerd Fonts yes/no)
-  - Keybinding overrides
-  - Default encoding and line endings
-- [ ] Changes take effect on reload or immediately where possible
+- [x] JSON config files: `settings.json`, `theme.json`, `keybindings.json`
+- [x] Config search paths: `.config/` (cwd) → `<exe-dir>/config/` → `~/.config/pico/`
+- [x] Theme: accent color system, per-style overrides (fg/bg/bold), border character customization
+- [x] Settings: tabSize, insertSpaces, sidebarVisible, sidebarWidth
+- [x] .editorconfig support for per-file indent settings
+- [ ] Word wrap setting
+- [ ] Line numbers on/off setting
+- [ ] Font/glyph preferences (Nerd Fonts yes/no)
+- [ ] Default encoding and line endings settings
+- [ ] Live reload on config file change
 
 ---
 
-## Phase 13 — Keybinding System
+## Phase 13 — Keybinding System (partially done)
 
-Keybindings need to work early — every panel, sidebar, dialog, and command is keyboard-driven. A JSON config makes them discoverable and user-customizable.
+- [x] Key parser: `ParseKeyString("ctrl+shift+f")` into normalized KeyCombo
+- [x] Chord support: multi-step key sequences (e.g. `ctrl+k ctrl+c`)
+- [x] Command registry: register/lookup/execute commands by ID
+- [x] Default keybindings compiled in, user overrides via `keybindings.json`
+- [x] Config-driven keybinding loop (no hardcoded key-to-command mapping)
+- [ ] When-clause evaluator: conditional keybindings based on context
+- [ ] Keybinding hints shown in menus and command palette
 
 ### Default keybindings file
 
-Ships as `internal/keybindings/defaults.json` (compiled into the binary). User overrides live at `~/.config/pico/keybindings.json`. User entries win.
+Defaults are compiled via `DefaultKeybindings()`. User overrides live at `~/.config/pico/keybindings.json` (or `.config/keybindings.json`). User entries replace all defaults.
 
 ```json
 [
