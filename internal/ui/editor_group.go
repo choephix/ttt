@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"macro/internal/config"
 	"macro/internal/core/buffer"
 	"macro/internal/core/cursor"
 	"macro/internal/core/undo"
@@ -16,6 +17,7 @@ type editorTab struct {
 	Cur      *cursor.Cursor
 	Vp       *view.Viewport
 	Undo     *undo.UndoStack
+	TabSize  int
 }
 
 type EditorGroupWidget struct {
@@ -74,12 +76,18 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	if err := newBuf.LoadFile(path); err != nil {
 		return
 	}
+	tabSize := g.TabSize
+	ec := config.LoadEditorConfig(path)
+	if ec.IndentSize > 0 {
+		tabSize = ec.IndentSize
+	}
 	g.tabs = append(g.tabs, editorTab{
 		FilePath: path,
 		Buf:      newBuf,
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
 		Undo:     &undo.UndoStack{},
+		TabSize:  tabSize,
 	})
 	g.SwitchTab(len(g.tabs) - 1)
 }
@@ -180,6 +188,9 @@ func (g *EditorGroupWidget) syncTabs() {
 	g.Editor.Cursor = t.Cur
 	g.Editor.Viewport = t.Vp
 	g.Editor.Undo = t.Undo
+	if t.TabSize > 0 {
+		g.Editor.TabSize = t.TabSize
+	}
 	var uiTabs []Tab
 	for i, ts := range g.tabs {
 		uiTabs = append(uiTabs, Tab{
