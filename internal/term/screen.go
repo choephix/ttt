@@ -1,7 +1,23 @@
 package term
 
-// Style is a placeholder for cell style attributes.
 type Style int
+
+const (
+	StyleDefault  Style = iota
+	StyleStatusBar
+	StyleActiveTab
+	StyleInactiveTab
+	StyleActivityBar
+	StyleActivityBarActive
+	StyleSidebarHeader
+	StyleSidebarItem
+	StyleSidebarSelected
+	StylePaletteBorder
+	StylePaletteInput
+	StylePaletteItem
+	StylePaletteSelected
+	StyleLineNumber
+)
 
 // Cell represents a single character cell on the screen.
 type Cell struct {

@@ -1,299 +1,984 @@
-# Go Terminal Editor — Project Plan
+# Pico — Project Plan
 
-This is a concrete, opinionated starting architecture for a Go terminal editor. It begins with text + highlighting and is deliberately shaped so you can later add Turbo Vision–style panes, dialogs, and movable windows without rewriting the core.
+Pico is a fully-featured code editor that lives in the terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal.
 
-This is not abstract theory — this is something you could start coding tonight.
-
----
-
-## 1. High-level architecture (non-negotiable split)
-
-Keep the repository layout simple and modular so the core can be tested without a terminal:
-
-```
-cmd/editor/
-  main.go
-
-internal/
-├── core/        ← editor engine (UI-agnostic)
-│   ├── buffer/
-│   ├── cursor/
-│   ├── undo/
-│   └── highlight/
-│
-├── view/        ← viewport logic (scrolling, wrapping)
-│   └── viewport.go
-│
-├── ui/          ← windows, panes, dialogs (later)
-│   ├── window.go
-│   ├── manager.go
-│   └── events.go
-│
-├── term/        ← terminal backend
-│   ├── screen.go
-│   └── input.go
-│
-└── render/      ← diff-based renderer
-    └── renderer.go
-```
-
-Rule #1: `core/` must compile and be testable without a terminal. That’s how you avoid painting yourself into a corner.
+With AI-driven development, developers spend less time in editors manually. When they do open one, they want something fast and capable that's already where they are — not a full GUI app booting up. Pico fills that gap: split panes, file explorer, tabs, command palette, menus, dialogs, syntax highlighting, mouse support, and a secure plugin system — all in a single Go binary.
 
 ---
 
-## 2. Editor core (start here)
+## Layout
 
-### 2.1 Buffer (keep it boring)
+The target screen layout mirrors VS Code:
 
-Start with line-oriented storage. Don’t optimize prematurely.
-
-```go
-// core/buffer/buffer.go
-type Buffer struct {
-    Lines []string
-    Dirty bool
-}
-
-// Operations to implement:
-// InsertRune(line, col, r)
-// DeleteRune(line, col)
-// InsertLine(idx, text)
-// DeleteLine(idx)
+```
+┌──────────────────────────────────────────────────────┐
+│  Menu Bar  (File  Edit  View  Help)                  │
+├────────┬─────────────────────────────────────────────┤
+│        │  Tab Bar  [main.go] [buffer.go] [+]         │
+│  File  ├─────────────────────┬───────────────────────┤
+│  Tree  │                     │                       │
+│        │   Editor Pane 1     │   Editor Pane 2       │
+│        │   (with gutter)     │   (with gutter)       │
+│        │                     │                       │
+│        ├─────────────────────┴───────────────────────┤
+│        │  Bottom Panel (output / find results)       │
+├────────┴─────────────────────────────────────────────┤
+│  Status Bar  (file · ln · col · lang · encoding)     │
+└──────────────────────────────────────────────────────┘
 ```
 
-Ropes and gap buffers are better in some cases, but a lines-first approach is simple and good enough for an initial version.
-
-### 2.2 Cursor (visual, not byte-based)
-
-```go
-// core/cursor/cursor.go
-type Cursor struct {
-    Line int
-    Col  int // visual column
-    Goal int // preserved for vertical movement
-}
-```
-
-Key rules:
-
-- `Col` is a visual width, not a byte index.
-- Preserve `Goal` on up/down movements.
-- Clamp `Col` safely when line lengths change.
-
-This is where many editors subtly break — get this right early.
-
-### 2.3 Undo (command-based)
-
-Use command objects instead of snapshotting buffers:
-
-```go
-type EditCommand interface {
-    Apply(b *Buffer)
-    Undo(b *Buffer)
-}
-
-// Examples: InsertRuneCommand, DeleteRangeCommand, InsertLineCommand
-
-type UndoStack struct {
-    undo []EditCommand
-    redo []EditCommand
-}
-```
-
-Command-based undo scales cleanly when panes and windows are added.
+Each region is a UI component that owns its own rect, receives routed input, and renders into the cell grid. The window manager handles layout, focus, z-order (for floating dialogs), and resize propagation.
 
 ---
 
-## 3. Highlighting (keep it dumb first)
+## UI Architecture
 
-Phase 1: regex-based, per-line highlighting. No multi-line state yet.
+This section defines the component system that every visual feature is built on. Get this right and tabs, splits, sidebar, dialogs, and menus are all instances of the same abstractions. Get it wrong and each feature is a special case bolted onto the side.
+
+### Widget Interface
+
+Every UI element — editor pane, sidebar, tab bar, menu, dialog, status bar — implements a common `Widget` interface:
 
 ```go
-// core/highlight/highlighter.go
-type Span struct {
-    Start int
-    End   int
-    Style Style
-}
-
-type Highlighter interface {
-    Highlight(line string) []Span
+type Widget interface {
+    SetRect(Rect)
+    Rect() Rect
+    HandleEvent(Event) EventResult
+    Render(surface *RenderSurface)
+    Focusable() bool
 }
 ```
 
-Start with support for:
+`EventResult` tells the parent whether the event was consumed:
 
-- comments
-- strings
-- keywords
+```go
+type EventResult int
+const (
+    EventIgnored  EventResult = iota
+    EventConsumed
+)
+```
 
-This is intentionally simple so you can swap in a better highlighter later without touching rendering.
+Widgets do not know their absolute screen position. They render relative to (0,0) and the `RenderSurface` translates to absolute coordinates. This makes widgets reusable and testable in isolation.
+
+### RenderSurface (Clipping Abstraction)
+
+This is the single most important UI abstraction. It wraps the `Screen` interface and clips all writes to the widget's bounds:
+
+```go
+type RenderSurface struct {
+    screen Screen
+    clip   Rect   // absolute bounds on screen
+}
+
+func (s *RenderSurface) SetCell(x, y int, c Cell) {
+    absX := s.clip.X + x
+    absY := s.clip.Y + y
+    if absX < s.clip.X || absX >= s.clip.X+s.clip.W { return }
+    if absY < s.clip.Y || absY >= s.clip.Y+s.clip.H { return }
+    s.screen.SetCell(absX, absY, c)
+}
+
+func (s *RenderSurface) Sub(r Rect) *RenderSurface {
+    // Returns a new surface whose clip is the intersection of s.clip and r
+    // offset relative to s.clip. Children call Sub() to create their own surface.
+}
+```
+
+Without this, every widget does manual coordinate math and bounds-checking. With it, a widget can render as if it owns a full screen, and nesting just works.
+
+### Containers and Layout
+
+Containers are widgets that hold children and divide their Rect among them. Three container types cover the entire layout:
+
+**VBox** — stacks children vertically. Each child is either fixed-height or flex (takes remaining space).
+
+```
+VBox
+├── MenuBar        (fixed: 1 row)
+├── MainArea       (flex: fill)
+└── StatusBar      (fixed: 1 row)
+```
+
+**HBox** — stacks children horizontally. Each child is either fixed-width or flex.
+
+```
+HBox
+├── Sidebar        (fixed: 30 cols, toggleable)
+└── EditorArea     (flex: fill)
+```
+
+**Split** — exactly two children with a draggable divider. Orientation is vertical or horizontal. The divider position is stored as a ratio (0.0–1.0) so it adapts to resize.
+
+```
+Split (vertical)
+├── EditorPane1    (ratio: 0.5)
+└── EditorPane2    (ratio: 0.5)
+```
+
+Layout sizing for children uses a simple model:
+
+```go
+type LayoutConstraint struct {
+    Type  ConstraintType  // Fixed, Flex, Hidden
+    Value int             // pixels for Fixed, weight for Flex
+}
+```
+
+Hidden means the child is collapsed (sidebar toggled off, bottom panel closed). Its space is redistributed to flex children.
+
+### The Widget Tree
+
+The full VS Code layout expressed as a widget tree:
+
+```
+Root (VBox)
+├── MenuBar                        fixed: 1 row
+├── MainArea (HBox)                flex: fill
+│   ├── Sidebar                    fixed: 30 cols, toggleable
+│   │   └── FileTree
+│   └── EditorArea (VBox)          flex: fill
+│       ├── TabBar                 fixed: 1 row
+│       ├── PaneContainer (Split)  flex: fill
+│       │   ├── EditorPane
+│       │   └── EditorPane         (created on split, removed on close)
+│       └── BottomPanel            fixed: 10 rows, toggleable
+├── StatusBar                      fixed: 1 row
+└── [Overlay Layer]
+    ├── CommandPalette             (modal)
+    ├── Dialog                     (modal)
+    └── ContextMenu                (non-modal, positional)
+```
+
+Containers call `SetRect` on their children during layout, then delegate `Render` by creating a `Sub()` surface for each child.
+
+### Event Routing
+
+Events flow through the tree in a specific order:
+
+1. **Overlay layer first.** If a modal overlay exists, it captures all events. Non-modal overlays (context menu, autocomplete) only capture events that hit their bounds; misses dismiss them.
+2. **Global keybindings.** Certain keys are handled before the focused widget: Ctrl+Shift+P (command palette), Ctrl+B (toggle sidebar), Ctrl+Q (quit). These are registered on the root.
+3. **Focused widget.** The event is delivered to the widget that currently has focus.
+4. **Bubble up.** If the focused widget returns `EventIgnored`, the event bubbles to its parent container, then grandparent, etc. This lets containers handle events their children don't care about (e.g., a split container handles Ctrl+Arrow to resize even though the editor pane ignores it).
+
+Mouse events are routed differently: hit-test the overlay layer, then walk the widget tree to find which widget's Rect contains the click coordinates. That widget receives the event and gains focus.
+
+### Focus Management
+
+- Exactly one widget has keyboard focus at any time.
+- Focus is tracked centrally by the root (not stored in individual widgets).
+- Focus moves via: click, Tab/Shift+Tab within a focus group, programmatic set (opening a dialog focuses its first input).
+- **Focus groups**: a container can define a focus group for Tab cycling. The main editor area is one group. A dialog is another. Tab cycles within the active group only.
+- **Modal focus trap**: when a modal dialog is open, focus is trapped inside it. Tab cycles only the dialog's widgets. Esc dismisses the modal and restores previous focus.
+
+### Z-Order and Overlays
+
+The rendering and event system uses a flat layer stack:
+
+- **Layer 0**: the main widget tree (everything in the Root VBox)
+- **Layer 1+**: overlays — dialogs, menus, command palette, tooltips
+
+Rendering order: layer 0 first, then overlays in order. Event order: reverse — topmost overlay gets first shot.
+
+Overlays are not part of the main widget tree. They're managed by a separate list on the root:
+
+```go
+type Overlay struct {
+    Widget Widget
+    Modal  bool
+}
+
+type Root struct {
+    Main     Widget       // the VBox tree
+    Overlays []Overlay    // rendered on top, events routed first
+}
+```
+
+Opening a dialog pushes an Overlay. Closing it pops. The main tree doesn't know overlays exist.
+
+### Rendering Pipeline
+
+Each frame follows this sequence:
+
+1. Root calls `layout()` — propagates Rects down the tree based on constraints and current terminal size.
+2. Root calls `Render()` on the main tree — each container creates `Sub()` surfaces for children and delegates.
+3. Root calls `Render()` on each overlay, from bottom to top.
+4. The diff-based `Renderer` compares the new cell grid to the previous one and emits minimal updates to tcell.
+
+Step 4 already exists. Steps 1–3 are what the Widget/Container system provides.
+
+### Theming
+
+A `Theme` is a named map of style tokens to tcell styles:
+
+```go
+type Theme struct {
+    Name   string
+    Styles map[string]Style  // "editor.bg", "gutter.fg", "tab.active", "menu.highlight", etc.
+}
+```
+
+Widgets look up styles by token name from the active theme. Color choices never appear in widget code. Theme is passed through the RenderSurface or a context object so every widget has access.
+
+### Event System (EventBus)
+
+Widgets and plugins need to react to things happening elsewhere without being directly coupled. The editor pane shouldn't know the status bar exists, but the status bar needs to update when the cursor moves. A plugin shouldn't know about the tab bar, but the tab bar needs to show a dirty indicator when a plugin modifies a buffer.
+
+The event bus is the decoupling layer:
+
+```go
+type EventType string
+
+const (
+    EventBufferChanged    EventType = "buffer.changed"      // content edited
+    EventBufferDirty      EventType = "buffer.dirty"        // dirty flag changed
+    EventFileOpened       EventType = "file.opened"         // file loaded into a buffer
+    EventFileSaved        EventType = "file.saved"          // buffer written to disk
+    EventFileClosed       EventType = "file.closed"         // buffer closed
+    EventCursorMoved      EventType = "cursor.moved"        // cursor position changed
+    EventSelectionChanged EventType = "selection.changed"   // selection changed
+    EventFocusChanged     EventType = "focus.changed"       // keyboard focus moved
+    EventThemeChanged     EventType = "theme.changed"       // active theme switched
+    EventConfigChanged    EventType = "config.changed"      // settings changed
+    EventLayoutChanged    EventType = "layout.changed"      // pane split/closed/resized
+)
+
+type Event struct {
+    Type    EventType
+    Payload any       // event-specific data (file path, cursor pos, etc.)
+}
+
+type EventBus struct {
+    subscribers map[EventType][]func(Event)
+}
+
+func (bus *EventBus) Subscribe(eventType EventType, handler func(Event))
+func (bus *EventBus) Publish(event Event)
+```
+
+**How it flows:**
+
+1. User types a character → editor pane modifies the buffer → publishes `buffer.changed`
+2. Status bar is subscribed to `buffer.changed` → updates dirty indicator
+3. Tab bar is subscribed to `buffer.dirty` → shows dot on the tab
+4. Plugin host is subscribed to `buffer.changed` → forwards to service plugins that registered for `textDocument/didChange`
+
+The event bus is **synchronous and in-process** for internal subscribers (widgets). The plugin host bridges events to external plugin processes asynchronously over JSON-RPC.
+
+**Relationship to input events vs. domain events:**
+
+- **Input events** (key press, mouse click, resize) flow through the widget tree via `HandleEvent` — top-down, focused routing as described in the Event Routing section.
+- **Domain events** (buffer changed, file saved, cursor moved) flow through the EventBus — pub/sub, any subscriber can listen.
+
+These are two separate systems. A key press is an input event that gets routed to the editor pane. The editor pane handles it by modifying the buffer, then publishes a domain event on the bus. Other widgets and plugins react to the domain event.
+
+### How This Maps to Existing Code
+
+| Current code | Becomes |
+|---|---|
+| `ui.Window` | One implementation of `Widget` (the editor pane widget) |
+| `ui.WindowManager` | Evolves into `Root` — owns the widget tree, overlay stack, and focus |
+| `ui.Rect` | Stays as-is, used by all widgets |
+| `view.Viewport` | Internal to the editor pane widget |
+| `view.StatusBar` | Becomes a `Widget` that renders into its surface |
+| `render.Renderer` | Unchanged — sits below the widget layer, receives the final cell grid |
+| `term.Screen` | Unchanged — wrapped by `RenderSurface` |
+| `term.MockScreen` | Used to test individual widgets in isolation |
+
+The key refactor is: `main.go`'s monolithic event loop and manual coordinate math gets replaced by the widget tree. The loop becomes: poll event → route through tree → layout → render. All the per-widget logic moves into Widget implementations.
 
 ---
 
-## 4. Viewport (the bridge)
+## Phase 1 — Core Editing (current state, mostly done)
 
-The viewport translates the buffer into visible cells.
+What exists today:
+
+- [x] Line-based buffer with rune-level insert/delete
+- [x] File load/save
+- [x] Cursor with visual column and goal-column preservation
+- [x] Command-based undo/redo
+- [x] Regex-based syntax highlighting (Go)
+- [x] Viewport with scrolling
+- [x] Status bar (filename, cursor position, dirty flag)
+- [x] Diff-based renderer (double-buffered)
+- [x] tcell abstraction with mock screen for testing
+- [x] Window and WindowManager structs
+
+What's missing from Phase 1:
+
+- [ ] Accept filename as CLI argument
+- [ ] Ctrl+S save, Ctrl+Q quit with dirty-file warning
+- [ ] Ctrl+Z / Ctrl+Y wired to the undo system (undo exists but isn't connected to key events)
+- [ ] Tab key inserts spaces (configurable tab width)
+- [ ] Home/End keys (line start/end)
+- [ ] PageUp/PageDown keys
+
+---
+
+## Phase 2 — Widget Framework
+
+This is the critical phase. Everything from tabs onward depends on the abstractions built here. The goal is to replace main.go's monolithic event loop and manual coordinate math with the widget tree described in the UI Architecture section.
+
+### Step 1: Primitives
+- [ ] `RenderSurface` — wraps Screen with clipping and coordinate translation, supports `Sub()` for nesting
+- [ ] `Widget` interface — SetRect, Rect, HandleEvent, Render, Focusable
+- [ ] `EventResult` type (Consumed / Ignored)
+- [ ] Unit tests: RenderSurface clips correctly, Sub() composes offsets, writes outside bounds are dropped
+
+### Step 2: Containers
+- [ ] `VBox` — lays out children vertically with Fixed/Flex/Hidden constraints
+- [ ] `HBox` — lays out children horizontally with Fixed/Flex/Hidden constraints
+- [ ] `Split` — two children with a ratio-based divider (vertical or horizontal)
+- [ ] Unit tests: containers compute child Rects correctly under resize, hidden children are skipped, flex distributes remaining space
+
+### Step 3: Event Routing and Focus
+- [ ] `Root` struct — owns the main widget tree, overlay stack, focus pointer
+- [ ] Focus tracking: set focus by widget reference, Tab/Shift+Tab cycles within focus group
+- [ ] Event dispatch: overlays first (modal captures all, non-modal hit-tests), then global bindings, then focused widget with bubble-up
+- [ ] Unit tests: events route to focused widget, modals trap focus, bubble-up works, global bindings fire regardless of focus
+
+### Step 4: Overlay System
+- [ ] Overlay stack on Root — push/pop overlays with Modal flag
+- [ ] Overlays render after the main tree (on top)
+- [ ] Events route to topmost overlay first
+- [ ] Unit tests: overlays render on top, modal overlay captures events, dismissing overlay restores focus
+
+### Step 5: Migrate main.go
+- [ ] `EditorPaneWidget` — wraps buffer, cursor, viewport, and the existing redraw logic into a Widget
+- [ ] `StatusBarWidget` — wraps the existing StatusBar into a Widget
+- [ ] Root tree: VBox with EditorPaneWidget (flex) and StatusBarWidget (fixed: 1)
+- [ ] main.go event loop simplifies to: poll event → Root.HandleEvent → Root.Layout → Root.Render
+- [ ] All existing functionality works identically after migration — this is a refactor, not a feature
+
+---
+
+## Phase 3 — Selection, Clipboard, and Search
+
+Text selection is the foundation for copy/paste, cut, search-and-replace, and later multi-cursor.
+
+- [ ] Selection model: anchor + cursor defining a range, rendered with inverted style
+- [ ] Shift+Arrow / Shift+Home / Shift+End to extend selection
+- [ ] Ctrl+A select all
+- [ ] Ctrl+C / Ctrl+X / Ctrl+V — copy, cut, paste (system clipboard via OSC 52 or xclip/xsel fallback)
+- [ ] Typing or backspace with an active selection replaces the selected text
+- [ ] Ctrl+F opens a find bar (inline, not a dialog) — forward search with highlighting of all matches
+- [ ] Ctrl+H opens find-and-replace bar
+- [ ] F3 / Shift+F3 for next/previous match
+- [ ] Ctrl+G go-to-line dialog
+
+---
+
+## Phase 4 — Line Numbers, Gutter, and Indentation
+
+- [ ] Line number gutter on the left edge of each editor pane
+- [ ] Gutter width adjusts dynamically based on total line count
+- [ ] Auto-indent: new line inherits indentation of the previous line
+- [ ] Tab/Shift+Tab indent/dedent selected lines
+- [ ] Visible whitespace option (show tabs and trailing spaces)
+- [ ] Soft wrap toggle (per-buffer setting)
+
+---
+
+## Phase 4 — Tabs and Multi-Buffer Workflow
+
+The `buffers` package exists but isn't wired into the UI.
+
+- [ ] Tab bar rendered above the editor area, showing open buffer names
+- [ ] Ctrl+Tab / Ctrl+Shift+Tab to cycle tabs
+- [ ] Click tab to switch (once mouse support exists)
+- [ ] Close tab with middle-click or close button; prompt if dirty
+- [ ] Ctrl+W close current tab
+- [ ] Modified indicator on tab (dot or icon)
+- [ ] Tab overflow: scroll or truncate when too many tabs to fit
+
+---
+
+## Phase 5 — Split Panes
+
+- [ ] Ctrl+\ vertical split, Ctrl+- horizontal split (or via command palette)
+- [ ] Each pane is an independent editor with its own viewport, cursor, and tab bar
+- [ ] Panes can show the same buffer (linked cursors are independent, buffer is shared)
+- [ ] Focus switching: Ctrl+1/2/3 or click
+- [ ] Drag divider to resize (with mouse) or keyboard shortcut to equalize
+- [ ] Close pane returns focus to neighbor
+
+---
+
+## Phase 6 — File Explorer Sidebar
+
+- [ ] Tree view of the working directory, rendered in a fixed-width left panel
+- [ ] Expand/collapse directories
+- [ ] Enter or click to open file in active pane
+- [ ] Ctrl+B toggle sidebar visibility
+- [ ] Visual indicators: file icons (using Unicode/Nerd Font glyphs if available), directory chevrons
+- [ ] Highlight the currently open file in the tree
+- [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
+
+---
+
+## Phase 7 — Menu Bar and Command Palette
+
+### Menu Bar
+- [ ] Top-row menu bar: File, Edit, View, Help
+- [ ] Keyboard-driven: Alt+F opens File menu, arrow keys navigate, Enter selects
+- [ ] Menus show keybinding hints on the right side
+- [ ] Submenus where appropriate
+
+### Command Palette
+- [ ] Ctrl+Shift+P opens a fuzzy-search dialog listing all available commands
+- [ ] Commands are registered with name, keybinding, and handler
+- [ ] Typing filters the list; Enter executes; Esc dismisses
+- [ ] Recently used commands float to the top
+
+---
+
+## Phase 8 — Dialogs and Modals
+
+- [ ] Dialog system: floating, centered panels rendered on top of the editor (z-order)
+- [ ] Focus is trapped inside the dialog while open; Esc or Cancel dismisses
+- [ ] Standard dialogs:
+  - Open file (with path input and file list)
+  - Save as
+  - Go to line
+  - Find/replace (can be inline bar or dialog)
+  - Confirm (unsaved changes, delete file)
+  - About/help
+- [ ] Dialogs are Windows with `Modal: true` — the WindowManager already has this field
+
+---
+
+## Phase 9 — Mouse Support
+
+- [ ] Click to position cursor
+- [ ] Click+drag to select text
+- [ ] Double-click to select word, triple-click to select line
+- [ ] Scroll wheel for vertical scrolling
+- [ ] Click on tab bar to switch tabs
+- [ ] Click on sidebar entries to open files
+- [ ] Click on menu bar to open menus
+- [ ] Drag pane dividers to resize splits
+- [ ] Right-click context menu (stretch goal)
+
+---
+
+## Phase 10 — Syntax Highlighting v2
+
+The current highlighter is single-line regex. This phase makes it real.
+
+- [ ] Language detection from file extension
+- [ ] Multi-language support: Go, Python, JavaScript/TypeScript, Rust, C/C++, Markdown, JSON, YAML, TOML, Shell
+- [ ] Multi-line constructs: block comments, multi-line strings, heredocs
+- [ ] Theme system: named color schemes applied via a config file
+- [ ] At minimum ship two themes: a dark theme and a light theme
+- [ ] Highlighter runs incrementally (only re-highlight changed lines + propagate state changes)
+
+---
+
+## Phase 11 — Status Bar v2 and Notifications
+
+- [ ] Rich status bar segments: filename, line:col, language mode, encoding (UTF-8), line ending (LF/CRLF), indentation (spaces/tabs + size)
+- [ ] Clickable segments (with mouse): click language to change, click encoding to change
+- [ ] Transient notification area: "File saved", "No results found", etc. — auto-dismiss after a few seconds
+
+---
+
+## Phase 12 — Configuration
+
+- [ ] Config file in `~/.config/pico/config.toml` (or JSON)
+- [ ] Settings:
+  - Theme
+  - Tab width and tabs-vs-spaces
+  - Word wrap
+  - Line numbers on/off
+  - Font/glyph preferences (Nerd Fonts yes/no)
+  - Keybinding overrides
+  - Default encoding and line endings
+- [ ] Changes take effect on reload or immediately where possible
+
+---
+
+## Phase 13 — Keybinding System
+
+Keybindings need to work early — every panel, sidebar, dialog, and command is keyboard-driven. A JSON config makes them discoverable and user-customizable.
+
+### Default keybindings file
+
+Ships as `internal/keybindings/defaults.json` (compiled into the binary). User overrides live at `~/.config/pico/keybindings.json`. User entries win.
+
+```json
+[
+  { "key": "ctrl+s",       "command": "file.save" },
+  { "key": "ctrl+q",       "command": "editor.quit" },
+  { "key": "ctrl+z",       "command": "editor.undo" },
+  { "key": "ctrl+y",       "command": "editor.redo" },
+  { "key": "ctrl+f",       "command": "search.find" },
+  { "key": "ctrl+h",       "command": "search.replace" },
+  { "key": "ctrl+shift+f", "command": "search.findInFiles" },
+  { "key": "ctrl+shift+p", "command": "commandPalette.open" },
+  { "key": "ctrl+b",       "command": "sidebar.toggle" },
+  { "key": "ctrl+shift+e", "command": "sidebar.explorer" },
+  { "key": "ctrl+shift+g", "command": "sidebar.git" },
+  { "key": "ctrl+shift+t", "command": "sidebar.testRunner" },
+  { "key": "ctrl+\\",      "command": "editor.splitRight" },
+  { "key": "ctrl+-",       "command": "editor.splitDown" },
+  { "key": "ctrl+w",       "command": "editor.closePane" },
+  { "key": "ctrl+tab",     "command": "editor.nextTab" },
+  { "key": "ctrl+shift+tab","command": "editor.prevTab" },
+  { "key": "ctrl+g",       "command": "editor.goToLine" },
+  { "key": "ctrl+a",       "command": "editor.selectAll" },
+  { "key": "ctrl+c",       "command": "editor.copy" },
+  { "key": "ctrl+x",       "command": "editor.cut" },
+  { "key": "ctrl+v",       "command": "editor.paste" },
+  { "key": "f3",           "command": "search.findNext" },
+  { "key": "shift+f3",     "command": "search.findPrev" },
+  { "key": "escape",       "command": "overlay.dismiss", "when": "overlayOpen" }
+]
+```
+
+### Chords
+
+A chord is a multi-key sequence: press the first key combo, release, then press the second. VS Code uses these extensively (`Ctrl+K Ctrl+C` to comment, `Ctrl+K Ctrl+U` to uncomment). Pico supports them.
+
+In the JSON config, chords are written with a space between the two key combos:
+
+```json
+{ "key": "ctrl+k ctrl+c", "command": "editor.commentLine" },
+{ "key": "ctrl+k ctrl+u", "command": "editor.uncommentLine" },
+{ "key": "ctrl+k ctrl+s", "command": "file.saveAll" },
+{ "key": "ctrl+k ctrl+w", "command": "editor.closeAllTabs" }
+```
+
+**How chord dispatch works:**
+
+1. User presses `Ctrl+K`. The keybinding resolver finds that `ctrl+k` is a **chord prefix** (some binding starts with it).
+2. The editor enters **chord-pending state**. The status bar shows `(Ctrl+K) was pressed. Waiting for second key...`.
+3. User presses `Ctrl+C`. The resolver matches the full chord `ctrl+k ctrl+c` → executes the command.
+4. If the second key doesn't match any chord (e.g., user presses `A`), the chord is cancelled, the pending key is discarded, and the `A` is treated normally.
+5. If the user presses `Escape` during chord-pending, the chord is cancelled.
+
+The chord state is a simple state machine:
+
+```
+Idle → (chord prefix pressed) → ChordPending → (second key) → Idle
+                                              → (timeout/escape) → Idle
+```
+
+No timeout is enforced by default (VS Code doesn't timeout chords either). The user takes as long as they need.
+
+### Conditional keybindings (`when` clauses)
+
+Some bindings only apply in certain contexts:
+
+- `"when": "editorFocus"` — only when an editor pane has focus
+- `"when": "sidebarFocus"` — only when the sidebar has focus
+- `"when": "overlayOpen"` — only when a modal/overlay is active
+- `"when": "editorLangId == go"` — language-specific bindings
+
+The `when` evaluator is a simple expression parser over a context map that the editor maintains (`{ editorFocus: true, overlayOpen: false, editorLangId: "go", ... }`).
+
+### Command Registry
+
+Every action in the editor is a named command. Keybindings, menu items, command palette entries, and plugin contributions all resolve to commands.
 
 ```go
-// view/viewport.go
-type Viewport struct {
-    TopLine int
-    LeftCol int
-    Width   int
-    Height  int
+type Command struct {
+    ID      string
+    Title   string           // shown in command palette and menus
+    Handler func(args any)
+}
+
+type CommandRegistry struct {
+    commands map[string]Command
+}
+```
+
+The keybinding system resolves key events → command ID → registry lookup → execute handler. This indirection is what makes the whole system pluggable: a plugin registers commands, keybindings map to them, the palette lists them — all through the same registry.
+
+### Implementation order
+
+This should be built as part of Phase 2 (widget framework, step 3 — event routing). The event routing layer needs the keybinding resolver before global shortcuts can work. The steps:
+
+- [ ] Key parser: parse `"ctrl+shift+f"` strings into a normalized key representation
+- [ ] Keybinding loader: read defaults.json, merge with user overrides
+- [ ] Command registry: register/lookup/execute commands by ID
+- [ ] When-clause evaluator: parse and evaluate simple boolean expressions against a context map
+- [ ] Integration: the Root's event dispatch checks keybindings before routing to the focused widget
+- [ ] Unit tests: key parsing, merge priority (user > default), when-clause evaluation, command dispatch
+
+---
+
+## Phase 14 — Project-Wide Search
+
+- [ ] Ctrl+Shift+F opens project-wide search in the bottom panel
+- [ ] Search results grouped by file, showing matching line with context
+- [ ] Click result to open file at that line
+- [ ] Respect .gitignore patterns
+- [ ] Find and replace across files (with preview/confirmation)
+
+---
+
+## Phase 15 — Plugin System
+
+### Two Plugin Tiers
+
+**Tool plugins** — CLI tools invoked on demand. No long-running process. The manifest declares how to call the tool and how to parse its output. Covers search, git, formatting, building, linting — anything stateless.
+
+**Service plugins** — long-running processes for things that need persistent state or need to push events to the editor: LSP servers, file watchers, live diagnostics.
+
+Both tiers use the same manifest format and register through the same system. The editor doesn't care how the plugin is implemented — it cares what the plugin contributes and how to talk to it.
+
+### Communication Model
+
+The editor is the orchestrator. Communication is **bidirectional** with the editor driving the lifecycle:
+
+```
+Plugin                                    Editor
+  │                                         │
+  │──── register ──────────────────────────>│  "I provide these commands,
+  │                                         │   I subscribe to these events"
+  │                                         │
+  │<──── event: textDocument/didSave ───────│  editor pushes subscribed events
+  │                                         │
+  │──── editor/setDecorations ─────────────>│  plugin calls back to editor API
+  │──── editor/showNotification ───────────>│  plugin calls back to editor API
+  │                                         │
+  │<──── command: go.build ─────────────────│  user triggered a command the
+  │                                         │   plugin registered
+  │                                         │
+  │──── editor/appendOutput ───────────────>│  plugin calls back to editor API
+  │                                         │
+```
+
+**The four message directions:**
+
+| Direction | Purpose | Example |
+|---|---|---|
+| Plugin → Editor: **register** | Declare capabilities and event subscriptions | "I handle `go.build`, subscribe me to `onSave` for `.go` files" |
+| Editor → Plugin: **event** | Push subscribed events | "user saved `main.go`", "user opened a `.go` file" |
+| Editor → Plugin: **command** | Invoke a command the plugin registered | "user pressed Ctrl+Shift+B → `go.build`" |
+| Plugin → Editor: **callback** | Call editor APIs to affect the UI | "show notification", "set decorations", "open file" |
+
+The plugin never touches the UI directly. It calls editor APIs, and the editor decides how to render the result.
+
+### Tool Plugins (CLI-based)
+
+Tool plugins don't run persistently. The manifest declares CLI templates. The editor spawns the tool, captures output, and parses it.
+
+```json
+{
+  "name": "search",
+  "type": "tool",
+  "commands": {
+    "search.findInFiles": {
+      "exec": "rg",
+      "args": ["--json", "--smart-case", "${query}", "${workspaceDir}"],
+      "output": "json-lines",
+      "presentation": "searchResults"
+    },
+    "format.file": {
+      "exec": "gofmt",
+      "args": ["-w", "${filePath}"],
+      "output": "none",
+      "onComplete": "reloadFile"
+    }
+  }
+}
+```
+
+Template variables (`${query}`, `${workspaceDir}`, `${filePath}`, `${selection}`) are resolved by the editor before spawning.
+
+Output formats the editor knows how to parse:
+- `json` — single JSON object
+- `json-lines` — one JSON object per line (rg, go test -json)
+- `lines` — plain text, one result per line
+- `none` — ignore output (side-effect-only tools like formatters)
+- `stream` — stream output to the bottom panel in real time (build, test)
+
+No registration handshake needed — the manifest IS the registration. This means existing CLI tools work as plugins with zero code: just write a `plugin.json` declaring how to call them.
+
+### Service Plugins (long-running, JSON-RPC)
+
+For plugins that need persistent state or push events. Communication is JSON-RPC 2.0 over stdin/stdout.
+
+```json
+{
+  "name": "go-lsp",
+  "type": "service",
+  "runtime": "go",
+  "entry": "gopls",
+  "activationEvents": ["onLanguage:go"],
+  "contributes": {
+    "commands": [
+      { "id": "go.build", "title": "Go: Build Package" },
+      { "id": "go.test", "title": "Go: Run Tests" }
+    ],
+    "sidebar": [
+      { "id": "go.testExplorer", "title": "Test Explorer", "icon": "T" }
+    ],
+    "keybindings": [
+      { "command": "go.build", "key": "ctrl+shift+b" }
+    ],
+    "events": ["textDocument/didOpen", "textDocument/didChange", "textDocument/didSave"]
+  }
+}
+```
+
+**Lifecycle:**
+
+1. **Activation.** An activation event fires (file with `.go` extension opened). The editor spawns the plugin process.
+2. **Handshake.** Editor sends `initialize` with workspace path, capabilities, and config. Plugin responds with its capabilities.
+3. **Registration.** Plugin sends `register` messages declaring commands and subscribing to events. (Alternatively, the manifest's `contributes` and `events` fields serve as static registration, and the plugin can dynamically add more at runtime.)
+4. **Steady state.** Editor pushes events. Plugin calls back to editor APIs. User triggers commands.
+5. **Shutdown.** Editor sends `shutdown`, waits for acknowledgment, then kills the process.
+
+**Events the editor can push (plugin subscribes via manifest or `register`):**
+
+```
+textDocument/didOpen      file opened: uri, languageId, content
+textDocument/didChange    buffer edited: uri, changes
+textDocument/didSave      file saved: uri
+textDocument/didClose     file closed: uri
+workspace/didChangeFiles  files created/deleted/renamed on disk
+configuration/didChange   settings changed relevant to this plugin
+```
+
+**Editor APIs the plugin can call back to:**
+
+```
+editor/applyEdit          modify buffer contents
+editor/showNotification   display a transient message
+editor/showInputBox       prompt user for text, returns response
+editor/showQuickPick      show a selection list, returns chosen item
+editor/setDecorations     inline hints, squiggles, gutter markers
+editor/registerTreeView   provide data for a sidebar tree panel
+editor/updateTreeView     refresh sidebar tree data
+editor/setStatusBarItem   add/update a status bar segment
+editor/openFile           open a file in the editor
+editor/revealRange        scroll to and highlight a range
+editor/appendOutput       write to a named output channel in the bottom panel
+diagnostics/publish       errors/warnings for a file (gutter + problems panel)
+```
+
+### Runtime Types
+
+| Runtime | Entry | How it's spawned |
+|---------|-------|-----------------|
+| `go` | compiled binary path | exec directly |
+| `node` | `.js` file | `node <entry>` |
+| `deno` | `.ts` file | `deno run <entry>` |
+| `python` | `.py` file | `python3 <entry>` |
+
+### Extension Points (what plugins can contribute)
+
+| Contribution | Description |
+|---|---|
+| **Commands** | Appear in command palette, can be bound to keys and menus |
+| **Languages** | File extension → language ID mapping, syntax highlighting rules |
+| **Sidebar panels** | New entries in the activity bar with tree/list views |
+| **Bottom panel tabs** | Output channels, test results, diagnostics list |
+| **Themes** | Color schemes (token → style mappings) |
+| **Status bar items** | Segments in the status bar (e.g., branch name, linter status) |
+| **Keybindings** | Additional key → command mappings |
+| **Menu items** | Entries in the menu bar or context menus |
+| **Editor decorations** | Inline hints, squiggles, gutter icons |
+| **File decorations** | Icons/colors for files in the explorer tree |
+
+### Built-in Features as Plugins
+
+To keep the editor core small and validate the plugin API, several "built-in" features are implemented as internal plugins that use the same interfaces (compiled into the binary but designed as if they were external):
+
+- **Explorer** — file tree sidebar. Uses the tree view API.
+- **Search** — project-wide search. Tool plugin wrapping `rg`.
+- **Git** — source control sidebar. Tool plugin wrapping `git`.
+- **Test runner** — discovers and runs tests. Tool plugin wrapping `go test -json`, `npm test`, etc.
+
+The activity bar panels from the UX mockups (Explorer, Search, Git, Test) are all plugin-provided. The editor core only knows about the widget system and the plugin host.
+
+### Plugin Host
+
+```go
+type PluginHost struct {
+    tools      map[string]*ToolManifest       // tool plugins (CLI-based)
+    services   map[string]*ServiceProcess     // running service plugins
+    manifests  map[string]*Manifest           // all loaded manifests
+    pending    map[string]*Manifest           // loaded but not yet activated
 }
 ```
 
 Responsibilities:
+- Scan `~/.config/pico/plugins/` and parse manifests on startup
+- For tool plugins: resolve CLI templates and spawn/parse on command invocation
+- For service plugins: match activation events, spawn process, manage lifecycle
+- Route events to subscribed plugins
+- Route command invocations to the plugin that registered them
+- Restart crashed service plugins (with backoff)
+- Provide a mock plugin host for testing
 
-- Vertical and horizontal scrolling
-- Optional soft wrap
-- Mapping cursor → screen coordinates
+### Plugin Permissions
 
-Start with a single-pane viewport; it becomes pane-aware later.
+Plugins declare what they need in the manifest. On install, the editor shows the user exactly what the plugin is requesting. The user approves or denies. Approved permissions are cached in `~/.config/pico/plugin-permissions.json` so the prompt only appears once per plugin (or on upgrade if new permissions are requested).
 
----
+**The install prompt:**
 
-## 5. Terminal abstraction (thin on purpose)
+```
+Installing "go-language" v0.1.0...
 
-Use a library like `tcell`, but hide it behind a minimal interface in `term/` so the rest of the code never imports `tcell` directly.
+This plugin requests:
+  ✓ Read file contents         (textDocument/didOpen, didChange)
+  ✓ Run command: gopls         (exec)
+  ✓ Modify buffers             (editor/applyEdit)
+  ✓ Show UI elements           (sidebar panel, status bar item)
+  ✗ Access filesystem
+  ✗ Execute arbitrary commands
+  ✗ Network access
 
-```go
-// term/screen.go
-type Cell struct {
-    Ch    rune
-    Style Style
-}
+Allow? [Y/n]
+```
 
-type Screen interface {
-    Size() (w, h int)
-    SetCell(x, y int, c Cell)
-    Show()
-    Clear()
+**Permission tiers:**
+
+| Tier | What it covers | Behavior |
+|---|---|---|
+| **Read** | Receive events about open files, cursor, selections | Auto-granted — harmless, the plugin is just being informed |
+| **UI** | Show notifications, status bar items, sidebar panels, decorations, output | Auto-granted — the plugin can show things but can't change data |
+| **Write** | Modify buffer contents (`editor/applyEdit`) | Prompt on install |
+| **Exec** | Spawn child processes — tool plugins declare exact binaries, service plugins run their entry | Prompt on install, shows the exact binary name |
+| **Filesystem** | Read or write files beyond the currently open buffers | Prompt on install |
+| **Network** | Outbound HTTP/TCP connections | Prompt on install |
+
+The key insight: **most events are harmless** (cursor moved, file opened). The dangerous part is what the plugin can *do back to the editor*. So permissions gate the callbacks, not the events.
+
+**Manifest declares permissions explicitly:**
+
+```json
+{
+  "name": "go-language",
+  "permissions": ["read", "ui", "write", "exec:gopls"],
+  ...
 }
 ```
 
-The terminal backend should be narrow and replaceable.
+The `exec` permission names the specific binary. A plugin requesting `exec:gopls` can only spawn `gopls`, not arbitrary commands. A plugin requesting `exec:*` (any command) gets a scarier prompt.
 
----
+**Permission storage (`~/.config/pico/plugin-permissions.json`):**
 
-## 6. Renderer (diff-based from day one)
-
-Never redraw the whole screen if you can avoid it.
-
-```go
-// render/renderer.go
-type Renderer struct {
-    prev [][]Cell
-    curr [][]Cell
+```json
+{
+  "go-language@0.1.0": {
+    "granted": ["read", "ui", "write", "exec:gopls"],
+    "denied": [],
+    "grantedAt": "2026-05-18T12:00:00Z"
+  }
 }
-
-// Flow:
-// - Build curr
-// - Diff against prev
-// - Emit minimal updates
-// - Swap buffers
 ```
 
-This approach keeps the editor fast and usable over SSH.
+**Version upgrades:** if a plugin updates and requests new permissions it didn't have before, the user is prompted again — but only for the new permissions. Existing grants carry over.
 
----
+**Revocation:** the user can revoke permissions at any time via command palette (`Plugin: Manage Permissions`) or by editing the JSON file. Revoking a permission from a running service plugin sends it a `permissionRevoked` notification so it can degrade gracefully.
 
-## 7. Event loop (simple, deterministic)
+**Runtime enforcement:** the plugin host checks permissions before executing any callback. If a plugin calls `editor/applyEdit` without `write` permission, the call is rejected with an error and a notification is shown: `"go-language" tried to modify a buffer but doesn't have write permission.`
 
-Keep it straightforward and single-threaded at first.
+**Built-in plugins** (Explorer, Search, Git, Test) are trusted and skip the permission prompt. They're compiled into the binary and reviewed as part of the editor's own code.
 
-```go
-for {
-    ev := term.ReadEvent()
+### Plugin Development
 
-    switch ev := ev.(type) {
-    case KeyEvent:
-        core.HandleKey(ev)
-    case ResizeEvent:
-        viewport.Resize(...)
+**Tool plugin (zero code — just a manifest):**
+```json
+{
+  "name": "my-formatter",
+  "type": "tool",
+  "commands": {
+    "myFormatter.format": {
+      "exec": "prettier",
+      "args": ["--write", "${filePath}"],
+      "output": "none",
+      "onComplete": "reloadFile"
     }
-
-    renderer.Render()
+  }
 }
 ```
 
-No goroutines yet — get correctness before concurrency.
-
----
-
-## 8. How this grows into Turbo Vision later
-
-When the core is stable, add windows and a manager without changing the fundamentals.
-
+**Service plugin (Go):**
 ```go
-// ui/window.go
-type Window struct {
-    Rect Rect
-    View *Viewport
-    Buf  *Buffer
-}
-
-// ui/manager.go
-type WindowManager struct {
-    Windows [] *Window
-    Focus   int
+// main.go — reads/writes JSON-RPC on stdin/stdout
+func main() {
+    conn := jsonrpc.NewStdioConn()
+    conn.HandleRequest("initialize", onInitialize)
+    conn.HandleNotification("textDocument/didSave", onSave)
+    conn.Serve()
 }
 ```
 
-Then:
+**Service plugin (TypeScript):**
+```typescript
+// index.ts — using @pico/plugin-api for typed helpers
+import { createPlugin } from "@pico/plugin-api";
 
-- Each window owns a viewport
-- Renderer clips by window rect
-- Input is routed by focus
-- Dialogs are windows with modal flags
+const plugin = createPlugin();
+plugin.onSave(async (doc) => {
+    const diagnostics = await lint(doc);
+    plugin.publishDiagnostics(doc.uri, diagnostics);
+});
+plugin.start();
+```
 
-No rewrite required — just composition.
+### What This Means for Earlier Phases
 
----
+The plugin system is Phase 15, but it shapes earlier design:
 
-## 9. Milestones (realistic and motivating)
+- **Phase 8 (command palette)**: the command registry should accept dynamic registration from day one so plugins can add commands later.
+- **Phase 7 (sidebar)**: the activity bar and sidebar panel system should use a generic tree/list view widget, not hard-code Explorer. When plugins arrive, Explorer is just a plugin providing tree data.
+- **Phase 11 (highlighting)**: language support should be a pluggable provider, even if initially built-in.
+- **Status bar**: segments should be a generic list that core or plugins can add to.
 
-- Milestone 1 (1–2 weeks)
-
-  - Open file
-  - Edit text
-  - Move cursor
-  - Basic highlighting
-
-- Milestone 2 (3–4 weeks)
-
-  - Undo/redo
-  - Scrolling
-  - Status bar
-  - Save file
-
-- Milestone 3 (after core is solid)
-  - Multiple buffers
-  - Split panes (tiled)
-  - THEN: floating windows / dialogs
-
-## 10. One hard-earned warning ⚠️
-
-Do not implement movable windows before editing feels good. Turbo Vision worked because the editor core was solid. Many modern TUIs fail because they invert this priority.
+Design for these extension points from the start. The plugin host comes later; the seams should already be there.
 
 ---
 
-## Final takeaway
+## Git Worktree Workspaces
 
-You now have:
+Git worktrees are powerful but the UX is terrible — raw CLI commands, no editor understands them natively. VS Code treats each worktree as a separate window with no connection between them. Pico makes worktrees a first-class workspace concept.
 
-- A Go-first architecture
-- A path from a simple editor → Turbo Vision–style UI
-- Minimal, non-throwaway core code
-- Clear stopping points if life gets busy
+This should be implementable as a plugin, not a core feature. The plugin API already provides everything needed: sidebar tree views, commands, status bar items, `editor/openFile` for cross-directory file access, and `exec:git` permission for worktree operations. If it can't be built as a plugin, that's a signal the plugin API is missing something.
 
-If you want next, I can:
+### Features
 
-- Write a minimal `main.go` skeleton
-- Implement the buffer + cursor code with you
-- Show how to add the first dialog safely
-- Help you pick exact libraries + versions
+- **Worktree sidebar panel** — activity bar entry showing all worktrees for the current repo. Each entry shows branch name, dirty state, and path.
+- **Create worktree** — command palette: "Worktree: New from Branch". Picks a branch (or creates one), runs `git worktree add`, opens it.
+- **Switch worktree** — click in sidebar or command palette. Opens the worktree's directory as the active workspace, preserving the other worktree's state.
+- **Cross-worktree diff** — compare the same file across two worktrees side by side. Each pane shows the file from its own branch, both editable. No stashing, no branch switching.
+- **Worktree status overview** — see dirty state, unpushed commits, and CI status across all active worktrees in one view.
+- **Clean up** — list stale worktrees, delete them with one command. No remembering `git worktree remove --force`.
 
-Say which piece you want to build first.
+### Workflow
+
+You're working on a feature. A bug report comes in. You hit a keybinding → "Worktree: New from Branch" → type the hotfix branch name → Pico creates the worktree and opens it in a split pane. You fix the bug, commit, push, close the worktree pane. Your feature branch is untouched — no stash, no interrupted state.
+
+### Core API requirement
+
+One thing the core needs to support: `editor/openFile` must accept absolute paths outside the current workspace root. A worktree plugin needs to open files from sibling worktree directories. This is a reasonable core capability regardless (useful for any plugin that references external files) and falls under the `filesystem` permission tier.
+
+---
+
+## Future Ideas (unscoped)
+
+- Integrated terminal panel (bottom panel runs a shell)
+- Git integration: gutter indicators for added/modified/deleted lines, branch name in status bar
+- Multi-cursor editing (Ctrl+D to select next occurrence)
+- Minimap
+- Bracket matching and auto-close
+- LSP client for autocomplete, diagnostics, go-to-definition
+- Session restore (reopen last files and layout)
+- Snippet support
+- Macro recording and playback
+- Plugin marketplace / registry
+
+---
+
+## Design Principles
+
+1. **Core stays terminal-free.** `internal/core/` must compile and test without tcell. All terminal interaction goes through the `Screen` interface.
+2. **Composition over inheritance.** Windows, panes, dialogs, and sidebar are all composed from the same primitives: Rect, Viewport, Buffer, Renderer.
+3. **Test without a terminal.** MockScreen exists for this reason. New UI components should be testable against it.
+4. **Render efficiently.** The diff-based renderer exists from day one. Never rebuild the full screen when a partial update will do.
+5. **Rune-correct.** Cursor positions, selections, and display widths are always rune-based, not byte-based. CJK and emoji support is a goal, not an afterthought.
