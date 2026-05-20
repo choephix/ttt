@@ -485,9 +485,13 @@ func main() {
 							}
 						}
 					} else {
-						editorGroup.HandleEvent(tev)
-						if !isWheel {
-							cmdRegistry.Execute("editor.focus")
+						if btn&tcell.Button1 != 0 && mx == panelRect.X {
+							cmdRegistry.Execute("sidebar.toggle")
+						} else {
+							editorGroup.HandleEvent(tev)
+							if !isWheel {
+								cmdRegistry.Execute("editor.focus")
+							}
 						}
 					}
 					redraw()

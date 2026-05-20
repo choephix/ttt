@@ -4,6 +4,8 @@ ttt is a fully-featured code editor that lives in the terminal. Not a simplified
 
 With AI-driven development, developers spend less time in editors manually. When they do open one, they want something fast and capable that's already where they are — not a full GUI app booting up. ttt fills that gap: split panes, file explorer, tabs, command palette, menus, dialogs, syntax highlighting, mouse support, and a secure plugin system — all in a single Go binary.
 
+> **Note:** Project was renamed from pico/macro to **ttt** (Terminal Text Tool). Module name is `ttt`, binary is `ttt`, repo is `eugenioenko/ttt`.
+
 ---
 
 ## Layout
@@ -303,6 +305,8 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Window and WindowManager structs
 - [x] Accept filename as CLI argument
 - [x] Ctrl+S save, Ctrl+Q quit with dirty-file warning
+- [x] Active line highlight — background highlight on cursor's current line (`StyleActiveLine`, default bg #282828)
+- [x] Empty lines past buffer show blank space (removed vim-style `~` tildes)
 - [x] Ctrl+Z / Ctrl+Y wired to the undo system
 - [x] Tab key inserts spaces (configurable tab width via .editorconfig)
 - [x] Home/End keys (line start/end)
@@ -351,7 +355,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ## Phase 4 — Line Numbers, Gutter, and Indentation (partially done)
 
-- [ ] Line number gutter on the left edge of each editor pane (extract a shared gutter renderer that both the editor and DiffViewWidget can use — the diff viewer already has an inline `renderGutter()`)
+- [ ] Line number gutter on the left edge of each editor pane (extract a shared gutter renderer that both the editor and DiffViewWidget can use — the diff viewer already has an inline `renderGutter()`; also share with git change indicators when those land)
 - [ ] Gutter width adjusts dynamically based on total line count
 - [x] Auto-indent: new line inherits indentation of the previous line
 - [ ] Tab/Shift+Tab indent/dedent selected lines
@@ -391,8 +395,9 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Ctrl+B toggle sidebar visibility
 - [x] Visual indicators: directory chevrons (▶/▼)
 - [x] Git changes panel (Ctrl+D) — lists modified/added/deleted files, opens diff in editor; untracked files open as regular files
-- [ ] Changes panel: tree view mode (`changesView: "list" | "tree"` setting, default list)
-- [ ] Changes panel: show `filename  path/to/dir` with muted directory path (useful when multiple files share a name)
+- [x] Sidebar panel tabs — `PanelTabBarWidget` at top of sidebar with clickable tabs: Files, Search, Changes (title case)
+- [ ] Changes panel: tree view mode (`changesView: "list" | "tree"` setting, default list) *(deferred)*
+- [ ] Changes panel: show `filename  path/to/dir` with muted directory path as option (useful when multiple files share a name) *(deferred)*
 - [ ] Highlight the currently open file in the tree
 - [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
 - [ ] File icons (using Unicode/Nerd Font glyphs if available)
@@ -437,9 +442,10 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Click on sidebar entries to open files
 - [x] Drag sidebar divider to resize
 - [x] Drag bottom panel divider to resize
+- [x] Scroll wheel for vertical scrolling (editor, explorer, and changes widgets — 3 lines/items per tick)
+- [x] Editor scrollbar — proportional scrollbar on right edge when content exceeds viewport, themed via `StyleScrollbar`/`StyleScrollbarThumb`
 - [ ] Click+drag to select text
 - [ ] Double-click to select word, triple-click to select line
-- [ ] Scroll wheel for vertical scrolling
 - [ ] Click on menu bar to open menus
 - [ ] Right-click context menu (stretch goal)
 
@@ -470,7 +476,7 @@ The current highlighter is single-line regex. This phase makes it real.
 
 - [x] JSON config files: `settings.json`, `theme.json`, `keybindings.json`
 - [x] Config search paths: `.config/` (cwd) → `<exe-dir>/config/` → `~/.config/ttt/`
-- [x] Theme: accent color system, per-style overrides (fg/bg/bold), border character customization
+- [x] Theme: explicit per-style defaults (fg/bg/bold) matching VS Code dark theme — `defaultFg` (#d4d4d4) and `defaultBg` (#1e1e1e) in theme config applied as base to all styles for guaranteed contrast; removed `accentColor` abstraction in favor of explicit values per `StyleDef`
 - [x] Settings: tabSize, insertSpaces, sidebarVisible, sidebarWidth
 - [x] .editorconfig support for per-file indent settings
 - [ ] Word wrap setting
