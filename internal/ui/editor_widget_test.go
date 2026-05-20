@@ -32,9 +32,9 @@ func TestEditorRender(t *testing.T) {
 	if grid[1][0].Ch != 'W' {
 		t.Fatalf("expected 'W' at (0,1), got '%c'", grid[1][0].Ch)
 	}
-	// Line past buffer should show '~'
-	if grid[3][0].Ch != '~' {
-		t.Fatalf("expected '~' at (0,3), got '%c'", grid[3][0].Ch)
+	// Line past buffer should be empty
+	if grid[3][0].Ch != ' ' {
+		t.Fatalf("expected ' ' at (0,3), got '%c'", grid[3][0].Ch)
 	}
 }
 

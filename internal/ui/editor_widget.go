@@ -90,8 +90,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
 			}
 		} else {
-			surface.SetCell(0, y, term.Cell{Ch: '~', Style: term.StyleLineNumber})
-			for x := 1; x < editorW; x++ {
+			for x := 0; x < editorW; x++ {
 				surface.SetCell(x, y, term.Cell{Ch: ' '})
 			}
 		}
