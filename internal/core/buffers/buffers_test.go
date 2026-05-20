@@ -1,7 +1,7 @@
 package buffers
 
 import (
-	"macro/internal/core/buffer"
+	"ttt/internal/core/buffer"
 	"testing"
 )
 

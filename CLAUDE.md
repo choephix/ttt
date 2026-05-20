@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pico is a terminal text editor written in Go, using tcell for terminal rendering. The Go module name is `macro` (in go.mod).
+ttt is a terminal text editor written in Go, using tcell for terminal rendering. The Go module name is `ttt` (in go.mod).
 
 ## Build & Test Commands
 
 ```sh
-make build        # builds to bin/pico
+make build        # builds to bin/ttt
 make run          # build + run
 make test         # go test ./...
 make fmt          # gofmt -w .
@@ -38,10 +38,10 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 - **`internal/ui/`** — Window manager and pane system. `Window` binds a `Rect`, `Viewport`, and `Buffer` together. `WindowManager` tracks focus across windows.
 
-- **`cmd/pico/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw.
+- **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw.
 
 ### Key Design Constraints
 
 - Cursor `Col` is a visual column (rune-based), not a byte index — all line-length calculations use `[]rune()`.
 - The renderer uses double-buffering (prev/curr cell grids) to minimize terminal writes.
-- `Screen` interface keeps tcell isolated — the rest of the codebase never imports tcell directly (except `cmd/pico/main.go` for event types).
+- `Screen` interface keeps tcell isolated — the rest of the codebase never imports tcell directly (except `cmd/ttt/main.go` for event types).

@@ -1,17 +1,17 @@
-# Makefile for Go Terminal Editor project
+# Makefile for ttt - terminal text editor
 
 .PHONY: all test build run clean fmt lint
 
 all: build
 
 build:
-	go build -o bin/pico ./cmd/pico
+	go build -o bin/ttt ./cmd/ttt
 
 test:
 	go test ./...
 
 run: build
-	./bin/pico
+	./bin/ttt
 
 fmt:
 	gofmt -w .

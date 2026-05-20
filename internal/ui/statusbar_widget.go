@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"macro/internal/term"
-	"macro/internal/view"
+	"ttt/internal/term"
+	"ttt/internal/view"
 )
 
 type StatusBarWidget struct {

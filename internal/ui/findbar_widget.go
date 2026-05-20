@@ -2,7 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"macro/internal/term"
+	"ttt/internal/term"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"

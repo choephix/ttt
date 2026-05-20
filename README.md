@@ -1,18 +1,21 @@
-# Pico
+# TTT — Terminal Text Tool
 
-Pico is a modular, test-driven terminal text editor written in Go. It is designed for extensibility, clean architecture, and a modern TUI experience inspired by classic editors.
+A fully-featured code editor that lives in the terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal. Single Go binary, zero config.
 
 ## Features
 
-- Line-based buffer with Unicode support
-- Visual cursor navigation (arrow keys, Home/End, PageUp/PageDown)
-- Insert, delete, and split lines (Enter, Backspace)
-- Status bar with filename and cursor position
-- Syntax highlighting (regex-based, easily extensible)
-- Undo/redo system (command-based)
-- Multiple buffers and window management (split panes, modal dialogs)
+- Tabbed editor with multi-buffer support
+- File explorer sidebar with clickable panel tabs (Files, Search, Changes)
+- Git changes panel with side-by-side diff viewer
+- Command palette (Ctrl+P)
+- Find bar with incremental search (Ctrl+F)
+- Selection, copy/cut/paste (Ctrl+C/X/V)
+- Undo/redo (Ctrl+Z/Y)
+- Syntax highlighting (regex-based)
+- Configurable themes, keybindings, and settings via JSON
+- Chord keybindings (e.g. Ctrl+K Ctrl+C)
+- Mouse support: click to position, click tabs, drag dividers
 - Diff-based renderer for efficient terminal updates
-- Fully unit-tested core modules
 
 ## Getting Started
 
@@ -24,58 +27,46 @@ Pico is a modular, test-driven terminal text editor written in Go. It is designe
 
 ```sh
 make build
-./bin/editor
+./bin/ttt
 ```
 
-Or use:
+Or:
 
 ```sh
 make run
 ```
 
-### Controls
-
-- **Arrow keys**: Move cursor
-- **Enter**: Split line
-- **Backspace**: Delete character/merge lines
-- **Ctrl+C**: Quit
-
-## Project Structure
-
-```
-cmd/editor/           # Main entry point
-internal/core/buffer/ # Buffer logic
-internal/core/cursor/ # Cursor logic
-internal/core/undo/   # Undo/redo system
-internal/core/highlight/ # Syntax highlighting
-internal/core/buffers/   # Multiple buffer management
-internal/view/        # Viewport, status bar
-internal/term/        # Terminal abstraction (tcell)
-internal/render/      # Diff-based renderer
-internal/ui/          # Window manager, panes, dialogs
-```
-
-## Testing
-
-Run all unit tests:
+Open a file:
 
 ```sh
-make test
+./bin/ttt path/to/file.go
 ```
 
-## Extending Pico
+### Keybindings
 
-- Add new syntax highlighters in `internal/core/highlight/`
-- Implement new UI panes or dialogs in `internal/ui/`
-- Add new commands or keybindings in `cmd/editor/main.go`
+| Key | Action |
+|-----|--------|
+| Ctrl+S | Save |
+| Ctrl+Q | Quit |
+| Ctrl+Z / Ctrl+Y | Undo / Redo |
+| Ctrl+F | Find |
+| Ctrl+G | Go to line |
+| Ctrl+P | Command palette |
+| Ctrl+B | Toggle sidebar |
+| Ctrl+E | Show file explorer |
+| Ctrl+D | Show git changes |
+| Ctrl+A | Select all |
+| Ctrl+C / Ctrl+X / Ctrl+V | Copy / Cut / Paste |
+| Ctrl+PgDn / Ctrl+PgUp | Next / Previous tab |
+| Ctrl+W | Close tab |
 
-## Roadmap
+### Configuration
 
-- File open/save dialogs
-- Configurable keybindings
-- Mouse support
-- Advanced syntax highlighting
-- Plugin system
+Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.config/ttt/`:
+
+- `keybindings.json` — custom keybindings
+- `settings.json` — editor settings (tabSize, sidebarWidth, etc.)
+- `theme.json` — colors and styles
 
 ## License
 

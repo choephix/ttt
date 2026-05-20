@@ -1,6 +1,6 @@
 package ui
 
-import "macro/internal/term"
+import "ttt/internal/term"
 
 type PlaceholderWidget struct {
 	BaseWidget

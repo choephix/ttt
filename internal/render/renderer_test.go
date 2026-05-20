@@ -1,7 +1,7 @@
 package render
 
 import (
-	"macro/internal/term"
+	"ttt/internal/term"
 	"testing"
 )
 

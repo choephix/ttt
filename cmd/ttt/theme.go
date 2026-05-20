@@ -1,8 +1,8 @@
 package main
 
 import (
-	"macro/internal/config"
-	"macro/internal/term"
+	"ttt/internal/config"
+	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

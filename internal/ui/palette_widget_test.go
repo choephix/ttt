@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"macro/internal/command"
+	"ttt/internal/command"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"

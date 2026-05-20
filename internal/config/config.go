@@ -51,7 +51,7 @@ func configPaths() []string {
 	}
 
 	if home, err := os.UserHomeDir(); err == nil {
-		paths = append(paths, filepath.Join(home, ".config", "pico"))
+		paths = append(paths, filepath.Join(home, ".config", "ttt"))
 	}
 
 	return paths

@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"macro/internal/git"
-	"macro/internal/term"
+	"ttt/internal/git"
+	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

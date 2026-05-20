@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"macro/internal/core/buffer"
-	"macro/internal/core/cursor"
-	"macro/internal/core/selection"
-	"macro/internal/core/undo"
-	"macro/internal/term"
-	"macro/internal/view"
+	"ttt/internal/core/buffer"
+	"ttt/internal/core/cursor"
+	"ttt/internal/core/selection"
+	"ttt/internal/core/undo"
+	"ttt/internal/term"
+	"ttt/internal/view"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"

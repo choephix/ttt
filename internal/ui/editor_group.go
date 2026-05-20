@@ -1,15 +1,15 @@
 package ui
 
 import (
-	"macro/internal/config"
-	"macro/internal/core/buffer"
-	"macro/internal/core/clipboard"
-	"macro/internal/core/cursor"
-	"macro/internal/core/diff"
-	"macro/internal/core/selection"
-	"macro/internal/core/undo"
-	"macro/internal/term"
-	"macro/internal/view"
+	"ttt/internal/config"
+	"ttt/internal/core/buffer"
+	"ttt/internal/core/clipboard"
+	"ttt/internal/core/cursor"
+	"ttt/internal/core/diff"
+	"ttt/internal/core/selection"
+	"ttt/internal/core/undo"
+	"ttt/internal/term"
+	"ttt/internal/view"
 
 	"github.com/gdamore/tcell/v2"
 )

@@ -2,8 +2,8 @@ package ui
 
 import (
 	"fmt"
-	"macro/internal/core/diff"
-	"macro/internal/term"
+	"ttt/internal/core/diff"
+	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

@@ -1,7 +1,7 @@
 package undo
 
 import (
-	"macro/internal/core/buffer"
+	"ttt/internal/core/buffer"
 	"testing"
 )
 

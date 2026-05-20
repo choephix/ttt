@@ -1,6 +1,6 @@
 package buffers
 
-import "macro/internal/core/buffer"
+import "ttt/internal/core/buffer"
 
 // Buffers manages multiple open buffers.
 type Buffers struct {

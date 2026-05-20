@@ -1,8 +1,8 @@
-# Pico — Project Plan
+# ttt — Project Plan
 
-Pico is a fully-featured code editor that lives in the terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal.
+ttt is a fully-featured code editor that lives in the terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal.
 
-With AI-driven development, developers spend less time in editors manually. When they do open one, they want something fast and capable that's already where they are — not a full GUI app booting up. Pico fills that gap: split panes, file explorer, tabs, command palette, menus, dialogs, syntax highlighting, mouse support, and a secure plugin system — all in a single Go binary.
+With AI-driven development, developers spend less time in editors manually. When they do open one, they want something fast and capable that's already where they are — not a full GUI app booting up. ttt fills that gap: split panes, file explorer, tabs, command palette, menus, dialogs, syntax highlighting, mouse support, and a secure plugin system — all in a single Go binary.
 
 ---
 
@@ -396,7 +396,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [ ] Highlight the currently open file in the tree
 - [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
 - [ ] File icons (using Unicode/Nerd Font glyphs if available)
-- [ ] Open folder support — currently uses `os.Getwd()` for explorer, git changes, and all path resolution. When folder-opening is added (`pico /path` or Open Folder dialog), replace cwd with the opened folder path everywhere.
+- [ ] Open folder support — currently uses `os.Getwd()` for explorer, git changes, and all path resolution. When folder-opening is added (`ttt /path` or Open Folder dialog), replace cwd with the opened folder path everywhere.
 
 ---
 
@@ -469,7 +469,7 @@ The current highlighter is single-line regex. This phase makes it real.
 ## Phase 12 — Configuration (partially done)
 
 - [x] JSON config files: `settings.json`, `theme.json`, `keybindings.json`
-- [x] Config search paths: `.config/` (cwd) → `<exe-dir>/config/` → `~/.config/pico/`
+- [x] Config search paths: `.config/` (cwd) → `<exe-dir>/config/` → `~/.config/ttt/`
 - [x] Theme: accent color system, per-style overrides (fg/bg/bold), border character customization
 - [x] Settings: tabSize, insertSpaces, sidebarVisible, sidebarWidth
 - [x] .editorconfig support for per-file indent settings
@@ -493,7 +493,7 @@ The current highlighter is single-line regex. This phase makes it real.
 
 ### Default keybindings file
 
-Defaults are compiled via `DefaultKeybindings()`. User overrides live at `~/.config/pico/keybindings.json` (or `.config/keybindings.json`). User entries replace all defaults.
+Defaults are compiled via `DefaultKeybindings()`. User overrides live at `~/.config/ttt/keybindings.json` (or `.config/keybindings.json`). User entries replace all defaults.
 
 ```json
 [
@@ -527,7 +527,7 @@ Defaults are compiled via `DefaultKeybindings()`. User overrides live at `~/.con
 
 ### Chords
 
-A chord is a multi-key sequence: press the first key combo, release, then press the second. VS Code uses these extensively (`Ctrl+K Ctrl+C` to comment, `Ctrl+K Ctrl+U` to uncomment). Pico supports them.
+A chord is a multi-key sequence: press the first key combo, release, then press the second. VS Code uses these extensively (`Ctrl+K Ctrl+C` to comment, `Ctrl+K Ctrl+U` to uncomment). ttt supports them.
 
 In the JSON config, chords are written with a space between the two key combos:
 
@@ -796,7 +796,7 @@ type PluginHost struct {
 ```
 
 Responsibilities:
-- Scan `~/.config/pico/plugins/` and parse manifests on startup
+- Scan `~/.config/ttt/plugins/` and parse manifests on startup
 - For tool plugins: resolve CLI templates and spawn/parse on command invocation
 - For service plugins: match activation events, spawn process, manage lifecycle
 - Route events to subscribed plugins
@@ -806,7 +806,7 @@ Responsibilities:
 
 ### Plugin Permissions
 
-Plugins declare what they need in the manifest. On install, the editor shows the user exactly what the plugin is requesting. The user approves or denies. Approved permissions are cached in `~/.config/pico/plugin-permissions.json` so the prompt only appears once per plugin (or on upgrade if new permissions are requested).
+Plugins declare what they need in the manifest. On install, the editor shows the user exactly what the plugin is requesting. The user approves or denies. Approved permissions are cached in `~/.config/ttt/plugin-permissions.json` so the prompt only appears once per plugin (or on upgrade if new permissions are requested).
 
 **The install prompt:**
 
@@ -850,7 +850,7 @@ The key insight: **most events are harmless** (cursor moved, file opened). The d
 
 The `exec` permission names the specific binary. A plugin requesting `exec:gopls` can only spawn `gopls`, not arbitrary commands. A plugin requesting `exec:*` (any command) gets a scarier prompt.
 
-**Permission storage (`~/.config/pico/plugin-permissions.json`):**
+**Permission storage (`~/.config/ttt/plugin-permissions.json`):**
 
 ```json
 {
@@ -901,8 +901,8 @@ func main() {
 
 **Service plugin (TypeScript):**
 ```typescript
-// index.ts — using @pico/plugin-api for typed helpers
-import { createPlugin } from "@pico/plugin-api";
+// index.ts — using @ttt/plugin-api for typed helpers
+import { createPlugin } from "@ttt/plugin-api";
 
 const plugin = createPlugin();
 plugin.onSave(async (doc) => {
@@ -927,7 +927,7 @@ Design for these extension points from the start. The plugin host comes later; t
 
 ## Git Worktree Workspaces
 
-Git worktrees are powerful but the UX is terrible — raw CLI commands, no editor understands them natively. VS Code treats each worktree as a separate window with no connection between them. Pico makes worktrees a first-class workspace concept.
+Git worktrees are powerful but the UX is terrible — raw CLI commands, no editor understands them natively. VS Code treats each worktree as a separate window with no connection between them. ttt makes worktrees a first-class workspace concept.
 
 This should be implementable as a plugin, not a core feature. The plugin API already provides everything needed: sidebar tree views, commands, status bar items, `editor/openFile` for cross-directory file access, and `exec:git` permission for worktree operations. If it can't be built as a plugin, that's a signal the plugin API is missing something.
 
@@ -942,7 +942,7 @@ This should be implementable as a plugin, not a core feature. The plugin API alr
 
 ### Workflow
 
-You're working on a feature. A bug report comes in. You hit a keybinding → "Worktree: New from Branch" → type the hotfix branch name → Pico creates the worktree and opens it in a split pane. You fix the bug, commit, push, close the worktree pane. Your feature branch is untouched — no stash, no interrupted state.
+You're working on a feature. A bug report comes in. You hit a keybinding → "Worktree: New from Branch" → type the hotfix branch name → ttt creates the worktree and opens it in a split pane. You fix the bug, commit, push, close the worktree pane. Your feature branch is untouched — no stash, no interrupted state.
 
 ### Core API requirement
 

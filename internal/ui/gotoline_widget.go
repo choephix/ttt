@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"macro/internal/term"
+	"ttt/internal/term"
 	"strconv"
 
 	"github.com/gdamore/tcell/v2"

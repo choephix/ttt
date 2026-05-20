@@ -1,14 +1,14 @@
 package main
 
 import (
-	"macro/internal/command"
-	"macro/internal/config"
-	"macro/internal/core/diff"
-	"macro/internal/git"
-	"macro/internal/render"
-	"macro/internal/term"
-	"macro/internal/ui"
-	"macro/internal/view"
+	"ttt/internal/command"
+	"ttt/internal/config"
+	"ttt/internal/core/diff"
+	"ttt/internal/git"
+	"ttt/internal/render"
+	"ttt/internal/term"
+	"ttt/internal/ui"
+	"ttt/internal/view"
 	"os"
 	"path/filepath"
 
