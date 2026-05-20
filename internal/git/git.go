@@ -11,6 +11,15 @@ type FileStatus struct {
 	Path   string
 }
 
+func RepoRoot(dir string) string {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func IsRepo(dir string) bool {
 	cmd := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree")
 	out, err := cmd.Output()
@@ -18,7 +27,7 @@ func IsRepo(dir string) bool {
 }
 
 func StatusFiles(dir string) ([]FileStatus, error) {
-	cmd := exec.Command("git", "-C", dir, "status", "--porcelain")
+	cmd := exec.Command("git", "-C", dir, "status", "--porcelain", "-u")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err

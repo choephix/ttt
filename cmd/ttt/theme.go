@@ -45,6 +45,18 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleActiveLine, theme.ActiveLine)
 	applyStyleDef(&m, term.StyleScrollbar, theme.Scrollbar)
 	applyStyleDef(&m, term.StyleScrollbarThumb, theme.ScrollbarThumb)
+	applyStyleDef(&m, term.StyleSyntaxComment, theme.SyntaxComment)
+	applyStyleDef(&m, term.StyleSyntaxString, theme.SyntaxString)
+	applyStyleDef(&m, term.StyleSyntaxKeyword, theme.SyntaxKeyword)
+	applyStyleDef(&m, term.StyleSyntaxNumber, theme.SyntaxNumber)
+	applyStyleDef(&m, term.StyleSyntaxOperator, theme.SyntaxOperator)
+	applyStyleDef(&m, term.StyleSyntaxFunction, theme.SyntaxFunction)
+	applyStyleDef(&m, term.StyleSyntaxType, theme.SyntaxType)
+	applyStyleDef(&m, term.StyleSyntaxBuiltin, theme.SyntaxBuiltin)
+	applyStyleDef(&m, term.StyleSyntaxVariable, theme.SyntaxVariable)
+	applyStyleDef(&m, term.StyleSyntaxPunctuation, theme.SyntaxPunctuation)
+	applyStyleDef(&m, term.StyleSyntaxTag, theme.SyntaxTag)
+	applyStyleDef(&m, term.StyleSyntaxAttribute, theme.SyntaxAttribute)
 	return m
 }
 

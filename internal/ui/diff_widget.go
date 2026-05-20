@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"ttt/internal/core/diff"
+	"ttt/internal/core/highlight"
 	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -10,16 +11,18 @@ import (
 
 type DiffViewWidget struct {
 	BaseWidget
-	FilePath string
-	Lines    []diff.DiffLine
-	TopLine  int
-	viewH    int
+	FilePath    string
+	Lines       []diff.DiffLine
+	Highlighter *highlight.Highlighter
+	TopLine     int
+	viewH       int
 }
 
 func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
 	return &DiffViewWidget{
-		FilePath: filePath,
-		Lines:    fd.AllLines(),
+		FilePath:    filePath,
+		Lines:       fd.AllLines(),
+		Highlighter: highlight.New(filePath),
 	}
 }
 
@@ -62,8 +65,17 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 		d.renderGutter(surface, 0, y, gutterW, dl.Left, leftStyle)
 		d.renderGutter(surface, dividerX+1, y, gutterW, dl.Right, rightStyle)
 
-		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle)
-		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle)
+		var leftSpans, rightSpans []highlight.Span
+		if d.Highlighter != nil {
+			if dl.Left.Text != "" {
+				leftSpans = d.Highlighter.HighlightLine(dl.Left.Text)
+			}
+			if dl.Right.Text != "" {
+				rightSpans = d.Highlighter.HighlightLine(dl.Right.Text)
+			}
+		}
+		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle, leftSpans)
+		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle, rightSpans)
 	}
 }
 
@@ -82,12 +94,21 @@ func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl di
 	}
 }
 
-func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, style term.Style) {
+func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span) {
 	runes := []rune(text)
 	for i := 0; i < w; i++ {
 		ch := ' '
 		if i < len(runes) {
 			ch = runes[i]
+		}
+		style := baseStyle
+		if baseStyle == term.StyleDefault {
+			for _, sp := range spans {
+				if i >= sp.Start && i < sp.End {
+					style = sp.Style
+					break
+				}
+			}
 		}
 		surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: style})
 	}

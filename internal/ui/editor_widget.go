@@ -5,6 +5,7 @@ import (
 	"strings"
 	"ttt/internal/core/buffer"
 	"ttt/internal/core/cursor"
+	"ttt/internal/core/highlight"
 	"ttt/internal/core/selection"
 	"ttt/internal/core/undo"
 	"ttt/internal/term"
@@ -24,6 +25,7 @@ type EditorPaneWidget struct {
 	CursorY      int
 	TabSize      int
 	LineNumbers  bool
+	Highlighter  *highlight.Highlighter
 	SearchQuery  string
 	SearchActive int
 }
@@ -95,6 +97,10 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 		if lineIdx < totalLines {
 			line := []rune(e.Buf.Lines[lineIdx])
+			var syntaxSpans []highlight.Span
+			if e.Highlighter != nil {
+				syntaxSpans = e.Highlighter.HighlightLine(e.Buf.Lines[lineIdx])
+			}
 			for x := 0; x < editorW; x++ {
 				colIdx := e.Viewport.LeftCol + x
 				ch := ' '
@@ -104,6 +110,12 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				style := term.StyleDefault
 				if lineIdx == e.Cursor.Line {
 					style = term.StyleActiveLine
+				}
+				for _, sp := range syntaxSpans {
+					if colIdx >= sp.Start && colIdx < sp.End {
+						style = sp.Style
+						break
+					}
 				}
 				if hasSearch {
 					for mi, m := range searchMatches {

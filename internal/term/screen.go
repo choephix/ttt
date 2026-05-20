@@ -27,6 +27,18 @@ const (
 	StyleScrollbar
 	StyleScrollbarThumb
 	StyleActiveLine
+	StyleSyntaxComment
+	StyleSyntaxString
+	StyleSyntaxKeyword
+	StyleSyntaxNumber
+	StyleSyntaxOperator
+	StyleSyntaxFunction
+	StyleSyntaxType
+	StyleSyntaxBuiltin
+	StyleSyntaxVariable
+	StyleSyntaxPunctuation
+	StyleSyntaxTag
+	StyleSyntaxAttribute
 )
 
 // Cell represents a single character cell on the screen.

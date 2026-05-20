@@ -2,16 +2,49 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"ttt/internal/config"
+	"ttt/internal/git"
 	"ttt/internal/term"
 	"ttt/internal/ui"
 	"ttt/internal/view"
 )
 
+func resolveArgs() (workDir string, openFile string) {
+	workDir, _ = os.Getwd()
+	if len(os.Args) < 2 {
+		return
+	}
+	arg := os.Args[1]
+	absPath, err := filepath.Abs(arg)
+	if err != nil {
+		openFile = arg
+		return
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		openFile = absPath
+		return
+	}
+	if info.IsDir() {
+		workDir = absPath
+	} else {
+		openFile = absPath
+		if root := git.RepoRoot(filepath.Dir(absPath)); root != "" {
+			workDir = root
+		} else {
+			workDir = filepath.Dir(absPath)
+		}
+	}
+	return
+}
+
 func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
+	workDir, openFile := resolveArgs()
+
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
-	if len(os.Args) > 1 {
-		editorGroup.OpenFile(os.Args[1])
+	if openFile != "" {
+		editorGroup.OpenFile(openFile)
 	}
 
 	bottomPanel := ui.NewBottomPanelWidget(borders)
@@ -37,10 +70,9 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 		{Name: "Help"},
 	})
 
-	cwd, _ := os.Getwd()
-	explorer := ui.NewExplorerWidget(cwd)
+	explorer := ui.NewExplorerWidget(workDir)
 	search := ui.NewSearchWidget()
-	changes := ui.NewChangesWidget(cwd)
+	changes := ui.NewChangesWidget(workDir)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Files", explorer)
@@ -83,7 +115,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 		statusBar:    statusBar,
 		status:       status,
 		borders:      borders,
-		cwd:          cwd,
+		cwd:          workDir,
 	}
 	app.showSidebar = func() {
 		sidebar.Visible = true

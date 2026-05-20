@@ -1,6 +1,8 @@
 # Go build artifacts
 bin/
+vendor/
 /pico
+/ttt
 *.exe
 *.exe~
 *.dll

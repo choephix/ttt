@@ -36,11 +36,16 @@ Or:
 make run
 ```
 
-Open a file:
+### Usage
 
 ```sh
-./bin/ttt path/to/file.go
+ttt                    # opens the current directory
+ttt /path/to/dir       # opens that directory as the workspace
+ttt /path/to/file.go   # opens the file; workspace is the git repo root
+                       # (falls back to the file's parent dir if not in a repo)
 ```
+
+When a directory is opened, the file explorer and git changes panel are rooted there. When a file is opened directly, ttt finds the enclosing git repository and uses that as the workspace root.
 
 ### Keybindings
 

@@ -48,6 +48,18 @@ type ThemeConfig struct {
 	ActiveLine      StyleDef    `json:"activeLine"`
 	Scrollbar       StyleDef    `json:"scrollbar"`
 	ScrollbarThumb  StyleDef    `json:"scrollbarThumb"`
+	SyntaxComment     StyleDef `json:"syntaxComment"`
+	SyntaxString      StyleDef `json:"syntaxString"`
+	SyntaxKeyword     StyleDef `json:"syntaxKeyword"`
+	SyntaxNumber      StyleDef `json:"syntaxNumber"`
+	SyntaxOperator    StyleDef `json:"syntaxOperator"`
+	SyntaxFunction    StyleDef `json:"syntaxFunction"`
+	SyntaxType        StyleDef `json:"syntaxType"`
+	SyntaxBuiltin     StyleDef `json:"syntaxBuiltin"`
+	SyntaxVariable    StyleDef `json:"syntaxVariable"`
+	SyntaxPunctuation StyleDef `json:"syntaxPunctuation"`
+	SyntaxTag         StyleDef `json:"syntaxTag"`
+	SyntaxAttribute   StyleDef `json:"syntaxAttribute"`
 	Borders         BorderChars `json:"borders"`
 }
 
@@ -76,6 +88,19 @@ func DefaultTheme() ThemeConfig {
 		Scrollbar:      StyleDef{Fg: "#555555"},
 		ScrollbarThumb: StyleDef{Fg: "#888888"},
 
+		SyntaxComment:     StyleDef{Fg: "#6a9955"},
+		SyntaxString:      StyleDef{Fg: "#ce9178"},
+		SyntaxKeyword:     StyleDef{Fg: "#569cd6"},
+		SyntaxNumber:      StyleDef{Fg: "#b5cea8"},
+		SyntaxOperator:    StyleDef{Fg: "#d4d4d4"},
+		SyntaxFunction:    StyleDef{Fg: "#dcdcaa"},
+		SyntaxType:        StyleDef{Fg: "#4ec9b0"},
+		SyntaxBuiltin:     StyleDef{Fg: "#4ec9b0"},
+		SyntaxVariable:    StyleDef{Fg: "#9cdcfe"},
+		SyntaxPunctuation: StyleDef{Fg: "#d4d4d4"},
+		SyntaxTag:         StyleDef{Fg: "#569cd6"},
+		SyntaxAttribute:   StyleDef{Fg: "#9cdcfe"},
+
 		Borders: BorderChars{
 			Horizontal:  "─",
 			Vertical:    "│",
@@ -95,21 +120,21 @@ func DefaultTheme() ThemeConfig {
 func (t *ThemeConfig) ResolveColors() {
 	sc := t.SuccessColor
 	if sc == "" {
-		sc = "green"
+		sc = "#1e2e1e"
 	}
-	fillFg(&t.DiffAdded, sc)
+	fillBg(&t.DiffAdded, sc)
 
 	dc := t.DangerColor
 	if dc == "" {
-		dc = "red"
+		dc = "#2e1e1e"
 	}
-	fillFg(&t.DiffDeleted, dc)
+	fillBg(&t.DiffDeleted, dc)
 
 	wc := t.WarningColor
 	if wc == "" {
-		wc = "yellow"
+		wc = "#2e2e1e"
 	}
-	fillFg(&t.DiffModified, wc)
+	fillBg(&t.DiffModified, wc)
 }
 
 func fillFg(s *StyleDef, color string) {

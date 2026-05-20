@@ -335,6 +335,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] `TabBarWidget` with click support and dirty indicators
 - [x] `BottomPanelWidget` with tab switching
 - [x] main.go event loop: poll event → Root.HandleEvent → render
+- [x] main.go refactored — split into main.go (36 lines), commands.go, widgets.go, eventloop.go, theme.go
 
 ---
 
@@ -347,7 +348,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Typing or backspace with an active selection replaces the selected text
 - [x] Ctrl+F opens a find bar with case-insensitive incremental search and match highlighting
 - [x] Ctrl+G go-to-line dialog
-- [ ] System clipboard integration (OSC 52 or xclip/xsel fallback)
+- [x] System clipboard integration — OSC 52 escape sequence for copy (works over SSH), native fallbacks: xclip/xsel (X11), wl-copy/wl-paste (Wayland), pbcopy/pbpaste (macOS). Paste reads system clipboard first, falls back to internal buffer.
 - [ ] Ctrl+H opens find-and-replace bar
 - [ ] F3 / Shift+F3 for next/previous match
 
@@ -355,8 +356,8 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ## Phase 4 — Line Numbers, Gutter, and Indentation (partially done)
 
-- [ ] Line number gutter on the left edge of each editor pane (extract a shared gutter renderer that both the editor and DiffViewWidget can use — the diff viewer already has an inline `renderGutter()`; also share with git change indicators when those land)
-- [ ] Gutter width adjusts dynamically based on total line count
+- [x] Line number gutter on the left edge of each editor pane — dynamic width based on total line count, right-aligned numbers, 1-space left padding + 2-space right padding, `StyleLineNumber` for gutter, `StyleActiveLine` on active line's gutter. Controlled by `lineNumbers` setting (default true).
+- [x] Gutter width adjusts dynamically based on total line count
 - [x] Auto-indent: new line inherits indentation of the previous line
 - [ ] Tab/Shift+Tab indent/dedent selected lines
 - [ ] Visible whitespace option (show tabs and trailing spaces)
@@ -398,10 +399,10 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Sidebar panel tabs — `PanelTabBarWidget` at top of sidebar with clickable tabs: Files, Search, Changes (title case)
 - [ ] Changes panel: tree view mode (`changesView: "list" | "tree"` setting, default list) *(deferred)*
 - [ ] Changes panel: show `filename  path/to/dir` with muted directory path as option (useful when multiple files share a name) *(deferred)*
-- [ ] Highlight the currently open file in the tree
+- [x] Highlight the currently open file in the tree — active file highlighted with `StyleSidebarSelected`, synced on every editor status update
 - [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
 - [ ] File icons (using Unicode/Nerd Font glyphs if available)
-- [ ] Open folder support — currently uses `os.Getwd()` for explorer, git changes, and all path resolution. When folder-opening is added (`ttt /path` or Open Folder dialog), replace cwd with the opened folder path everywhere.
+- [x] Open folder support — `ttt` opens cwd, `ttt /path/to/dir` opens that directory, `ttt /path/to/file.go` opens file with workspace set to git repo root (falls back to file's parent dir if not in a repo)
 
 ---
 
@@ -476,11 +477,11 @@ The current highlighter is single-line regex. This phase makes it real.
 
 - [x] JSON config files: `settings.json`, `theme.json`, `keybindings.json`
 - [x] Config search paths: `.config/` (cwd) → `<exe-dir>/config/` → `~/.config/ttt/`
-- [x] Theme: explicit per-style defaults (fg/bg/bold) matching VS Code dark theme — `defaultFg` (#d4d4d4) and `defaultBg` (#1e1e1e) in theme config applied as base to all styles for guaranteed contrast; removed `accentColor` abstraction in favor of explicit values per `StyleDef`
+- [x] Theme: explicit per-style defaults (fg/bg/bold) — `defaultFg` (#fafafa) and `defaultBg` (#1f1f1f) in theme config applied as base to all styles for guaranteed contrast; `lineNumber` fg (#999999); removed `accentColor` abstraction in favor of explicit values per `StyleDef`
 - [x] Settings: tabSize, insertSpaces, sidebarVisible, sidebarWidth
 - [x] .editorconfig support for per-file indent settings
 - [ ] Word wrap setting
-- [ ] Line numbers on/off setting
+- [x] Line numbers on/off setting (`lineNumbers`, default true)
 - [ ] Font/glyph preferences (Nerd Fonts yes/no)
 - [ ] Default encoding and line endings settings
 - [ ] Live reload on config file change

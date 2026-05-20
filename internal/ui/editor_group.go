@@ -6,6 +6,7 @@ import (
 	"ttt/internal/core/clipboard"
 	"ttt/internal/core/cursor"
 	"ttt/internal/core/diff"
+	"ttt/internal/core/highlight"
 	"ttt/internal/core/selection"
 	"ttt/internal/core/undo"
 	"ttt/internal/term"
@@ -15,14 +16,15 @@ import (
 )
 
 type editorTab struct {
-	FilePath string
-	Buf      *buffer.Buffer
-	Cur      *cursor.Cursor
-	Vp       *view.Viewport
-	Undo     *undo.UndoStack
-	Sel      *selection.Selection
-	TabSize  int
-	Content  Widget
+	FilePath    string
+	Buf         *buffer.Buffer
+	Cur         *cursor.Cursor
+	Vp          *view.Viewport
+	Undo        *undo.UndoStack
+	Sel         *selection.Selection
+	Highlighter *highlight.Highlighter
+	TabSize     int
+	Content     Widget
 }
 
 type EditorGroupWidget struct {
@@ -93,13 +95,14 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		tabSize = ec.IndentSize
 	}
 	g.tabs = append(g.tabs, editorTab{
-		FilePath: path,
-		Buf:      newBuf,
-		Cur:      &cursor.Cursor{},
-		Vp:       &view.Viewport{},
-		Undo:     &undo.UndoStack{},
-		Sel:      &selection.Selection{},
-		TabSize:  tabSize,
+		FilePath:    path,
+		Buf:         newBuf,
+		Cur:         &cursor.Cursor{},
+		Vp:          &view.Viewport{},
+		Undo:        &undo.UndoStack{},
+		Sel:         &selection.Selection{},
+		Highlighter: highlight.New(path),
+		TabSize:     tabSize,
 	})
 	g.SwitchTab(len(g.tabs) - 1)
 }
@@ -320,6 +323,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Viewport = t.Vp
 		g.Editor.Undo = t.Undo
 		g.Editor.Selection = t.Sel
+		g.Editor.Highlighter = t.Highlighter
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
 		}
