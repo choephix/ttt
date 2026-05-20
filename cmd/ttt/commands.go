@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"ttt/internal/command"
 	"ttt/internal/config"
 	"ttt/internal/core/diff"
@@ -24,6 +25,8 @@ type appWidgets struct {
 	statusBar    *ui.StatusBarWidget
 	status       *view.StatusBar
 	borders      *term.BorderSet
+	screen       *term.TcellScreen
+	renderer     interface{ Clear() }
 	cwd          string
 
 	showSidebar    func()
@@ -256,6 +259,40 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.root.SetFocus(app.editorGroup)
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "theme.switch", Title: "Switch Theme",
+		Handler: func() {
+			files := config.ListThemeFiles()
+			if len(files) == 0 {
+				return
+			}
+			var cmds []command.Command
+			for _, f := range files {
+				name := filepath.Base(f)
+				name = strings.TrimPrefix(name, "theme.")
+				name = strings.TrimSuffix(name, ".json")
+				cmds = append(cmds, command.Command{ID: f, Title: name})
+			}
+			picker := ui.NewCommandPaletteWidget(cmds)
+			picker.Borders = app.borders
+			picker.OnExecute = func(path string) {
+				app.root.PopOverlay()
+				app.root.SetFocus(app.editorGroup)
+				theme, err := config.LoadThemeFromFile(path)
+				if err != nil {
+					return
+				}
+				app.screen.SetStyleMap(buildStyleMap(theme))
+				app.renderer.Clear()
+			}
+			picker.OnDismiss = func() {
+				app.root.PopOverlay()
+				app.root.SetFocus(app.editorGroup)
+			}
+			app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
 		},
 	})
 

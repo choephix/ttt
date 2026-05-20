@@ -24,6 +24,8 @@ func main() {
 	borders := buildBorderSet(cfg.Theme.Borders)
 
 	app := buildWidgets(&cfg, &borders)
+	app.screen = screen
+	app.renderer = renderer
 
 	quitPending := false
 	running := true

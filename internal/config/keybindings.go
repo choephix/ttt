@@ -139,5 +139,6 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+v", Command: "editor.paste"},
 		{Key: "escape", Command: "editor.focus"},
 		{Key: "ctrl+t", Command: "panel.toggle"},
+		{Key: "ctrl+k ctrl+t", Command: "theme.switch"},
 	}
 }

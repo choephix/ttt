@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type AppConfig struct {
@@ -45,9 +46,12 @@ func configPaths() []string {
 	var paths []string
 
 	paths = append(paths, ".config")
+	paths = append(paths, "config")
 
 	if exe, err := os.Executable(); err == nil {
-		paths = append(paths, filepath.Join(filepath.Dir(exe), "config"))
+		exeDir := filepath.Dir(exe)
+		paths = append(paths, filepath.Join(exeDir, "config"))
+		paths = append(paths, filepath.Join(exeDir, "..", "config"))
 	}
 
 	if home, err := os.UserHomeDir(); err == nil {
@@ -55,6 +59,36 @@ func configPaths() []string {
 	}
 
 	return paths
+}
+
+func LoadThemeFromFile(path string) (ThemeConfig, error) {
+	theme := DefaultTheme()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return theme, err
+	}
+	if err := json.Unmarshal(data, &theme); err != nil {
+		return theme, err
+	}
+	theme.ResolveColors()
+	return theme, nil
+}
+
+func ListThemeFiles() []string {
+	var files []string
+	for _, dir := range configPaths() {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			name := e.Name()
+			if strings.HasPrefix(name, "theme.") && strings.HasSuffix(name, ".json") && name != "theme.json" {
+				files = append(files, filepath.Join(dir, name))
+			}
+		}
+	}
+	return files
 }
 
 func readFirst(dirs []string, filename string) ([]byte, error) {
