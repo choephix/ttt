@@ -14,8 +14,8 @@ func TestLoadNoFiles(t *testing.T) {
 	if cfg.Settings.TabSize != 4 {
 		t.Fatalf("expected default TabSize 4, got %d", cfg.Settings.TabSize)
 	}
-	if cfg.Theme.DefaultFg != "#d4d4d4" {
-		t.Fatalf("expected default DefaultFg '#d4d4d4', got '%s'", cfg.Theme.DefaultFg)
+	if cfg.Theme.DefaultFg != "#fafafa" {
+		t.Fatalf("expected default DefaultFg '#fafafa', got '%s'", cfg.Theme.DefaultFg)
 	}
 }
 

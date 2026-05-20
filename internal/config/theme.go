@@ -53,8 +53,8 @@ type ThemeConfig struct {
 
 func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
-		DefaultFg: "#d4d4d4",
-		DefaultBg: "#1e1e1e",
+		DefaultFg: "#fafafa",
+		DefaultBg: "#1f1f1f",
 
 		MenuBar:       StyleDef{},
 		MenuBarActive: StyleDef{Fg: "#ffffff", Bg: "#505050", Bold: true},
@@ -72,7 +72,7 @@ func DefaultTheme() ThemeConfig {
 		Border: StyleDef{Fg: "#555555"},
 
 		ActiveLine:     StyleDef{Bg: "#282828"},
-		LineNumber:     StyleDef{Fg: "#858585"},
+		LineNumber:     StyleDef{Fg: "#999999"},
 		Scrollbar:      StyleDef{Fg: "#555555"},
 		ScrollbarThumb: StyleDef{Fg: "#888888"},
 

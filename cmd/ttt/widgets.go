@@ -9,7 +9,7 @@ import (
 )
 
 func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
-	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize)
+	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
 	if len(os.Args) > 1 {
 		editorGroup.OpenFile(os.Args[1])
 	}

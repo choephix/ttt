@@ -31,26 +31,29 @@ type EditorGroupWidget struct {
 	Editor  *EditorPaneWidget
 	tabs    []editorTab
 	active  int
-	TabSize int
-	Borders *term.BorderSet
+	TabSize     int
+	LineNumbers bool
+	Borders     *term.BorderSet
 }
 
-func NewEditorGroupWidget(borders *term.BorderSet, tabSize int) *EditorGroupWidget {
+func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
 	editor := NewEditorPaneWidget(
 		&buffer.Buffer{Lines: []string{""}},
 		&cursor.Cursor{},
 		&view.Viewport{},
 	)
 	editor.TabSize = tabSize
+	editor.LineNumbers = lineNumbers
 
 	tabBar := NewTabBarWidget()
 	tabBar.Borders = borders
 
 	g := &EditorGroupWidget{
-		TabBar:  tabBar,
-		Editor:  editor,
-		TabSize: tabSize,
-		Borders: borders,
+		TabBar:      tabBar,
+		Editor:      editor,
+		TabSize:     tabSize,
+		LineNumbers: lineNumbers,
+		Borders:     borders,
 	}
 	tabBar.OnTabClick = func(index int) {
 		g.SwitchTab(index)

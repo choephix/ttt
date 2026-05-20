@@ -1,13 +1,14 @@
 package ui
 
 import (
+	"strconv"
+	"strings"
 	"ttt/internal/core/buffer"
 	"ttt/internal/core/cursor"
 	"ttt/internal/core/selection"
 	"ttt/internal/core/undo"
 	"ttt/internal/term"
 	"ttt/internal/view"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -22,6 +23,7 @@ type EditorPaneWidget struct {
 	CursorX      int
 	CursorY      int
 	TabSize      int
+	LineNumbers  bool
 	SearchQuery  string
 	SearchActive int
 }
@@ -36,14 +38,29 @@ func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewpo
 
 func (e *EditorPaneWidget) Focusable() bool { return true }
 
+func (e *EditorPaneWidget) gutterWidth() int {
+	if !e.LineNumbers {
+		return 0
+	}
+	digits := len(strconv.Itoa(len(e.Buf.Lines)))
+	if digits < 2 {
+		digits = 2
+	}
+	return digits + 3
+}
+
 func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)
 	showScrollbar := totalLines > h
-	editorW := w
+	gutterW := e.gutterWidth()
+	editorW := w - gutterW
 	if showScrollbar {
-		editorW = w - 1
+		editorW--
+	}
+	if editorW < 1 {
+		editorW = 1
 	}
 
 	e.Viewport.Width = editorW
@@ -60,6 +77,22 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	for y := 0; y < h; y++ {
 		lineIdx := e.Viewport.TopLine + y
+
+		if gutterW > 0 {
+			gutterStyle := term.StyleLineNumber
+			if lineIdx < totalLines && lineIdx == e.Cursor.Line {
+				gutterStyle = term.StyleActiveLine
+			}
+			numStr := ""
+			if lineIdx < totalLines {
+				numStr = strconv.Itoa(lineIdx + 1)
+			}
+			padded := " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
+			for i, ch := range padded {
+				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
+			}
+		}
+
 		if lineIdx < totalLines {
 			line := []rune(e.Buf.Lines[lineIdx])
 			for x := 0; x < editorW; x++ {
@@ -87,11 +120,11 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				if hasSel && sel.Contains(lineIdx, colIdx, e.Cursor.Line, e.Cursor.Col) {
 					style = term.StyleSelection
 				}
-				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style})
 			}
 		} else {
 			for x := 0; x < editorW; x++ {
-				surface.SetCell(x, y, term.Cell{Ch: ' '})
+				surface.SetCell(gutterW+x, y, term.Cell{Ch: ' '})
 			}
 		}
 	}
@@ -108,7 +141,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	}
 
 	r := e.GetRect()
-	e.CursorX = e.Cursor.Col - e.Viewport.LeftCol + r.X
+	e.CursorX = e.Cursor.Col - e.Viewport.LeftCol + gutterW + r.X
 	e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
 }
 
