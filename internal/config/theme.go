@@ -20,13 +20,11 @@ type BorderChars struct {
 }
 
 type ThemeConfig struct {
-	DefaultFg       string      `json:"defaultFg,omitempty"`
-	DefaultBg       string      `json:"defaultBg,omitempty"`
-	AccentColor     string      `json:"accentColor,omitempty"`
-	BorderColor     string      `json:"borderColor,omitempty"`
-	SuccessColor    string      `json:"successColor,omitempty"`
-	DangerColor     string      `json:"dangerColor,omitempty"`
-	WarningColor    string      `json:"warningColor,omitempty"`
+	DefaultFg    string `json:"defaultFg,omitempty"`
+	DefaultBg    string `json:"defaultBg,omitempty"`
+	SuccessColor string `json:"successColor,omitempty"`
+	DangerColor  string `json:"dangerColor,omitempty"`
+	WarningColor string `json:"warningColor,omitempty"`
 	StatusBar       StyleDef    `json:"statusBar"`
 	ActiveTab       StyleDef    `json:"activeTab"`
 	InactiveTab     StyleDef    `json:"inactiveTab"`
@@ -47,6 +45,7 @@ type ThemeConfig struct {
 	DiffAdded       StyleDef    `json:"diffAdded"`
 	DiffDeleted     StyleDef    `json:"diffDeleted"`
 	DiffModified    StyleDef    `json:"diffModified"`
+	ActiveLine      StyleDef    `json:"activeLine"`
 	Scrollbar       StyleDef    `json:"scrollbar"`
 	ScrollbarThumb  StyleDef    `json:"scrollbarThumb"`
 	Borders         BorderChars `json:"borders"`
@@ -54,26 +53,28 @@ type ThemeConfig struct {
 
 func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
-		DefaultFg:   "#d4d4d4",
-		DefaultBg:   "#1e1e1e",
-		AccentColor: "#4ec9b0",
-		BorderColor: "#555555",
+		DefaultFg: "#d4d4d4",
+		DefaultBg: "#1e1e1e",
 
-		MenuBar:   StyleDef{},
-		StatusBar: StyleDef{},
+		MenuBar:       StyleDef{},
+		MenuBarActive: StyleDef{Fg: "#ffffff", Bg: "#505050", Bold: true},
+		StatusBar:     StyleDef{},
 
-		MenuBarActive: StyleDef{Bold: true},
-		ActiveTab:     StyleDef{Bold: true},
-		InactiveTab:   StyleDef{Fg: "gray"},
+		ActiveTab:   StyleDef{Fg: "#ffffff", Bold: true},
+		InactiveTab: StyleDef{Fg: "#888888"},
 
-		SidebarHeader:   StyleDef{Bold: true},
-		SidebarSelected: StyleDef{},
+		SidebarHeader:   StyleDef{Fg: "#ffffff", Bold: true},
+		SidebarSelected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
 
-		PaletteSelected: StyleDef{},
+		PaletteBorder:   StyleDef{Fg: "#555555"},
+		PaletteSelected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
 
-		LineNumber:     StyleDef{Fg: "gray"},
-		Scrollbar:      StyleDef{Fg: "gray"},
-		ScrollbarThumb: StyleDef{Fg: "darkgray"},
+		Border: StyleDef{Fg: "#555555"},
+
+		ActiveLine:     StyleDef{Bg: "#282828"},
+		LineNumber:     StyleDef{Fg: "#858585"},
+		Scrollbar:      StyleDef{Fg: "#555555"},
+		ScrollbarThumb: StyleDef{Fg: "#888888"},
 
 		Borders: BorderChars{
 			Horizontal:  "─",
@@ -92,23 +93,6 @@ func DefaultTheme() ThemeConfig {
 }
 
 func (t *ThemeConfig) ResolveColors() {
-	ac := t.AccentColor
-	if ac == "" {
-		ac = "#4ec9b0"
-	}
-	fillBg(&t.MenuBarActive, ac)
-	fillFg(&t.ActiveTab, ac)
-	fillFg(&t.SidebarHeader, ac)
-	fillBg(&t.SidebarSelected, ac)
-	fillBg(&t.PaletteSelected, ac)
-
-	bc := t.BorderColor
-	if bc == "" {
-		bc = "#555555"
-	}
-	fillFg(&t.Border, bc)
-	fillFg(&t.PaletteBorder, bc)
-
 	sc := t.SuccessColor
 	if sc == "" {
 		sc = "green"

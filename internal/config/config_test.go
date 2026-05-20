@@ -14,8 +14,8 @@ func TestLoadNoFiles(t *testing.T) {
 	if cfg.Settings.TabSize != 4 {
 		t.Fatalf("expected default TabSize 4, got %d", cfg.Settings.TabSize)
 	}
-	if cfg.Theme.AccentColor != "#4ec9b0" {
-		t.Fatalf("expected default AccentColor '#4ec9b0', got '%s'", cfg.Theme.AccentColor)
+	if cfg.Theme.DefaultFg != "#d4d4d4" {
+		t.Fatalf("expected default DefaultFg '#d4d4d4', got '%s'", cfg.Theme.DefaultFg)
 	}
 }
 

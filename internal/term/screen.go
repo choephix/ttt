@@ -26,6 +26,7 @@ const (
 	StyleDiffModified
 	StyleScrollbar
 	StyleScrollbarThumb
+	StyleActiveLine
 )
 
 // Cell represents a single character cell on the screen.

@@ -7,11 +7,14 @@ import (
 
 func TestDefaultTheme(t *testing.T) {
 	th := DefaultTheme()
-	if th.AccentColor != "#4ec9b0" {
-		t.Fatalf("expected AccentColor '#4ec9b0', got '%s'", th.AccentColor)
+	if th.ActiveTab.Fg != "#ffffff" {
+		t.Fatalf("expected ActiveTab.Fg '#ffffff', got '%s'", th.ActiveTab.Fg)
 	}
 	if th.ActiveTab.Bold != true {
 		t.Fatal("expected ActiveTab.Bold true")
+	}
+	if th.Border.Fg != "#555555" {
+		t.Fatalf("expected Border.Fg '#555555', got '%s'", th.Border.Fg)
 	}
 }
 
@@ -26,8 +29,8 @@ func TestThemePartialJSON(t *testing.T) {
 	if th.StatusBar.Bg != "#ff0000" {
 		t.Fatalf("expected StatusBar.Bg '#ff0000', got '%s'", th.StatusBar.Bg)
 	}
-	if th.ActiveTab.Fg != "#4ec9b0" {
-		t.Fatalf("ActiveTab.Fg should still be '#4ec9b0', got '%s'", th.ActiveTab.Fg)
+	if th.ActiveTab.Fg != "#ffffff" {
+		t.Fatalf("ActiveTab.Fg should still be '#ffffff', got '%s'", th.ActiveTab.Fg)
 	}
 }
 

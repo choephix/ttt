@@ -69,6 +69,9 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					ch = line[colIdx]
 				}
 				style := term.StyleDefault
+				if lineIdx == e.Cursor.Line {
+					style = term.StyleActiveLine
+				}
 				if hasSearch {
 					for mi, m := range searchMatches {
 						if m.Line == lineIdx && colIdx >= m.Col && colIdx < m.Col+m.Len {
