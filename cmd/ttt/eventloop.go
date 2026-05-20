@@ -23,6 +23,7 @@ func runEventLoop(
 		app.status.Line = line
 		app.status.Col = col
 		app.status.Dirty = app.editorGroup.IsDirty()
+		app.explorer.ActiveFile = app.editorGroup.ActiveFilePath()
 	}
 
 	redraw := func() {

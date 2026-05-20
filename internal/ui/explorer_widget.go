@@ -25,6 +25,7 @@ type ExplorerWidget struct {
 	FlatList   []*TreeNode
 	Selected   int
 	ScrollTop  int
+	ActiveFile string
 	OnOpenFile func(path string)
 }
 
@@ -117,6 +118,8 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 
 		style := term.StyleSidebarItem
 		if idx == e.Selected {
+			style = term.StyleSidebarSelected
+		} else if !node.IsDir && node.Path == e.ActiveFile {
 			style = term.StyleSidebarSelected
 		}
 

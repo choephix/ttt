@@ -2,6 +2,10 @@ package clipboard
 
 import "testing"
 
+func init() {
+	DisableSystem()
+}
+
 func TestSetGet(t *testing.T) {
 	Set("hello")
 	if got := Get(); got != "hello" {
