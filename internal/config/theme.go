@@ -19,87 +19,120 @@ type BorderChars struct {
 	RightTee    string `json:"rightTee"`
 }
 
+type TabStyles struct {
+	Active   StyleDef `json:"active"`
+	Inactive StyleDef `json:"inactive"`
+}
+
+type SidebarStyles struct {
+	Header   StyleDef `json:"header"`
+	Item     StyleDef `json:"item"`
+	Selected StyleDef `json:"selected"`
+}
+
+type DialogStyles struct {
+	Input    StyleDef `json:"input"`
+	Item     StyleDef `json:"item"`
+	Selected StyleDef `json:"selected"`
+}
+
+type MenuStyles struct {
+	Item   StyleDef `json:"item"`
+	Active StyleDef `json:"active"`
+}
+
+type EditorStyles struct {
+	LineNumber   StyleDef `json:"lineNumber"`
+	ActiveLine   StyleDef `json:"activeLine"`
+	Selection    StyleDef `json:"selection"`
+	SearchMatch  StyleDef `json:"searchMatch"`
+	SearchActive StyleDef `json:"searchActive"`
+}
+
+type DiffStyles struct {
+	Added    StyleDef `json:"added"`
+	Deleted  StyleDef `json:"deleted"`
+	Modified StyleDef `json:"modified"`
+}
+
+type SyntaxStyles struct {
+	Comment     StyleDef `json:"comment"`
+	String      StyleDef `json:"string"`
+	Keyword     StyleDef `json:"keyword"`
+	Number      StyleDef `json:"number"`
+	Operator    StyleDef `json:"operator"`
+	Function    StyleDef `json:"function"`
+	Type        StyleDef `json:"type"`
+	Builtin     StyleDef `json:"builtin"`
+	Variable    StyleDef `json:"variable"`
+	Punctuation StyleDef `json:"punctuation"`
+	Tag         StyleDef `json:"tag"`
+	Attribute   StyleDef `json:"attribute"`
+}
+
 type ThemeConfig struct {
-	DefaultFg    string `json:"defaultFg,omitempty"`
-	DefaultBg    string `json:"defaultBg,omitempty"`
-	SuccessColor string `json:"successColor,omitempty"`
-	DangerColor  string `json:"dangerColor,omitempty"`
-	WarningColor string `json:"warningColor,omitempty"`
+	Default      StyleDef `json:"default"`
+	Success string `json:"success,omitempty"`
+	Danger  string `json:"danger,omitempty"`
+	Warning string `json:"warning,omitempty"`
 	StatusBar       StyleDef    `json:"statusBar"`
-	ActiveTab       StyleDef    `json:"activeTab"`
-	InactiveTab     StyleDef    `json:"inactiveTab"`
-	SidebarHeader   StyleDef    `json:"sidebarHeader"`
-	SidebarItem     StyleDef    `json:"sidebarItem"`
-	SidebarSelected StyleDef    `json:"sidebarSelected"`
-	PaletteBorder   StyleDef    `json:"paletteBorder"`
-	PaletteInput    StyleDef    `json:"paletteInput"`
-	PaletteItem     StyleDef    `json:"paletteItem"`
-	PaletteSelected StyleDef    `json:"paletteSelected"`
-	LineNumber      StyleDef    `json:"lineNumber"`
-	MenuBar         StyleDef    `json:"menuBar"`
-	MenuBarActive   StyleDef    `json:"menuBarActive"`
+	Tabs            TabStyles   `json:"tabs"`
+	Sidebar         SidebarStyles `json:"sidebar"`
+	Dialog          DialogStyles  `json:"dialog"`
+	Editor          EditorStyles `json:"editor"`
+	Menu            MenuStyles  `json:"menu"`
 	Border          StyleDef    `json:"border"`
-	Selection       StyleDef    `json:"selection"`
-	SearchMatch     StyleDef    `json:"searchMatch"`
-	SearchActive    StyleDef    `json:"searchActive"`
-	DiffAdded       StyleDef    `json:"diffAdded"`
-	DiffDeleted     StyleDef    `json:"diffDeleted"`
-	DiffModified    StyleDef    `json:"diffModified"`
-	ActiveLine      StyleDef    `json:"activeLine"`
+	Diff            DiffStyles  `json:"diff"`
 	Scrollbar       StyleDef    `json:"scrollbar"`
-	ScrollbarThumb  StyleDef    `json:"scrollbarThumb"`
-	SyntaxComment     StyleDef `json:"syntaxComment"`
-	SyntaxString      StyleDef `json:"syntaxString"`
-	SyntaxKeyword     StyleDef `json:"syntaxKeyword"`
-	SyntaxNumber      StyleDef `json:"syntaxNumber"`
-	SyntaxOperator    StyleDef `json:"syntaxOperator"`
-	SyntaxFunction    StyleDef `json:"syntaxFunction"`
-	SyntaxType        StyleDef `json:"syntaxType"`
-	SyntaxBuiltin     StyleDef `json:"syntaxBuiltin"`
-	SyntaxVariable    StyleDef `json:"syntaxVariable"`
-	SyntaxPunctuation StyleDef `json:"syntaxPunctuation"`
-	SyntaxTag         StyleDef `json:"syntaxTag"`
-	SyntaxAttribute   StyleDef `json:"syntaxAttribute"`
+	Syntax          SyntaxStyles `json:"syntax"`
 	Borders         BorderChars `json:"borders"`
 }
 
 func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
-		DefaultFg: "#fafafa",
-		DefaultBg: "#1f1f1f",
+		Default: StyleDef{Fg: "#fafafa", Bg: "#1f1f1f"},
 
-		MenuBar:       StyleDef{},
-		MenuBarActive: StyleDef{Fg: "#ffffff", Bg: "#505050", Bold: true},
+		Menu: MenuStyles{
+			Active: StyleDef{Fg: "#ffffff", Bg: "#505050", Bold: true},
+		},
 		StatusBar:     StyleDef{},
 
-		ActiveTab:   StyleDef{Fg: "#ffffff", Bold: true},
-		InactiveTab: StyleDef{Fg: "#888888"},
+		Tabs: TabStyles{
+			Active:   StyleDef{Fg: "#ffffff", Bold: true},
+			Inactive: StyleDef{Fg: "#888888"},
+		},
 
-		SidebarHeader:   StyleDef{Fg: "#ffffff", Bold: true},
-		SidebarSelected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
+		Sidebar: SidebarStyles{
+			Header:   StyleDef{Fg: "#ffffff", Bold: true},
+			Selected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
+		},
 
-		PaletteBorder:   StyleDef{Fg: "#555555"},
-		PaletteSelected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
+		Dialog: DialogStyles{
+			Selected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
+		},
 
 		Border: StyleDef{Fg: "#555555"},
 
-		ActiveLine:     StyleDef{Bg: "#282828"},
-		LineNumber:     StyleDef{Fg: "#999999"},
-		Scrollbar:      StyleDef{Fg: "#555555"},
-		ScrollbarThumb: StyleDef{Fg: "#888888"},
+		Editor: EditorStyles{
+			ActiveLine: StyleDef{Bg: "#282828"},
+			LineNumber: StyleDef{Fg: "#999999"},
+		},
+		Scrollbar: StyleDef{Fg: "#888888", Bg: "#555555"},
 
-		SyntaxComment:     StyleDef{Fg: "#6a9955"},
-		SyntaxString:      StyleDef{Fg: "#ce9178"},
-		SyntaxKeyword:     StyleDef{Fg: "#569cd6"},
-		SyntaxNumber:      StyleDef{Fg: "#b5cea8"},
-		SyntaxOperator:    StyleDef{Fg: "#d4d4d4"},
-		SyntaxFunction:    StyleDef{Fg: "#dcdcaa"},
-		SyntaxType:        StyleDef{Fg: "#4ec9b0"},
-		SyntaxBuiltin:     StyleDef{Fg: "#4ec9b0"},
-		SyntaxVariable:    StyleDef{Fg: "#9cdcfe"},
-		SyntaxPunctuation: StyleDef{Fg: "#d4d4d4"},
-		SyntaxTag:         StyleDef{Fg: "#569cd6"},
-		SyntaxAttribute:   StyleDef{Fg: "#9cdcfe"},
+		Syntax: SyntaxStyles{
+			Comment:     StyleDef{Fg: "#6a9955"},
+			String:      StyleDef{Fg: "#ce9178"},
+			Keyword:     StyleDef{Fg: "#569cd6"},
+			Number:      StyleDef{Fg: "#b5cea8"},
+			Operator:    StyleDef{Fg: "#d4d4d4"},
+			Function:    StyleDef{Fg: "#dcdcaa"},
+			Type:        StyleDef{Fg: "#4ec9b0"},
+			Builtin:     StyleDef{Fg: "#4ec9b0"},
+			Variable:    StyleDef{Fg: "#9cdcfe"},
+			Punctuation: StyleDef{Fg: "#d4d4d4"},
+			Tag:         StyleDef{Fg: "#569cd6"},
+			Attribute:   StyleDef{Fg: "#9cdcfe"},
+		},
 
 		Borders: BorderChars{
 			Horizontal:  "─",
@@ -118,23 +151,23 @@ func DefaultTheme() ThemeConfig {
 }
 
 func (t *ThemeConfig) ResolveColors() {
-	sc := t.SuccessColor
+	sc := t.Success
 	if sc == "" {
 		sc = "#1e2e1e"
 	}
-	fillBg(&t.DiffAdded, sc)
+	fillBg(&t.Diff.Added, sc)
 
-	dc := t.DangerColor
+	dc := t.Danger
 	if dc == "" {
 		dc = "#2e1e1e"
 	}
-	fillBg(&t.DiffDeleted, dc)
+	fillBg(&t.Diff.Deleted, dc)
 
-	wc := t.WarningColor
+	wc := t.Warning
 	if wc == "" {
 		wc = "#2e2e1e"
 	}
-	fillBg(&t.DiffModified, wc)
+	fillBg(&t.Diff.Modified, wc)
 }
 
 func fillFg(s *StyleDef, color string) {

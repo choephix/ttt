@@ -7,10 +7,10 @@ import (
 
 func TestDefaultTheme(t *testing.T) {
 	th := DefaultTheme()
-	if th.ActiveTab.Fg != "#ffffff" {
-		t.Fatalf("expected ActiveTab.Fg '#ffffff', got '%s'", th.ActiveTab.Fg)
+	if th.Tabs.Active.Fg != "#ffffff" {
+		t.Fatalf("expected ActiveTab.Fg '#ffffff', got '%s'", th.Tabs.Active.Fg)
 	}
-	if th.ActiveTab.Bold != true {
+	if th.Tabs.Active.Bold != true {
 		t.Fatal("expected ActiveTab.Bold true")
 	}
 	if th.Border.Fg != "#555555" {
@@ -29,16 +29,16 @@ func TestThemePartialJSON(t *testing.T) {
 	if th.StatusBar.Bg != "#ff0000" {
 		t.Fatalf("expected StatusBar.Bg '#ff0000', got '%s'", th.StatusBar.Bg)
 	}
-	if th.ActiveTab.Fg != "#ffffff" {
-		t.Fatalf("ActiveTab.Fg should still be '#ffffff', got '%s'", th.ActiveTab.Fg)
+	if th.Tabs.Active.Fg != "#ffffff" {
+		t.Fatalf("ActiveTab.Fg should still be '#ffffff', got '%s'", th.Tabs.Active.Fg)
 	}
 }
 
 func TestThemeHexColors(t *testing.T) {
 	th := ThemeConfig{}
-	json.Unmarshal([]byte(`{"lineNumber": {"fg": "#808080"}}`), &th)
+	json.Unmarshal([]byte(`{"editor": {"lineNumber": {"fg": "#808080"}}}`), &th)
 
-	if th.LineNumber.Fg != "#808080" {
-		t.Fatalf("expected '#808080', got '%s'", th.LineNumber.Fg)
+	if th.Editor.LineNumber.Fg != "#808080" {
+		t.Fatalf("expected '#808080', got '%s'", th.Editor.LineNumber.Fg)
 	}
 }
