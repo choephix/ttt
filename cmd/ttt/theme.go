@@ -9,6 +9,19 @@ import (
 
 func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	m := term.DefaultStyleMap()
+
+	base := tcell.StyleDefault
+	if theme.DefaultFg != "" {
+		base = base.Foreground(tcell.GetColor(theme.DefaultFg))
+	}
+	if theme.DefaultBg != "" {
+		base = base.Background(tcell.GetColor(theme.DefaultBg))
+	}
+	for i := range m {
+		m[i] = base
+	}
+	m[term.StyleSelection] = base.Reverse(true)
+
 	applyStyleDef(&m, term.StyleStatusBar, theme.StatusBar)
 	applyStyleDef(&m, term.StyleActiveTab, theme.ActiveTab)
 	applyStyleDef(&m, term.StyleInactiveTab, theme.InactiveTab)
@@ -61,15 +74,15 @@ func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 	if def.Fg == "" && def.Bg == "" && !def.Bold {
 		return
 	}
-	base := tcell.StyleDefault
+	s := m[idx]
 	if def.Fg != "" {
-		base = base.Foreground(tcell.GetColor(def.Fg))
+		s = s.Foreground(tcell.GetColor(def.Fg))
 	}
 	if def.Bg != "" {
-		base = base.Background(tcell.GetColor(def.Bg))
+		s = s.Background(tcell.GetColor(def.Bg))
 	}
 	if def.Bold {
-		base = base.Bold(true)
+		s = s.Bold(true)
 	}
-	m[idx] = base
+	m[idx] = s
 }

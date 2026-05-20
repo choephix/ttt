@@ -20,7 +20,10 @@ type BorderChars struct {
 }
 
 type ThemeConfig struct {
+	DefaultFg       string      `json:"defaultFg,omitempty"`
+	DefaultBg       string      `json:"defaultBg,omitempty"`
 	AccentColor     string      `json:"accentColor,omitempty"`
+	BorderColor     string      `json:"borderColor,omitempty"`
 	SuccessColor    string      `json:"successColor,omitempty"`
 	DangerColor     string      `json:"dangerColor,omitempty"`
 	WarningColor    string      `json:"warningColor,omitempty"`
@@ -51,7 +54,10 @@ type ThemeConfig struct {
 
 func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
-		AccentColor: "darkcyan",
+		DefaultFg:   "#d4d4d4",
+		DefaultBg:   "#1e1e1e",
+		AccentColor: "#4ec9b0",
+		BorderColor: "#555555",
 
 		MenuBar:   StyleDef{},
 		StatusBar: StyleDef{},
@@ -88,15 +94,20 @@ func DefaultTheme() ThemeConfig {
 func (t *ThemeConfig) ResolveColors() {
 	ac := t.AccentColor
 	if ac == "" {
-		ac = "darkcyan"
+		ac = "#4ec9b0"
 	}
 	fillBg(&t.MenuBarActive, ac)
 	fillFg(&t.ActiveTab, ac)
 	fillFg(&t.SidebarHeader, ac)
 	fillBg(&t.SidebarSelected, ac)
-	fillFg(&t.PaletteBorder, ac)
 	fillBg(&t.PaletteSelected, ac)
-	fillFg(&t.Border, ac)
+
+	bc := t.BorderColor
+	if bc == "" {
+		bc = "#555555"
+	}
+	fillFg(&t.Border, bc)
+	fillFg(&t.PaletteBorder, bc)
 
 	sc := t.SuccessColor
 	if sc == "" {

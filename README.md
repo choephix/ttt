@@ -68,6 +68,15 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
 - `settings.json` — editor settings (tabSize, sidebarWidth, etc.)
 - `theme.json` — colors and styles
 
+The default theme sets explicit foreground/background colors (`#d4d4d4` on `#1e1e1e`). To use your terminal's native colors instead, set them to empty in `theme.json`:
+
+```json
+{
+  "defaultFg": "",
+  "defaultBg": ""
+}
+```
+
 ## License
 
 MIT
