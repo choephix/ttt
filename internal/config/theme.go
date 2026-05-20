@@ -44,6 +44,8 @@ type ThemeConfig struct {
 	DiffAdded       StyleDef    `json:"diffAdded"`
 	DiffDeleted     StyleDef    `json:"diffDeleted"`
 	DiffModified    StyleDef    `json:"diffModified"`
+	Scrollbar       StyleDef    `json:"scrollbar"`
+	ScrollbarThumb  StyleDef    `json:"scrollbarThumb"`
 	Borders         BorderChars `json:"borders"`
 }
 
@@ -63,7 +65,9 @@ func DefaultTheme() ThemeConfig {
 
 		PaletteSelected: StyleDef{},
 
-		LineNumber: StyleDef{Fg: "gray"},
+		LineNumber:     StyleDef{Fg: "gray"},
+		Scrollbar:      StyleDef{Fg: "gray"},
+		ScrollbarThumb: StyleDef{Fg: "darkgray"},
 
 		Borders: BorderChars{
 			Horizontal:  "─",

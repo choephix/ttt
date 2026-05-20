@@ -45,3 +45,4 @@ The codebase follows a strict layered architecture: **core → view → render �
 - Cursor `Col` is a visual column (rune-based), not a byte index — all line-length calculations use `[]rune()`.
 - The renderer uses double-buffering (prev/curr cell grids) to minimize terminal writes.
 - `Screen` interface keeps tcell isolated — the rest of the codebase never imports tcell directly (except `cmd/ttt/main.go` for event types).
+- **Never hardcode colors.** All colors must go through the theme system (`internal/config/theme.go` → `StyleDef` → `term.Style` constants → `buildStyleMap`). Add a new `StyleDef` field to `ThemeConfig`, a `term.Style` constant, and wire it in `buildStyleMap()`. Widgets reference `term.Style*` constants, never color values.

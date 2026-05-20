@@ -140,7 +140,8 @@ func statusBadge(status string) string {
 func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
-		if tev.Buttons()&tcell.Button1 != 0 {
+		btn := tev.Buttons()
+		if btn&tcell.Button1 != 0 {
 			_, my := tev.Position()
 			r := c.GetRect()
 			localY := my - r.Y
@@ -148,6 +149,25 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 			if idx >= 0 && idx < len(c.Files) {
 				c.Selected = idx
 				c.openSelected()
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelUp != 0 {
+			c.ScrollTop -= 3
+			if c.ScrollTop < 0 {
+				c.ScrollTop = 0
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelDown != 0 {
+			r := c.GetRect()
+			max := len(c.Files) - r.H
+			if max < 0 {
+				max = 0
+			}
+			c.ScrollTop += 3
+			if c.ScrollTop > max {
+				c.ScrollTop = max
 			}
 			return EventConsumed
 		}

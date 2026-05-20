@@ -38,7 +38,15 @@ func (e *EditorPaneWidget) Focusable() bool { return true }
 
 func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
-	e.Viewport.Width = w
+
+	totalLines := len(e.Buf.Lines)
+	showScrollbar := totalLines > h
+	editorW := w
+	if showScrollbar {
+		editorW = w - 1
+	}
+
+	e.Viewport.Width = editorW
 	e.Viewport.Height = h
 
 	sel := e.Selection
@@ -52,9 +60,9 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	for y := 0; y < h; y++ {
 		lineIdx := e.Viewport.TopLine + y
-		if lineIdx < len(e.Buf.Lines) {
+		if lineIdx < totalLines {
 			line := []rune(e.Buf.Lines[lineIdx])
-			for x := 0; x < w; x++ {
+			for x := 0; x < editorW; x++ {
 				colIdx := e.Viewport.LeftCol + x
 				ch := ' '
 				if colIdx < len(line) {
@@ -80,8 +88,19 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			}
 		} else {
 			surface.SetCell(0, y, term.Cell{Ch: '~', Style: term.StyleLineNumber})
-			for x := 1; x < w; x++ {
+			for x := 1; x < editorW; x++ {
 				surface.SetCell(x, y, term.Cell{Ch: ' '})
+			}
+		}
+	}
+
+	if showScrollbar {
+		thumbTop, thumbH := scrollbarThumb(totalLines, e.Viewport.TopLine, h)
+		for y := 0; y < h; y++ {
+			if y >= thumbTop && y < thumbTop+thumbH {
+				surface.SetCell(w-1, y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
+			} else {
+				surface.SetCell(w-1, y, term.Cell{Ch: ' ', Style: term.StyleScrollbar})
 			}
 		}
 	}
@@ -89,6 +108,22 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	r := e.GetRect()
 	e.CursorX = e.Cursor.Col - e.Viewport.LeftCol + r.X
 	e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
+}
+
+func scrollbarThumb(totalLines, topLine, viewH int) (top, height int) {
+	if totalLines <= viewH {
+		return 0, viewH
+	}
+	height = viewH * viewH / totalLines
+	if height < 1 {
+		height = 1
+	}
+	scrollable := totalLines - viewH
+	top = topLine * (viewH - height) / scrollable
+	if top+height > viewH {
+		top = viewH - height
+	}
+	return
 }
 
 func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
@@ -155,6 +190,29 @@ func (e *EditorPaneWidget) pasteText(text string) {
 }
 
 func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
+	if mev, ok := ev.(*tcell.EventMouse); ok {
+		btn := mev.Buttons()
+		if btn&tcell.WheelUp != 0 {
+			e.Viewport.TopLine -= 3
+			if e.Viewport.TopLine < 0 {
+				e.Viewport.TopLine = 0
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelDown != 0 {
+			max := len(e.Buf.Lines) - e.Viewport.Height
+			if max < 0 {
+				max = 0
+			}
+			e.Viewport.TopLine += 3
+			if e.Viewport.TopLine > max {
+				e.Viewport.TopLine = max
+			}
+			return EventConsumed
+		}
+		return EventIgnored
+	}
+
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
 		return EventIgnored

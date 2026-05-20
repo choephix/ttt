@@ -29,6 +29,8 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleDiffAdded, theme.DiffAdded)
 	applyStyleDef(&m, term.StyleDiffDeleted, theme.DiffDeleted)
 	applyStyleDef(&m, term.StyleDiffModified, theme.DiffModified)
+	applyStyleDef(&m, term.StyleScrollbar, theme.Scrollbar)
+	applyStyleDef(&m, term.StyleScrollbarThumb, theme.ScrollbarThumb)
 	return m
 }
 

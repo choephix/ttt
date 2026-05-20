@@ -161,7 +161,8 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
-		if tev.Buttons()&tcell.Button1 != 0 {
+		btn := tev.Buttons()
+		if btn&tcell.Button1 != 0 {
 			_, my := tev.Position()
 			r := e.GetRect()
 			localY := my - r.Y
@@ -169,6 +170,25 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 			if idx >= 0 && idx < len(e.FlatList) {
 				e.Selected = idx
 				e.activateSelected()
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelUp != 0 {
+			e.ScrollTop -= 3
+			if e.ScrollTop < 0 {
+				e.ScrollTop = 0
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelDown != 0 {
+			r := e.GetRect()
+			max := len(e.FlatList) - r.H
+			if max < 0 {
+				max = 0
+			}
+			e.ScrollTop += 3
+			if e.ScrollTop > max {
+				e.ScrollTop = max
 			}
 			return EventConsumed
 		}

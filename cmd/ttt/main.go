@@ -464,7 +464,9 @@ func main() {
 				continue
 			}
 
-			if btn&tcell.Button1 != 0 {
+			isWheel := btn&tcell.WheelUp != 0 || btn&tcell.WheelDown != 0
+
+			if btn&tcell.Button1 != 0 || isWheel {
 				panelRect := splitPanel.GetRect()
 				inPanel := my >= panelRect.Y && my < panelRect.Y+panelRect.H &&
 					mx >= panelRect.X && mx < panelRect.X+panelRect.W
@@ -473,14 +475,20 @@ func main() {
 						divX := splitPanel.DividerScreenX()
 						if mx < divX {
 							sidebar.HandleEvent(tev)
-							cmdRegistry.Execute("sidebar.focus")
+							if !isWheel {
+								cmdRegistry.Execute("sidebar.focus")
+							}
 						} else {
 							editorGroup.HandleEvent(tev)
-							cmdRegistry.Execute("editor.focus")
+							if !isWheel {
+								cmdRegistry.Execute("editor.focus")
+							}
 						}
 					} else {
 						editorGroup.HandleEvent(tev)
-						cmdRegistry.Execute("editor.focus")
+						if !isWheel {
+							cmdRegistry.Execute("editor.focus")
+						}
 					}
 					redraw()
 				}
