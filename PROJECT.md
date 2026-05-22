@@ -349,8 +349,8 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Ctrl+F opens a find bar with case-insensitive incremental search and match highlighting
 - [x] Ctrl+G go-to-line dialog
 - [x] System clipboard integration — OSC 52 escape sequence for copy (works over SSH), native fallbacks: xclip/xsel (X11), wl-copy/wl-paste (Wayland), pbcopy/pbpaste (macOS). Paste reads system clipboard first, falls back to internal buffer.
-- [ ] Ctrl+H opens find-and-replace bar
-- [ ] F3 / Shift+F3 for next/previous match
+- [x] Ctrl+H opens find-and-replace bar
+- [x] F3 / Shift+F3 for next/previous match
 
 ---
 
@@ -359,7 +359,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Line number gutter on the left edge of each editor pane — dynamic width based on total line count, right-aligned numbers, 1-space left padding + 2-space right padding, `StyleLineNumber` for gutter, `StyleActiveLine` on active line's gutter. Controlled by `lineNumbers` setting (default true).
 - [x] Gutter width adjusts dynamically based on total line count
 - [x] Auto-indent: new line inherits indentation of the previous line
-- [ ] Tab/Shift+Tab indent/dedent selected lines
+- [x] Tab/Shift+Tab indent/dedent selected lines
 - [ ] Visible whitespace option (show tabs and trailing spaces)
 - [ ] Soft wrap toggle (per-buffer setting)
 
@@ -445,8 +445,8 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Drag bottom panel divider to resize
 - [x] Scroll wheel for vertical scrolling (editor, explorer, and changes widgets — 3 lines/items per tick)
 - [x] Editor scrollbar — proportional scrollbar on right edge when content exceeds viewport, themed via `StyleScrollbar`/`StyleScrollbarThumb`
-- [ ] Click+drag to select text
-- [ ] Double-click to select word, triple-click to select line
+- [x] Click+drag to select text
+- [x] Double-click to select word, triple-click to select line
 - [ ] Click on menu bar to open menus
 - [ ] Right-click context menu (stretch goal)
 

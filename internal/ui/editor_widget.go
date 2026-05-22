@@ -3,6 +3,7 @@ package ui
 import (
 	"strconv"
 	"strings"
+	"time"
 	"ttt/internal/core/buffer"
 	"ttt/internal/core/cursor"
 	"ttt/internal/core/highlight"
@@ -10,6 +11,7 @@ import (
 	"ttt/internal/core/undo"
 	"ttt/internal/term"
 	"ttt/internal/view"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -28,6 +30,11 @@ type EditorPaneWidget struct {
 	Highlighter  *highlight.Highlighter
 	SearchQuery  string
 	SearchActive int
+	lastClickTime int64
+	lastClickLine int
+	lastClickCol  int
+	clickCount    int
+	dragging      bool
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -257,6 +264,57 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		}
+		if btn&tcell.Button1 != 0 {
+			r := e.GetRect()
+			mx, my := mev.Position()
+			line, col := e.mouseToPos(r, mx, my)
+
+			now := time.Now().UnixMilli()
+			if now-e.lastClickTime < 400 && line == e.lastClickLine && col == e.lastClickCol {
+				e.clickCount++
+			} else {
+				e.clickCount = 1
+			}
+			e.lastClickTime = now
+			e.lastClickLine = line
+			e.lastClickCol = col
+
+			switch e.clickCount {
+			case 2:
+				e.selectWord(line, col)
+			case 3:
+				e.selectLine(line)
+				e.clickCount = 0
+			default:
+				if e.Selection != nil {
+					e.Selection.Clear()
+					e.Selection.Start(line, col)
+				}
+				e.Cursor.Line = line
+				e.Cursor.Col = col
+				e.dragging = true
+			}
+			e.scrollViewport()
+			return EventConsumed
+		}
+		if btn == tcell.ButtonNone && e.dragging {
+			e.dragging = false
+			if e.Selection != nil && e.Selection.Active {
+				if e.Selection.Anchor.Line == e.Cursor.Line && e.Selection.Anchor.Col == e.Cursor.Col {
+					e.Selection.Clear()
+				}
+			}
+			return EventConsumed
+		}
+		if e.dragging {
+			r := e.GetRect()
+			mx, my := mev.Position()
+			line, col := e.mouseToPos(r, mx, my)
+			e.Cursor.Line = line
+			e.Cursor.Col = col
+			e.scrollViewport()
+			return EventConsumed
+		}
 		return EventIgnored
 	}
 
@@ -386,16 +444,42 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		} else {
 			return EventIgnored
 		}
-	case tcell.KeyTab:
+	case tcell.KeyBacktab:
 		if hasSel {
-			e.deleteSelection()
+			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+			tabSize := e.TabSize
+			if tabSize <= 0 {
+				tabSize = 4
+			}
+			for line := start.Line; line <= end.Line; line++ {
+				runes := []rune(e.Buf.Lines[line])
+				remove := 0
+				for remove < tabSize && remove < len(runes) && runes[remove] == ' ' {
+					remove++
+				}
+				if remove > 0 {
+					e.exec(&undo.DeleteSelectionCommand{
+						StartLine: line, StartCol: 0,
+						EndLine: line, EndCol: remove,
+					})
+				}
+			}
 		}
+	case tcell.KeyTab:
 		tabSize := e.TabSize
 		if tabSize <= 0 {
 			tabSize = 4
 		}
-		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: strings.Repeat(" ", tabSize)})
-		e.Cursor.Col += tabSize
+		if hasSel {
+			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+			indent := strings.Repeat(" ", tabSize)
+			for line := start.Line; line <= end.Line; line++ {
+				e.exec(&undo.InsertStringCommand{Line: line, Col: 0, Text: indent})
+			}
+		} else {
+			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: strings.Repeat(" ", tabSize)})
+			e.Cursor.Col += tabSize
+		}
 	default:
 		return EventIgnored
 	}
@@ -403,6 +487,69 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	e.clampCursor()
 	e.scrollViewport()
 	return EventConsumed
+}
+
+func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
+	gutterW := e.gutterWidth()
+	line = my - r.Y + e.Viewport.TopLine
+	col = mx - r.X - gutterW + e.Viewport.LeftCol
+	if col < 0 {
+		col = 0
+	}
+	if line < 0 {
+		line = 0
+	}
+	if line >= len(e.Buf.Lines) {
+		line = len(e.Buf.Lines) - 1
+	}
+	lineLen := len([]rune(e.Buf.Lines[line]))
+	if col > lineLen {
+		col = lineLen
+	}
+	return
+}
+
+func (e *EditorPaneWidget) selectWord(line, col int) {
+	if e.Selection == nil {
+		return
+	}
+	runes := []rune(e.Buf.Lines[line])
+	if len(runes) == 0 {
+		return
+	}
+	if col >= len(runes) {
+		col = len(runes) - 1
+	}
+	isWord := func(r rune) bool {
+		return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+	}
+	start, end := col, col
+	if isWord(runes[col]) {
+		for start > 0 && isWord(runes[start-1]) {
+			start--
+		}
+		for end < len(runes)-1 && isWord(runes[end+1]) {
+			end++
+		}
+	}
+	end++
+	e.Selection.Start(line, start)
+	e.Cursor.Line = line
+	e.Cursor.Col = end
+}
+
+func (e *EditorPaneWidget) selectLine(line int) {
+	if e.Selection == nil {
+		return
+	}
+	e.Selection.Start(line, 0)
+	if line < len(e.Buf.Lines)-1 {
+		e.Cursor.Line = line + 1
+		e.Cursor.Col = 0
+	} else {
+		e.Cursor.Line = line
+		e.Cursor.Col = len([]rune(e.Buf.Lines[line]))
+	}
 }
 
 func leadingWhitespace(s string) string {

@@ -29,13 +29,15 @@ type editorTab struct {
 
 type EditorGroupWidget struct {
 	BaseWidget
-	TabBar  *TabBarWidget
-	Editor  *EditorPaneWidget
-	tabs    []editorTab
-	active  int
-	TabSize     int
-	LineNumbers bool
-	Borders     *term.BorderSet
+	TabBar       *TabBarWidget
+	Editor       *EditorPaneWidget
+	tabs         []editorTab
+	active       int
+	TabSize      int
+	LineNumbers  bool
+	Borders      *term.BorderSet
+	searchQuery  string
+	searchMatches []FindMatch
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
@@ -278,12 +280,78 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.scrollViewport()
 }
 
+func (g *EditorGroupWidget) StoreSearchMatches(query string, matches []FindMatch) {
+	g.searchQuery = query
+	g.searchMatches = matches
+}
+
 func (g *EditorGroupWidget) ClearSearch() {
 	if !g.IsEditorActive() {
 		return
 	}
 	g.Editor.SearchQuery = ""
 	g.Editor.SearchActive = 0
+	g.searchQuery = ""
+	g.searchMatches = nil
+}
+
+func (g *EditorGroupWidget) FindNext() {
+	if !g.IsEditorActive() || len(g.searchMatches) == 0 {
+		return
+	}
+	cur := g.Editor.SearchActive
+	cur = (cur + 1) % len(g.searchMatches)
+	g.Editor.SearchActive = cur
+	m := g.searchMatches[cur]
+	g.Editor.Cursor.Line = m.Line
+	g.Editor.Cursor.Col = m.Col
+	g.Editor.scrollViewport()
+}
+
+func (g *EditorGroupWidget) ReplaceMatch(match FindMatch, replacement string) {
+	if !g.IsEditorActive() {
+		return
+	}
+	runes := []rune(g.Editor.Buf.Lines[match.Line])
+	endCol := match.Col + match.Len
+	if endCol > len(runes) {
+		endCol = len(runes)
+	}
+	g.Editor.exec(&undo.DeleteSelectionCommand{
+		StartLine: match.Line, StartCol: match.Col,
+		EndLine: match.Line, EndCol: endCol,
+	})
+	if replacement != "" {
+		g.Editor.exec(&undo.InsertStringCommand{
+			Line: match.Line, Col: match.Col, Text: replacement,
+		})
+	}
+	g.Editor.Cursor.Line = match.Line
+	g.Editor.Cursor.Col = match.Col + len([]rune(replacement))
+	g.Editor.scrollViewport()
+}
+
+func (g *EditorGroupWidget) ReplaceAll(query, replacement string) {
+	if !g.IsEditorActive() || query == "" {
+		return
+	}
+	matches := FindInLines(g.Editor.Buf.Lines, query)
+	for i := len(matches) - 1; i >= 0; i-- {
+		g.ReplaceMatch(matches[i], replacement)
+	}
+}
+
+func (g *EditorGroupWidget) FindPrev() {
+	if !g.IsEditorActive() || len(g.searchMatches) == 0 {
+		return
+	}
+	cur := g.Editor.SearchActive
+	cur = (cur - 1 + len(g.searchMatches)) % len(g.searchMatches)
+	g.Editor.SearchActive = cur
+	m := g.searchMatches[cur]
+	g.Editor.Cursor.Line = m.Line
+	g.Editor.Cursor.Col = m.Col
+	g.Editor.scrollViewport()
 }
 
 func (g *EditorGroupWidget) Copy() {

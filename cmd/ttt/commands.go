@@ -227,7 +227,9 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			findBar.Borders = app.borders
 			findBar.OnSearch = func(query string) []ui.FindMatch {
 				app.editorGroup.SetSearchQuery(query)
-				return ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
+				matches := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
+				app.editorGroup.StoreSearchMatches(query, matches)
+				return matches
 			}
 			findBar.OnNavigate = func(match ui.FindMatch) {
 				app.editorGroup.SetSearchActive(findBar.Current)
@@ -235,12 +237,57 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.editorGroup.Editor.Cursor.Col = match.Col
 			}
 			findBar.OnDismiss = func() {
-				app.editorGroup.ClearSearch()
 				app.root.PopOverlay()
 				app.root.SetFocus(app.editorGroup)
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: findBar, Modal: true})
 			app.root.SetFocus(findBar)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "search.findNext", Title: "Find Next",
+		Handler: func() { app.editorGroup.FindNext() },
+	})
+
+	reg.Register(command.Command{
+		ID: "search.findPrev", Title: "Find Previous",
+		Handler: func() { app.editorGroup.FindPrev() },
+	})
+
+	reg.Register(command.Command{
+		ID: "search.clearFind", Title: "Clear Find Highlights",
+		Handler: func() { app.editorGroup.ClearSearch() },
+	})
+
+	reg.Register(command.Command{
+		ID: "search.replace", Title: "Find and Replace",
+		Handler: func() {
+			bar := ui.NewReplaceBarWidget()
+			bar.Borders = app.borders
+			bar.OnSearch = func(query string) []ui.FindMatch {
+				app.editorGroup.SetSearchQuery(query)
+				matches := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
+				app.editorGroup.StoreSearchMatches(query, matches)
+				return matches
+			}
+			bar.OnNavigate = func(match ui.FindMatch) {
+				app.editorGroup.SetSearchActive(bar.Current)
+				app.editorGroup.Editor.Cursor.Line = match.Line
+				app.editorGroup.Editor.Cursor.Col = match.Col
+			}
+			bar.OnReplace = func(match ui.FindMatch, replacement string) {
+				app.editorGroup.ReplaceMatch(match, replacement)
+			}
+			bar.OnReplaceAll = func(query, replacement string) {
+				app.editorGroup.ReplaceAll(query, replacement)
+			}
+			bar.OnDismiss = func() {
+				app.root.PopOverlay()
+				app.root.SetFocus(app.editorGroup)
+			}
+			app.root.PushOverlay(ui.Overlay{Widget: bar, Modal: true})
+			app.root.SetFocus(bar)
 		},
 	})
 
