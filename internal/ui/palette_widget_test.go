@@ -46,10 +46,10 @@ func TestPaletteNavigation(t *testing.T) {
 		t.Fatalf("expected selected 0, got %d", p.Selected)
 	}
 
-	// Can't go above 0
+	// Wraps to last item
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, 0))
-	if p.Selected != 0 {
-		t.Fatalf("expected selected 0 (clamped), got %d", p.Selected)
+	if p.Selected != 3 {
+		t.Fatalf("expected selected 3 (wrapped), got %d", p.Selected)
 	}
 }
 

@@ -10,13 +10,14 @@ import (
 
 type CommandPaletteWidget struct {
 	BaseWidget
-	Commands  []command.Command
-	Filtered  []command.Command
-	Query     string
-	Selected  int
-	OnExecute func(id string)
-	OnDismiss func()
-	Borders   *term.BorderSet
+	Commands     []command.Command
+	Filtered     []command.Command
+	Query        string
+	Selected     int
+	scrollOffset int
+	OnExecute    func(id string)
+	OnDismiss    func()
+	Borders      *term.BorderSet
 }
 
 func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
@@ -38,9 +39,9 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 		boxW = sw - 4
 	}
 	maxItems := 10
-	boxH := 3 + len(p.Filtered)
-	if boxH > maxItems+3 {
-		boxH = maxItems + 3
+	boxH := 4 + len(p.Filtered)
+	if boxH > maxItems+4 {
+		boxH = maxItems + 4
 	}
 	if boxH > sh-2 {
 		boxH = sh - 2
@@ -89,26 +90,46 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	}
 
 	// Command list
-	visibleItems := boxH - 3
-	for i := 0; i < visibleItems && i < len(p.Filtered); i++ {
+	visibleItems := boxH - 4
+	p.ensureVisible(visibleItems)
+	showScroll := len(p.Filtered) > visibleItems
+	contentRight := boxX + boxW - 1
+	if showScroll {
+		contentRight--
+	}
+
+	var thumbTop, thumbH int
+	if showScroll {
+		thumbTop, thumbH = scrollbarThumb(len(p.Filtered), p.scrollOffset, visibleItems)
+	}
+
+	for i := 0; i < visibleItems && p.scrollOffset+i < len(p.Filtered); i++ {
 		y := boxY + 3 + i
-		cmd := p.Filtered[i]
+		idx := p.scrollOffset + i
+		cmd := p.Filtered[idx]
 
 		style := term.StylePaletteItem
-		if i == p.Selected {
+		if idx == p.Selected {
 			style = term.StylePaletteSelected
 		}
 
-		// Fill background
-		for x := boxX + 1; x < boxX+boxW-1; x++ {
+		for x := boxX + 1; x < contentRight; x++ {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 		}
 
-		// Command title
 		for j, ch := range cmd.Title {
 			x := boxX + 2 + j
-			if x < boxX+boxW-2 {
+			if x < contentRight-1 {
 				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+			}
+		}
+
+		if showScroll {
+			sx := boxX + boxW - 2
+			if i >= thumbTop && i < thumbTop+thumbH {
+				surface.SetCell(sx, y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
+			} else {
+				surface.SetCell(sx, y, term.Cell{Ch: ' ', Style: term.StyleScrollbar})
 			}
 		}
 	}
@@ -134,10 +155,14 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 	case tcell.KeyUp:
 		if p.Selected > 0 {
 			p.Selected--
+		} else if len(p.Filtered) > 0 {
+			p.Selected = len(p.Filtered) - 1
 		}
 	case tcell.KeyDown:
 		if p.Selected < len(p.Filtered)-1 {
 			p.Selected++
+		} else {
+			p.Selected = 0
 		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if len(p.Query) > 0 {
@@ -153,6 +178,18 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventConsumed
 }
 
+func (p *CommandPaletteWidget) ensureVisible(visibleItems int) {
+	if visibleItems <= 0 {
+		return
+	}
+	if p.Selected < p.scrollOffset {
+		p.scrollOffset = p.Selected
+	}
+	if p.Selected >= p.scrollOffset+visibleItems {
+		p.scrollOffset = p.Selected - visibleItems + 1
+	}
+}
+
 func (p *CommandPaletteWidget) filterCommands() {
 	if p.Query == "" {
 		p.Filtered = p.Commands
@@ -166,4 +203,5 @@ func (p *CommandPaletteWidget) filterCommands() {
 		}
 	}
 	p.Selected = 0
+	p.scrollOffset = 0
 }
