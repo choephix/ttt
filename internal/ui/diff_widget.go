@@ -28,11 +28,28 @@ func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
 
 func (d *DiffViewWidget) Focusable() bool { return true }
 
+func (d *DiffViewWidget) gutterWidth() int {
+	maxLine := 0
+	for _, dl := range d.Lines {
+		if dl.Left.Num > maxLine {
+			maxLine = dl.Left.Num
+		}
+		if dl.Right.Num > maxLine {
+			maxLine = dl.Right.Num
+		}
+	}
+	digits := 1
+	for n := maxLine; n >= 10; n /= 10 {
+		digits++
+	}
+	return digits + 3
+}
+
 func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	d.viewH = h
 
-	gutterW := 4
+	gutterW := d.gutterWidth()
 	dividerX := (w - 1) / 2
 	leftStart := gutterW
 	leftW := dividerX - gutterW
@@ -82,13 +99,12 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl diff.SideLine, style term.Style) {
 	num := ""
 	if sl.Num > 0 {
-		num = fmt.Sprintf("%*d", w-1, sl.Num)
+		num = fmt.Sprintf("%d", sl.Num)
 	}
-	runes := []rune(num)
-	for i := 0; i < w; i++ {
-		ch := ' '
-		if i < len(runes) {
-			ch = runes[i]
+	padded := " " + fmt.Sprintf("%*s", w-3, num) + "  "
+	for i, ch := range []rune(padded) {
+		if i >= w {
+			break
 		}
 		surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: term.StyleLineNumber})
 	}

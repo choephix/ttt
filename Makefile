@@ -5,7 +5,7 @@
 all: build
 
 build:
-	go build -o bin/ttt ./cmd/ttt
+	go build -ldflags="-s -w" -o bin/ttt ./cmd/ttt
 
 test:
 	go test ./...
