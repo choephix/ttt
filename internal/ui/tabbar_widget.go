@@ -24,7 +24,9 @@ type TabBarWidget struct {
 	Tabs         []Tab
 	Borders      *term.BorderSet
 	ScrollOffset int
+	ShowMore     bool
 	OnTabClick   func(index int)
+	OnMore       func()
 	tabSpans     []tabSpan
 }
 
@@ -159,11 +161,15 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 			surface.SetCell(ex-1, 2, term.Cell{Ch: b.BottomLeft, Style: bs})
 		}
 	}
+
+	if t.ShowMore && w >= 3 {
+		surface.SetCell(w-2, 1, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
+	}
 }
 
 func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	mev, ok := ev.(*tcell.EventMouse)
-	if !ok || t.OnTabClick == nil {
+	if !ok {
 		return EventIgnored
 	}
 	if mev.Buttons()&tcell.Button1 == 0 {
@@ -172,6 +178,15 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	r := t.GetRect()
 	mx, my := mev.Position()
 	if my < r.Y || my >= r.Y+r.H || mx < r.X || mx >= r.X+r.W {
+		return EventIgnored
+	}
+
+	if t.ShowMore && mx == r.X+r.W-2 && my == r.Y+1 && t.OnMore != nil {
+		t.OnMore()
+		return EventConsumed
+	}
+
+	if t.OnTabClick == nil {
 		return EventIgnored
 	}
 	localX := mx - r.X + t.ScrollOffset

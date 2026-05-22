@@ -49,6 +49,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 
 	tabBar := NewTabBarWidget()
 	tabBar.Borders = borders
+	tabBar.ShowMore = true
 
 	g := &EditorGroupWidget{
 		TabBar:      tabBar,

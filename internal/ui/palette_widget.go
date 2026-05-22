@@ -76,7 +76,7 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	}
 
 	// Input line
-	inputLine := "> " + p.Query
+	inputLine := " > " + p.Query
 	for i, ch := range inputLine {
 		x := boxX + 1 + i
 		if x < boxX+boxW-1 {
