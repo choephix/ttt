@@ -162,8 +162,10 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 		}
 	}
 
-	if t.ShowMore && w >= 3 {
-		surface.SetCell(w-2, 1, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
+	if t.ShowMore && w >= 5 {
+		surface.SetCell(w-4, 1, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+		surface.SetCell(w-3, 1, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
+		surface.SetCell(w-2, 1, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
 	}
 }
 
@@ -181,7 +183,7 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 
-	if t.ShowMore && mx == r.X+r.W-2 && my == r.Y+1 && t.OnMore != nil {
+	if t.ShowMore && mx >= r.X+r.W-4 && mx <= r.X+r.W-2 && my == r.Y+1 && t.OnMore != nil {
 		t.OnMore()
 		return EventConsumed
 	}

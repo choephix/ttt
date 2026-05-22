@@ -43,7 +43,9 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 		}
 	}
 
-	if p.ShowMore && w >= 3 {
-		surface.SetCell(w-2, 0, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
+	if p.ShowMore && w >= 5 {
+		surface.SetCell(w-4, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+		surface.SetCell(w-3, 0, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
+		surface.SetCell(w-2, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
 	}
 }
