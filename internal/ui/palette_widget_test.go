@@ -91,12 +91,12 @@ func TestPaletteBackspace(t *testing.T) {
 
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'p', 0))
-	if p.Query != "sp" {
-		t.Fatalf("expected query 'sp', got '%s'", p.Query)
+	if p.Input.Text != "sp" {
+		t.Fatalf("expected query 'sp', got '%s'", p.Input.Text)
 	}
 
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, 0))
-	if p.Query != "s" {
-		t.Fatalf("expected query 's' after backspace, got '%s'", p.Query)
+	if p.Input.Text != "s" {
+		t.Fatalf("expected query 's' after backspace, got '%s'", p.Input.Text)
 	}
 }

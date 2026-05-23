@@ -12,7 +12,7 @@ type CommandPaletteWidget struct {
 	BaseWidget
 	Commands     []command.Command
 	Filtered     []command.Command
-	Query        string
+	Input        *InputWidget
 	Selected     int
 	scrollOffset int
 	OnExecute          func(id string)
@@ -24,6 +24,11 @@ type CommandPaletteWidget struct {
 func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 	p := &CommandPaletteWidget{
 		Commands: commands,
+	}
+	p.Input = NewInputWidget(" > ")
+	p.Input.OnChange = func(text string) {
+		p.filterCommands()
+		p.notifySelectionChange()
 	}
 	p.filterCommands()
 	return p
@@ -77,13 +82,7 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	}
 
 	// Input line
-	inputLine := " > " + p.Query
-	for i, ch := range inputLine {
-		x := boxX + 1 + i
-		if x < boxX+boxW-1 {
-			surface.SetCell(x, boxY+1, term.Cell{Ch: ch, Style: term.StyleDefault})
-		}
-	}
+	p.Input.Render(surface, boxX+1, boxY+1, boxW-2)
 
 	// Separator
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
@@ -182,17 +181,8 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 			p.Selected = 0
 		}
 		p.notifySelectionChange()
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		if len(p.Query) > 0 {
-			runes := []rune(p.Query)
-			p.Query = string(runes[:len(runes)-1])
-			p.filterCommands()
-			p.notifySelectionChange()
-		}
-	case tcell.KeyRune:
-		p.Query += string(kev.Rune())
-		p.filterCommands()
-		p.notifySelectionChange()
+	default:
+		p.Input.HandleEvent(kev)
 	}
 
 	return EventConsumed
@@ -217,11 +207,12 @@ func (p *CommandPaletteWidget) notifySelectionChange() {
 }
 
 func (p *CommandPaletteWidget) filterCommands() {
-	if p.Query == "" {
+	query := p.Input.Text
+	if query == "" {
 		p.Filtered = p.Commands
 	} else {
 		p.Filtered = nil
-		lower := strings.ToLower(p.Query)
+		lower := strings.ToLower(query)
 		for _, cmd := range p.Commands {
 			if strings.Contains(strings.ToLower(cmd.Title), lower) {
 				p.Filtered = append(p.Filtered, cmd)

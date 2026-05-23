@@ -28,7 +28,7 @@ type SearchFileGroup struct {
 
 type SearchWidget struct {
 	BaseWidget
-	Query     string
+	Input     *InputWidget
 	Groups    []SearchFileGroup
 	FlatList  []searchItem
 	Selected  int
@@ -46,7 +46,12 @@ type searchItem struct {
 }
 
 func NewSearchWidget() *SearchWidget {
-	return &SearchWidget{}
+	s := &SearchWidget{}
+	s.Input = NewInputWidget(" > ")
+	s.Input.OnChange = func(text string) {
+		s.runSearch()
+	}
+	return s
 }
 
 func (s *SearchWidget) SetWorkDir(dir string) {
@@ -62,7 +67,7 @@ func (s *SearchWidget) runSearch() {
 	s.ScrollTop = 0
 	s.Error = ""
 
-	if s.Query == "" {
+	if s.Input.Text == "" {
 		return
 	}
 
@@ -77,7 +82,7 @@ func (s *SearchWidget) runSearch() {
 		dir = "."
 	}
 
-	cmd := exec.Command("rg", "--json", "--smart-case", "--max-count=100", s.Query, dir)
+	cmd := exec.Command("rg", "--json", "--smart-case", "--max-count=100", s.Input.Text, dir)
 	out, err := cmd.Output()
 	s.Searching = false
 
@@ -186,12 +191,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	prompt := " > " + s.Query + "_"
-	for i, ch := range prompt {
-		if i < w {
-			surface.SetCell(i, 0, term.Cell{Ch: ch})
-		}
-	}
+	s.Input.Render(surface, 0, 0, w)
 
 	for x := 0; x < w; x++ {
 		surface.SetCell(x, 1, term.Cell{Ch: '─', Style: term.StyleBorder})
@@ -208,7 +208,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	if s.Query != "" && len(s.FlatList) == 0 && !s.Searching {
+	if s.Input.Text != "" && len(s.FlatList) == 0 && !s.Searching {
 		msg := "No results"
 		for i, ch := range msg {
 			if i < w {
@@ -390,17 +390,10 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 		case tcell.KeyRight:
 			s.expandSelected()
 			return EventConsumed
-		case tcell.KeyRune:
-			s.Query += string(tev.Rune())
-			s.runSearch()
-			return EventConsumed
-		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			if len(s.Query) > 0 {
-				runes := []rune(s.Query)
-				s.Query = string(runes[:len(runes)-1])
-				s.runSearch()
+		default:
+			if s.Input.HandleEvent(tev) {
+				return EventConsumed
 			}
-			return EventConsumed
 		}
 	}
 
