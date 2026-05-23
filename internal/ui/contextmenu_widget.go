@@ -139,10 +139,14 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 		}
 
 		if it.Shortcut != "" {
+			shortStyle := term.StyleMuted
+			if i == c.Selected {
+				shortStyle = style
+			}
 			shortRunes := []rune(it.Shortcut)
 			sx := x + menuW - 2 - len(shortRunes)
 			for j, ch := range shortRunes {
-				surface.SetCell(sx+j, row, term.Cell{Ch: ch, Style: style})
+				surface.SetCell(sx+j, row, term.Cell{Ch: ch, Style: shortStyle})
 			}
 		}
 	}
