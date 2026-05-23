@@ -19,7 +19,8 @@
   "dialog": {
     "input": {},
     "item": {},
-    "selected": { "fg": "#ffffff", "bg": "#37373d" }
+    "selected": { "fg": "#ffffff", "bg": "#37373d" },
+    "muted": { "fg": "#888888" }
   },
   "editor": {
     "lineNumber": { "fg": "#999999" },

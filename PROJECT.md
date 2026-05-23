@@ -456,12 +456,12 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 The current highlighter is single-line regex. This phase makes it real.
 
-- [ ] Language detection from file extension
-- [ ] Multi-language support: Go, Python, JavaScript/TypeScript, Rust, C/C++, Markdown, JSON, YAML, TOML, Shell
-- [ ] Multi-line constructs: block comments, multi-line strings, heredocs
-- [ ] Theme system: named color schemes applied via a config file
-- [ ] At minimum ship two themes: a dark theme and a light theme
-- [ ] Highlighter runs incrementally (only re-highlight changed lines + propagate state changes)
+- [x] Language detection from file extension (via chroma lexer matching)
+- [x] Multi-language support: all languages supported by chroma (Go, Python, JavaScript/TypeScript, Rust, C/C++, Markdown, JSON, YAML, TOML, Shell, and many more)
+- [x] Multi-line constructs: handled by chroma tokenizer
+- [x] Theme system: named color schemes applied via JSON config files, switchable via Ctrl+K T
+- [x] Ship multiple themes: default-dark, default-light, one-dark, monokai, nord, solarized-dark, solarized-light, hotline, bubblegum, aurora
+- [ ] Highlighter runs incrementally (only re-highlight changed lines + propagate state changes) *(optimization, not blocking)*
 
 ---
 
