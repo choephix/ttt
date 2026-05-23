@@ -130,6 +130,15 @@ func runEventLoop(
 			isWheel := btn&tcell.WheelUp != 0 || btn&tcell.WheelDown != 0
 
 			if btn&tcell.Button1 != 0 || isWheel {
+				tabR := app.editorGroup.TabBar.GetRect()
+				if btn&tcell.Button1 != 0 && my >= tabR.Y && my <= tabR.Y+1 &&
+					mx >= tabR.X+tabR.W-4 && mx <= tabR.X+tabR.W-2 {
+					app.editorGroup.TabBar.HandleEvent(tev)
+					syncStatus()
+					redraw()
+					continue
+				}
+
 				panelRect := app.splitPanel.GetRect()
 				inPanel := my >= panelRect.Y && my < panelRect.Y+panelRect.H &&
 					mx >= panelRect.X && mx < panelRect.X+panelRect.W

@@ -201,11 +201,6 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 
-	if t.ShowMore && mx >= r.X+r.W-4 && mx <= r.X+r.W-2 && my == r.Y+1 && t.OnMore != nil {
-		t.OnMore(mx, my)
-		return EventConsumed
-	}
-
 	localX := mx - r.X + t.ScrollOffset
 	for i, s := range t.tabSpans {
 		if localX >= s.start && localX < s.end {

@@ -36,7 +36,6 @@ const (
 	StyleSyntaxTag
 	StyleSyntaxAttribute
 	StyleMuted
-	StyleStatusBarMuted
 	StyleBracketMatch
 )
 
