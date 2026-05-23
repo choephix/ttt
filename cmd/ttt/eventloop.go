@@ -121,7 +121,9 @@ func runEventLoop(
 					redraw()
 				}
 			} else if btn == tcell.ButtonNone {
-				app.editorGroup.HandleEvent(tev)
+				if app.editorGroup.HandleEvent(tev) == ui.EventConsumed {
+					redraw()
+				}
 			}
 
 		case *tcell.EventResize:

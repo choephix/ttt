@@ -35,6 +35,7 @@ type EditorPaneWidget struct {
 	lastClickCol  int
 	clickCount    int
 	mouseDown     bool
+	scrollbar     Scrollbar
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -150,14 +151,13 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	}
 
 	if showScrollbar {
-		thumbTop, thumbH := scrollbarThumb(totalLines, e.Viewport.TopLine, h)
-		for y := 0; y < h; y++ {
-			if y >= thumbTop && y < thumbTop+thumbH {
-				surface.SetCell(w-1, y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
-			} else {
-				surface.SetCell(w-1, y, term.Cell{Ch: ' ', Style: term.StyleScrollbar})
-			}
-		}
+		r := e.GetRect()
+		e.scrollbar.X = r.X + w - 1
+		e.scrollbar.Y = r.Y
+		e.scrollbar.Height = h
+		e.scrollbar.TotalItems = totalLines
+		e.scrollbar.TopItem = e.Viewport.TopLine
+		e.scrollbar.Render(surface, w-1, 0)
 	}
 
 	r := e.GetRect()
@@ -165,21 +165,6 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
 }
 
-func scrollbarThumb(totalLines, topLine, viewH int) (top, height int) {
-	if totalLines <= viewH {
-		return 0, viewH
-	}
-	height = viewH * viewH / totalLines
-	if height < 1 {
-		height = 1
-	}
-	scrollable := totalLines - viewH
-	top = topLine * (viewH - height) / scrollable
-	if top+height > viewH {
-		top = viewH - height
-	}
-	return
-}
 
 func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	cmd.Apply(e.Buf)
@@ -247,6 +232,15 @@ func (e *EditorPaneWidget) pasteText(text string) {
 func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
 		btn := mev.Buttons()
+
+		if newTop, consumed := e.scrollbar.HandleEvent(ev); consumed {
+			e.Viewport.TopLine = newTop
+			return EventConsumed
+		}
+		if e.scrollbar.IsDragging() {
+			return EventConsumed
+		}
+
 		if btn&tcell.WheelUp != 0 {
 			e.Viewport.TopLine -= 3
 			if e.Viewport.TopLine < 0 {

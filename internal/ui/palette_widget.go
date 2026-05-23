@@ -101,7 +101,8 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 
 	var thumbTop, thumbH int
 	if showScroll {
-		thumbTop, thumbH = scrollbarThumb(len(p.Filtered), p.scrollOffset, visibleItems)
+		sb := Scrollbar{Height: visibleItems, TotalItems: len(p.Filtered), TopItem: p.scrollOffset}
+		thumbTop, thumbH = sb.ThumbPos()
 	}
 
 	for i := 0; i < visibleItems && p.scrollOffset+i < len(p.Filtered); i++ {
