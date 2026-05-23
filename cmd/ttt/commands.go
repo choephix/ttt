@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"ttt/internal/command"
 	"ttt/internal/config"
@@ -387,6 +389,39 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
 		},
+	})
+
+	openIndentPicker := func() {
+		var cmds []command.Command
+		sizes := []int{1, 2, 3, 4, 6, 8}
+		for _, s := range sizes {
+			label := fmt.Sprintf("Spaces: %d", s)
+			cmds = append(cmds, command.Command{ID: strconv.Itoa(s), Title: label})
+		}
+		cmds = append(cmds, command.Command{ID: "tabs", Title: "Indent Using Tabs"})
+		picker := ui.NewCommandPaletteWidget(cmds)
+		picker.Borders = app.borders
+		picker.OnExecute = func(id string) {
+			app.root.PopOverlay()
+			app.root.SetFocus(app.editorGroup)
+			if id == "tabs" {
+				app.editorGroup.SetTabSize(4)
+			} else if size, err := strconv.Atoi(id); err == nil {
+				app.editorGroup.SetTabSize(size)
+			}
+		}
+		picker.OnDismiss = func() {
+			app.root.PopOverlay()
+			app.root.SetFocus(app.editorGroup)
+		}
+		app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
+	}
+
+	app.statusBar.OnIndentClick = openIndentPicker
+
+	reg.Register(command.Command{
+		ID: "editor.indentation", Title: "Change Indentation",
+		Handler: openIndentPicker,
 	})
 
 	reg.Register(command.Command{

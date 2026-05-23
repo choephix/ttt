@@ -157,6 +157,11 @@ func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
 	return 0, 0, false
 }
 
+func (g *EditorGroupWidget) SetTabSize(size int) {
+	g.tabs[g.active].TabSize = size
+	g.Editor.TabSize = size
+}
+
 func (g *EditorGroupWidget) SwitchTab(idx int) {
 	if idx >= 0 && idx < len(g.tabs) {
 		g.active = idx

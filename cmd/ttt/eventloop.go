@@ -104,6 +104,13 @@ func runEventLoop(
 				continue
 			}
 
+			statusR := app.statusBar.GetRect()
+			if btn&tcell.Button1 != 0 && my == statusR.Y {
+				app.statusBar.HandleEvent(tev)
+				redraw()
+				continue
+			}
+
 			if btn&tcell.Button2 != 0 {
 				handleRightClick(app, cmdRegistry, mx, my)
 				redraw()
