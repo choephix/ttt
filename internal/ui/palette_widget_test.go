@@ -90,16 +90,16 @@ func TestPaletteAlwaysConsumes(t *testing.T) {
 func TestPaletteBackspace(t *testing.T) {
 	p := NewCommandPaletteWidget(testCommands())
 
-	// Initial text is "> ", type "sp" → "> sp"
+	// Initial text is ">", type "sp" → ">sp"
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'p', 0))
-	if p.Input.Text != "> sp" {
-		t.Fatalf("expected text '> sp', got '%s'", p.Input.Text)
+	if p.Input.Text != ">sp" {
+		t.Fatalf("expected text '>sp', got '%s'", p.Input.Text)
 	}
 
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, 0))
-	if p.Input.Text != "> s" {
-		t.Fatalf("expected text '> s' after backspace, got '%s'", p.Input.Text)
+	if p.Input.Text != ">s" {
+		t.Fatalf("expected text '>s' after backspace, got '%s'", p.Input.Text)
 	}
 }
 
@@ -116,11 +116,10 @@ func TestPaletteModeSwitch(t *testing.T) {
 		t.Fatal("expected file mode after clearing input")
 	}
 
-	// Type "> " to switch back to command mode
+	// Type ">" to switch back to command mode
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '>', 0))
-	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, ' ', 0))
 	if p.mode != paletteCommandMode {
-		t.Fatal("expected command mode after typing '> '")
+		t.Fatal("expected command mode after typing '>'")
 	}
 	if len(p.Items) != 4 {
 		t.Fatalf("expected 4 commands, got %d", len(p.Items))

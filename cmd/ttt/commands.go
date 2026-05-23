@@ -251,6 +251,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			findBar.OnDismiss = func() {
 				app.root.PopOverlay()
 				app.root.SetFocus(app.editorGroup)
+				app.editorGroup.ClearSearch()
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: findBar, Modal: true})
 			app.root.SetFocus(findBar)
@@ -297,6 +298,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			bar.OnDismiss = func() {
 				app.root.PopOverlay()
 				app.root.SetFocus(app.editorGroup)
+				app.editorGroup.ClearSearch()
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: bar, Modal: true})
 			app.root.SetFocus(bar)

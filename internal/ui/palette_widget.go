@@ -45,8 +45,8 @@ func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 	p := &CommandPaletteWidget{
 		Commands: commands,
 	}
-	p.Input = NewInputWidget("")
-	p.Input.SetText("> ")
+	p.Input = NewInputWidget(" ")
+	p.Input.SetText(">")
 	p.Input.OnChange = func(text string) {
 		p.filter()
 	}
@@ -261,12 +261,10 @@ func (p *CommandPaletteWidget) notifySelectionChange() {
 
 func (p *CommandPaletteWidget) filter() {
 	text := p.Input.Text
-	if strings.HasPrefix(text, "> ") {
+	if strings.HasPrefix(text, ">") {
 		p.mode = paletteCommandMode
-		p.filterCommands(text[2:])
-	} else if text == ">" {
-		p.mode = paletteCommandMode
-		p.filterCommands("")
+		query := strings.TrimLeft(text[1:], " ")
+		p.filterCommands(query)
 	} else {
 		p.mode = paletteFileMode
 		p.filterFiles(text)
