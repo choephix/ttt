@@ -46,8 +46,8 @@ func runEventLoop(
 			if filePath != "" {
 				info := git.BlameLine(app.cwd, filePath, line+1)
 				if info != nil {
-					app.status.Blame = fmt.Sprintf("%s, %s · %s",
-						info.Author, git.FormatRelativeTime(info.Time), info.Summary)
+					app.status.Blame = fmt.Sprintf("%s, %s",
+						info.Author, git.FormatRelativeTime(info.Time))
 				}
 			}
 		}
