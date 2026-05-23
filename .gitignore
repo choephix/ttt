@@ -11,6 +11,9 @@ vendor/
 *.test
 *.out
 
+# Config (user-local, not shipped)
+.config/
+
 # Editor files
 .vscode/
 .idea/

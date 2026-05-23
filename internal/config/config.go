@@ -33,8 +33,11 @@ func Load() AppConfig {
 		json.Unmarshal(data, &cfg.Settings)
 	}
 
-	if data, err := readFirst(paths, "theme.json"); err == nil {
-		json.Unmarshal(data, &cfg.Theme)
+	if cfg.Settings.Theme != "" {
+		themeFile := "theme." + cfg.Settings.Theme + ".json"
+		if data, err := readFirst(paths, themeFile); err == nil {
+			json.Unmarshal(data, &cfg.Theme)
+		}
 	}
 
 	cfg.Theme.ResolveColors()
@@ -46,12 +49,9 @@ func configPaths() []string {
 	var paths []string
 
 	paths = append(paths, ".config")
-	paths = append(paths, "config")
 
 	if exe, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exe)
-		paths = append(paths, filepath.Join(exeDir, "config"))
-		paths = append(paths, filepath.Join(exeDir, "..", "config"))
+		paths = append(paths, filepath.Join(filepath.Dir(exe), ".config"))
 	}
 
 	if home, err := os.UserHomeDir(); err == nil {
@@ -83,12 +83,22 @@ func ListThemeFiles() []string {
 		}
 		for _, e := range entries {
 			name := e.Name()
-			if strings.HasPrefix(name, "theme.") && strings.HasSuffix(name, ".json") && name != "theme.json" {
+			if strings.HasPrefix(name, "theme.") && strings.HasSuffix(name, ".json") {
 				files = append(files, filepath.Join(dir, name))
 			}
 		}
 	}
 	return files
+}
+
+func ConfigFilePath(filename string) string {
+	for _, dir := range configPaths() {
+		path := filepath.Join(dir, filename)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return filepath.Join(".config", filename)
 }
 
 func readFirst(dirs []string, filename string) ([]byte, error) {

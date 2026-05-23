@@ -116,6 +116,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 		statusBar:    statusBar,
 		status:       status,
 		borders:      borders,
+		settings:     &cfg.Settings,
 		cwd:          workDir,
 	}
 	app.showSidebar = func() {

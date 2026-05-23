@@ -30,6 +30,7 @@ type appWidgets struct {
 	borders      *term.BorderSet
 	screen       *term.TcellScreen
 	renderer     interface{ Clear() }
+	settings     *config.Settings
 	cwd          string
 
 	showSidebar    func()
@@ -354,6 +355,11 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				}
 				app.screen.SetStyleMap(buildStyleMap(theme))
 				app.renderer.Clear()
+				name := filepath.Base(path)
+				name = strings.TrimPrefix(name, "theme.")
+				name = strings.TrimSuffix(name, ".json")
+				app.settings.Theme = name
+				config.SaveSettings(*app.settings)
 			}
 			picker.OnDismiss = func() {
 				app.root.PopOverlay()
@@ -362,6 +368,22 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.renderer.Clear()
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "settings.open", Title: "Preferences: Open Settings",
+		Handler: func() {
+			path := config.ConfigFilePath("settings.json")
+			app.editorGroup.OpenFile(path)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "keybindings.open", Title: "Preferences: Open Keyboard Shortcuts",
+		Handler: func() {
+			path := config.ConfigFilePath("keybindings.json")
+			app.editorGroup.OpenFile(path)
 		},
 	})
 
