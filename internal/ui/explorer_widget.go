@@ -26,7 +26,8 @@ type ExplorerWidget struct {
 	Selected   int
 	ScrollTop  int
 	ActiveFile string
-	OnOpenFile func(path string)
+	OnOpenFile   func(path string)
+	OnRightClick func(node *TreeNode, screenX, screenY int)
 }
 
 func NewExplorerWidget(rootPath string) *ExplorerWidget {
@@ -172,7 +173,18 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 			idx := e.ScrollTop + localY
 			if idx >= 0 && idx < len(e.FlatList) {
 				e.Selected = idx
-				e.activateSelected()
+				e.ActivateSelected()
+			}
+			return EventConsumed
+		}
+		if btn&tcell.Button3 != 0 && e.OnRightClick != nil {
+			mx, my := tev.Position()
+			r := e.GetRect()
+			localY := my - r.Y
+			idx := e.ScrollTop + localY
+			if idx >= 0 && idx < len(e.FlatList) {
+				e.Selected = idx
+				e.OnRightClick(e.FlatList[idx], mx, my)
 			}
 			return EventConsumed
 		}
@@ -208,7 +220,7 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		case tcell.KeyEnter:
-			e.activateSelected()
+			e.ActivateSelected()
 			return EventConsumed
 		case tcell.KeyLeft:
 			e.collapseSelected()
@@ -221,7 +233,7 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-func (e *ExplorerWidget) activateSelected() {
+func (e *ExplorerWidget) ActivateSelected() {
 	if e.Selected < 0 || e.Selected >= len(e.FlatList) {
 		return
 	}

@@ -15,6 +15,7 @@ type MenuBarWidget struct {
 	Items    []MenuItem
 	Selected int
 	OnSelect func(index int)
+	itemSpans []struct{ start, end int }
 }
 
 func NewMenuBarWidget(items []MenuItem) *MenuBarWidget {
@@ -33,6 +34,7 @@ func (m *MenuBarWidget) Render(surface *RenderSurface) {
 		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: term.StyleMenuBar})
 	}
 
+	m.itemSpans = make([]struct{ start, end int }, len(m.Items))
 	x := 1
 	for i, item := range m.Items {
 		style := term.StyleMenuBar
@@ -40,6 +42,7 @@ func (m *MenuBarWidget) Render(surface *RenderSurface) {
 			style = term.StyleMenuBarActive
 		}
 
+		startX := x
 		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 		x++
 		for _, ch := range item.Name {
@@ -50,32 +53,55 @@ func (m *MenuBarWidget) Render(surface *RenderSurface) {
 		}
 		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 		x++
+		m.itemSpans[i] = struct{ start, end int }{startX, x}
 		x++
 	}
 }
 
-func (m *MenuBarWidget) HandleEvent(ev tcell.Event) EventResult {
-	kev, ok := ev.(*tcell.EventKey)
-	if !ok {
-		return EventIgnored
+func (m *MenuBarWidget) ItemAnchorX(index int) int {
+	if index >= 0 && index < len(m.itemSpans) {
+		return m.itemSpans[index].start
 	}
+	return 0
+}
 
-	switch kev.Key() {
-	case tcell.KeyLeft:
-		if m.Selected > 0 {
-			m.Selected--
+func (m *MenuBarWidget) HandleEvent(ev tcell.Event) EventResult {
+	switch tev := ev.(type) {
+	case *tcell.EventMouse:
+		if tev.Buttons()&tcell.Button1 != 0 {
+			r := m.GetRect()
+			mx, my := tev.Position()
+			if my == r.Y {
+				localX := mx - r.X
+				for i, span := range m.itemSpans {
+					if localX >= span.start && localX < span.end {
+						m.Selected = i
+						if m.OnSelect != nil {
+							m.OnSelect(i)
+						}
+						return EventConsumed
+					}
+				}
+			}
 		}
-		return EventConsumed
-	case tcell.KeyRight:
-		if m.Selected < len(m.Items)-1 {
-			m.Selected++
+	case *tcell.EventKey:
+		switch tev.Key() {
+		case tcell.KeyLeft:
+			if m.Selected > 0 {
+				m.Selected--
+			}
+			return EventConsumed
+		case tcell.KeyRight:
+			if m.Selected < len(m.Items)-1 {
+				m.Selected++
+			}
+			return EventConsumed
+		case tcell.KeyEnter:
+			if m.OnSelect != nil && m.Selected >= 0 {
+				m.OnSelect(m.Selected)
+			}
+			return EventConsumed
 		}
-		return EventConsumed
-	case tcell.KeyEnter:
-		if m.OnSelect != nil && m.Selected >= 0 {
-			m.OnSelect(m.Selected)
-		}
-		return EventConsumed
 	}
 
 	return EventIgnored

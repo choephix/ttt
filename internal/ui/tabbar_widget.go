@@ -24,10 +24,11 @@ type TabBarWidget struct {
 	Tabs         []Tab
 	Borders      *term.BorderSet
 	ScrollOffset int
-	ShowMore     bool
-	OnTabClick   func(index int)
-	OnMore       func()
-	tabSpans     []tabSpan
+	ShowMore       bool
+	OnTabClick     func(index int)
+	OnMore         func()
+	OnTabRightClick func(index, screenX, screenY int)
+	tabSpans       []tabSpan
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -174,12 +175,25 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	if !ok {
 		return EventIgnored
 	}
-	if mev.Buttons()&tcell.Button1 == 0 {
-		return EventIgnored
-	}
 	r := t.GetRect()
 	mx, my := mev.Position()
 	if my < r.Y || my >= r.Y+r.H || mx < r.X || mx >= r.X+r.W {
+		return EventIgnored
+	}
+
+	btn := mev.Buttons()
+
+	if btn&tcell.Button3 != 0 && t.OnTabRightClick != nil {
+		localX := mx - r.X + t.ScrollOffset
+		for i, s := range t.tabSpans {
+			if localX >= s.start && localX < s.end {
+				t.OnTabRightClick(i, mx, my)
+				return EventConsumed
+			}
+		}
+	}
+
+	if btn&tcell.Button1 == 0 {
 		return EventIgnored
 	}
 

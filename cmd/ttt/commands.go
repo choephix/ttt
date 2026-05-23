@@ -5,6 +5,7 @@ import (
 	"strings"
 	"ttt/internal/command"
 	"ttt/internal/config"
+	"ttt/internal/core/buffer"
 	"ttt/internal/core/diff"
 	"ttt/internal/git"
 	"ttt/internal/term"
@@ -22,6 +23,7 @@ type appWidgets struct {
 	explorer     *ui.ExplorerWidget
 	search       *ui.SearchWidget
 	changes      *ui.ChangesWidget
+	menuBar      *ui.MenuBarWidget
 	statusBar    *ui.StatusBarWidget
 	status       *view.StatusBar
 	borders      *term.BorderSet
@@ -133,6 +135,14 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 	reg.Register(command.Command{
 		ID: "tab.close", Title: "Close Tab",
 		Handler: func() { app.editorGroup.CloseTab() },
+	})
+
+	reg.Register(command.Command{
+		ID: "file.new", Title: "New File",
+		Handler: func() {
+			app.editorGroup.OpenBuffer("untitled", &buffer.Buffer{Lines: []string{""}})
+			app.root.SetFocus(app.editorGroup)
+		},
 	})
 
 	reg.Register(command.Command{
@@ -343,10 +353,115 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		},
 	})
 
+	reg.Register(command.Command{
+		ID: "changes.openDiff", Title: "Open Diff",
+		Handler: func() {
+			if app.changes.Selected >= 0 && app.changes.Selected < len(app.changes.Files) {
+				status := app.changes.Files[app.changes.Selected]
+				app.changes.OnOpenDiff(status)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.openFile", Title: "Open File",
+		Handler: func() {
+			if app.changes.Selected >= 0 && app.changes.Selected < len(app.changes.Files) {
+				status := app.changes.Files[app.changes.Selected]
+				fullPath := filepath.Join(app.cwd, status.Path)
+				app.editorGroup.OpenFile(fullPath)
+				app.root.SetFocus(app.editorGroup)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeOthers", Title: "Close Other Tabs",
+		Handler: func() { app.editorGroup.CloseOtherTabs() },
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeAll", Title: "Close All Tabs",
+		Handler: func() { app.editorGroup.CloseAllTabs() },
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.open", Title: "Open",
+		Handler: func() {
+			app.explorer.ActivateSelected()
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.newFile", Title: "New File",
+		Handler: func() {
+			app.status.Message = "New File: not yet implemented"
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.newFolder", Title: "New Folder",
+		Handler: func() {
+			app.status.Message = "New Folder: not yet implemented"
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.rename", Title: "Rename",
+		Handler: func() {
+			app.status.Message = "Rename: not yet implemented"
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.delete", Title: "Delete",
+		Handler: func() {
+			app.status.Message = "Delete: not yet implemented"
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "about", Title: "About ttt",
+		Handler: func() {
+			app.status.Message = "ttt — Terminal Text Tool"
+		},
+	})
+
+	app.menuBar.OnSelect = func(index int) {
+		openMenuBarDropdown(app, reg, index)
+	}
+
+	app.editorGroup.TabBar.OnTabRightClick = func(index, sx, sy int) {
+		app.editorGroup.SwitchTab(index)
+		tabContextMenu := []ui.ContextMenuItem{
+			{Label: "Close", Shortcut: "Ctrl+W", Command: "tab.close"},
+			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
+			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
+		}
+		openContextMenu(app, reg, tabContextMenu, sx, sy)
+	}
+
 	// Widget callbacks
 	app.explorer.OnOpenFile = func(path string) {
 		app.editorGroup.OpenFile(path)
 		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {
+		items := []ui.ContextMenuItem{
+			{Label: "Open", Command: "explorer.open"},
+			ui.MenuSep(),
+			{Label: "New File", Command: "explorer.newFile"},
+			{Label: "New Folder", Command: "explorer.newFolder"},
+			ui.MenuSep(),
+			{Label: "Rename", Command: "explorer.rename"},
+			{Label: "Delete", Command: "explorer.delete"},
+		}
+		openContextMenu(app, reg, items, sx, sy)
+	}
+
+	app.changes.OnRightClick = func(status git.FileStatus, sx, sy int) {
+		openContextMenu(app, reg, changesContextMenu, sx, sy)
 	}
 
 	app.changes.OnOpenDiff = func(status git.FileStatus) {

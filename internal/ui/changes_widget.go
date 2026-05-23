@@ -13,7 +13,8 @@ type ChangesWidget struct {
 	Files      []git.FileStatus
 	Selected   int
 	ScrollTop  int
-	OnOpenDiff func(status git.FileStatus)
+	OnOpenDiff   func(status git.FileStatus)
+	OnRightClick func(status git.FileStatus, screenX, screenY int)
 }
 
 func NewChangesWidget(dir string) *ChangesWidget {
@@ -149,6 +150,17 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 			if idx >= 0 && idx < len(c.Files) {
 				c.Selected = idx
 				c.openSelected()
+			}
+			return EventConsumed
+		}
+		if btn&tcell.Button3 != 0 && c.OnRightClick != nil {
+			mx, my := tev.Position()
+			r := c.GetRect()
+			localY := my - r.Y
+			idx := c.ScrollTop + localY
+			if idx >= 0 && idx < len(c.Files) {
+				c.Selected = idx
+				c.OnRightClick(c.Files[idx], mx, my)
 			}
 			return EventConsumed
 		}

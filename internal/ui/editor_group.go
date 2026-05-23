@@ -178,6 +178,28 @@ func (g *EditorGroupWidget) CloseTab() {
 	g.syncTabs()
 }
 
+func (g *EditorGroupWidget) CloseOtherTabs() {
+	if len(g.tabs) <= 1 {
+		return
+	}
+	g.tabs = []editorTab{g.tabs[g.active]}
+	g.active = 0
+	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) CloseAllTabs() {
+	g.tabs = []editorTab{{
+		FilePath: "untitled",
+		Buf:      &buffer.Buffer{Lines: []string{""}},
+		Cur:      &cursor.Cursor{},
+		Vp:       &view.Viewport{},
+		Undo:     &undo.UndoStack{},
+		Sel:      &selection.Selection{},
+	}}
+	g.active = 0
+	g.syncTabs()
+}
+
 func (g *EditorGroupWidget) Save() {
 	t := &g.tabs[g.active]
 	if t.Content != nil {

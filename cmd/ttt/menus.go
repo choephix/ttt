@@ -1,0 +1,117 @@
+package main
+
+import (
+	"ttt/internal/command"
+	"ttt/internal/ui"
+
+	"github.com/gdamore/tcell/v2"
+)
+
+var menuBarMenus = [][]ui.ContextMenuItem{
+	// File
+	{
+		{Label: "New File", Shortcut: "", Command: "file.new"},
+		ui.MenuSep(),
+		{Label: "Save", Shortcut: "Ctrl+S", Command: "file.save"},
+		ui.MenuSep(),
+		{Label: "Quit", Shortcut: "Ctrl+Q", Command: "editor.quit"},
+	},
+	// Edit
+	{
+		{Label: "Undo", Shortcut: "Ctrl+Z", Command: "editor.undo"},
+		{Label: "Redo", Shortcut: "Ctrl+Y", Command: "editor.redo"},
+		ui.MenuSep(),
+		{Label: "Cut", Shortcut: "Ctrl+X", Command: "editor.cut"},
+		{Label: "Copy", Shortcut: "Ctrl+C", Command: "editor.copy"},
+		{Label: "Paste", Shortcut: "Ctrl+V", Command: "editor.paste"},
+		ui.MenuSep(),
+		{Label: "Find", Shortcut: "Ctrl+F", Command: "search.find"},
+		{Label: "Replace", Shortcut: "Ctrl+H", Command: "search.replace"},
+	},
+	// Selection
+	{
+		{Label: "Select All", Shortcut: "Ctrl+A", Command: "editor.selectAll"},
+	},
+	// View
+	{
+		{Label: "Command Palette", Shortcut: "Ctrl+P", Command: "command.palette"},
+		ui.MenuSep(),
+		{Label: "Explorer", Shortcut: "Ctrl+E", Command: "sidebar.explorer"},
+		{Label: "Search", Shortcut: "", Command: "sidebar.search"},
+		{Label: "Changes", Shortcut: "Ctrl+D", Command: "sidebar.changes"},
+		ui.MenuSep(),
+		{Label: "Toggle Sidebar", Shortcut: "Ctrl+B", Command: "sidebar.toggle"},
+		{Label: "Toggle Panel", Shortcut: "Ctrl+T", Command: "panel.toggle"},
+		ui.MenuSep(),
+		{Label: "Switch Theme", Shortcut: "Ctrl+K T", Command: "theme.switch"},
+	},
+	// Help
+	{
+		{Label: "About", Shortcut: "", Command: "about"},
+	},
+}
+
+var editorContextMenu = []ui.ContextMenuItem{
+	{Label: "Undo", Shortcut: "Ctrl+Z", Command: "editor.undo"},
+	{Label: "Redo", Shortcut: "Ctrl+Y", Command: "editor.redo"},
+	ui.MenuSep(),
+	{Label: "Cut", Shortcut: "Ctrl+X", Command: "editor.cut"},
+	{Label: "Copy", Shortcut: "Ctrl+C", Command: "editor.copy"},
+	{Label: "Paste", Shortcut: "Ctrl+V", Command: "editor.paste"},
+	ui.MenuSep(),
+	{Label: "Select All", Shortcut: "Ctrl+A", Command: "editor.selectAll"},
+	ui.MenuSep(),
+	{Label: "Find", Shortcut: "Ctrl+F", Command: "search.find"},
+	{Label: "Replace", Shortcut: "Ctrl+H", Command: "search.replace"},
+	{Label: "Go to Line", Shortcut: "Ctrl+G", Command: "editor.goToLine"},
+}
+
+var changesContextMenu = []ui.ContextMenuItem{
+	{Label: "Open Diff", Shortcut: "", Command: "changes.openDiff"},
+	{Label: "Open File", Shortcut: "", Command: "changes.openFile"},
+}
+
+func openContextMenu(app *appWidgets, reg *command.Registry, items []ui.ContextMenuItem, x, y int) {
+	menu := ui.NewContextMenuWidget(items, x, y)
+	menu.Borders = app.borders
+	menu.OnExec = func(cmd string) {
+		app.root.PopOverlay()
+		reg.Execute(cmd)
+	}
+	menu.OnDismiss = func() {
+		app.root.PopOverlay()
+	}
+	app.root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	app.root.SetFocus(menu)
+}
+
+func openMenuBarDropdown(app *appWidgets, reg *command.Registry, index int) {
+	if index < 0 || index >= len(menuBarMenus) {
+		return
+	}
+	anchorX := app.menuBar.ItemAnchorX(index)
+	openContextMenu(app, reg, menuBarMenus[index], anchorX, 1)
+}
+
+func handleRightClick(app *appWidgets, reg *command.Registry, mx, my int) {
+	panelRect := app.splitPanel.GetRect()
+	if my < panelRect.Y || my >= panelRect.Y+panelRect.H {
+		return
+	}
+
+	if app.sidebar.Visible {
+		divX := app.splitPanel.DividerScreenX()
+		if mx < divX {
+			sidebarR := app.sidebar.GetRect()
+			if my > sidebarR.Y+1 {
+				ev := tcell.NewEventMouse(mx, my, tcell.Button3, 0)
+				if w := app.sidebar.ActiveWidget(); w != nil {
+					w.HandleEvent(ev)
+				}
+			}
+			return
+		}
+	}
+
+	openContextMenu(app, reg, editorContextMenu, mx, my)
+}

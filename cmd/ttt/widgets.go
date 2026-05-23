@@ -112,6 +112,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 		explorer:     explorer,
 		search:       search,
 		changes:      changes,
+		menuBar:      menuBar,
 		statusBar:    statusBar,
 		status:       status,
 		borders:      borders,

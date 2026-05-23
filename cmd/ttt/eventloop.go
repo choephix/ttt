@@ -59,6 +59,25 @@ func runEventLoop(
 			mx, my := tev.Position()
 			btn := tev.Buttons()
 
+			if len(app.root.Overlays) > 0 {
+				app.root.Overlays[len(app.root.Overlays)-1].Widget.HandleEvent(tev)
+				redraw()
+				continue
+			}
+
+			menuR := app.menuBar.GetRect()
+			if btn&tcell.Button1 != 0 && my == menuR.Y {
+				app.menuBar.HandleEvent(tev)
+				redraw()
+				continue
+			}
+
+			if btn&tcell.Button3 != 0 {
+				handleRightClick(app, cmdRegistry, mx, my)
+				redraw()
+				continue
+			}
+
 			if app.splitPanel.HandleEvent(tev) == ui.EventConsumed {
 				redraw()
 				continue
