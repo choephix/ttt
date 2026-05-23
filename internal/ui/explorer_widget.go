@@ -46,6 +46,34 @@ func NewExplorerWidget(rootPath string) *ExplorerWidget {
 
 func (e *ExplorerWidget) Focusable() bool { return true }
 
+func (e *ExplorerWidget) SelectedNode() *TreeNode {
+	if e.Selected >= 0 && e.Selected < len(e.FlatList) {
+		return e.FlatList[e.Selected]
+	}
+	return nil
+}
+
+func (e *ExplorerWidget) Reload() {
+	e.loadChildren(e.Root)
+	e.reloadExpanded(e.Root)
+	e.flatten()
+	if e.Selected >= len(e.FlatList) {
+		e.Selected = len(e.FlatList) - 1
+	}
+	if e.Selected < 0 {
+		e.Selected = 0
+	}
+}
+
+func (e *ExplorerWidget) reloadExpanded(node *TreeNode) {
+	for _, child := range node.Children {
+		if child.IsDir && child.Expanded {
+			e.loadChildren(child)
+			e.reloadExpanded(child)
+		}
+	}
+}
+
 func (e *ExplorerWidget) loadChildren(node *TreeNode) {
 	entries, err := os.ReadDir(node.Path)
 	if err != nil {

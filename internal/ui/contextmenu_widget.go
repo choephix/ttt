@@ -24,8 +24,9 @@ type ContextMenuWidget struct {
 	AnchorX  int
 	AnchorY  int
 	Borders  *term.BorderSet
-	OnExec   func(command string)
-	OnDismiss func()
+	OnExec      func(command string)
+	OnDismiss   func()
+	OnNavigate  func(dir int)
 }
 
 func NewContextMenuWidget(items []ContextMenuItem, x, y int) *ContextMenuWidget {
@@ -167,6 +168,16 @@ func (c *ContextMenuWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		case tcell.KeyDown:
 			c.moveSelection(1)
+			return EventConsumed
+		case tcell.KeyLeft:
+			if c.OnNavigate != nil {
+				c.OnNavigate(-1)
+			}
+			return EventConsumed
+		case tcell.KeyRight:
+			if c.OnNavigate != nil {
+				c.OnNavigate(1)
+			}
 			return EventConsumed
 		case tcell.KeyEnter:
 			if c.Selected >= 0 && c.Selected < len(c.Items) && !c.Items[c.Selected].IsSep {

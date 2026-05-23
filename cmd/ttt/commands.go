@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"ttt/internal/command"
@@ -395,28 +396,118 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 	reg.Register(command.Command{
 		ID: "explorer.newFile", Title: "New File",
 		Handler: func() {
-			app.status.Message = "New File: not yet implemented"
+			node := app.explorer.SelectedNode()
+			if node == nil {
+				return
+			}
+			parentDir := node.Path
+			if !node.IsDir {
+				parentDir = filepath.Dir(node.Path)
+			}
+			dialog := ui.NewInputDialogWidget("New File", "")
+			dialog.Borders = app.borders
+			dialog.OnSubmit = func(name string) {
+				app.root.PopOverlay()
+				newPath := filepath.Join(parentDir, name)
+				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
+					app.status.Message = "Error: " + err.Error()
+					return
+				}
+				if err := os.WriteFile(newPath, []byte{}, 0644); err != nil {
+					app.status.Message = "Error: " + err.Error()
+					return
+				}
+				app.explorer.Reload()
+				app.editorGroup.OpenFile(newPath)
+				app.root.SetFocus(app.editorGroup)
+			}
+			dialog.OnDismiss = func() {
+				app.root.PopOverlay()
+			}
+			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
+			app.root.SetFocus(dialog)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.newFolder", Title: "New Folder",
 		Handler: func() {
-			app.status.Message = "New Folder: not yet implemented"
+			node := app.explorer.SelectedNode()
+			if node == nil {
+				return
+			}
+			parentDir := node.Path
+			if !node.IsDir {
+				parentDir = filepath.Dir(node.Path)
+			}
+			dialog := ui.NewInputDialogWidget("New Folder", "")
+			dialog.Borders = app.borders
+			dialog.OnSubmit = func(name string) {
+				app.root.PopOverlay()
+				newPath := filepath.Join(parentDir, name)
+				if err := os.MkdirAll(newPath, 0755); err != nil {
+					app.status.Message = "Error: " + err.Error()
+					return
+				}
+				app.explorer.Reload()
+			}
+			dialog.OnDismiss = func() {
+				app.root.PopOverlay()
+			}
+			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
+			app.root.SetFocus(dialog)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.rename", Title: "Rename",
 		Handler: func() {
-			app.status.Message = "Rename: not yet implemented"
+			node := app.explorer.SelectedNode()
+			if node == nil {
+				return
+			}
+			dialog := ui.NewInputDialogWidget("Rename", node.Name)
+			dialog.Borders = app.borders
+			dialog.OnSubmit = func(newName string) {
+				app.root.PopOverlay()
+				dir := filepath.Dir(node.Path)
+				newPath := filepath.Join(dir, newName)
+				if err := os.Rename(node.Path, newPath); err != nil {
+					app.status.Message = "Error: " + err.Error()
+					return
+				}
+				app.explorer.Reload()
+			}
+			dialog.OnDismiss = func() {
+				app.root.PopOverlay()
+			}
+			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
+			app.root.SetFocus(dialog)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.delete", Title: "Delete",
 		Handler: func() {
-			app.status.Message = "Delete: not yet implemented"
+			node := app.explorer.SelectedNode()
+			if node == nil {
+				return
+			}
+			dialog := ui.NewConfirmDialogWidget("Delete " + node.Name + "?")
+			dialog.Borders = app.borders
+			dialog.OnConfirm = func() {
+				app.root.PopOverlay()
+				if err := os.RemoveAll(node.Path); err != nil {
+					app.status.Message = "Error: " + err.Error()
+					return
+				}
+				app.explorer.Reload()
+			}
+			dialog.OnDismiss = func() {
+				app.root.PopOverlay()
+			}
+			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
+			app.root.SetFocus(dialog)
 		},
 	})
 
@@ -426,6 +517,17 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			app.status.Message = "ttt — Terminal Text Tool"
 		},
 	})
+
+	for i := range menuBarMenus {
+		idx := i
+		reg.Register(command.Command{
+			ID:    menuBarLabels[idx],
+			Title: "Open " + menuBarLabels[idx] + " Menu",
+			Handler: func() {
+				openMenuBarDropdown(app, reg, idx)
+			},
+		})
+	}
 
 	app.menuBar.OnSelect = func(index int) {
 		openMenuBarDropdown(app, reg, index)

@@ -400,7 +400,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [ ] Changes panel: tree view mode (`changesView: "list" | "tree"` setting, default list) *(deferred)*
 - [ ] Changes panel: show `filename  path/to/dir` with muted directory path as option (useful when multiple files share a name) *(deferred)*
 - [x] Highlight the currently open file in the tree — active file highlighted with `StyleSidebarSelected`, synced on every editor status update
-- [ ] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
+- [x] Basic file operations: new file, new folder, rename, delete (with confirmation dialog)
 - [ ] File icons (using Unicode/Nerd Font glyphs if available)
 - [x] Open folder support — `ttt` opens cwd, `ttt /path/to/dir` opens that directory, `ttt /path/to/file.go` opens file with workspace set to git repo root (falls back to file's parent dir if not in a repo)
 
@@ -410,9 +410,9 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ### Menu Bar
 - [x] Top-row menu bar: File, Edit, Selection, View, Help
-- [ ] Keyboard-driven: Alt+F opens File menu, arrow keys navigate, Enter selects
-- [ ] Menus show keybinding hints on the right side
-- [ ] Dropdown menus with actions
+- [x] Keyboard-driven: F10/Alt+F opens File menu, Alt+E/S/V/H for other menus, Left/Right arrows navigate between menus, Up/Down/Enter to select
+- [x] Menus show keybinding hints on the right side
+- [x] Dropdown menus with actions — File, Edit, Selection, View, Help menus with shortcut display
 
 ### Command Palette
 - [x] Ctrl+P opens a fuzzy-search dialog listing all available commands
@@ -431,7 +431,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Find bar (modal overlay)
 - [ ] Open file dialog (with path input and file list)
 - [ ] Save as dialog
-- [ ] Confirm dialog (unsaved changes, delete file)
+- [x] Confirm dialog (delete file)
 - [ ] About/help dialog
 
 ---
@@ -447,8 +447,8 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Editor scrollbar — proportional scrollbar on right edge when content exceeds viewport, themed via `StyleScrollbar`/`StyleScrollbarThumb`
 - [x] Click+drag to select text
 - [x] Double-click to select word, triple-click to select line
-- [ ] Click on menu bar to open menus
-- [ ] Right-click context menu (stretch goal)
+- [x] Click on menu bar to open menus
+- [x] Right-click context menu — editor (undo/redo/cut/copy/paste/find/replace/go-to-line), tab bar (close/close others/close all), explorer (open/new file/new folder/rename/delete), changes (open diff/open file)
 
 ---
 

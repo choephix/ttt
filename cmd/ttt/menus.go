@@ -7,6 +7,10 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+var menuBarLabels = []string{
+	"menu.file", "menu.edit", "menu.selection", "menu.view", "menu.help",
+}
+
 var menuBarMenus = [][]ui.ContextMenuItem{
 	// File
 	{
@@ -89,8 +93,26 @@ func openMenuBarDropdown(app *appWidgets, reg *command.Registry, index int) {
 	if index < 0 || index >= len(menuBarMenus) {
 		return
 	}
+	app.menuBar.Selected = index
 	anchorX := app.menuBar.ItemAnchorX(index)
-	openContextMenu(app, reg, menuBarMenus[index], anchorX, 1)
+	menu := ui.NewContextMenuWidget(menuBarMenus[index], anchorX, 1)
+	menu.Borders = app.borders
+	menu.OnExec = func(cmd string) {
+		app.root.PopOverlay()
+		app.menuBar.Selected = -1
+		reg.Execute(cmd)
+	}
+	menu.OnDismiss = func() {
+		app.root.PopOverlay()
+		app.menuBar.Selected = -1
+	}
+	menu.OnNavigate = func(dir int) {
+		app.root.PopOverlay()
+		next := (index + dir + len(menuBarMenus)) % len(menuBarMenus)
+		openMenuBarDropdown(app, reg, next)
+	}
+	app.root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	app.root.SetFocus(menu)
 }
 
 func handleRightClick(app *appWidgets, reg *command.Registry, mx, my int) {
