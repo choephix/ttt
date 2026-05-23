@@ -49,7 +49,7 @@ func statusStyle(status string) term.Style {
 	case "D":
 		return term.StyleDiffDeleted
 	default:
-		return term.StyleSidebarItem
+		return term.StyleDefault
 	}
 }
 
@@ -61,7 +61,7 @@ func (c *ChangesWidget) Render(surface *RenderSurface) {
 		msg := "No changes"
 		for i, ch := range msg {
 			if i+1 < w {
-				surface.SetCell(i+1, 0, term.Cell{Ch: ch, Style: term.StyleSidebarItem})
+				surface.SetCell(i+1, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
 			}
 		}
 		return
@@ -85,7 +85,7 @@ func (c *ChangesWidget) Render(surface *RenderSurface) {
 		f := c.Files[idx]
 		y := i
 
-		style := term.StyleSidebarItem
+		style := term.StyleDefault
 		if idx == c.Selected {
 			style = term.StyleSidebarSelected
 		}

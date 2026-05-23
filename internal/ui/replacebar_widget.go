@@ -45,7 +45,7 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	if r.Borders != nil {
 		b = *r.Borders
 	}
-	bs := term.StylePaletteBorder
+	bs := term.StyleBorder
 
 	for x := barX; x < barX+barW; x++ {
 		surface.SetCell(x, barY, term.Cell{Ch: b.Horizontal, Style: bs})
@@ -96,7 +96,7 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 
 func (r *ReplaceBarWidget) renderRow(surface *RenderSurface, startX, y, w int, label, text string, curPos int, focused bool) {
 	for x := startX; x < startX+w; x++ {
-		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
+		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StyleDefault})
 	}
 
 	x := startX
@@ -109,7 +109,7 @@ func (r *ReplaceBarWidget) renderRow(surface *RenderSurface, startX, y, w int, l
 
 	for _, ch := range []rune(text) {
 		if x < startX+w {
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StyleDefault})
 			x++
 		}
 	}

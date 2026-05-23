@@ -45,7 +45,7 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	if f.Borders != nil {
 		b = *f.Borders
 	}
-	bs := term.StylePaletteBorder
+	bs := term.StyleBorder
 
 	for x := barX; x < barX+barW; x++ {
 		surface.SetCell(x, barY, term.Cell{Ch: b.Horizontal, Style: bs})
@@ -62,14 +62,14 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 
 	row := barY + 1
 	for x := barX + 1; x < barX+barW-1; x++ {
-		surface.SetCell(x, row, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
+		surface.SetCell(x, row, term.Cell{Ch: ' ', Style: term.StyleDefault})
 	}
 
 	x := barX + 2
 	queryRunes := []rune(f.Query)
 	for i, ch := range queryRunes {
 		if x+i < barX+barW-2 {
-			surface.SetCell(x+i, row, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+			surface.SetCell(x+i, row, term.Cell{Ch: ch, Style: term.StyleDefault})
 		}
 	}
 

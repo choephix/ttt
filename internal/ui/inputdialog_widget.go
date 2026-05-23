@@ -43,7 +43,7 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 	if d.Borders != nil {
 		b = *d.Borders
 	}
-	bs := term.StylePaletteBorder
+	bs := term.StyleBorder
 
 	for x := boxX; x < boxX+boxW; x++ {
 		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: bs})
@@ -68,12 +68,12 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 
 	inputY := boxY + 1
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
-		surface.SetCell(x, inputY, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
+		surface.SetCell(x, inputY, term.Cell{Ch: ' ', Style: term.StyleDefault})
 	}
 	x := boxX + 2
 	for _, ch := range d.Input {
 		if x < boxX+boxW-2 {
-			surface.SetCell(x, inputY, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+			surface.SetCell(x, inputY, term.Cell{Ch: ch, Style: term.StyleDefault})
 			x++
 		}
 	}

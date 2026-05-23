@@ -19,6 +19,6 @@ func (p *PlaceholderWidget) Render(surface *RenderSurface) {
 		if i >= w {
 			break
 		}
-		surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StyleSidebarItem})
+		surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
 	}
 }

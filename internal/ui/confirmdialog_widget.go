@@ -43,7 +43,7 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 	if d.Borders != nil {
 		b = *d.Borders
 	}
-	bs := term.StylePaletteBorder
+	bs := term.StyleBorder
 
 	for x := boxX; x < boxX+boxW; x++ {
 		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: bs})

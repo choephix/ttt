@@ -57,17 +57,17 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 		b = *p.Borders
 	}
 	for x := boxX; x < boxX+boxW; x++ {
-		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: term.StylePaletteBorder})
-		surface.SetCell(x, boxY+boxH-1, term.Cell{Ch: b.Horizontal, Style: term.StylePaletteBorder})
+		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
+		surface.SetCell(x, boxY+boxH-1, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
 	}
 	for y := boxY; y < boxY+boxH; y++ {
-		surface.SetCell(boxX, y, term.Cell{Ch: b.Vertical, Style: term.StylePaletteBorder})
-		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: b.Vertical, Style: term.StylePaletteBorder})
+		surface.SetCell(boxX, y, term.Cell{Ch: b.Vertical, Style: term.StyleBorder})
+		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: b.Vertical, Style: term.StyleBorder})
 	}
-	surface.SetCell(boxX, boxY, term.Cell{Ch: b.TopLeft, Style: term.StylePaletteBorder})
-	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: b.TopRight, Style: term.StylePaletteBorder})
-	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: term.StylePaletteBorder})
-	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: term.StylePaletteBorder})
+	surface.SetCell(boxX, boxY, term.Cell{Ch: b.TopLeft, Style: term.StyleBorder})
+	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: b.TopRight, Style: term.StyleBorder})
+	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: term.StyleBorder})
+	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: term.StyleBorder})
 
 	// Clear interior
 	for y := boxY + 1; y < boxY+boxH-1; y++ {
@@ -81,13 +81,13 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	for i, ch := range inputLine {
 		x := boxX + 1 + i
 		if x < boxX+boxW-1 {
-			surface.SetCell(x, boxY+1, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+			surface.SetCell(x, boxY+1, term.Cell{Ch: ch, Style: term.StyleDefault})
 		}
 	}
 
 	// Separator
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
-		surface.SetCell(x, boxY+2, term.Cell{Ch: b.Horizontal, Style: term.StylePaletteBorder})
+		surface.SetCell(x, boxY+2, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
 	}
 
 	// Command list

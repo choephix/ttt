@@ -145,7 +145,7 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 		node := e.FlatList[idx]
 		y := i
 
-		style := term.StyleSidebarItem
+		style := term.StyleDefault
 		if idx == e.Selected {
 			style = term.StyleSidebarSelected
 		} else if !node.IsDir && node.Path == e.ActiveFile {

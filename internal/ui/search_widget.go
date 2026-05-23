@@ -44,7 +44,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 			if x >= w {
 				break
 			}
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StyleSidebarItem})
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StyleDefault})
 		}
 	}
 }

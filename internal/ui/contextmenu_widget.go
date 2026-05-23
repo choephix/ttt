@@ -98,7 +98,7 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 	if c.Borders != nil {
 		b = *c.Borders
 	}
-	bs := term.StylePaletteBorder
+	bs := term.StyleBorder
 
 	for bx := x; bx < x+menuW; bx++ {
 		surface.SetCell(bx, y, term.Cell{Ch: b.Horizontal, Style: bs})

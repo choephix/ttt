@@ -7,11 +7,7 @@ const (
 	StyleStatusBar
 	StyleActiveTab
 	StyleInactiveTab
-	StyleSidebarHeader
-	StyleSidebarItem
 	StyleSidebarSelected
-	StylePaletteBorder
-	StylePaletteInput
 	StylePaletteItem
 	StylePaletteSelected
 	StyleLineNumber
