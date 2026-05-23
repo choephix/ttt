@@ -34,7 +34,7 @@ type EditorPaneWidget struct {
 	lastClickLine int
 	lastClickCol  int
 	clickCount    int
-	dragging      bool
+	mouseDown     bool
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -270,51 +270,47 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			mx, my := mev.Position()
 			line, col := e.mouseToPos(r, mx, my)
 
-			now := time.Now().UnixMilli()
-			if now-e.lastClickTime < 400 && line == e.lastClickLine && col == e.lastClickCol {
-				e.clickCount++
-			} else {
-				e.clickCount = 1
-			}
-			e.lastClickTime = now
-			e.lastClickLine = line
-			e.lastClickCol = col
+			if !e.mouseDown {
+				e.mouseDown = true
 
-			switch e.clickCount {
-			case 2:
-				e.selectWord(line, col)
-			case 3:
-				e.selectLine(line)
-				e.clickCount = 0
-			default:
-				if e.Selection != nil {
-					e.Selection.Clear()
-					e.Selection.Start(line, col)
+				now := time.Now().UnixMilli()
+				if now-e.lastClickTime < 400 && line == e.lastClickLine && col == e.lastClickCol {
+					e.clickCount++
+				} else {
+					e.clickCount = 1
 				}
+				e.lastClickTime = now
+				e.lastClickLine = line
+				e.lastClickCol = col
+
+				switch e.clickCount {
+				case 2:
+					e.selectWord(line, col)
+				case 3:
+					e.selectLine(line)
+					e.clickCount = 0
+				default:
+					if e.Selection != nil {
+						e.Selection.Clear()
+						e.Selection.Start(line, col)
+					}
+					e.Cursor.Line = line
+					e.Cursor.Col = col
+				}
+			} else {
 				e.Cursor.Line = line
 				e.Cursor.Col = col
-				e.dragging = true
 			}
 			e.scrollViewport()
 			return EventConsumed
 		}
-		if btn == tcell.ButtonNone && e.dragging {
-			e.dragging = false
+		if btn == tcell.ButtonNone && e.mouseDown {
+			e.mouseDown = false
 			if e.Selection != nil && e.Selection.Active {
 				if e.Selection.Anchor.Line == e.Cursor.Line && e.Selection.Anchor.Col == e.Cursor.Col {
 					e.Selection.Clear()
 				}
 			}
-			return EventConsumed
-		}
-		if e.dragging {
-			r := e.GetRect()
-			mx, my := mev.Position()
-			line, col := e.mouseToPos(r, mx, my)
-			e.Cursor.Line = line
-			e.Cursor.Col = col
-			e.scrollViewport()
-			return EventConsumed
 		}
 		return EventIgnored
 	}
