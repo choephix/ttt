@@ -48,6 +48,7 @@ type EditorStyles struct {
 	Selection    StyleDef `json:"selection"`
 	SearchMatch  StyleDef `json:"searchMatch"`
 	SearchActive StyleDef `json:"searchActive"`
+	BracketMatch StyleDef `json:"bracketMatch"`
 }
 
 type DiffStyles struct {
@@ -121,6 +122,7 @@ func DefaultTheme() ThemeConfig {
 			LineNumber:   StyleDef{Fg: "#999999"},
 			SearchMatch:  StyleDef{Bg: "#623800"},
 			SearchActive: StyleDef{Bg: "#9e6a03"},
+			BracketMatch: StyleDef{Bg: "#3a3a3a"},
 		},
 		Scrollbar: StyleDef{Fg: "#888888", Bg: "#555555"},
 

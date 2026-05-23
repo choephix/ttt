@@ -85,6 +85,8 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		searchMatches = FindInLines(e.Buf.Lines, e.SearchQuery)
 	}
 
+	matchLine, matchCol, hasMatch := e.findMatchingBracket()
+
 	for y := 0; y < h; y++ {
 		lineIdx := e.Viewport.TopLine + y
 
@@ -139,6 +141,10 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					bgStyle = term.StyleSelection
 				} else if lineIdx == e.Cursor.Line && !hasSel {
 					bgStyle = term.StyleActiveLine
+				}
+				if hasMatch && ((lineIdx == e.Cursor.Line && colIdx == e.Cursor.Col) ||
+					(lineIdx == matchLine && colIdx == matchCol)) {
+					bgStyle = term.StyleBracketMatch
 				}
 				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style, BgStyle: bgStyle})
 			}
@@ -572,6 +578,70 @@ func leadingWhitespace(s string) string {
 		}
 	}
 	return s
+}
+
+var bracketPairs = map[rune]rune{
+	'(': ')', ')': '(',
+	'[': ']', ']': '[',
+	'{': '}', '}': '{',
+}
+
+var closingBrackets = map[rune]bool{')': true, ']': true, '}': true}
+
+func (e *EditorPaneWidget) findMatchingBracket() (int, int, bool) {
+	if e.Cursor.Line >= len(e.Buf.Lines) {
+		return 0, 0, false
+	}
+	runes := []rune(e.Buf.Lines[e.Cursor.Line])
+	if e.Cursor.Col >= len(runes) {
+		return 0, 0, false
+	}
+	ch := runes[e.Cursor.Col]
+	match, ok := bracketPairs[ch]
+	if !ok {
+		return 0, 0, false
+	}
+	dir := 1
+	if closingBrackets[ch] {
+		dir = -1
+	}
+	depth := 1
+	line, col := e.Cursor.Line, e.Cursor.Col
+	for {
+		col += dir
+		lr := []rune(e.Buf.Lines[line])
+		if col < 0 {
+			line--
+			if line < 0 {
+				return 0, 0, false
+			}
+			lr = []rune(e.Buf.Lines[line])
+			col = len(lr) - 1
+			if col < 0 {
+				col = 0
+				continue
+			}
+		} else if col >= len(lr) {
+			line++
+			if line >= len(e.Buf.Lines) {
+				return 0, 0, false
+			}
+			col = 0
+			lr = []rune(e.Buf.Lines[line])
+			if len(lr) == 0 {
+				continue
+			}
+		}
+		c := lr[col]
+		if c == ch {
+			depth++
+		} else if c == match {
+			depth--
+			if depth == 0 {
+				return line, col, true
+			}
+		}
+	}
 }
 
 func (e *EditorPaneWidget) clampCursor() {
