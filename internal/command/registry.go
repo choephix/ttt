@@ -1,9 +1,10 @@
 package command
 
 type Command struct {
-	ID      string
-	Title   string
-	Handler func()
+	ID       string
+	Title    string
+	Shortcut string
+	Handler  func()
 }
 
 type Registry struct {
@@ -30,6 +31,13 @@ func (r *Registry) Execute(id string) bool {
 func (r *Registry) Get(id string) (Command, bool) {
 	cmd, ok := r.commands[id]
 	return cmd, ok
+}
+
+func (r *Registry) SetShortcut(id, shortcut string) {
+	if cmd, ok := r.commands[id]; ok {
+		cmd.Shortcut = shortcut
+		r.commands[id] = cmd
+	}
 }
 
 func (r *Registry) List() []Command {

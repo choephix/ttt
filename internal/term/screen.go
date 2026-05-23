@@ -39,6 +39,7 @@ const (
 	StyleSyntaxPunctuation
 	StyleSyntaxTag
 	StyleSyntaxAttribute
+	StyleMuted
 )
 
 // Cell represents a single character cell on the screen.

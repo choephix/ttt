@@ -604,6 +604,7 @@ func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBind
 			continue
 		}
 		cmdID := kb.Command
+		reg.SetShortcut(cmdID, formatKeyBinding(kb.Key))
 		if kb.IsChord() {
 			steps := make([]ui.GlobalKeyBinding, len(kb.Steps))
 			for i, step := range kb.Steps {
@@ -620,4 +621,18 @@ func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBind
 			})
 		}
 	}
+}
+
+func formatKeyBinding(key string) string {
+	parts := strings.Fields(key)
+	for i, part := range parts {
+		tokens := strings.Split(part, "+")
+		for j, t := range tokens {
+			if len(t) > 0 {
+				tokens[j] = strings.ToUpper(t[:1]) + t[1:]
+			}
+		}
+		parts[i] = strings.Join(tokens, "+")
+	}
+	return strings.Join(parts, " ")
 }

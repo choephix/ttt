@@ -57,6 +57,7 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleSyntaxPunctuation, theme.Syntax.Punctuation)
 	applyStyleDef(&m, term.StyleSyntaxTag, theme.Syntax.Tag)
 	applyStyleDef(&m, term.StyleSyntaxAttribute, theme.Syntax.Attribute)
+	applyStyleDef(&m, term.StyleMuted, theme.Dialog.Muted)
 	return m
 }
 

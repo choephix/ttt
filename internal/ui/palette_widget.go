@@ -34,7 +34,7 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
 
 	// Centered box
-	boxW := 50
+	boxW := 60
 	if boxW > sw-4 {
 		boxW = sw - 4
 	}
@@ -121,6 +121,20 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 			x := boxX + 2 + j
 			if x < contentRight-1 {
 				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+			}
+		}
+
+		if cmd.Shortcut != "" {
+			shortStyle := term.StyleMuted
+			if idx == p.Selected {
+				shortStyle = style
+			}
+			shortRunes := []rune(cmd.Shortcut)
+			sx := contentRight - 1 - len(shortRunes)
+			for j, ch := range shortRunes {
+				if sx+j > boxX+1 {
+					surface.SetCell(sx+j, y, term.Cell{Ch: ch, Style: shortStyle})
+				}
 			}
 		}
 

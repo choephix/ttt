@@ -34,6 +34,7 @@ type DialogStyles struct {
 	Input    StyleDef `json:"input"`
 	Item     StyleDef `json:"item"`
 	Selected StyleDef `json:"selected"`
+	Muted    StyleDef `json:"muted"`
 }
 
 type MenuStyles struct {
@@ -109,6 +110,7 @@ func DefaultTheme() ThemeConfig {
 
 		Dialog: DialogStyles{
 			Selected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
+			Muted:    StyleDef{Fg: "#888888"},
 		},
 
 		Border: StyleDef{Fg: "#555555"},
