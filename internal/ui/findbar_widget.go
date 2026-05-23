@@ -30,6 +30,18 @@ func NewFindBarWidget() *FindBarWidget {
 
 func (f *FindBarWidget) Focusable() bool { return true }
 
+func (f *FindBarWidget) CursorPosition() (int, int, bool) {
+	r := f.GetRect()
+	sw := r.W
+	barW := 40
+	if barW > sw-4 {
+		barW = sw - 4
+	}
+	barX := r.X + sw - barW - 1
+	barY := r.Y + 4
+	return barX + 2 + f.cursorPos, barY + 1, true
+}
+
 func (f *FindBarWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
 

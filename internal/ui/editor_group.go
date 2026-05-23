@@ -148,6 +148,13 @@ func (g *EditorGroupWidget) IsEditorActive() bool {
 	return g.tabs[g.active].Content == nil
 }
 
+func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
+	if g.IsEditorActive() {
+		return g.Editor.CursorX, g.Editor.CursorY, true
+	}
+	return 0, 0, false
+}
+
 func (g *EditorGroupWidget) SwitchTab(idx int) {
 	if idx >= 0 && idx < len(g.tabs) {
 		g.active = idx

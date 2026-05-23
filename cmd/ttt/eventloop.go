@@ -33,8 +33,8 @@ func runEventLoop(
 		}
 		app.root.Render(cells)
 		renderer.SetCurrent(cells)
-		if app.editorGroup.IsEditorActive() {
-			screen.ShowCursor(app.editorGroup.Editor.CursorX, app.editorGroup.Editor.CursorY)
+		if cx, cy, visible := app.root.CursorPosition(); visible {
+			screen.ShowCursor(cx, cy)
 		} else {
 			screen.HideCursor()
 		}

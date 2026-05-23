@@ -33,3 +33,7 @@ type Widget interface {
 	Render(surface *RenderSurface)
 	Focusable() bool
 }
+
+type CursorProvider interface {
+	CursorPosition() (x, y int, visible bool)
+}

@@ -60,6 +60,11 @@ func (s *SearchWidget) SetWorkDir(dir string) {
 
 func (s *SearchWidget) Focusable() bool { return true }
 
+func (s *SearchWidget) CursorPosition() (int, int, bool) {
+	r := s.GetRect()
+	return s.Input.CursorX(r.X), r.Y, true
+}
+
 func (s *SearchWidget) runSearch() {
 	s.Groups = nil
 	s.FlatList = nil

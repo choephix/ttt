@@ -152,3 +152,18 @@ func (r *Root) PopOverlay() {
 func (r *Root) SetFocus(w Widget) {
 	r.Focused = w
 }
+
+func (r *Root) CursorPosition() (x, y int, visible bool) {
+	if len(r.Overlays) > 0 {
+		top := r.Overlays[len(r.Overlays)-1]
+		if cp, ok := top.Widget.(CursorProvider); ok {
+			return cp.CursorPosition()
+		}
+	}
+	if r.Focused != nil {
+		if cp, ok := r.Focused.(CursorProvider); ok {
+			return cp.CursorPosition()
+		}
+	}
+	return 0, 0, false
+}

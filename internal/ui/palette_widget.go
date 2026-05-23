@@ -15,6 +15,8 @@ type CommandPaletteWidget struct {
 	Input        *InputWidget
 	Selected     int
 	scrollOffset int
+	inputX       int
+	inputY       int
 	OnExecute          func(id string)
 	OnDismiss          func()
 	OnSelectionChange  func(id string)
@@ -35,6 +37,10 @@ func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 }
 
 func (p *CommandPaletteWidget) Focusable() bool { return true }
+
+func (p *CommandPaletteWidget) CursorPosition() (int, int, bool) {
+	return p.Input.CursorX(p.inputX), p.inputY, true
+}
 
 func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
@@ -82,7 +88,9 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	}
 
 	// Input line
-	p.Input.Render(surface, boxX+1, boxY+1, boxW-2)
+	p.inputX = boxX + 1
+	p.inputY = boxY + 1
+	p.Input.Render(surface, p.inputX, p.inputY, boxW-2)
 
 	// Separator
 	for x := boxX + 1; x < boxX+boxW-1; x++ {

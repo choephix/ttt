@@ -13,6 +13,8 @@ type InputDialogWidget struct {
 	Borders   *term.BorderSet
 	OnSubmit  func(value string)
 	OnDismiss func()
+	cursorX   int
+	cursorY   int
 }
 
 func NewInputDialogWidget(title, initial string) *InputDialogWidget {
@@ -23,6 +25,10 @@ func NewInputDialogWidget(title, initial string) *InputDialogWidget {
 }
 
 func (d *InputDialogWidget) Focusable() bool { return true }
+
+func (d *InputDialogWidget) CursorPosition() (int, int, bool) {
+	return d.cursorX, d.cursorY, true
+}
 
 func (d *InputDialogWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
@@ -77,6 +83,8 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 			x++
 		}
 	}
+	d.cursorX = x
+	d.cursorY = inputY
 }
 
 func (d *InputDialogWidget) HandleEvent(ev tcell.Event) EventResult {
