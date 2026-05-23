@@ -582,6 +582,12 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		app.root.SetFocus(app.editorGroup)
 	}
 
+	app.search.OnOpenMatch = func(path string, line, col int) {
+		app.editorGroup.OpenFile(path)
+		app.editorGroup.GoToLine(line)
+		app.root.SetFocus(app.editorGroup)
+	}
+
 	app.explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {
 		items := []ui.ContextMenuItem{
 			{Label: "Open", Command: "explorer.open"},

@@ -72,6 +72,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 
 	explorer := ui.NewExplorerWidget(workDir)
 	search := ui.NewSearchWidget()
+	search.SetWorkDir(workDir)
 	changes := ui.NewChangesWidget(workDir)
 
 	sidebar := ui.NewSidebarWidget()
