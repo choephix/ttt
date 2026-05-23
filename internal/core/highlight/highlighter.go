@@ -27,6 +27,10 @@ func New(filename string) *Highlighter {
 	return &Highlighter{lexer: lexer}
 }
 
+func (h *Highlighter) Language() string {
+	return h.lexer.Config().Name
+}
+
 func (h *Highlighter) HighlightLine(line string) []Span {
 	iter, err := h.lexer.Tokenise(nil, line+"\n")
 	if err != nil {

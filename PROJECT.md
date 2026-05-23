@@ -334,19 +334,24 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] `CommandPaletteWidget` with fuzzy filtering
 - [x] `TabBarWidget` with click support and dirty indicators
 - [x] `BottomPanelWidget` with tab switching
+- [x] Reusable `InputWidget` component (prefix, suffix actions, cursor movement)
+- [x] Terminal caret positioning in focused input widgets (`CursorProvider` interface)
 - [x] main.go event loop: poll event → Root.HandleEvent → render
 - [x] main.go refactored — split into main.go (36 lines), commands.go, widgets.go, eventloop.go, theme.go
 
 ---
 
-## Phase 3 — Selection, Clipboard, and Search (in progress)
+## Phase 3 — Selection, Clipboard, and Search ✅
 
 - [x] Selection model: anchor + cursor defining a range, rendered with inverted style
+- [x] Selection highlighting preserves syntax colors (BgStyle system)
+- [x] Active line highlight suppressed during selection
 - [x] Shift+Arrow / Shift+Home / Shift+End / Shift+PgUp / Shift+PgDn to extend selection
 - [x] Ctrl+A select all
 - [x] Ctrl+C / Ctrl+X / Ctrl+V — copy, cut, paste (internal clipboard)
 - [x] Typing or backspace with an active selection replaces the selected text
 - [x] Ctrl+F opens a find bar with case-insensitive incremental search and match highlighting
+- [x] Find bar clears highlights on dismiss
 - [x] Ctrl+G go-to-line dialog
 - [x] System clipboard integration — OSC 52 escape sequence for copy (works over SSH), native fallbacks: xclip/xsel (X11), wl-copy/wl-paste (Wayland), pbcopy/pbpaste (macOS). Paste reads system clipboard first, falls back to internal buffer.
 - [x] Ctrl+H opens find-and-replace bar
@@ -406,16 +411,20 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ---
 
-## Phase 7 — Menu Bar and Command Palette (partially done)
+## Phase 7 — Menu Bar and Command Palette ✅
 
 ### Menu Bar
 - [x] Top-row menu bar: File, Edit, Selection, View, Help
 - [x] Keyboard-driven: F10/Alt+F opens File menu, Alt+E/S/V/H for other menus, Left/Right arrows navigate between menus, Up/Down/Enter to select
 - [x] Menus show keybinding hints on the right side
 - [x] Dropdown menus with actions — File, Edit, Selection, View, Help menus with shortcut display
+- [x] Context menu / dropdown menu widget — reusable component for right-click menus and menu bar dropdowns
 
 ### Command Palette
-- [x] Ctrl+P opens a fuzzy-search dialog listing all available commands
+- [x] Ctrl+Shift+P opens command palette listing all available commands ("> " prefix mode)
+- [x] Ctrl+P opens file quick open (empty prefix mode — walks project directory, filters by filename)
+- [x] Command palette mode switching: "> " for commands, empty for file search
+- [x] Command palette refactored to use InputWidget
 - [x] Commands are registered with name, keybinding, and handler
 - [x] Typing filters the list; Enter executes; Esc dismisses
 - [ ] Recently used commands float to the top
@@ -436,7 +445,7 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ---
 
-## Phase 9 — Mouse Support (partially done)
+## Phase 9 — Mouse Support ✅
 
 - [x] Click to position cursor
 - [x] Click on tab bar to switch tabs
@@ -444,8 +453,8 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 - [x] Drag sidebar divider to resize
 - [x] Drag bottom panel divider to resize
 - [x] Scroll wheel for vertical scrolling (editor, explorer, and changes widgets — 3 lines/items per tick)
-- [x] Editor scrollbar — proportional scrollbar on right edge when content exceeds viewport, themed via `StyleScrollbar`/`StyleScrollbarThumb`
-- [x] Click+drag to select text
+- [x] Editor scrollbar — reusable scrollbar component with click/drag, proportional thumb on right edge when content exceeds viewport, themed via `StyleScrollbar`/`StyleScrollbarThumb`
+- [x] Click+drag to select text (mouse selection)
 - [x] Double-click to select word, triple-click to select line
 - [x] Click on menu bar to open menus
 - [x] Right-click context menu — editor (undo/redo/cut/copy/paste/find/replace/go-to-line), tab bar (close/close others/close all), explorer (open/new file/new folder/rename/delete), changes (open diff/open file)
@@ -459,8 +468,9 @@ The current highlighter is single-line regex. This phase makes it real.
 - [x] Language detection from file extension (via chroma lexer matching)
 - [x] Multi-language support: all languages supported by chroma (Go, Python, JavaScript/TypeScript, Rust, C/C++, Markdown, JSON, YAML, TOML, Shell, and many more)
 - [x] Multi-line constructs: handled by chroma tokenizer
-- [x] Theme system: named color schemes applied via JSON config files, switchable via Ctrl+K T
+- [x] Theme system: named color schemes applied via JSON config files, switchable via Ctrl+K T, with live preview in theme picker
 - [x] Ship multiple themes: default-dark, default-light, one-dark, monokai, nord, solarized-dark, solarized-light, hotline, bubblegum, aurora
+- [x] Search match highlight colors in default theme
 - [ ] Highlighter runs incrementally (only re-highlight changed lines + propagate state changes) *(optimization, not blocking)*
 
 ---
@@ -473,10 +483,12 @@ The current highlighter is single-line regex. This phase makes it real.
 
 ---
 
-## Phase 12 — Configuration (partially done)
+## Phase 12 — Configuration ✅
 
 - [x] JSON config files: `settings.json`, `theme.json`, `keybindings.json`
 - [x] Config search paths: `.config/` (cwd) → `<exe-dir>/config/` → `~/.config/ttt/`
+- [x] Config path discovery system
+- [x] Theme loading from config with live preview in theme picker
 - [x] Theme: explicit per-style defaults (fg/bg/bold) — `defaultFg` (#fafafa) and `defaultBg` (#1f1f1f) in theme config applied as base to all styles for guaranteed contrast; `lineNumber` fg (#999999); removed `accentColor` abstraction in favor of explicit values per `StyleDef`
 - [x] Settings: tabSize, insertSpaces, sidebarVisible, sidebarWidth
 - [x] .editorconfig support for per-file indent settings
@@ -488,7 +500,7 @@ The current highlighter is single-line regex. This phase makes it real.
 
 ---
 
-## Phase 13 — Keybinding System (partially done)
+## Phase 13 — Keybinding System ✅
 
 - [x] Key parser: `ParseKeyString("ctrl+shift+f")` into normalized KeyCombo
 - [x] Chord support: multi-step key sequences (e.g. `ctrl+k ctrl+c`)
@@ -604,12 +616,13 @@ This should be built as part of Phase 2 (widget framework, step 3 — event rout
 
 ---
 
-## Phase 14 — Project-Wide Search
+## Phase 14 — Project-Wide Search (partially done)
 
-- [ ] Ctrl+Shift+F opens project-wide search in the bottom panel
-- [ ] Search results grouped by file, showing matching line with context
-- [ ] Click result to open file at that line
-- [ ] Respect .gitignore patterns
+- [x] Ctrl+Shift+F opens project-wide search in the sidebar search panel
+- [x] Project-wide search using ripgrep (`rg --json`)
+- [x] Search results grouped by file, showing matching line with context
+- [x] Click result to open file at that line
+- [x] Respect .gitignore patterns (via ripgrep)
 - [ ] Find and replace across files (with preview/confirmation)
 
 ---

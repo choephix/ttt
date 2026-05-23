@@ -54,6 +54,11 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleSyntaxTag, theme.Syntax.Tag)
 	applyStyleDef(&m, term.StyleSyntaxAttribute, theme.Syntax.Attribute)
 	applyStyleDef(&m, term.StyleMuted, theme.Dialog.Muted)
+
+	_, sbBg, _ := m[term.StyleStatusBar].Decompose()
+	mutedFg, _, _ := m[term.StyleMuted].Decompose()
+	m[term.StyleStatusBarMuted] = tcell.StyleDefault.Foreground(mutedFg).Background(sbBg)
+
 	return m
 }
 

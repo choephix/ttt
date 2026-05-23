@@ -36,6 +36,7 @@ const (
 	StyleSyntaxTag
 	StyleSyntaxAttribute
 	StyleMuted
+	StyleStatusBarMuted
 )
 
 // Cell represents a single character cell on the screen.

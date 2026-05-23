@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"ttt/internal/command"
+	"ttt/internal/git"
 	"ttt/internal/render"
 	"ttt/internal/term"
 	"ttt/internal/ui"
@@ -17,13 +19,38 @@ func runEventLoop(
 	running *bool,
 	quitPending *bool,
 ) {
+	lastBlameLine := -1
+	lastBlameFile := ""
+	app.status.Branch = git.BranchName(app.cwd)
+	app.status.TabSize = app.settings.TabSize
+
 	syncStatus := func() {
 		line, col := app.editorGroup.ActiveCursor()
-		app.status.FileName = app.editorGroup.ActiveFilePath()
+		filePath := app.editorGroup.ActiveFilePath()
+		app.status.FileName = filePath
 		app.status.Line = line
 		app.status.Col = col
 		app.status.Dirty = app.editorGroup.IsDirty()
-		app.explorer.ActiveFile = app.editorGroup.ActiveFilePath()
+		app.explorer.ActiveFile = filePath
+
+		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+			app.status.Language = app.editorGroup.Editor.Highlighter.Language()
+		} else {
+			app.status.Language = ""
+		}
+
+		if filePath != lastBlameFile || line != lastBlameLine {
+			lastBlameFile = filePath
+			lastBlameLine = line
+			app.status.Blame = ""
+			if filePath != "" {
+				info := git.BlameLine(app.cwd, filePath, line+1)
+				if info != nil {
+					app.status.Blame = fmt.Sprintf("%s, %s · %s",
+						info.Author, git.FormatRelativeTime(info.Time), info.Summary)
+				}
+			}
+		}
 	}
 
 	redraw := func() {

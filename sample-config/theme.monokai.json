@@ -4,7 +4,7 @@
   "danger": "#3b1e1e",
   "warning": "#2e2e1a",
   "border": { "fg": "#75715e" },
-  "statusBar": { "fg": "#f8f8f2", "bg": "#3e3d32" },
+  "statusBar": {},
   "tabs": {
     "active": { "fg": "#f8f8f2", "bg": "#3e3d32", "bold": true },
     "inactive": { "fg": "#75715e" }
@@ -28,7 +28,7 @@
     "searchActive": { "bg": "#f92672", "fg": "#f8f8f2" }
   },
   "menu": {
-    "item": { "fg": "#f8f8f2", "bg": "#1e1f1c" },
+    "item": {},
     "active": { "fg": "#f8f8f2", "bg": "#3e3d32", "bold": true }
   },
   "diff": {
