@@ -399,12 +399,19 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			cmds = append(cmds, command.Command{ID: strconv.Itoa(s), Title: label})
 		}
 		cmds = append(cmds, command.Command{ID: "tabs", Title: "Indent Using Tabs"})
+		cmds = append(cmds, command.Command{ID: "detect", Title: "Detect from Content"})
 		picker := ui.NewCommandPaletteWidget(cmds)
 		picker.Borders = app.borders
 		picker.OnExecute = func(id string) {
 			app.root.PopOverlay()
 			app.root.SetFocus(app.editorGroup)
-			if id == "tabs" {
+			if id == "detect" {
+				if app.editorGroup.Editor != nil && app.editorGroup.Editor.Buf != nil {
+					if info := buffer.DetectIndent(app.editorGroup.Editor.Buf.Lines); info.Size > 0 {
+						app.editorGroup.SetTabSize(info.Size)
+					}
+				}
+			} else if id == "tabs" {
 				app.editorGroup.SetTabSize(4)
 			} else if size, err := strconv.Atoi(id); err == nil {
 				app.editorGroup.SetTabSize(size)
@@ -617,6 +624,18 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 
 	app.menuBar.OnSelect = func(index int) {
 		openMenuBarDropdown(app, reg, index)
+	}
+
+	app.editorGroup.TabBar.OnTabClose = func(index int) {
+		app.editorGroup.SwitchTab(index)
+		reg.Execute("tab.close")
+	}
+
+	app.editorGroup.TabBar.OnMore = func(sx, sy int) {
+		moreMenu := []ui.ContextMenuItem{
+			{Label: "Close All", Command: "tab.closeAll"},
+		}
+		openContextMenu(app, reg, moreMenu, sx, sy)
 	}
 
 	app.editorGroup.TabBar.OnTabRightClick = func(index, sx, sy int) {

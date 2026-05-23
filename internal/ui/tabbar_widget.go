@@ -26,7 +26,8 @@ type TabBarWidget struct {
 	ScrollOffset int
 	ShowMore       bool
 	OnTabClick     func(index int)
-	OnMore         func()
+	OnTabClose     func(index int)
+	OnMore         func(screenX, screenY int)
 	OnTabRightClick func(index, screenX, screenY int)
 	tabSpans       []tabSpan
 }
@@ -44,6 +45,9 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 	label := " " + name
 	if tab.Dirty {
 		label += "*"
+	}
+	if tab.Active {
+		label += " ×"
 	}
 	label += " "
 	return label
@@ -198,17 +202,23 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 
 	if t.ShowMore && mx >= r.X+r.W-4 && mx <= r.X+r.W-2 && my == r.Y+1 && t.OnMore != nil {
-		t.OnMore()
+		t.OnMore(mx, my)
 		return EventConsumed
 	}
 
-	if t.OnTabClick == nil {
-		return EventIgnored
-	}
 	localX := mx - r.X + t.ScrollOffset
 	for i, s := range t.tabSpans {
 		if localX >= s.start && localX < s.end {
-			t.OnTabClick(i)
+			if s.active && t.OnTabClose != nil {
+				closeX := s.end - 3
+				if localX == closeX {
+					t.OnTabClose(i)
+					return EventConsumed
+				}
+			}
+			if t.OnTabClick != nil {
+				t.OnTabClick(i)
+			}
 			return EventConsumed
 		}
 	}
