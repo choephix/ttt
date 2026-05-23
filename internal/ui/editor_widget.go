@@ -431,8 +431,35 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if hasSel {
 			e.deleteSelection()
 		} else if e.Cursor.Col > 0 {
-			e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col - 1})
-			e.Cursor.Col--
+			runes := []rune(e.Buf.Lines[e.Cursor.Line])
+			inLeadingWhitespace := true
+			for i := 0; i < e.Cursor.Col && i < len(runes); i++ {
+				if runes[i] != ' ' && runes[i] != '\t' {
+					inLeadingWhitespace = false
+					break
+				}
+			}
+			tabSize := e.TabSize
+			if tabSize <= 0 {
+				tabSize = 4
+			}
+			if inLeadingWhitespace && e.Cursor.Col > 1 && runes[e.Cursor.Col-1] == ' ' {
+				target := ((e.Cursor.Col - 1) / tabSize) * tabSize
+				if target == e.Cursor.Col {
+					target -= tabSize
+				}
+				if target < 0 {
+					target = 0
+				}
+				e.exec(&undo.DeleteSelectionCommand{
+					StartLine: e.Cursor.Line, StartCol: target,
+					EndLine: e.Cursor.Line, EndCol: e.Cursor.Col,
+				})
+				e.Cursor.Col = target
+			} else {
+				e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col - 1})
+				e.Cursor.Col--
+			}
 		} else if e.Cursor.Line > 0 {
 			cmd := &undo.JoinLineCommand{Line: e.Cursor.Line}
 			e.exec(cmd)

@@ -96,6 +96,8 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	ec := config.LoadEditorConfig(path)
 	if ec.IndentSize > 0 {
 		tabSize = ec.IndentSize
+	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 {
+		tabSize = detected.Size
 	}
 	g.tabs = append(g.tabs, editorTab{
 		FilePath:    path,

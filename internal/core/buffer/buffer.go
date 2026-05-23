@@ -1,5 +1,71 @@
 package buffer
 
+type IndentInfo struct {
+	UseTabs bool
+	Size    int
+}
+
+func DetectIndent(lines []string) IndentInfo {
+	tabs := 0
+	spaces := 0
+	diffs := make(map[int]int)
+	limit := len(lines)
+	if limit > 200 {
+		limit = 200
+	}
+	prevIndent := 0
+	for i := 0; i < limit; i++ {
+		line := lines[i]
+		if len(line) == 0 {
+			continue
+		}
+		indent := 0
+		isTabs := false
+		for _, r := range line {
+			if r == '\t' {
+				isTabs = true
+				indent++
+			} else if r == ' ' {
+				indent++
+			} else {
+				break
+			}
+		}
+		if indent == 0 {
+			prevIndent = 0
+			continue
+		}
+		if isTabs {
+			tabs++
+		} else {
+			spaces++
+		}
+		diff := indent - prevIndent
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff > 0 && diff <= 8 {
+			diffs[diff]++
+		}
+		prevIndent = indent
+	}
+	if tabs > spaces {
+		return IndentInfo{UseTabs: true, Size: 4}
+	}
+	bestSize := 0
+	bestCount := 0
+	for size, count := range diffs {
+		if count > bestCount {
+			bestSize = size
+			bestCount = count
+		}
+	}
+	if bestSize == 0 {
+		return IndentInfo{}
+	}
+	return IndentInfo{Size: bestSize}
+}
+
 // Buffer represents a text buffer with line-based storage.
 type Buffer struct {
 	Lines []string

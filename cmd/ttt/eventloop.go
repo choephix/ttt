@@ -38,6 +38,11 @@ func runEventLoop(
 		} else {
 			app.status.Language = ""
 		}
+		if app.editorGroup.Editor != nil && app.editorGroup.Editor.TabSize > 0 {
+			app.status.TabSize = app.editorGroup.Editor.TabSize
+		} else {
+			app.status.TabSize = app.settings.TabSize
+		}
 
 		if filePath != lastBlameFile || line != lastBlameLine {
 			lastBlameFile = filePath

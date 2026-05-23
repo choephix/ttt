@@ -26,6 +26,53 @@ func TestInsertLine(t *testing.T) {
 	}
 }
 
+func TestDetectIndent2Spaces(t *testing.T) {
+	lines := []string{
+		"function foo() {",
+		"  if (true) {",
+		"    return 1",
+		"  }",
+		"}",
+	}
+	info := DetectIndent(lines)
+	if info.Size != 2 {
+		t.Errorf("expected indent size 2, got %d", info.Size)
+	}
+	if info.UseTabs {
+		t.Error("expected spaces, got tabs")
+	}
+}
+
+func TestDetectIndent4Spaces(t *testing.T) {
+	lines := []string{
+		"func main() {",
+		"    fmt.Println()",
+		"    if true {",
+		"        return",
+		"    }",
+		"}",
+	}
+	info := DetectIndent(lines)
+	if info.Size != 4 {
+		t.Errorf("expected indent size 4, got %d", info.Size)
+	}
+}
+
+func TestDetectIndentTabs(t *testing.T) {
+	lines := []string{
+		"func main() {",
+		"\tfmt.Println()",
+		"\tif true {",
+		"\t\treturn",
+		"\t}",
+		"}",
+	}
+	info := DetectIndent(lines)
+	if !info.UseTabs {
+		t.Error("expected tabs")
+	}
+}
+
 func TestDeleteLine(t *testing.T) {
 	b := &Buffer{Lines: []string{"a", "b", "c"}}
 	b.DeleteLine(1)
