@@ -117,6 +117,7 @@ func DefaultTheme() ThemeConfig {
 
 		Editor: EditorStyles{
 			ActiveLine: StyleDef{Bg: "#282828"},
+			Selection:  StyleDef{Bg: "#282828"},
 			LineNumber: StyleDef{Fg: "#999999"},
 		},
 		Scrollbar: StyleDef{Fg: "#888888", Bg: "#555555"},

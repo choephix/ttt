@@ -48,7 +48,13 @@ func (t *TcellScreen) Size() (w, h int) {
 }
 
 func (t *TcellScreen) SetCell(x, y int, c Cell) {
-	t.scr.SetContent(x, y, c.Ch, nil, t.styleMap[c.Style])
+	s := t.styleMap[c.Style]
+	if c.BgStyle != 0 {
+		_, bg, _ := t.styleMap[c.BgStyle].Decompose()
+		fg, _, attrs := s.Decompose()
+		s = tcell.StyleDefault.Foreground(fg).Background(bg).Attributes(attrs)
+	}
+	t.scr.SetContent(x, y, c.Ch, nil, s)
 }
 
 func (t *TcellScreen) Show() {

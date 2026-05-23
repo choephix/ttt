@@ -44,8 +44,9 @@ const (
 
 // Cell represents a single character cell on the screen.
 type Cell struct {
-	Ch    rune
-	Style Style
+	Ch      rune
+	Style   Style
+	BgStyle Style // when non-zero, background comes from this style instead of Style
 }
 
 // Screen abstracts the terminal screen.

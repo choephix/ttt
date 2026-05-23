@@ -115,7 +115,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					ch = line[colIdx]
 				}
 				style := term.StyleDefault
-				if lineIdx == e.Cursor.Line {
+				if lineIdx == e.Cursor.Line && !hasSel {
 					style = term.StyleActiveLine
 				}
 				for _, sp := range syntaxSpans {
@@ -136,10 +136,11 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 						}
 					}
 				}
+				bgStyle := term.Style(0)
 				if hasSel && sel.Contains(lineIdx, colIdx, e.Cursor.Line, e.Cursor.Col) {
-					style = term.StyleSelection
+					bgStyle = term.StyleSelection
 				}
-				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style})
+				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style, BgStyle: bgStyle})
 			}
 		} else {
 			for x := 0; x < editorW; x++ {

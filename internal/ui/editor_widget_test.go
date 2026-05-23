@@ -156,17 +156,17 @@ func TestEditorSelectionHighlight(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 10})
 	e.Render(surface)
 
-	// Cols 1,2,3 should be StyleSelection (anchor=1, cursor=4)
+	// Cols 1,2,3 should have BgStyle=StyleSelection (syntax fg preserved)
 	for col := 1; col <= 3; col++ {
-		if grid[0][col].Style != term.StyleSelection {
-			t.Errorf("col %d: expected StyleSelection, got %d", col, grid[0][col].Style)
+		if grid[0][col].BgStyle != term.StyleSelection {
+			t.Errorf("col %d: expected BgStyle=StyleSelection, got %d", col, grid[0][col].BgStyle)
 		}
 	}
 	// Col 0 and col 4 should NOT be selected
-	if grid[0][0].Style == term.StyleSelection {
+	if grid[0][0].BgStyle == term.StyleSelection {
 		t.Error("col 0 should not be selected")
 	}
-	if grid[0][4].Style == term.StyleSelection {
+	if grid[0][4].BgStyle == term.StyleSelection {
 		t.Error("col 4 should not be selected")
 	}
 }

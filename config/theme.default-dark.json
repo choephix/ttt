@@ -25,7 +25,7 @@
   "editor": {
     "lineNumber": { "fg": "#999999" },
     "activeLine": { "bg": "#282828" },
-    "selection": {},
+    "selection": { "bg": "#3a3d41" },
     "searchMatch": {},
     "searchActive": {}
   },

@@ -23,7 +23,7 @@
   "editor": {
     "lineNumber": { "fg": "#949494" },
     "activeLine": { "bg": "#343434" },
-    "selection": { "bg": "#828282" },
+    "selection": { "bg": "#3a3a3a" },
     "searchMatch": { "bg": "#ffad14", "fg": "#1a1a1a" },
     "searchActive": { "bg": "#4fc3f7", "fg": "#1a1a1a" }
   },
