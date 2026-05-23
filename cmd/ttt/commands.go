@@ -303,22 +303,38 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		},
 	})
 
+	openPalette := func(fileMode bool) {
+		palette := ui.NewCommandPaletteWidget(reg.List())
+		palette.Borders = app.borders
+		palette.SetFiles(app.cwd)
+		if fileMode {
+			palette.Input.SetText("")
+		}
+		palette.OnExecute = func(id string) {
+			app.root.PopOverlay()
+			app.root.SetFocus(app.editorGroup)
+			reg.Execute(id)
+		}
+		palette.OnOpenFile = func(relPath string) {
+			app.root.PopOverlay()
+			app.root.SetFocus(app.editorGroup)
+			app.editorGroup.OpenFile(filepath.Join(app.cwd, relPath))
+		}
+		palette.OnDismiss = func() {
+			app.root.PopOverlay()
+			app.root.SetFocus(app.editorGroup)
+		}
+		app.root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
+	}
+
 	reg.Register(command.Command{
 		ID: "command.palette", Title: "Command Palette",
-		Handler: func() {
-			palette := ui.NewCommandPaletteWidget(reg.List())
-			palette.Borders = app.borders
-			palette.OnExecute = func(id string) {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
-				reg.Execute(id)
-			}
-			palette.OnDismiss = func() {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
-			}
-			app.root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
-		},
+		Handler: func() { openPalette(false) },
+	})
+
+	reg.Register(command.Command{
+		ID: "file.quickOpen", Title: "Go to File",
+		Handler: func() { openPalette(true) },
 	})
 
 	reg.Register(command.Command{

@@ -116,9 +116,11 @@ func DefaultTheme() ThemeConfig {
 		Border: StyleDef{Fg: "#555555"},
 
 		Editor: EditorStyles{
-			ActiveLine: StyleDef{Bg: "#282828"},
-			Selection:  StyleDef{Bg: "#282828"},
-			LineNumber: StyleDef{Fg: "#999999"},
+			ActiveLine:   StyleDef{Bg: "#282828"},
+			Selection:    StyleDef{Bg: "#282828"},
+			LineNumber:   StyleDef{Fg: "#999999"},
+			SearchMatch:  StyleDef{Bg: "#623800"},
+			SearchActive: StyleDef{Bg: "#9e6a03"},
 		},
 		Scrollbar: StyleDef{Fg: "#888888", Bg: "#555555"},
 

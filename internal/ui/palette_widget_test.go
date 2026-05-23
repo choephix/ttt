@@ -19,17 +19,18 @@ func testCommands() []command.Command {
 func TestPaletteFilter(t *testing.T) {
 	p := NewCommandPaletteWidget(testCommands())
 
-	if len(p.Filtered) != 4 {
-		t.Fatalf("empty query: expected 4, got %d", len(p.Filtered))
+	if len(p.Items) != 4 {
+		t.Fatalf("empty query: expected 4, got %d", len(p.Items))
 	}
 
+	// Initial text is "> ", typing appends after it
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'f', 0))
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'i', 0))
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'l', 0))
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'e', 0))
 
-	if len(p.Filtered) != 2 {
-		t.Fatalf("query 'file': expected 2 results, got %d", len(p.Filtered))
+	if len(p.Items) != 2 {
+		t.Fatalf("query 'file': expected 2 results, got %d", len(p.Items))
 	}
 }
 
@@ -89,14 +90,39 @@ func TestPaletteAlwaysConsumes(t *testing.T) {
 func TestPaletteBackspace(t *testing.T) {
 	p := NewCommandPaletteWidget(testCommands())
 
+	// Initial text is "> ", type "sp" → "> sp"
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'p', 0))
-	if p.Input.Text != "sp" {
-		t.Fatalf("expected query 'sp', got '%s'", p.Input.Text)
+	if p.Input.Text != "> sp" {
+		t.Fatalf("expected text '> sp', got '%s'", p.Input.Text)
 	}
 
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, 0))
-	if p.Input.Text != "s" {
-		t.Fatalf("expected query 's' after backspace, got '%s'", p.Input.Text)
+	if p.Input.Text != "> s" {
+		t.Fatalf("expected text '> s' after backspace, got '%s'", p.Input.Text)
+	}
+}
+
+func TestPaletteModeSwitch(t *testing.T) {
+	p := NewCommandPaletteWidget(testCommands())
+
+	if p.mode != paletteCommandMode {
+		t.Fatal("expected command mode initially")
+	}
+
+	// Clear input to switch to file mode
+	p.Input.Clear()
+	if p.mode != paletteFileMode {
+		t.Fatal("expected file mode after clearing input")
+	}
+
+	// Type "> " to switch back to command mode
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '>', 0))
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, ' ', 0))
+	if p.mode != paletteCommandMode {
+		t.Fatal("expected command mode after typing '> '")
+	}
+	if len(p.Items) != 4 {
+		t.Fatalf("expected 4 commands, got %d", len(p.Items))
 	}
 }

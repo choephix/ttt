@@ -1,23 +1,41 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"ttt/internal/command"
 	"ttt/internal/term"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
 
+type paletteMode int
+
+const (
+	paletteCommandMode paletteMode = iota
+	paletteFileMode
+)
+
+type PaletteItem struct {
+	Label    string
+	Detail   string
+	ID       string
+}
+
 type CommandPaletteWidget struct {
 	BaseWidget
 	Commands     []command.Command
-	Filtered     []command.Command
+	Items        []PaletteItem
 	Input        *InputWidget
 	Selected     int
 	scrollOffset int
 	inputX       int
 	inputY       int
+	mode         paletteMode
+	files        []string
 	OnExecute          func(id string)
+	OnOpenFile         func(path string)
 	OnDismiss          func()
 	OnSelectionChange  func(id string)
 	Borders            *term.BorderSet
@@ -27,13 +45,39 @@ func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 	p := &CommandPaletteWidget{
 		Commands: commands,
 	}
-	p.Input = NewInputWidget(" > ")
+	p.Input = NewInputWidget("")
+	p.Input.SetText("> ")
 	p.Input.OnChange = func(text string) {
-		p.filterCommands()
-		p.notifySelectionChange()
+		p.filter()
 	}
-	p.filterCommands()
+	p.filter()
 	return p
+}
+
+func (p *CommandPaletteWidget) SetFiles(workDir string) {
+	var files []string
+	filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if name == ".git" || name == "node_modules" || name == ".cache" || name == "__pycache__" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, err := filepath.Rel(workDir, path)
+		if err != nil {
+			return nil
+		}
+		files = append(files, rel)
+		if len(files) >= 10000 {
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	p.files = files
 }
 
 func (p *CommandPaletteWidget) Focusable() bool { return true }
@@ -45,13 +89,12 @@ func (p *CommandPaletteWidget) CursorPosition() (int, int, bool) {
 func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
 
-	// Centered box
 	boxW := 60
 	if boxW > sw-4 {
 		boxW = sw - 4
 	}
 	maxItems := 10
-	boxH := 4 + len(p.Filtered)
+	boxH := 4 + len(p.Items)
 	if boxH > maxItems+4 {
 		boxH = maxItems + 4
 	}
@@ -62,7 +105,6 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	boxX := (sw - boxW) / 2
 	boxY := 2
 
-	// Draw border
 	b := term.DoubleBorderSet()
 	if p.Borders != nil {
 		b = *p.Borders
@@ -80,27 +122,23 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: term.StyleBorder})
 	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: term.StyleBorder})
 
-	// Clear interior
 	for y := boxY + 1; y < boxY+boxH-1; y++ {
 		for x := boxX + 1; x < boxX+boxW-1; x++ {
 			surface.SetCell(x, y, term.Cell{Ch: ' '})
 		}
 	}
 
-	// Input line
 	p.inputX = boxX + 1
 	p.inputY = boxY + 1
 	p.Input.Render(surface, p.inputX, p.inputY, boxW-2)
 
-	// Separator
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
 		surface.SetCell(x, boxY+2, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
 	}
 
-	// Command list
 	visibleItems := boxH - 4
 	p.ensureVisible(visibleItems)
-	showScroll := len(p.Filtered) > visibleItems
+	showScroll := len(p.Items) > visibleItems
 	contentRight := boxX + boxW - 1
 	if showScroll {
 		contentRight--
@@ -108,14 +146,14 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 
 	var thumbTop, thumbH int
 	if showScroll {
-		sb := Scrollbar{Height: visibleItems, TotalItems: len(p.Filtered), TopItem: p.scrollOffset}
+		sb := Scrollbar{Height: visibleItems, TotalItems: len(p.Items), TopItem: p.scrollOffset}
 		thumbTop, thumbH = sb.ThumbPos()
 	}
 
-	for i := 0; i < visibleItems && p.scrollOffset+i < len(p.Filtered); i++ {
+	for i := 0; i < visibleItems && p.scrollOffset+i < len(p.Items); i++ {
 		y := boxY + 3 + i
 		idx := p.scrollOffset + i
-		cmd := p.Filtered[idx]
+		item := p.Items[idx]
 
 		style := term.StylePaletteItem
 		if idx == p.Selected {
@@ -126,23 +164,23 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 		}
 
-		for j, ch := range cmd.Title {
+		for j, ch := range item.Label {
 			x := boxX + 2 + j
 			if x < contentRight-1 {
 				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
 			}
 		}
 
-		if cmd.Shortcut != "" {
-			shortStyle := term.StyleMuted
+		if item.Detail != "" {
+			detailStyle := term.StyleMuted
 			if idx == p.Selected {
-				shortStyle = style
+				detailStyle = style
 			}
-			shortRunes := []rune(cmd.Shortcut)
-			sx := contentRight - 1 - len(shortRunes)
-			for j, ch := range shortRunes {
+			detailRunes := []rune(item.Detail)
+			sx := contentRight - 1 - len(detailRunes)
+			for j, ch := range detailRunes {
 				if sx+j > boxX+1 {
-					surface.SetCell(sx+j, y, term.Cell{Ch: ch, Style: shortStyle})
+					surface.SetCell(sx+j, y, term.Cell{Ch: ch, Style: detailStyle})
 				}
 			}
 		}
@@ -170,20 +208,27 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 			p.OnDismiss()
 		}
 	case tcell.KeyEnter:
-		if p.Selected >= 0 && p.Selected < len(p.Filtered) {
-			if p.OnExecute != nil {
-				p.OnExecute(p.Filtered[p.Selected].ID)
+		if p.Selected >= 0 && p.Selected < len(p.Items) {
+			item := p.Items[p.Selected]
+			if p.mode == paletteCommandMode {
+				if p.OnExecute != nil {
+					p.OnExecute(item.ID)
+				}
+			} else {
+				if p.OnOpenFile != nil {
+					p.OnOpenFile(item.ID)
+				}
 			}
 		}
 	case tcell.KeyUp:
 		if p.Selected > 0 {
 			p.Selected--
-		} else if len(p.Filtered) > 0 {
-			p.Selected = len(p.Filtered) - 1
+		} else if len(p.Items) > 0 {
+			p.Selected = len(p.Items) - 1
 		}
 		p.notifySelectionChange()
 	case tcell.KeyDown:
-		if p.Selected < len(p.Filtered)-1 {
+		if p.Selected < len(p.Items)-1 {
 			p.Selected++
 		} else {
 			p.Selected = 0
@@ -209,21 +254,85 @@ func (p *CommandPaletteWidget) ensureVisible(visibleItems int) {
 }
 
 func (p *CommandPaletteWidget) notifySelectionChange() {
-	if p.OnSelectionChange != nil && p.Selected >= 0 && p.Selected < len(p.Filtered) {
-		p.OnSelectionChange(p.Filtered[p.Selected].ID)
+	if p.OnSelectionChange != nil && p.Selected >= 0 && p.Selected < len(p.Items) {
+		p.OnSelectionChange(p.Items[p.Selected].ID)
 	}
 }
 
-func (p *CommandPaletteWidget) filterCommands() {
-	query := p.Input.Text
-	if query == "" {
-		p.Filtered = p.Commands
+func (p *CommandPaletteWidget) filter() {
+	text := p.Input.Text
+	if strings.HasPrefix(text, "> ") {
+		p.mode = paletteCommandMode
+		p.filterCommands(text[2:])
+	} else if text == ">" {
+		p.mode = paletteCommandMode
+		p.filterCommands("")
 	} else {
-		p.Filtered = nil
+		p.mode = paletteFileMode
+		p.filterFiles(text)
+	}
+	p.notifySelectionChange()
+}
+
+func (p *CommandPaletteWidget) filterCommands(query string) {
+	p.Items = nil
+	if query == "" {
+		for _, cmd := range p.Commands {
+			p.Items = append(p.Items, PaletteItem{
+				Label:  cmd.Title,
+				Detail: cmd.Shortcut,
+				ID:     cmd.ID,
+			})
+		}
+	} else {
 		lower := strings.ToLower(query)
 		for _, cmd := range p.Commands {
 			if strings.Contains(strings.ToLower(cmd.Title), lower) {
-				p.Filtered = append(p.Filtered, cmd)
+				p.Items = append(p.Items, PaletteItem{
+					Label:  cmd.Title,
+					Detail: cmd.Shortcut,
+					ID:     cmd.ID,
+				})
+			}
+		}
+	}
+	p.Selected = 0
+	p.scrollOffset = 0
+}
+
+func fileDetail(f string) string {
+	dir := filepath.Dir(f)
+	if dir == "." {
+		return ""
+	}
+	return dir
+}
+
+func (p *CommandPaletteWidget) filterFiles(query string) {
+	p.Items = nil
+	if query == "" {
+		for _, f := range p.files {
+			p.Items = append(p.Items, PaletteItem{
+				Label:  filepath.Base(f),
+				Detail: fileDetail(f),
+				ID:     f,
+			})
+			if len(p.Items) >= 100 {
+				break
+			}
+		}
+	} else {
+		lower := strings.ToLower(query)
+		for _, f := range p.files {
+			if strings.Contains(strings.ToLower(f), lower) {
+				p.Items = append(p.Items, PaletteItem{
+					Label:  filepath.Base(f),
+					Detail: fileDetail(f),
+					ID:     f,
+				})
+				if len(p.Items) >= 100 {
+					break
+				}
 			}
 		}
 	}
