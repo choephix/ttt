@@ -390,13 +390,36 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if col > lineLen {
 			col = lineLen
 		}
-		indent := leadingWhitespace(e.Buf.Lines[e.Cursor.Line])
+		line := e.Buf.Lines[e.Cursor.Line]
+		indent := leadingWhitespace(line)
+		runes := []rune(line)
+		charBefore := ' '
+		if col > 0 && col <= len(runes) {
+			charBefore = runes[col-1]
+		}
+		charAfter := ' '
+		if col < len(runes) {
+			charAfter = runes[col]
+		}
+		extraIndent := charBefore == '{' || charBefore == '(' || charBefore == '[' || charBefore == ':'
 		e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
 		e.Cursor.Line++
 		e.Cursor.Col = 0
-		if len(indent) > 0 {
-			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: indent})
-			e.Cursor.Col = len([]rune(indent))
+		tabSize := e.TabSize
+		if tabSize <= 0 {
+			tabSize = 4
+		}
+		newIndent := indent
+		if extraIndent {
+			newIndent += strings.Repeat(" ", tabSize)
+		}
+		if len(newIndent) > 0 {
+			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
+			e.Cursor.Col = len([]rune(newIndent))
+		}
+		if extraIndent && (charAfter == '}' || charAfter == ')' || charAfter == ']') {
+			e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
 		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if hasSel {
