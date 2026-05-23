@@ -183,7 +183,7 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	btn := mev.Buttons()
 
-	if btn&tcell.Button3 != 0 && t.OnTabRightClick != nil {
+	if btn&tcell.Button2 != 0 && t.OnTabRightClick != nil {
 		localX := mx - r.X + t.ScrollOffset
 		for i, s := range t.tabSpans {
 			if localX >= s.start && localX < s.end {

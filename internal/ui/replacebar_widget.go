@@ -19,7 +19,7 @@ type ReplaceBarWidget struct {
 	OnReplace  func(match FindMatch, replacement string)
 	OnReplaceAll func(query, replacement string)
 	OnDismiss  func()
-	focusRow   int // 0 = search, 1 = replace
+	focusRow   int
 	searchCur  int
 	replaceCur int
 }
@@ -31,43 +31,98 @@ func NewReplaceBarWidget() *ReplaceBarWidget {
 func (r *ReplaceBarWidget) Focusable() bool { return true }
 
 func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
-	w, _ := surface.Size()
-	surface.Fill(term.Cell{Ch: ' ', Style: term.StylePaletteBorder})
+	sw, _ := surface.Size()
 
-	findLabel := " Find:    "
-	replLabel := " Replace: "
+	barW := 40
+	if barW > sw-4 {
+		barW = sw - 4
+	}
+	barX := sw - barW - 1
+	barY := 4
+	barH := 4
 
-	r.renderRow(surface, 0, w, findLabel, r.Query, r.searchCur, r.focusRow == 0)
-	r.renderRow(surface, 1, w, replLabel, r.Replace, r.replaceCur, r.focusRow == 1)
+	b := term.SingleBorderSet()
+	if r.Borders != nil {
+		b = *r.Borders
+	}
+	bs := term.StylePaletteBorder
 
+	for x := barX; x < barX+barW; x++ {
+		surface.SetCell(x, barY, term.Cell{Ch: b.Horizontal, Style: bs})
+		surface.SetCell(x, barY+barH-1, term.Cell{Ch: b.Horizontal, Style: bs})
+	}
+	for y := barY; y < barY+barH; y++ {
+		surface.SetCell(barX, y, term.Cell{Ch: b.Vertical, Style: bs})
+		surface.SetCell(barX+barW-1, y, term.Cell{Ch: b.Vertical, Style: bs})
+	}
+	surface.SetCell(barX, barY, term.Cell{Ch: b.TopLeft, Style: bs})
+	surface.SetCell(barX+barW-1, barY, term.Cell{Ch: b.TopRight, Style: bs})
+	surface.SetCell(barX, barY+barH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
+	surface.SetCell(barX+barW-1, barY+barH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+
+	innerW := barW - 2
+
+	// Find row
+	findRow := barY + 1
+	r.renderRow(surface, barX+1, findRow, innerW, "Find: ", r.Query, r.searchCur, r.focusRow == 0)
+
+	// Replace row
+	replRow := barY + 2
+	r.renderRow(surface, barX+1, replRow, innerW, "Repl: ", r.Replace, r.replaceCur, r.focusRow == 1)
+
+	// Info + buttons on find row
+	info := ""
 	if len(r.Query) > 0 {
-		info := fmt.Sprintf(" %d/%d ", r.currentDisplay(), len(r.Matches))
-		infoStart := w - len([]rune(info))
-		if infoStart > 0 {
-			for i, ch := range info {
-				surface.SetCell(infoStart+i, 0, term.Cell{Ch: ch, Style: term.StylePaletteBorder})
-			}
+		info = fmt.Sprintf("%d/%d ", r.currentDisplay(), len(r.Matches))
+	}
+	buttons := "▲ ▼ ✕"
+	suffix := info + buttons
+	sx := barX + barW - 2 - len([]rune(suffix))
+	for i, ch := range suffix {
+		if sx+i > barX && sx+i < barX+barW-1 {
+			surface.SetCell(sx+i, findRow, term.Cell{Ch: ch, Style: term.StyleMuted})
+		}
+	}
+
+	// Replace buttons on replace row
+	replBtns := "⟳ ⟳All"
+	rx := barX + barW - 2 - len([]rune(replBtns))
+	for i, ch := range replBtns {
+		if rx+i > barX && rx+i < barX+barW-1 {
+			surface.SetCell(rx+i, replRow, term.Cell{Ch: ch, Style: term.StyleMuted})
 		}
 	}
 }
 
-func (r *ReplaceBarWidget) renderRow(surface *RenderSurface, row, w int, label, text string, curPos int, focused bool) {
-	for i, ch := range label {
-		if i < w {
-			surface.SetCell(i, row, term.Cell{Ch: ch, Style: term.StylePaletteBorder})
+func (r *ReplaceBarWidget) renderRow(surface *RenderSurface, startX, y, w int, label, text string, curPos int, focused bool) {
+	for x := startX; x < startX+w; x++ {
+		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
+	}
+
+	x := startX
+	for _, ch := range label {
+		if x < startX+w {
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StyleMuted})
+			x++
 		}
 	}
-	inputStart := len([]rune(label))
-	for i, ch := range []rune(text) {
-		x := inputStart + i
-		if x < w {
-			surface.SetCell(x, row, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+
+	for _, ch := range []rune(text) {
+		if x < startX+w {
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+			x++
 		}
 	}
+
 	if focused {
-		cx := inputStart + curPos
-		if cx < w {
-			surface.SetCell(cx, row, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
+		cx := startX + len([]rune(label)) + curPos
+		if cx < startX+w {
+			ch := ' '
+			runes := []rune(text)
+			if curPos < len(runes) {
+				ch = runes[curPos]
+			}
+			surface.SetCell(cx, y, term.Cell{Ch: ch, Style: term.StylePaletteSelected})
 		}
 	}
 }
@@ -100,7 +155,7 @@ func (r *ReplaceBarWidget) navigate() {
 func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
-		return EventIgnored
+		return EventConsumed
 	}
 
 	switch kev.Key() {
@@ -115,7 +170,11 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	case tcell.KeyEnter:
 		if r.focusRow == 0 {
 			if len(r.Matches) > 0 {
-				r.Current = (r.Current + 1) % len(r.Matches)
+				if kev.Modifiers()&tcell.ModShift != 0 {
+					r.Current = (r.Current - 1 + len(r.Matches)) % len(r.Matches)
+				} else {
+					r.Current = (r.Current + 1) % len(r.Matches)
+				}
 				r.navigate()
 			}
 		} else {
@@ -125,11 +184,17 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		}
 		return EventConsumed
-	case tcell.KeyCtrlA + 7: // Ctrl+H — replace all shortcut within the bar
+	case tcell.KeyUp:
+		if len(r.Matches) > 0 {
+			r.Current = (r.Current - 1 + len(r.Matches)) % len(r.Matches)
+			r.navigate()
+		}
 		return EventConsumed
-	}
-
-	if kev.Modifiers()&tcell.ModCtrl != 0 && kev.Modifiers()&tcell.ModShift != 0 {
+	case tcell.KeyDown:
+		if len(r.Matches) > 0 {
+			r.Current = (r.Current + 1) % len(r.Matches)
+			r.navigate()
+		}
 		return EventConsumed
 	}
 
@@ -151,7 +216,7 @@ func (r *ReplaceBarWidget) handleInput(kev *tcell.EventKey, text *string, curPos
 	switch kev.Key() {
 	case tcell.KeyRune:
 		if kev.Modifiers() != 0 {
-			return EventIgnored
+			return EventConsumed
 		}
 		runes := []rune(*text)
 		runes = append(runes[:*curPos], append([]rune{kev.Rune()}, runes[*curPos:]...)...)
@@ -202,5 +267,5 @@ func (r *ReplaceBarWidget) handleInput(kev *tcell.EventKey, text *string, curPos
 		*curPos = len([]rune(*text))
 		return EventConsumed
 	}
-	return EventIgnored
+	return EventConsumed
 }

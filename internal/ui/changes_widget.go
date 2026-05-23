@@ -153,7 +153,7 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		}
-		if btn&tcell.Button3 != 0 && c.OnRightClick != nil {
+		if btn&tcell.Button2 != 0 && c.OnRightClick != nil {
 			mx, my := tev.Position()
 			r := c.GetRect()
 			localY := my - r.Y

@@ -205,7 +205,7 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		}
-		if btn&tcell.Button3 != 0 && e.OnRightClick != nil {
+		if btn&tcell.Button2 != 0 && e.OnRightClick != nil {
 			mx, my := tev.Position()
 			r := e.GetRect()
 			localY := my - r.Y

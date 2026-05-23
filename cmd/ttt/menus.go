@@ -41,7 +41,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Command Palette", Shortcut: "Ctrl+P", Command: "command.palette"},
 		ui.MenuSep(),
 		{Label: "Explorer", Shortcut: "Ctrl+E", Command: "sidebar.explorer"},
-		{Label: "Search", Shortcut: "", Command: "sidebar.search"},
+		{Label: "Search", Shortcut: "Ctrl+Shift+F", Command: "sidebar.search"},
 		{Label: "Changes", Shortcut: "Ctrl+D", Command: "sidebar.changes"},
 		ui.MenuSep(),
 		{Label: "Toggle Sidebar", Shortcut: "Ctrl+B", Command: "sidebar.toggle"},
@@ -126,7 +126,7 @@ func handleRightClick(app *appWidgets, reg *command.Registry, mx, my int) {
 		if mx < divX {
 			sidebarR := app.sidebar.GetRect()
 			if my > sidebarR.Y+1 {
-				ev := tcell.NewEventMouse(mx, my, tcell.Button3, 0)
+				ev := tcell.NewEventMouse(mx, my, tcell.Button2, 0)
 				if w := app.sidebar.ActiveWidget(); w != nil {
 					w.HandleEvent(ev)
 				}

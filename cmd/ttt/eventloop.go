@@ -72,7 +72,7 @@ func runEventLoop(
 				continue
 			}
 
-			if btn&tcell.Button3 != 0 {
+			if btn&tcell.Button2 != 0 {
 				handleRightClick(app, cmdRegistry, mx, my)
 				redraw()
 				continue

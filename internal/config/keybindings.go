@@ -142,6 +142,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "f3", Command: "search.findNext"},
 		{Key: "shift+f3", Command: "search.findPrev"},
 		{Key: "ctrl+t", Command: "panel.toggle"},
+		{Key: "ctrl+shift+f", Command: "sidebar.search"},
 		{Key: "ctrl+k ctrl+t", Command: "theme.switch"},
 		{Key: "f10", Command: "menu.file"},
 		{Key: "alt+f", Command: "menu.file"},

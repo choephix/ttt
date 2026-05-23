@@ -2,8 +2,8 @@ package ui
 
 import (
 	"fmt"
-	"ttt/internal/term"
 	"strings"
+	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -31,37 +31,69 @@ func NewFindBarWidget() *FindBarWidget {
 func (f *FindBarWidget) Focusable() bool { return true }
 
 func (f *FindBarWidget) Render(surface *RenderSurface) {
-	w, _ := surface.Size()
-	surface.Fill(term.Cell{Ch: ' ', Style: term.StylePaletteBorder})
+	sw, _ := surface.Size()
 
-	label := " Find: "
-	for i, ch := range label {
-		if i < w {
-			surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StylePaletteBorder})
-		}
+	barW := 40
+	if barW > sw-4 {
+		barW = sw - 4
+	}
+	barX := sw - barW - 1
+	barY := 4
+	barH := 3
+
+	b := term.SingleBorderSet()
+	if f.Borders != nil {
+		b = *f.Borders
+	}
+	bs := term.StylePaletteBorder
+
+	for x := barX; x < barX+barW; x++ {
+		surface.SetCell(x, barY, term.Cell{Ch: b.Horizontal, Style: bs})
+		surface.SetCell(x, barY+barH-1, term.Cell{Ch: b.Horizontal, Style: bs})
+	}
+	for y := barY; y < barY+barH; y++ {
+		surface.SetCell(barX, y, term.Cell{Ch: b.Vertical, Style: bs})
+		surface.SetCell(barX+barW-1, y, term.Cell{Ch: b.Vertical, Style: bs})
+	}
+	surface.SetCell(barX, barY, term.Cell{Ch: b.TopLeft, Style: bs})
+	surface.SetCell(barX+barW-1, barY, term.Cell{Ch: b.TopRight, Style: bs})
+	surface.SetCell(barX, barY+barH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
+	surface.SetCell(barX+barW-1, barY+barH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+
+	row := barY + 1
+	for x := barX + 1; x < barX+barW-1; x++ {
+		surface.SetCell(x, row, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
 	}
 
-	inputStart := len([]rune(label))
+	x := barX + 2
 	queryRunes := []rune(f.Query)
 	for i, ch := range queryRunes {
-		x := inputStart + i
-		if x < w {
-			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: term.StylePaletteInput})
+		if x+i < barX+barW-2 {
+			surface.SetCell(x+i, row, term.Cell{Ch: ch, Style: term.StylePaletteInput})
 		}
 	}
 
-	cursorX := inputStart + f.cursorPos
-	if cursorX < w {
-		surface.SetCell(cursorX, 0, term.Cell{Ch: ' ', Style: term.StylePaletteInput})
+	// Cursor
+	cursorX := x + f.cursorPos
+	if cursorX < barX+barW-2 {
+		ch := ' '
+		if f.cursorPos < len(queryRunes) {
+			ch = queryRunes[f.cursorPos]
+		}
+		surface.SetCell(cursorX, row, term.Cell{Ch: ch, Style: term.StylePaletteSelected})
 	}
 
+	// Buttons and info on the right
+	info := ""
 	if len(f.Query) > 0 {
-		info := fmt.Sprintf(" %d/%d ", f.currentDisplay(), len(f.Matches))
-		infoStart := w - len([]rune(info))
-		if infoStart > 0 {
-			for i, ch := range info {
-				surface.SetCell(infoStart+i, 0, term.Cell{Ch: ch, Style: term.StylePaletteBorder})
-			}
+		info = fmt.Sprintf("%d/%d", f.currentDisplay(), len(f.Matches))
+	}
+	buttons := " ▲ ▼ ✕"
+	suffix := info + buttons
+	sx := barX + barW - 2 - len([]rune(suffix))
+	for i, ch := range suffix {
+		if sx+i > barX && sx+i < barX+barW-1 {
+			surface.SetCell(sx+i, row, term.Cell{Ch: ch, Style: term.StyleMuted})
 		}
 	}
 }
@@ -92,11 +124,56 @@ func (f *FindBarWidget) navigate() {
 }
 
 func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
-	kev, ok := ev.(*tcell.EventKey)
-	if !ok {
-		return EventIgnored
-	}
+	switch tev := ev.(type) {
+	case *tcell.EventMouse:
+		btn := tev.Buttons()
+		mx, my := tev.Position()
+		r := f.GetRect()
+		sw, _ := r.W, r.H
+		barW := 40
+		if barW > sw-4 {
+			barW = sw - 4
+		}
+		barX := r.X + sw - barW - 1
+		barY := r.Y
+		row := barY + 1
 
+		if btn&tcell.Button1 != 0 && my == row {
+			buttons := " ▲ ▼ ✕"
+			btnStart := barX + barW - 2 - len([]rune(buttons))
+			localX := mx - btnStart
+			if localX >= 1 && localX <= 1 {
+				// ▲ prev
+				if len(f.Matches) > 0 {
+					f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
+					f.navigate()
+				}
+				return EventConsumed
+			}
+			if localX >= 3 && localX <= 3 {
+				// ▼ next
+				if len(f.Matches) > 0 {
+					f.Current = (f.Current + 1) % len(f.Matches)
+					f.navigate()
+				}
+				return EventConsumed
+			}
+			if localX >= 5 && localX <= 5 {
+				// ✕ close
+				if f.OnDismiss != nil {
+					f.OnDismiss()
+				}
+				return EventConsumed
+			}
+		}
+		return EventConsumed
+	case *tcell.EventKey:
+		return f.handleKey(tev)
+	}
+	return EventConsumed
+}
+
+func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	switch kev.Key() {
 	case tcell.KeyEscape:
 		if f.OnDismiss != nil {
@@ -105,7 +182,11 @@ func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	case tcell.KeyEnter:
 		if len(f.Matches) > 0 {
-			f.Current = (f.Current + 1) % len(f.Matches)
+			if kev.Modifiers()&tcell.ModShift != 0 {
+				f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
+			} else {
+				f.Current = (f.Current + 1) % len(f.Matches)
+			}
 			f.navigate()
 		}
 		return EventConsumed
@@ -119,7 +200,7 @@ func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			f.search()
 			return EventConsumed
 		}
-		return EventIgnored
+		return EventConsumed
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if f.cursorPos > 0 {
 			runes := []rune(f.Query)
@@ -155,9 +236,21 @@ func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	case tcell.KeyEnd:
 		f.cursorPos = len([]rune(f.Query))
 		return EventConsumed
+	case tcell.KeyUp:
+		if len(f.Matches) > 0 {
+			f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
+			f.navigate()
+		}
+		return EventConsumed
+	case tcell.KeyDown:
+		if len(f.Matches) > 0 {
+			f.Current = (f.Current + 1) % len(f.Matches)
+			f.navigate()
+		}
+		return EventConsumed
 	}
 
-	return EventIgnored
+	return EventConsumed
 }
 
 func FindInLines(lines []string, query string) []FindMatch {
