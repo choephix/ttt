@@ -39,6 +39,10 @@ func (t *TcellScreen) SetStyleMap(m StyleMap) {
 	t.styleMap = m
 }
 
+func (t *TcellScreen) GetStyleMap() StyleMap {
+	return t.styleMap
+}
+
 func (t *TcellScreen) Size() (w, h int) {
 	return t.scr.Size()
 }

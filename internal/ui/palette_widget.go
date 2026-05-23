@@ -15,9 +15,10 @@ type CommandPaletteWidget struct {
 	Query        string
 	Selected     int
 	scrollOffset int
-	OnExecute    func(id string)
-	OnDismiss    func()
-	Borders      *term.BorderSet
+	OnExecute          func(id string)
+	OnDismiss          func()
+	OnSelectionChange  func(id string)
+	Borders            *term.BorderSet
 }
 
 func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
@@ -172,21 +173,25 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 		} else if len(p.Filtered) > 0 {
 			p.Selected = len(p.Filtered) - 1
 		}
+		p.notifySelectionChange()
 	case tcell.KeyDown:
 		if p.Selected < len(p.Filtered)-1 {
 			p.Selected++
 		} else {
 			p.Selected = 0
 		}
+		p.notifySelectionChange()
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if len(p.Query) > 0 {
 			runes := []rune(p.Query)
 			p.Query = string(runes[:len(runes)-1])
 			p.filterCommands()
+			p.notifySelectionChange()
 		}
 	case tcell.KeyRune:
 		p.Query += string(kev.Rune())
 		p.filterCommands()
+		p.notifySelectionChange()
 	}
 
 	return EventConsumed
@@ -201,6 +206,12 @@ func (p *CommandPaletteWidget) ensureVisible(visibleItems int) {
 	}
 	if p.Selected >= p.scrollOffset+visibleItems {
 		p.scrollOffset = p.Selected - visibleItems + 1
+	}
+}
+
+func (p *CommandPaletteWidget) notifySelectionChange() {
+	if p.OnSelectionChange != nil && p.Selected >= 0 && p.Selected < len(p.Filtered) {
+		p.OnSelectionChange(p.Filtered[p.Selected].ID)
 	}
 }
 

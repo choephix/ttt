@@ -336,6 +336,15 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			}
 			picker := ui.NewCommandPaletteWidget(cmds)
 			picker.Borders = app.borders
+			originalStyleMap := app.screen.GetStyleMap()
+			picker.OnSelectionChange = func(path string) {
+				theme, err := config.LoadThemeFromFile(path)
+				if err != nil {
+					return
+				}
+				app.screen.SetStyleMap(buildStyleMap(theme))
+				app.renderer.Clear()
+			}
 			picker.OnExecute = func(path string) {
 				app.root.PopOverlay()
 				app.root.SetFocus(app.editorGroup)
@@ -349,6 +358,8 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			picker.OnDismiss = func() {
 				app.root.PopOverlay()
 				app.root.SetFocus(app.editorGroup)
+				app.screen.SetStyleMap(originalStyleMap)
+				app.renderer.Clear()
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
 		},
