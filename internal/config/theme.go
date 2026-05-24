@@ -125,10 +125,10 @@ func (tc TerminalColors) ANSIPalette() [16]string {
 }
 
 type ThemeConfig struct {
-	Default      StyleDef `json:"default"`
-	Success string `json:"success,omitempty"`
-	Danger  string `json:"danger,omitempty"`
-	Warning string `json:"warning,omitempty"`
+	Default StyleDef `json:"default"`
+	Success StyleDef `json:"success"`
+	Danger  StyleDef `json:"danger"`
+	Warning StyleDef `json:"warning"`
 	StatusBar       StyleDef    `json:"statusBar"`
 	Tabs            TabStyles   `json:"tabs"`
 	Sidebar         SidebarStyles `json:"sidebar"`
@@ -212,23 +212,12 @@ func DefaultTheme() ThemeConfig {
 }
 
 func (t *ThemeConfig) ResolveColors() {
-	sc := t.Success
-	if sc == "" {
-		sc = "#1e2e1e"
-	}
-	fillBg(&t.Diff.Added, sc)
-
-	dc := t.Danger
-	if dc == "" {
-		dc = "#2e1e1e"
-	}
-	fillBg(&t.Diff.Deleted, dc)
-
-	wc := t.Warning
-	if wc == "" {
-		wc = "#2e2e1e"
-	}
-	fillBg(&t.Diff.Modified, wc)
+	fillBg(&t.Diff.Added, "#1e2e1e")
+	fillBg(&t.Diff.Deleted, "#2e1e1e")
+	fillBg(&t.Diff.Modified, "#2e2e1e")
+	fillFg(&t.Success, "#73c991")
+	fillFg(&t.Danger, "#f14c4c")
+	fillFg(&t.Warning, "#e2c08d")
 }
 
 func fillFg(s *StyleDef, color string) {

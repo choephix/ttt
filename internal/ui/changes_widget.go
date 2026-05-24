@@ -358,11 +358,11 @@ func (c *ChangesWidget) renderFile(surface *RenderSurface, y, w int, style term.
 func statusStyle(status string) term.Style {
 	switch status {
 	case "M":
-		return term.StyleDiffModified
+		return term.StyleWarning
 	case "A", "?", "R":
-		return term.StyleDiffAdded
+		return term.StyleSuccess
 	case "D":
-		return term.StyleDiffDeleted
+		return term.StyleDanger
 	default:
 		return term.StyleDefault
 	}

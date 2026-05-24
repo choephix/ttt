@@ -37,6 +37,9 @@ const (
 	StyleSyntaxAttribute
 	StyleMuted
 	StyleBracketMatch
+	StyleSuccess
+	StyleDanger
+	StyleWarning
 )
 
 // DirectColor holds an RGBA color for terminal emulator output.

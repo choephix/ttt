@@ -56,6 +56,9 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleSyntaxTag, theme.Syntax.Tag)
 	applyStyleDef(&m, term.StyleSyntaxAttribute, theme.Syntax.Attribute)
 	applyStyleDef(&m, term.StyleMuted, theme.Dialog.Muted)
+	applyStyleDef(&m, term.StyleSuccess, theme.Success)
+	applyStyleDef(&m, term.StyleDanger, theme.Danger)
+	applyStyleDef(&m, term.StyleWarning, theme.Warning)
 
 	return m
 }
