@@ -49,6 +49,7 @@ type ChangesWidget struct {
 	OnOpenDiff   func(dir string, status git.FileStatus)
 	OnRightClick func(dir string, status git.FileStatus, screenX, screenY int)
 	OnCommit     func(dir string, message string)
+	OnGroupMenu  func(dir string, screenX, screenY int)
 }
 
 func NewChangesWidget(dirs ...string) *ChangesWidget {
@@ -270,6 +271,9 @@ func (c *ChangesWidget) renderHeader(surface *RenderSurface, y, w int, style ter
 		surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
 		x++
 	}
+	if w >= 3 {
+		surface.SetCell(w-2, y, term.Cell{Ch: '⋮', Style: style})
+	}
 }
 
 func (c *ChangesWidget) renderSectionHeader(surface *RenderSurface, y, w int, style term.Style, item changesItem) {
@@ -439,6 +443,12 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 			idx := c.ScrollTop + (my - r.Y)
 			if idx >= 0 && idx < len(c.items) {
 				item := c.items[idx]
+				if item.kind == itemHeader && mx >= r.X+r.W-3 {
+					if c.OnGroupMenu != nil {
+						c.OnGroupMenu(c.Groups[item.groupIndex].Dir, mx, my)
+					}
+					return EventConsumed
+				}
 				if item.kind == itemSection && mx >= r.X+r.W-3 {
 					c.Selected = idx
 					g := &c.Groups[item.groupIndex]

@@ -32,6 +32,7 @@ A fully-featured code editor that lives in the terminal. Not a simplified termin
 ### Prerequisites
 
 - Go 1.18 or newer
+- [Git](https://git-scm.com/) — required for source control features
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) — required for workspace search
 
 ### Build and Run
@@ -79,25 +80,87 @@ You can also manage folders at runtime via the command palette: **Add Folder to 
 
 ### Keybindings
 
-| Key | Action |
-|-----|--------|
-| Ctrl+S | Save |
+All keybindings are customizable via `keybindings.json`. These are the defaults:
+
+| Shortcut | Action |
+|----------|--------|
+| | **General** |
 | Ctrl+Q | Quit |
-| Ctrl+Z / Ctrl+Y | Undo / Redo |
-| Ctrl+F | Find |
-| Ctrl+H | Find and Replace |
-| Ctrl+G | Go to line |
-| Ctrl+P | Command palette / quick file open |
-| Ctrl+B | Toggle sidebar |
-| Ctrl+E | Show file explorer |
-| Ctrl+Shift+F | Show search |
-| Ctrl+D | Show git changes |
+| Ctrl+Shift+P | Command palette |
+| Ctrl+P | Quick open file |
+| Escape | Focus editor |
+| | **File** |
+| Ctrl+N | New file |
+| Ctrl+S | Save |
+| Ctrl+Shift+S | Save as |
+| | **Editor** |
+| Ctrl+Z | Undo |
+| Ctrl+Y | Redo |
 | Ctrl+A | Select all |
-| Ctrl+C / Ctrl+X / Ctrl+V | Copy / Cut / Paste |
-| Ctrl+` | Toggle integrated terminal |
-| Ctrl+PgDn / Ctrl+PgUp | Next / Previous tab |
+| Ctrl+C | Copy |
+| Ctrl+X | Cut |
+| Ctrl+V | Paste |
+| Ctrl+G | Go to line |
+| | **Search** |
+| Ctrl+F | Find |
+| Ctrl+H | Find and replace |
+| F3 / Shift+F3 | Find next / previous |
+| Ctrl+Shift+F | Search across files |
+| | **View** |
+| Ctrl+B | Toggle sidebar |
+| Ctrl+J | Toggle bottom panel |
+| Ctrl+Shift+E | Show file explorer |
+| Ctrl+Shift+G | Show git changes |
+| Ctrl+0 | Focus sidebar |
+| Ctrl+K Ctrl+T | Switch theme |
+| | **Tabs** |
+| Ctrl+PgDn / PgUp | Next / previous tab |
 | Ctrl+W | Close tab |
-| Ctrl+K T | Switch theme |
+| | **Terminal** |
+| Ctrl+` | Toggle terminal |
+| Ctrl+Shift+` | New terminal tab |
+| | **Changes Panel** |
+| Space | Toggle stage/unstage file |
+| A | Stage all |
+| U | Unstage all |
+| R | Refresh |
+| Enter | Open diff / activate |
+| | **Menu Bar** |
+| F10 / Alt+F | File menu |
+| Alt+E / S / V / H | Edit / Selection / View / Help |
+
+### Theming
+
+TTT supports fully customizable themes via JSON files. You can change every color in the editor — from syntax highlighting and diff backgrounds to the sidebar, tabs, status bar, terminal ANSI colors, borders, and semantic colors (success, danger, warning).
+
+#### Built-in Themes
+
+10 themes ship in the `sample-config/` directory:
+
+- Aurora
+- Bubblegum
+- Default Dark
+- Default Light
+- Hotline
+- Monokai
+- One Dark
+- Solarized Dark
+- Solarized Light
+- Virtru Dark
+
+#### Switching Themes
+
+Press **Ctrl+K Ctrl+T** (or use **View > Switch Theme** from the menu bar) to open the theme picker with a live preview.
+
+#### Customizing
+
+To create a custom theme, copy one of the built-in theme files to your config directory and edit it:
+
+```sh
+cp sample-config/theme.monokai.json ~/.config/ttt/theme.json
+```
+
+Restart TTT (or switch themes) to pick up changes.
 
 ### Integrated Terminal
 

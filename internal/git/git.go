@@ -83,6 +83,22 @@ func Commit(dir, message string) error {
 	return nil
 }
 
+func Pull(dir string) error {
+	cmd := exec.Command("git", "-C", dir, "pull")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func Push(dir string) error {
+	cmd := exec.Command("git", "-C", dir, "push")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func BranchName(dir string) string {
 	cmd := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD")
 	out, err := cmd.Output()

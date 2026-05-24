@@ -484,6 +484,52 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	})
 
 	reg.Register(command.Command{
+		ID: "git.pull", Title: "Git Pull",
+		Handler: func() {
+			for _, dir := range app.changes.Dirs {
+				if err := git.Pull(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Pull failed: %v", err)
+					return
+				}
+			}
+			app.status.Message = "Pulled successfully"
+			app.changes.Refresh()
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "git.push", Title: "Git Push",
+		Handler: func() {
+			for _, dir := range app.changes.Dirs {
+				if err := git.Push(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Push failed: %v", err)
+					return
+				}
+			}
+			app.status.Message = "Pushed successfully"
+			app.changes.Refresh()
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "git.sync", Title: "Git Sync",
+		Handler: func() {
+			for _, dir := range app.changes.Dirs {
+				if err := git.Pull(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Sync failed (pull): %v", err)
+					return
+				}
+				if err := git.Push(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Sync failed (push): %v", err)
+					return
+				}
+			}
+			app.status.Message = "Synced successfully"
+			app.changes.Refresh()
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "search.clear", Title: "Clear Search Results",
 		Handler: func() {
 			app.search.Input.Text = ""
@@ -769,6 +815,10 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		case "changes":
 			items = []ui.ContextMenuItem{
 				{Label: "Refresh", Command: "changes.refresh"},
+				ui.MenuSep(),
+				{Label: "Pull", Command: "git.pull"},
+				{Label: "Push", Command: "git.push"},
+				{Label: "Sync", Command: "git.sync"},
 			}
 		}
 		if len(items) > 0 {
@@ -843,6 +893,52 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		parsed := diff.Parse(diffText)
 		app.editorGroup.OpenDiff(status.Path, parsed)
 		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.changes.OnGroupMenu = func(dir string, sx, sy int) {
+		items := []ui.ContextMenuItem{
+			{Label: "Pull", Command: "git.pull." + dir},
+			{Label: "Push", Command: "git.push." + dir},
+			{Label: "Sync", Command: "git.sync." + dir},
+		}
+		reg.Register(command.Command{
+			ID: "git.pull." + dir, Title: "Pull",
+			Handler: func() {
+				if err := git.Pull(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Pull failed: %v", err)
+				} else {
+					app.status.Message = "Pulled successfully"
+					app.changes.Refresh()
+				}
+			},
+		})
+		reg.Register(command.Command{
+			ID: "git.push." + dir, Title: "Push",
+			Handler: func() {
+				if err := git.Push(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Push failed: %v", err)
+				} else {
+					app.status.Message = "Pushed successfully"
+					app.changes.Refresh()
+				}
+			},
+		})
+		reg.Register(command.Command{
+			ID: "git.sync." + dir, Title: "Sync",
+			Handler: func() {
+				if err := git.Pull(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Sync failed (pull): %v", err)
+					return
+				}
+				if err := git.Push(dir); err != nil {
+					app.status.Message = fmt.Sprintf("Sync failed (push): %v", err)
+					return
+				}
+				app.status.Message = "Synced successfully"
+				app.changes.Refresh()
+			},
+		})
+		openContextMenu(app, reg, items, sx, sy)
 	}
 
 	app.changes.OnCommit = func(dir string, message string) {
