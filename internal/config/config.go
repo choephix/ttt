@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/eugenioenko/ttt/internal/config/themes"
 )
 
 type AppConfig struct {
@@ -37,6 +40,8 @@ func Load() AppConfig {
 		themeFile := "theme." + cfg.Settings.Theme + ".json"
 		if data, err := readFirst(paths, themeFile); err == nil {
 			json.Unmarshal(data, &cfg.Theme)
+		} else if data, err := themes.FS.ReadFile(themeFile); err == nil {
+			json.Unmarshal(data, &cfg.Theme)
 		}
 	}
 
@@ -61,9 +66,52 @@ func configPaths() []string {
 	return paths
 }
 
-func LoadThemeFromFile(path string) (ThemeConfig, error) {
+func ListThemes() []string {
+	seen := make(map[string]bool)
+	var names []string
+
+	for _, dir := range configPaths() {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			name := themeNameFromFile(e.Name())
+			if name != "" && !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+
+	entries, err := themes.FS.ReadDir(".")
+	if err == nil {
+		for _, e := range entries {
+			name := themeNameFromFile(e.Name())
+			if name != "" && !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+
+	sort.Strings(names)
+	return names
+}
+
+func LoadTheme(name string) (ThemeConfig, error) {
 	theme := DefaultTheme()
-	data, err := os.ReadFile(path)
+	themeFile := "theme." + name + ".json"
+
+	if data, err := readFirst(configPaths(), themeFile); err == nil {
+		if err := json.Unmarshal(data, &theme); err != nil {
+			return theme, err
+		}
+		theme.ResolveColors()
+		return theme, nil
+	}
+
+	data, err := themes.FS.ReadFile(themeFile)
 	if err != nil {
 		return theme, err
 	}
@@ -74,21 +122,12 @@ func LoadThemeFromFile(path string) (ThemeConfig, error) {
 	return theme, nil
 }
 
-func ListThemeFiles() []string {
-	var files []string
-	for _, dir := range configPaths() {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			name := e.Name()
-			if strings.HasPrefix(name, "theme.") && strings.HasSuffix(name, ".json") {
-				files = append(files, filepath.Join(dir, name))
-			}
-		}
+func themeNameFromFile(filename string) string {
+	if strings.HasPrefix(filename, "theme.") && strings.HasSuffix(filename, ".json") {
+		name := strings.TrimPrefix(filename, "theme.")
+		return strings.TrimSuffix(name, ".json")
 	}
-	return files
+	return ""
 }
 
 func ConfigFilePath(filename string) string {

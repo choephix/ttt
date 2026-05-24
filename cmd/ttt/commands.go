@@ -349,16 +349,13 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	reg.Register(command.Command{
 		ID: "theme.switch", Title: "Switch Theme",
 		Handler: func() {
-			files := config.ListThemeFiles()
-			if len(files) == 0 {
+			names := config.ListThemes()
+			if len(names) == 0 {
 				return
 			}
 			var cmds []command.Command
-			for _, f := range files {
-				name := filepath.Base(f)
-				name = strings.TrimPrefix(name, "theme.")
-				name = strings.TrimSuffix(name, ".json")
-				cmds = append(cmds, command.Command{ID: f, Title: name})
+			for _, name := range names {
+				cmds = append(cmds, command.Command{ID: name, Title: name})
 			}
 			picker := ui.NewCommandPaletteWidget(cmds)
 			picker.Borders = app.borders
@@ -369,23 +366,20 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				*app.palette = buildTerminalPalette(theme)
 				app.renderer.Clear()
 			}
-			picker.OnSelectionChange = func(path string) {
-				theme, err := config.LoadThemeFromFile(path)
+			picker.OnSelectionChange = func(name string) {
+				theme, err := config.LoadTheme(name)
 				if err != nil {
 					return
 				}
 				applyTheme(theme)
 			}
-			picker.OnExecute = func(path string) {
+			picker.OnExecute = func(name string) {
 				app.DismissDialog()
-				theme, err := config.LoadThemeFromFile(path)
+				theme, err := config.LoadTheme(name)
 				if err != nil {
 					return
 				}
 				applyTheme(theme)
-				name := filepath.Base(path)
-				name = strings.TrimPrefix(name, "theme.")
-				name = strings.TrimSuffix(name, ".json")
 				app.settings.Theme = name
 				config.SaveSettings(*app.settings)
 			}
