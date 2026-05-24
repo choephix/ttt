@@ -10,6 +10,11 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type blameResult struct {
+	gen  int
+	info *git.BlameInfo
+}
+
 func runEventLoop(
 	screen *term.TcellScreen,
 	renderer *render.Renderer,
@@ -20,6 +25,7 @@ func runEventLoop(
 ) {
 	lastBlameLine := -1
 	lastBlameFile := ""
+	blameGen := 0
 	app.status.Branch = git.BranchName(app.cwd)
 	app.status.TabSize = app.settings.TabSize
 
@@ -47,12 +53,15 @@ func runEventLoop(
 			lastBlameFile = filePath
 			lastBlameLine = line
 			app.status.Blame = ""
-			if filePath != "" {
-				info := git.BlameLine(app.cwd, filePath, line+1)
-				if info != nil {
-					app.status.Blame = fmt.Sprintf("%s, %s",
-						info.Author, git.FormatRelativeTime(info.Time))
-				}
+			if filePath != "" && filePath != "untitled" {
+				blameGen++
+				gen := blameGen
+				cwd := app.cwd
+				blameLine := line + 1
+				go func() {
+					info := git.BlameLine(cwd, filePath, blameLine)
+					screen.PostEvent(tcell.NewEventInterrupt(&blameResult{gen: gen, info: info}))
+				}()
 			}
 		}
 	}
@@ -104,8 +113,16 @@ func runEventLoop(
 			redraw()
 
 		case *tcell.EventInterrupt:
-			if panelID, ok := tev.Data().(string); ok && panelID != "" {
-				closeTerminal(panelID)
+			switch v := tev.Data().(type) {
+			case string:
+				if v != "" {
+					closeTerminal(v)
+				}
+			case *blameResult:
+				if v.gen == blameGen && v.info != nil {
+					app.status.Blame = fmt.Sprintf("%s, %s",
+						v.info.Author, git.FormatRelativeTime(v.info.Time))
+				}
 			}
 			redraw()
 		}
