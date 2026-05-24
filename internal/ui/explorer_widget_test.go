@@ -21,7 +21,7 @@ func makeTestTree() *ExplorerWidget {
 		},
 	}
 
-	e := &ExplorerWidget{Root: root}
+	e := &ExplorerWidget{Roots: []*TreeNode{root}}
 	e.flatten()
 	return e
 }

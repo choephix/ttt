@@ -23,6 +23,11 @@ type PaletteItem struct {
 	ID       string
 }
 
+type paletteFile struct {
+	Rel string
+	Abs string
+}
+
 type CommandPaletteWidget struct {
 	BaseWidget
 	Commands     []command.Command
@@ -33,7 +38,7 @@ type CommandPaletteWidget struct {
 	inputX       int
 	inputY       int
 	mode         paletteMode
-	files        []string
+	files        []paletteFile
 	OnExecute          func(id string)
 	OnOpenFile         func(path string)
 	OnDismiss          func()
@@ -54,30 +59,36 @@ func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 	return p
 }
 
-func (p *CommandPaletteWidget) SetFiles(workDir string) {
-	var files []string
-	filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
+func (p *CommandPaletteWidget) SetFiles(workDirs []string) {
+	p.files = nil
+	multiRoot := len(workDirs) > 1
+	for _, workDir := range workDirs {
+		prefix := ""
+		if multiRoot {
+			prefix = filepath.Base(workDir) + string(filepath.Separator)
 		}
-		name := d.Name()
-		if d.IsDir() {
-			if name == ".git" || name == "node_modules" || name == ".cache" || name == "__pycache__" {
-				return filepath.SkipDir
+		filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			name := d.Name()
+			if d.IsDir() {
+				if name == ".git" || name == "node_modules" || name == ".cache" || name == "__pycache__" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			rel, err := filepath.Rel(workDir, path)
+			if err != nil {
+				return nil
+			}
+			p.files = append(p.files, paletteFile{Rel: prefix + rel, Abs: path})
+			if len(p.files) >= 10000 {
+				return filepath.SkipAll
 			}
 			return nil
-		}
-		rel, err := filepath.Rel(workDir, path)
-		if err != nil {
-			return nil
-		}
-		files = append(files, rel)
-		if len(files) >= 10000 {
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	p.files = files
+		})
+	}
 }
 
 func (p *CommandPaletteWidget) Focusable() bool { return true }
@@ -311,9 +322,9 @@ func (p *CommandPaletteWidget) filterFiles(query string) {
 	if query == "" {
 		for _, f := range p.files {
 			p.Items = append(p.Items, PaletteItem{
-				Label:  filepath.Base(f),
-				Detail: fileDetail(f),
-				ID:     f,
+				Label:  filepath.Base(f.Rel),
+				Detail: fileDetail(f.Rel),
+				ID:     f.Abs,
 			})
 			if len(p.Items) >= 100 {
 				break
@@ -322,11 +333,11 @@ func (p *CommandPaletteWidget) filterFiles(query string) {
 	} else {
 		lower := strings.ToLower(query)
 		for _, f := range p.files {
-			if strings.Contains(strings.ToLower(f), lower) {
+			if strings.Contains(strings.ToLower(f.Rel), lower) {
 				p.Items = append(p.Items, PaletteItem{
-					Label:  filepath.Base(f),
-					Detail: fileDetail(f),
-					ID:     f,
+					Label:  filepath.Base(f.Rel),
+					Detail: fileDetail(f.Rel),
+					ID:     f.Abs,
 				})
 				if len(p.Items) >= 100 {
 					break

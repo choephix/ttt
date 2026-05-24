@@ -33,7 +33,7 @@ type SearchWidget struct {
 	FlatList  []searchItem
 	Selected  int
 	ScrollTop int
-	WorkDir   string
+	WorkDirs  []string
 	Searching bool
 	Error     string
 	OnOpenMatch func(path string, line, col int)
@@ -54,8 +54,8 @@ func NewSearchWidget() *SearchWidget {
 	return s
 }
 
-func (s *SearchWidget) SetWorkDir(dir string) {
-	s.WorkDir = dir
+func (s *SearchWidget) SetWorkDirs(dirs []string) {
+	s.WorkDirs = dirs
 }
 
 func (s *SearchWidget) Focusable() bool { return true }
@@ -82,12 +82,14 @@ func (s *SearchWidget) runSearch() {
 	}
 
 	s.Searching = true
-	dir := s.WorkDir
-	if dir == "" {
-		dir = "."
+	dirs := s.WorkDirs
+	if len(dirs) == 0 {
+		dirs = []string{"."}
 	}
 
-	cmd := exec.Command("rg", "--json", "--smart-case", "--max-count=100", s.Input.Text, dir)
+	args := []string{"--json", "--smart-case", "--max-count=100", s.Input.Text}
+	args = append(args, dirs...)
+	cmd := exec.Command("rg", args...)
 	out, err := cmd.Output()
 	s.Searching = false
 
@@ -115,13 +117,14 @@ func (s *SearchWidget) runSearch() {
 		}
 		filePath := msg.Data.Path.Text
 		absPath := filePath
-		if !filepath.IsAbs(absPath) {
-			absPath = filepath.Join(dir, absPath)
+		if !filepath.IsAbs(absPath) && len(dirs) > 0 {
+			absPath = filepath.Join(dirs[0], absPath)
 		}
 		relPath := filePath
-		if dir != "" {
-			if r, err := filepath.Rel(dir, absPath); err == nil {
+		for _, d := range dirs {
+			if r, err := filepath.Rel(d, absPath); err == nil && !strings.HasPrefix(r, "..") {
 				relPath = r
+				break
 			}
 		}
 

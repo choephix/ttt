@@ -315,7 +315,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	openPalette := func(fileMode bool) {
 		palette := ui.NewCommandPaletteWidget(reg.List())
 		palette.Borders = app.borders
-		palette.SetFiles(app.cwd)
+		palette.SetFiles(app.workspace.Paths())
 		if fileMode {
 			palette.Input.SetText("")
 		}
@@ -323,9 +323,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			app.DismissDialog()
 			reg.Execute(id)
 		}
-		palette.OnOpenFile = func(relPath string) {
+		palette.OnOpenFile = func(absPath string) {
 			app.DismissDialog()
-			app.editorGroup.OpenFile(filepath.Join(app.cwd, relPath))
+			app.editorGroup.OpenFile(absPath)
 		}
 		palette.OnDismiss = func() {
 			app.DismissDialog()
@@ -453,9 +453,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	reg.Register(command.Command{
 		ID: "changes.openDiff", Title: "Open Diff",
 		Handler: func() {
-			if app.changes.Selected >= 0 && app.changes.Selected < len(app.changes.Files) {
-				status := app.changes.Files[app.changes.Selected]
-				app.changes.OnOpenDiff(status)
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && app.changes.OnOpenDiff != nil {
+				app.changes.OnOpenDiff(dir, status)
 			}
 		},
 	})
@@ -463,9 +463,8 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	reg.Register(command.Command{
 		ID: "changes.openFile", Title: "Open File",
 		Handler: func() {
-			if app.changes.Selected >= 0 && app.changes.Selected < len(app.changes.Files) {
-				status := app.changes.Files[app.changes.Selected]
-				fullPath := filepath.Join(app.cwd, status.Path)
+			fullPath := app.changes.SelectedFullPath()
+			if fullPath != "" {
 				app.editorGroup.OpenFile(fullPath)
 				app.root.SetFocus(app.editorGroup)
 			}
@@ -626,6 +625,85 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	})
 
 	reg.Register(command.Command{
+		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
+		Handler: func() {
+			dialog := ui.NewInputDialogWidget("Add Folder", "")
+			dialog.Borders = app.borders
+			dialog.OnSubmit = func(path string) {
+				app.DismissDialog()
+				if path == "" {
+					return
+				}
+				abs, err := filepath.Abs(path)
+				if err != nil {
+					app.status.Message = "Error: " + err.Error()
+					return
+				}
+				info, err := os.Stat(abs)
+				if err != nil || !info.IsDir() {
+					app.status.Message = "Not a directory: " + abs
+					return
+				}
+				app.workspace.AddFolder(abs)
+				app.refreshWorkspaceWidgets()
+			}
+			dialog.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(dialog)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.removeFolder", Title: "Remove Folder from Workspace",
+		Handler: func() {
+			paths := app.workspace.Paths()
+			if len(paths) <= 1 {
+				app.status.Message = "Cannot remove the last folder"
+				return
+			}
+			var cmds []command.Command
+			for _, p := range paths {
+				cmds = append(cmds, command.Command{ID: p, Title: filepath.Base(p)})
+			}
+			picker := ui.NewCommandPaletteWidget(cmds)
+			picker.Borders = app.borders
+			picker.OnExecute = func(path string) {
+				app.DismissDialog()
+				app.workspace.RemoveFolder(path)
+				app.refreshWorkspaceWidgets()
+			}
+			picker.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(picker)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.saveAs", Title: "Save Workspace As...",
+		Handler: func() {
+			dialog := ui.NewInputDialogWidget("Save Workspace", "workspace.ttt")
+			dialog.Borders = app.borders
+			dialog.OnSubmit = func(path string) {
+				app.DismissDialog()
+				if path == "" {
+					return
+				}
+				if err := app.workspace.SaveFile(path); err != nil {
+					app.status.Message = "Error: " + err.Error()
+				} else {
+					app.status.Message = "Workspace saved: " + path
+				}
+			}
+			dialog.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(dialog)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
 		Handler: func() {
 			app.status.Message = "ttt — Terminal Text Tool"
@@ -731,18 +809,18 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		openContextMenu(app, reg, items, sx, sy)
 	}
 
-	app.changes.OnRightClick = func(status git.FileStatus, sx, sy int) {
+	app.changes.OnRightClick = func(dir string, status git.FileStatus, sx, sy int) {
 		openContextMenu(app, reg, changesContextMenu, sx, sy)
 	}
 
-	app.changes.OnOpenDiff = func(status git.FileStatus) {
-		fullPath := filepath.Join(app.cwd, status.Path)
+	app.changes.OnOpenDiff = func(dir string, status git.FileStatus) {
+		fullPath := filepath.Join(dir, status.Path)
 		if status.Status == "??" {
 			app.editorGroup.OpenFile(fullPath)
 			app.root.SetFocus(app.editorGroup)
 			return
 		}
-		diffText, err := git.DiffFile(app.cwd, status.Path)
+		diffText, err := git.DiffFile(dir, status.Path)
 		if err != nil || diffText == "" {
 			app.editorGroup.OpenFile(fullPath)
 			app.root.SetFocus(app.editorGroup)

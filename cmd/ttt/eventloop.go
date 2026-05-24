@@ -25,8 +25,9 @@ func runEventLoop(
 ) {
 	lastBlameLine := -1
 	lastBlameFile := ""
+	lastBranchDir := app.workspace.Primary()
 	blameGen := 0
-	app.status.Branch = git.BranchName(app.cwd)
+	app.status.Branch = git.BranchName(lastBranchDir)
 	app.status.TabSize = app.settings.TabSize
 
 	syncStatus := func() {
@@ -49,17 +50,32 @@ func runEventLoop(
 			app.status.TabSize = app.settings.TabSize
 		}
 
+		repoDir := ""
+		if filePath != "" && filePath != "untitled" {
+			if folder := app.workspace.FolderForFile(filePath); folder != nil && folder.IsRepo {
+				repoDir = folder.Path
+			}
+		}
+
+		if repoDir != lastBranchDir {
+			lastBranchDir = repoDir
+			if repoDir != "" {
+				app.status.Branch = git.BranchName(repoDir)
+			} else {
+				app.status.Branch = ""
+			}
+		}
+
 		if filePath != lastBlameFile || line != lastBlameLine {
 			lastBlameFile = filePath
 			lastBlameLine = line
 			app.status.Blame = ""
-			if filePath != "" && filePath != "untitled" {
+			if repoDir != "" {
 				blameGen++
 				gen := blameGen
-				cwd := app.cwd
 				blameLine := line + 1
 				go func() {
-					info := git.BlameLine(cwd, filePath, blameLine)
+					info := git.BlameLine(repoDir, filePath, blameLine)
 					screen.PostEvent(tcell.NewEventInterrupt(&blameResult{gen: gen, info: info}))
 				}()
 			}

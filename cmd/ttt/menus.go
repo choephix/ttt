@@ -19,6 +19,9 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Save", Shortcut: "Ctrl+S", Command: "file.save"},
 		{Label: "Save As...", Shortcut: "", Command: "file.saveAs"},
 		ui.MenuSep(),
+		{Label: "Add Folder to Workspace", Shortcut: "", Command: "workspace.addFolder"},
+		{Label: "Save Workspace As...", Shortcut: "", Command: "workspace.saveAs"},
+		ui.MenuSep(),
 		{Label: "Quit", Shortcut: "Ctrl+Q", Command: "editor.quit"},
 	},
 	// Edit

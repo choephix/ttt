@@ -22,23 +22,27 @@ type TreeNode struct {
 type ExplorerWidget struct {
 	BaseWidget
 	SelectableList
-	Root       *TreeNode
+	Roots      []*TreeNode
 	FlatList   []*TreeNode
 	ActiveFile string
 	OnOpenFile   func(path string)
 	OnRightClick func(node *TreeNode, screenX, screenY int)
 }
 
-func NewExplorerWidget(rootPath string) *ExplorerWidget {
+func NewExplorerWidget(rootPaths ...string) *ExplorerWidget {
 	e := &ExplorerWidget{}
-	e.Root = &TreeNode{
-		Name:     filepath.Base(rootPath),
-		Path:     rootPath,
-		IsDir:    true,
-		Expanded: true,
-		Depth:    0,
+	multiRoot := len(rootPaths) > 1
+	for _, p := range rootPaths {
+		root := &TreeNode{
+			Name:     filepath.Base(p),
+			Path:     p,
+			IsDir:    true,
+			Expanded: !multiRoot,
+			Depth:    0,
+		}
+		e.loadChildren(root)
+		e.Roots = append(e.Roots, root)
 	}
-	e.loadChildren(e.Root)
 	e.flatten()
 	return e
 }
@@ -53,10 +57,36 @@ func (e *ExplorerWidget) SelectedNode() *TreeNode {
 }
 
 func (e *ExplorerWidget) Reload() {
-	e.loadChildren(e.Root)
-	e.reloadExpanded(e.Root)
+	for _, root := range e.Roots {
+		e.loadChildren(root)
+		e.reloadExpanded(root)
+	}
 	e.flatten()
 	e.ClampSelected(len(e.FlatList))
+}
+
+func (e *ExplorerWidget) AddRoot(path string) {
+	root := &TreeNode{
+		Name:     filepath.Base(path),
+		Path:     path,
+		IsDir:    true,
+		Expanded: true,
+		Depth:    0,
+	}
+	e.loadChildren(root)
+	e.Roots = append(e.Roots, root)
+	e.flatten()
+}
+
+func (e *ExplorerWidget) RemoveRoot(path string) {
+	for i, root := range e.Roots {
+		if root.Path == path {
+			e.Roots = append(e.Roots[:i], e.Roots[i+1:]...)
+			e.flatten()
+			e.ClampSelected(len(e.FlatList))
+			return
+		}
+	}
 }
 
 func (e *ExplorerWidget) reloadExpanded(node *TreeNode) {
@@ -103,7 +133,9 @@ func (e *ExplorerWidget) loadChildren(node *TreeNode) {
 
 func (e *ExplorerWidget) flatten() {
 	e.FlatList = nil
-	e.flattenNode(e.Root)
+	for _, root := range e.Roots {
+		e.flattenNode(root)
+	}
 }
 
 func (e *ExplorerWidget) flattenNode(node *TreeNode) {

@@ -8,47 +8,72 @@ import (
 	"ttt/internal/term"
 	"ttt/internal/ui"
 	"ttt/internal/view"
+	"ttt/internal/workspace"
 )
 
-func resolveArgs() (workDir string, openFile string) {
-	workDir, _ = os.Getwd()
-	if len(os.Args) < 2 {
-		return
-	}
-	arg := os.Args[1]
-	absPath, err := filepath.Abs(arg)
-	if err != nil {
-		openFile = arg
-		return
-	}
-	info, err := os.Stat(absPath)
-	if err != nil {
-		openFile = absPath
-		return
-	}
-	if info.IsDir() {
-		workDir = absPath
-	} else {
-		openFile = absPath
-		if root := git.RepoRoot(filepath.Dir(absPath)); root != "" {
-			workDir = root
+func resolveArgs() (ws *workspace.Workspace, openFiles []string) {
+	var folders []string
+	var wsFile string
+
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--workspace" && i+1 < len(args) {
+			wsFile = args[i+1]
+			i++
+			continue
+		}
+		absPath, err := filepath.Abs(args[i])
+		if err != nil {
+			openFiles = append(openFiles, args[i])
+			continue
+		}
+		info, err := os.Stat(absPath)
+		if err != nil {
+			openFiles = append(openFiles, absPath)
+			continue
+		}
+		if info.IsDir() {
+			folders = append(folders, absPath)
 		} else {
-			workDir = filepath.Dir(absPath)
+			openFiles = append(openFiles, absPath)
+			dir := filepath.Dir(absPath)
+			if root := git.RepoRoot(dir); root != "" {
+				folders = append(folders, root)
+			} else {
+				folders = append(folders, dir)
+			}
 		}
 	}
+
+	if wsFile != "" {
+		loaded, err := workspace.LoadFile(wsFile)
+		if err == nil {
+			ws = loaded
+			for _, f := range folders {
+				ws.AddFolder(f)
+			}
+			return
+		}
+	}
+
+	if len(folders) == 0 {
+		cwd, _ := os.Getwd()
+		folders = append(folders, cwd)
+	}
+	ws = workspace.New(folders)
 	return
 }
 
 func buildApp(cfg *config.AppConfig, borders *term.BorderSet) *App {
-	workDir, openFile := resolveArgs()
-	return buildAppFromConfig(cfg, borders, workDir, openFile)
+	ws, openFiles := resolveArgs()
+	return buildAppFromConfig(cfg, borders, ws, openFiles)
 }
 
-func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, workDir, openFile string) *App {
+func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
 
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
-	if openFile != "" {
-		editorGroup.OpenFile(openFile)
+	for _, f := range openFiles {
+		editorGroup.OpenFile(f)
 	}
 
 	bottomPanel := ui.NewBottomPanelWidget(borders)
@@ -70,10 +95,10 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, workDir,
 		{Name: "Help"},
 	})
 
-	explorer := ui.NewExplorerWidget(workDir)
+	explorer := ui.NewExplorerWidget(ws.Paths()...)
 	search := ui.NewSearchWidget()
-	search.SetWorkDir(workDir)
-	changes := ui.NewChangesWidget(workDir)
+	search.SetWorkDirs(ws.Paths())
+	changes := ui.NewChangesWidget(ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Files", explorer)
@@ -118,7 +143,7 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, workDir,
 		status:       status,
 		borders:      borders,
 		settings:     &cfg.Settings,
-		cwd:          workDir,
+		workspace:    ws,
 		palette:      buildTerminalPalettePtr(cfg.Theme),
 	}
 }

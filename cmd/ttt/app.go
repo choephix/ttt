@@ -9,6 +9,7 @@ import (
 	"ttt/internal/terminal"
 	"ttt/internal/ui"
 	"ttt/internal/view"
+	"ttt/internal/workspace"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -35,7 +36,7 @@ type App struct {
 	screen       *term.TcellScreen
 	renderer     *render.Renderer
 	settings     *config.Settings
-	cwd          string
+	workspace    *workspace.Workspace
 	palette      *ui.TerminalColorPalette
 	terminals    []terminalTab
 }
@@ -160,6 +161,31 @@ func (a *App) CloseAllTerminals() {
 	for i := len(panels) - 1; i >= 0; i-- {
 		a.CloseTerminal(panels[i])
 	}
+}
+
+func (a *App) refreshWorkspaceWidgets() {
+	paths := a.workspace.Paths()
+
+	existing := make(map[string]bool)
+	for _, r := range a.explorer.Roots {
+		existing[r.Path] = true
+	}
+	wanted := make(map[string]bool)
+	for _, p := range paths {
+		wanted[p] = true
+		if !existing[p] {
+			a.explorer.AddRoot(p)
+		}
+	}
+	for _, r := range a.explorer.Roots {
+		if !wanted[r.Path] {
+			a.explorer.RemoveRoot(r.Path)
+		}
+	}
+
+	a.search.SetWorkDirs(paths)
+	a.changes.SetDirs(paths)
+	a.changes.Refresh()
 }
 
 func (a *App) ShowDialog(w ui.Widget) {
