@@ -102,10 +102,13 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	if cs.ShowBottom {
 		needed := cs.BottomH + 1
-		if needed >= r.H {
-			needed = r.H - 1
+		if needed > r.H {
+			needed = r.H
 		}
 		divY := r.Y + r.H - needed
+		if divY < r.Y {
+			divY = r.Y
+		}
 
 		if btn&tcell.Button1 != 0 && my == divY {
 			cs.dragging = true

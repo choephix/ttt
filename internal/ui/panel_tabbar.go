@@ -11,10 +11,9 @@ type PanelTabBarWidget struct {
 	Tabs       []Tab
 	Borders    *term.BorderSet
 	OnTabClick func(index int)
-	OnTabClose func(index int)
 	OnAdd      func()
+	MoreButton *MoreButtonWidget
 	tabSpans   [][2]int
-	closeSpans [][2]int
 	addSpan    [2]int
 }
 
@@ -30,13 +29,24 @@ func (p *PanelTabBarWidget) Focusable() bool { return false }
 
 func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 	w, _ := surface.Size()
+	r := p.GetRect()
 
 	for x := 0; x < w; x++ {
 		surface.SetCell(x, 0, term.Cell{Ch: ' '})
 	}
 
+	// Reserve right side for + and ⋮ buttons
+	rightW := 0
+	if p.OnAdd != nil {
+		rightW += 3
+	}
+	if p.MoreButton != nil {
+		rightW += 3
+	}
+	tabAreaW := w - rightW
+
+	// Render tabs on the left
 	p.tabSpans = p.tabSpans[:0]
-	p.closeSpans = p.closeSpans[:0]
 	x := 0
 	for _, tab := range p.Tabs {
 		style := term.StyleInactiveTab
@@ -46,36 +56,42 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 		startX := x
 		label := " " + tab.Name + " "
 		for _, ch := range label {
-			if x >= w {
+			if x >= tabAreaW {
 				break
 			}
 			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
 			x++
 		}
-		if tab.Active && p.OnTabClose != nil && x+2 <= w {
-			closeStart := x
-			surface.SetCell(x, 0, term.Cell{Ch: '×', Style: style})
-			x++
-			surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
-			x++
-			p.closeSpans = append(p.closeSpans, [2]int{closeStart, x})
-		} else {
-			p.closeSpans = append(p.closeSpans, [2]int{0, 0})
-		}
 		p.tabSpans = append(p.tabSpans, [2]int{startX, x})
 	}
 
-	if p.OnAdd != nil && x+3 < w {
-		p.addSpan = [2]int{x, x + 3}
-		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
-		surface.SetCell(x+1, 0, term.Cell{Ch: '+', Style: term.StyleInactiveTab})
-		surface.SetCell(x+2, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+	// Render + and ⋮ on the right
+	rx := w - rightW
+	if p.OnAdd != nil {
+		p.addSpan = [2]int{rx, rx + 3}
+		surface.SetCell(rx, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+		surface.SetCell(rx+1, 0, term.Cell{Ch: '+', Style: term.StyleInactiveTab})
+		surface.SetCell(rx+2, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+		rx += 3
 	} else {
 		p.addSpan = [2]int{0, 0}
+	}
+
+	if p.MoreButton != nil {
+		p.MoreButton.SetRect(Rect{X: r.X + rx, Y: r.Y, W: 3, H: 1})
+		moreSurface := surface.Sub(Rect{X: rx, Y: 0, W: 3, H: 1})
+		p.MoreButton.Render(moreSurface)
 	}
 }
 
 func (p *PanelTabBarWidget) HandleEvent(ev tcell.Event) EventResult {
+	// Check MoreButton first (it uses absolute coords internally)
+	if p.MoreButton != nil {
+		if result := p.MoreButton.HandleEvent(ev); result == EventConsumed {
+			return EventConsumed
+		}
+	}
+
 	mev, ok := ev.(*tcell.EventMouse)
 	if !ok {
 		return EventIgnored
@@ -90,15 +106,6 @@ func (p *PanelTabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	if p.OnAdd != nil && lx >= p.addSpan[0] && lx < p.addSpan[1] {
 		p.OnAdd()
 		return EventConsumed
-	}
-
-	for i, span := range p.closeSpans {
-		if span[0] != span[1] && lx >= span[0] && lx < span[1] {
-			if p.OnTabClose != nil {
-				p.OnTabClose(i)
-			}
-			return EventConsumed
-		}
 	}
 
 	for i, span := range p.tabSpans {

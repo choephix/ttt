@@ -288,15 +288,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		idx := len(app.terminals)
 		app.terminals = append(app.terminals, terminalTab{term: t, widget: tw})
 
-		shellName := filepath.Base(app.settings.Terminal.Shell)
-		if shellName == "" || shellName == "." {
-			if s := os.Getenv("SHELL"); s != "" {
-				shellName = filepath.Base(s)
-			} else {
-				shellName = "sh"
-			}
-		}
-		label := fmt.Sprintf("%s %d", shellName, idx+1)
+		label := fmt.Sprintf("[>_%d]", idx+1)
 		app.bottomPanel.AddPanel(fmt.Sprintf("terminal-%d", idx), label, tw)
 		app.bottomPanel.SetActivePanel(fmt.Sprintf("terminal-%d", idx))
 
@@ -324,6 +316,12 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		ID: "terminal.toggle", Title: "Toggle Terminal",
 		Handler: func() {
 			if !app.contentSplit.ShowBottom {
+				r := app.contentSplit.GetRect()
+				half := r.H / 2
+				if half > r.H-4 {
+					half = r.H - 4
+				}
+				app.contentSplit.BottomH = half
 				app.contentSplit.ShowBottom = true
 				if len(app.terminals) == 0 {
 					spawnTerminal()
@@ -926,12 +924,25 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		reg.Execute("terminal.new")
 	}
 
-	app.bottomPanel.TabBar.OnTabClose = func(index int) {
-		panels := app.bottomPanel.PanelIDs()
-		if index >= 0 && index < len(panels) {
-			app.closeTerminal(panels[index])
+	app.bottomPanel.TabBar.MoreButton = ui.NewMoreButtonWidget()
+	app.bottomPanel.TabBar.MoreButton.OnClick = func(sx, sy int) {
+		items := []ui.ContextMenuItem{
+			{Label: "New Terminal", Command: "terminal.new"},
+			ui.MenuSep(),
+			{Label: "Close All Terminals", Command: "terminal.closeAll"},
 		}
+		openContextMenu(app, reg, items, sx, sy)
 	}
+
+	reg.Register(command.Command{
+		ID: "terminal.closeAll", Title: "Close All Terminals",
+		Handler: func() {
+			panels := app.bottomPanel.PanelIDs()
+			for i := len(panels) - 1; i >= 0; i-- {
+				app.closeTerminal(panels[i])
+			}
+		},
+	})
 }
 
 // Commands that work even when terminal has raw key focus.
