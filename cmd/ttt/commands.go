@@ -821,6 +821,20 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		}
 	}
 
+	app.sidebar.OnTabOverflow = func(ids []string, titles []string, sx, sy int) {
+		var items []ui.ContextMenuItem
+		for i, id := range ids {
+			panelID := id
+			items = append(items, ui.ContextMenuItem{Label: titles[i], Command: "sidebar.overflow." + panelID})
+			reg.Register(command.Command{
+				ID:      "sidebar.overflow." + panelID,
+				Title:   titles[i],
+				Handler: func() { app.sidebar.SetActivePanel(panelID) },
+			})
+		}
+		openContextMenu(app, reg, items, sx, sy)
+	}
+
 	app.editorGroup.TabBar.OnTabClose = func(index int) {
 		app.editorGroup.SwitchTab(index)
 		reg.Execute("tab.close")

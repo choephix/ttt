@@ -9,9 +9,10 @@ import (
 type SidebarWidget struct {
 	BaseWidget
 	TabbedPanel
-	Visible    bool
-	MoreButton *MoreButtonWidget
-	OnSwitch   func(id string)
+	Visible        bool
+	MoreButton     *MoreButtonWidget
+	OnSwitch       func(id string)
+	OnTabOverflow  func(hiddenIDs []string, hiddenTitles []string, screenX, screenY int)
 }
 
 func NewSidebarWidget() *SidebarWidget {
@@ -21,6 +22,19 @@ func NewSidebarWidget() *SidebarWidget {
 		MoreButton:  NewMoreButtonWidget(),
 	}
 	s.InitTabClick()
+	s.TabBar.OnOverflow = func(screenX, screenY int) {
+		if s.OnTabOverflow == nil {
+			return
+		}
+		var ids, titles []string
+		for _, idx := range s.TabBar.HiddenTabs {
+			if idx >= 0 && idx < len(s.panels) {
+				ids = append(ids, s.panels[idx].ID)
+				titles = append(titles, s.panels[idx].Title)
+			}
+		}
+		s.OnTabOverflow(ids, titles, screenX, screenY)
+	}
 	return s
 }
 
@@ -35,16 +49,11 @@ func (s *SidebarWidget) Render(surface *RenderSurface) {
 		return
 	}
 
+	s.TabBar.MoreButton = s.MoreButton
 	s.TabBar.Borders = s.Borders
 	s.TabBar.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
 	tabSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: 1})
 	s.TabBar.Render(tabSurface)
-
-	if s.MoreButton != nil && w >= 5 {
-		s.MoreButton.SetRect(Rect{X: r.X + w - 4, Y: r.Y, W: 3, H: 1})
-		moreSurface := surface.Sub(Rect{X: w - 4, Y: 0, W: 3, H: 1})
-		s.MoreButton.Render(moreSurface)
-	}
 
 	bs := term.StyleBorder
 	horizontal := '─'

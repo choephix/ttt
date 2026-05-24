@@ -12,9 +12,12 @@ type PanelTabBarWidget struct {
 	Borders    *term.BorderSet
 	OnTabClick func(index int)
 	OnAdd      func()
+	OnOverflow func(screenX, screenY int)
 	MoreButton *MoreButtonWidget
 	tabSpans   [][2]int
 	addSpan    [2]int
+	overSpan   [2]int
+	HiddenTabs []int
 }
 
 func NewPanelTabBarWidget() *PanelTabBarWidget {
@@ -43,12 +46,34 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 	if p.MoreButton != nil {
 		rightW += 3
 	}
+	overflowW := 3 // " › "
 	tabAreaW := w - rightW
+
+	// Measure which tabs fit
+	p.HiddenTabs = p.HiddenTabs[:0]
+	tabWidths := make([]int, len(p.Tabs))
+	total := 0
+	for i, tab := range p.Tabs {
+		tw := len([]rune(tab.Name)) + 2 // " name "
+		tabWidths[i] = tw
+		total += tw
+	}
+
+	// If tabs overflow, figure out how many fit with the >> button
+	hasOverflow := total > tabAreaW
+	if hasOverflow {
+		tabAreaW -= overflowW
+	}
 
 	// Render tabs on the left
 	p.tabSpans = p.tabSpans[:0]
 	x := 0
-	for _, tab := range p.Tabs {
+	for i, tab := range p.Tabs {
+		if x+tabWidths[i] > tabAreaW && hasOverflow {
+			p.HiddenTabs = append(p.HiddenTabs, i)
+			p.tabSpans = append(p.tabSpans, [2]int{0, 0})
+			continue
+		}
 		style := term.StyleInactiveTab
 		if tab.Active {
 			style = term.StyleActiveTab
@@ -63,6 +88,17 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 			x++
 		}
 		p.tabSpans = append(p.tabSpans, [2]int{startX, x})
+	}
+
+	// Render >> overflow button
+	p.overSpan = [2]int{0, 0}
+	if hasOverflow {
+		ox := tabAreaW
+		p.overSpan = [2]int{ox, ox + overflowW}
+		style := term.StyleInactiveTab
+		surface.SetCell(ox, 0, term.Cell{Ch: ' ', Style: style})
+		surface.SetCell(ox+1, 0, term.Cell{Ch: '»', Style: style})
+		surface.SetCell(ox+2, 0, term.Cell{Ch: ' ', Style: style})
 	}
 
 	// Render + and ⋮ on the right
@@ -105,6 +141,12 @@ func (p *PanelTabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	if p.OnAdd != nil && lx >= p.addSpan[0] && lx < p.addSpan[1] {
 		p.OnAdd()
+		return EventConsumed
+	}
+
+	if p.OnOverflow != nil && p.overSpan[1] > 0 && lx >= p.overSpan[0] && lx < p.overSpan[1] {
+		mx, my := mev.Position()
+		p.OnOverflow(mx, my)
 		return EventConsumed
 	}
 

@@ -188,28 +188,33 @@ func TestSidebarTabClick(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
+	// Widen sidebar so all 4 tabs are visible without overflow
+	h.app.splitPanel.DividerPos = 40
+	h.app.root.SetSize(80, 24)
+	h.redraw()
+
 	if h.app.sidebar.ActivePanel != "explorer" {
 		t.Fatalf("expected active panel 'explorer', got %q", h.app.sidebar.ActivePanel)
 	}
 
 	// Sidebar tabs render at y=1 (row below menu bar).
-	// Tabs are: " Explore " (x=0..8), " Find " (x=9..14), " Changes " (x=15..23)
+	// Tabs: " Explore " (x=0..8), " Find " (x=9..14), " Changes " (x=15..23), " Debug " (x=24..30)
 	sidebarY := h.app.sidebar.GetRect().Y
 	sidebarX := h.app.sidebar.GetRect().X
 
-	// Click on "Search" tab (within x=7..14)
+	// Click on "Find" tab
 	h.click(sidebarX+10, sidebarY)
 	if h.app.sidebar.ActivePanel != "search" {
 		t.Errorf("expected active panel 'search' after click, got %q", h.app.sidebar.ActivePanel)
 	}
 
-	// Click on "Changes" tab (within x=15..23)
+	// Click on "Changes" tab
 	h.click(sidebarX+18, sidebarY)
 	if h.app.sidebar.ActivePanel != "changes" {
 		t.Errorf("expected active panel 'changes' after click, got %q", h.app.sidebar.ActivePanel)
 	}
 
-	// Click back on "Explore" tab (within x=0..6)
+	// Click back on "Explore" tab
 	h.click(sidebarX+3, sidebarY)
 	if h.app.sidebar.ActivePanel != "explorer" {
 		t.Errorf("expected active panel 'explorer' after click, got %q", h.app.sidebar.ActivePanel)
@@ -325,13 +330,19 @@ func TestSidebarPanelSwitching(t *testing.T) {
 	defer h.stop()
 
 	h.exec("sidebar.explorer")
-	h.assertContains("Explore")
+	if h.app.sidebar.ActivePanel != "explorer" {
+		t.Errorf("expected active panel 'explorer', got %q", h.app.sidebar.ActivePanel)
+	}
 
 	h.exec("sidebar.search")
-	h.assertContains("Find")
+	if h.app.sidebar.ActivePanel != "search" {
+		t.Errorf("expected active panel 'search', got %q", h.app.sidebar.ActivePanel)
+	}
 
 	h.exec("sidebar.changes")
-	h.assertContains("Changes")
+	if h.app.sidebar.ActivePanel != "changes" {
+		t.Errorf("expected active panel 'changes', got %q", h.app.sidebar.ActivePanel)
+	}
 }
 
 func TestCommandPaletteOpenClose(t *testing.T) {
@@ -647,5 +658,44 @@ func TestFocusEditor(t *testing.T) {
 	h.exec("editor.focus")
 	if h.app.root.Focused != h.app.editorGroup {
 		t.Error("focus should be on editor after editor.focus")
+	}
+}
+
+func TestSidebarTabOverflow(t *testing.T) {
+	// 3 tabs: Explore(9) + Find(6) + Changes(9) = 24 chars + MoreButton(3) = 27
+	// Narrow sidebar (20) triggers overflow; default (30) fits all
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.app.splitPanel.DividerPos = 20
+	h.app.root.SetSize(80, 24)
+	h.redraw()
+
+	sidebarY := h.app.sidebar.GetRect().Y
+	row := h.screenRow(sidebarY)
+	t.Logf("sidebar row (w=20): %q", row)
+
+	if !strings.Contains(row, "»") {
+		t.Errorf("expected overflow » indicator in narrow sidebar, got: %s", row)
+	}
+
+	if len(h.app.sidebar.TabBar.HiddenTabs) == 0 {
+		t.Error("expected at least one hidden tab due to overflow")
+	}
+
+	// Default width: all tabs should fit without overflow
+	h.app.splitPanel.DividerPos = 30
+	h.app.root.SetSize(80, 24)
+	h.redraw()
+
+	row = h.screenRow(sidebarY)
+	t.Logf("sidebar row (w=30): %q", row)
+
+	if strings.Contains(row, "»") {
+		t.Errorf("expected no overflow with default sidebar, got: %s", row)
+	}
+
+	if len(h.app.sidebar.TabBar.HiddenTabs) != 0 {
+		t.Errorf("expected 0 hidden tabs with default sidebar, got %d", len(h.app.sidebar.TabBar.HiddenTabs))
 	}
 }
