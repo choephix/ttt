@@ -19,11 +19,11 @@ type TerminalColorPalette struct {
 type TerminalWidget struct {
 	BaseWidget
 	Term    *terminal.Terminal
-	Palette TerminalColorPalette
+	Palette *TerminalColorPalette
 	focused bool
 }
 
-func NewTerminalWidget(t *terminal.Terminal, palette TerminalColorPalette) *TerminalWidget {
+func NewTerminalWidget(t *terminal.Terminal, palette *TerminalColorPalette) *TerminalWidget {
 	return &TerminalWidget{
 		Term:    t,
 		Palette: palette,

@@ -99,7 +99,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 	root := ui.NewRoot(rootBox)
 	root.SetFocus(editorGroup)
 
-	palette := buildTerminalPalette(cfg.Theme.Terminal)
+	palette := buildTerminalPalettePtr(cfg.Theme)
 
 	app := &appWidgets{
 		root:         root,

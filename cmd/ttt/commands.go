@@ -43,7 +43,7 @@ type appWidgets struct {
 	renderer     interface{ Clear() }
 	settings     *config.Settings
 	cwd          string
-	palette      ui.TerminalColorPalette
+	palette      *ui.TerminalColorPalette
 	terminals    []terminalTab
 
 	showSidebar      func()
@@ -482,13 +482,18 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			picker := ui.NewCommandPaletteWidget(cmds)
 			picker.Borders = app.borders
 			originalStyleMap := app.screen.GetStyleMap()
+			originalPalette := *app.palette
+			applyTheme := func(theme config.ThemeConfig) {
+				app.screen.SetStyleMap(buildStyleMap(theme))
+				*app.palette = buildTerminalPalette(theme)
+				app.renderer.Clear()
+			}
 			picker.OnSelectionChange = func(path string) {
 				theme, err := config.LoadThemeFromFile(path)
 				if err != nil {
 					return
 				}
-				app.screen.SetStyleMap(buildStyleMap(theme))
-				app.renderer.Clear()
+				applyTheme(theme)
 			}
 			picker.OnExecute = func(path string) {
 				app.root.PopOverlay()
@@ -497,8 +502,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				if err != nil {
 					return
 				}
-				app.screen.SetStyleMap(buildStyleMap(theme))
-				app.renderer.Clear()
+				applyTheme(theme)
 				name := filepath.Base(path)
 				name = strings.TrimPrefix(name, "theme.")
 				name = strings.TrimSuffix(name, ".json")
@@ -509,6 +513,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.root.PopOverlay()
 				app.root.SetFocus(app.editorGroup)
 				app.screen.SetStyleMap(originalStyleMap)
+				*app.palette = originalPalette
 				app.renderer.Clear()
 			}
 			app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})

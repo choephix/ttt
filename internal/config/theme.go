@@ -95,8 +95,6 @@ type TerminalColors struct {
 
 func DefaultTerminalColors() TerminalColors {
 	return TerminalColors{
-		Foreground:    "#d4d4d4",
-		Background:    "#1e1e1e",
 		Black:         "#1e1e1e",
 		Red:           "#f44747",
 		Green:         "#6a9955",

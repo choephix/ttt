@@ -100,11 +100,25 @@ func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 	m[idx] = s
 }
 
-func buildTerminalPalette(tc config.TerminalColors) ui.TerminalColorPalette {
+func buildTerminalPalettePtr(theme config.ThemeConfig) *ui.TerminalColorPalette {
+	p := buildTerminalPalette(theme)
+	return &p
+}
+
+func buildTerminalPalette(theme config.ThemeConfig) ui.TerminalColorPalette {
+	tc := theme.Terminal
+	fg := tc.Foreground
+	if fg == "" {
+		fg = theme.Default.Fg
+	}
+	bg := tc.Background
+	if bg == "" {
+		bg = theme.Default.Bg
+	}
 	ansi := tc.ANSIPalette()
 	p := ui.TerminalColorPalette{
-		Fg:       ui.ParseHexColor(tc.Foreground),
-		Bg:       ui.ParseHexColor(tc.Background),
+		Fg:       ui.ParseHexColor(fg),
+		Bg:       ui.ParseHexColor(bg),
 		Color256: ui.Build256Palette(),
 	}
 	for i, hex := range ansi {
