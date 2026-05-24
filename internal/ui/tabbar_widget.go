@@ -15,9 +15,10 @@ type tabSpan struct {
 }
 
 type Tab struct {
-	Name   string
-	Dirty  bool
-	Active bool
+	Name     string
+	Dirty    bool
+	Active   bool
+	Closable bool
 }
 
 type TabBarWidget struct {
@@ -46,7 +47,7 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 	if tab.Dirty {
 		label += "*"
 	}
-	if tab.Active {
+	if tab.Active && tab.Closable {
 		label += " ×"
 	}
 	label += " "

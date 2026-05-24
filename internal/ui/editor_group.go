@@ -195,7 +195,17 @@ func (g *EditorGroupWidget) CloseTab() {
 		return
 	}
 	g.tabs = append(g.tabs[:g.active], g.tabs[g.active+1:]...)
-	if g.active >= len(g.tabs) {
+	if len(g.tabs) == 0 {
+		g.tabs = []editorTab{{
+			FilePath: "untitled",
+			Buf:      &buffer.Buffer{Lines: []string{""}},
+			Cur:      &cursor.Cursor{},
+			Vp:       &view.Viewport{},
+			Undo:     &undo.UndoStack{},
+			Sel:      &selection.Selection{},
+		}}
+		g.active = 0
+	} else if g.active >= len(g.tabs) {
 		g.active = len(g.tabs) - 1
 	}
 	g.syncTabs()
@@ -465,10 +475,15 @@ func (g *EditorGroupWidget) syncTabs() {
 		if ts.Buf != nil {
 			dirty = ts.Buf.Dirty
 		}
+		closable := true
+		if len(g.tabs) == 1 && ts.FilePath == "untitled" && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
+			closable = false
+		}
 		uiTabs = append(uiTabs, Tab{
-			Name:   ts.FilePath,
-			Active: i == g.active,
-			Dirty:  dirty,
+			Name:     ts.FilePath,
+			Active:   i == g.active,
+			Dirty:    dirty,
+			Closable: closable,
 		})
 	}
 	g.TabBar.SetTabs(uiTabs)
