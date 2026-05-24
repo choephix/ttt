@@ -51,6 +51,24 @@
     "tag": { "fg": "#f92672" },
     "attribute": { "fg": "#a6e22e" }
   },
+  "terminal": {
+    "black": "#272822",
+    "red": "#f92672",
+    "green": "#a6e22e",
+    "yellow": "#e6db74",
+    "blue": "#66d9ef",
+    "magenta": "#ae81ff",
+    "cyan": "#a1efe4",
+    "white": "#f8f8f2",
+    "brightBlack": "#75715e",
+    "brightRed": "#f44747",
+    "brightGreen": "#b6e354",
+    "brightYellow": "#eae07e",
+    "brightBlue": "#78dce8",
+    "brightMagenta": "#c0a0ff",
+    "brightCyan": "#a4f4e8",
+    "brightWhite": "#f9f8f5"
+  },
   "borders": {
     "horizontal": "─",
     "vertical": "│",
