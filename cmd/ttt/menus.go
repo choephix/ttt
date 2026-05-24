@@ -45,7 +45,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Changes", Shortcut: "Ctrl+D", Command: "sidebar.changes"},
 		ui.MenuSep(),
 		{Label: "Toggle Sidebar", Shortcut: "Ctrl+B", Command: "sidebar.toggle"},
-		{Label: "Toggle Panel", Shortcut: "Ctrl+T", Command: "panel.toggle"},
+		{Label: "Toggle Panel", Shortcut: "Ctrl+`", Command: "panel.toggle"},
 		ui.MenuSep(),
 		{Label: "Switch Theme", Shortcut: "Ctrl+K T", Command: "theme.switch"},
 	},
