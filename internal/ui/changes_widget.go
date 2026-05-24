@@ -9,10 +9,9 @@ import (
 
 type ChangesWidget struct {
 	BaseWidget
+	SelectableList
 	Dir        string
 	Files      []git.FileStatus
-	Selected   int
-	ScrollTop  int
 	OnOpenDiff   func(status git.FileStatus)
 	OnRightClick func(status git.FileStatus, screenX, screenY int)
 }
@@ -32,12 +31,7 @@ func (c *ChangesWidget) Refresh() {
 		return
 	}
 	c.Files = files
-	if c.Selected >= len(c.Files) {
-		c.Selected = len(c.Files) - 1
-	}
-	if c.Selected < 0 {
-		c.Selected = 0
-	}
+	c.ClampSelected(len(c.Files))
 }
 
 func statusStyle(status string) term.Style {
@@ -70,12 +64,7 @@ func (c *ChangesWidget) Render(surface *RenderSurface) {
 	if h <= 0 {
 		return
 	}
-	if c.Selected < c.ScrollTop {
-		c.ScrollTop = c.Selected
-	}
-	if c.Selected >= c.ScrollTop+h {
-		c.ScrollTop = c.Selected - h + 1
-	}
+	c.EnsureVisible(h)
 
 	for i := 0; i < h; i++ {
 		idx := c.ScrollTop + i
@@ -139,70 +128,24 @@ func statusBadge(status string) string {
 }
 
 func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
-	switch tev := ev.(type) {
-	case *tcell.EventMouse:
-		btn := tev.Buttons()
-		if btn&tcell.Button1 != 0 {
-			_, my := tev.Position()
-			r := c.GetRect()
-			localY := my - r.Y
-			idx := c.ScrollTop + localY
-			if idx >= 0 && idx < len(c.Files) {
-				c.Selected = idx
-				c.openSelected()
-			}
-			return EventConsumed
-		}
-		if btn&tcell.Button2 != 0 && c.OnRightClick != nil {
-			mx, my := tev.Position()
-			r := c.GetRect()
-			localY := my - r.Y
-			idx := c.ScrollTop + localY
-			if idx >= 0 && idx < len(c.Files) {
-				c.Selected = idx
-				c.OnRightClick(c.Files[idx], mx, my)
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelUp != 0 {
-			c.ScrollTop -= 3
-			if c.ScrollTop < 0 {
-				c.ScrollTop = 0
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelDown != 0 {
-			r := c.GetRect()
-			max := len(c.Files) - r.H
-			if max < 0 {
-				max = 0
-			}
-			c.ScrollTop += 3
-			if c.ScrollTop > max {
-				c.ScrollTop = max
-			}
-			return EventConsumed
-		}
-	case *tcell.EventKey:
-		switch tev.Key() {
-		case tcell.KeyUp:
-			if c.Selected > 0 {
-				c.Selected--
-			}
-			return EventConsumed
-		case tcell.KeyDown:
-			if c.Selected < len(c.Files)-1 {
-				c.Selected++
-			}
-			return EventConsumed
-		case tcell.KeyEnter:
+	r := c.GetRect()
+	res := c.SelectableList.HandleListEvent(ev, r, len(c.Files))
+	if res.Result == EventConsumed {
+		switch res.Action {
+		case ListActionActivate:
 			c.openSelected()
-			return EventConsumed
-		case tcell.KeyRune:
-			if tev.Rune() == 'r' || tev.Rune() == 'R' {
-				c.Refresh()
-				return EventConsumed
+		case ListActionContext:
+			if c.OnRightClick != nil && c.Selected >= 0 && c.Selected < len(c.Files) {
+				c.OnRightClick(c.Files[c.Selected], res.ScreenX, res.ScreenY)
 			}
+		}
+		return EventConsumed
+	}
+
+	if tev, ok := ev.(*tcell.EventKey); ok {
+		if tev.Key() == tcell.KeyRune && (tev.Rune() == 'r' || tev.Rune() == 'R') {
+			c.Refresh()
+			return EventConsumed
 		}
 	}
 	return EventIgnored

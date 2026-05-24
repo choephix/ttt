@@ -21,10 +21,9 @@ type TreeNode struct {
 
 type ExplorerWidget struct {
 	BaseWidget
+	SelectableList
 	Root       *TreeNode
 	FlatList   []*TreeNode
-	Selected   int
-	ScrollTop  int
 	ActiveFile string
 	OnOpenFile   func(path string)
 	OnRightClick func(node *TreeNode, screenX, screenY int)
@@ -57,12 +56,7 @@ func (e *ExplorerWidget) Reload() {
 	e.loadChildren(e.Root)
 	e.reloadExpanded(e.Root)
 	e.flatten()
-	if e.Selected >= len(e.FlatList) {
-		e.Selected = len(e.FlatList) - 1
-	}
-	if e.Selected < 0 {
-		e.Selected = 0
-	}
+	e.ClampSelected(len(e.FlatList))
 }
 
 func (e *ExplorerWidget) reloadExpanded(node *TreeNode) {
@@ -125,17 +119,11 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 
-	// Ensure scroll follows selected
 	visibleHeight := h
 	if visibleHeight <= 0 {
 		return
 	}
-	if e.Selected < e.ScrollTop {
-		e.ScrollTop = e.Selected
-	}
-	if e.Selected >= e.ScrollTop+visibleHeight {
-		e.ScrollTop = e.Selected - visibleHeight + 1
-	}
+	e.EnsureVisible(visibleHeight)
 
 	for i := 0; i < visibleHeight; i++ {
 		idx := e.ScrollTop + i
@@ -191,65 +179,22 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 }
 
 func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
-	switch tev := ev.(type) {
-	case *tcell.EventMouse:
-		btn := tev.Buttons()
-		if btn&tcell.Button1 != 0 {
-			_, my := tev.Position()
-			r := e.GetRect()
-			localY := my - r.Y
-			idx := e.ScrollTop + localY
-			if idx >= 0 && idx < len(e.FlatList) {
-				e.Selected = idx
-				e.ActivateSelected()
-			}
-			return EventConsumed
-		}
-		if btn&tcell.Button2 != 0 && e.OnRightClick != nil {
-			mx, my := tev.Position()
-			r := e.GetRect()
-			localY := my - r.Y
-			idx := e.ScrollTop + localY
-			if idx >= 0 && idx < len(e.FlatList) {
-				e.Selected = idx
-				e.OnRightClick(e.FlatList[idx], mx, my)
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelUp != 0 {
-			e.ScrollTop -= 3
-			if e.ScrollTop < 0 {
-				e.ScrollTop = 0
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelDown != 0 {
-			r := e.GetRect()
-			max := len(e.FlatList) - r.H
-			if max < 0 {
-				max = 0
-			}
-			e.ScrollTop += 3
-			if e.ScrollTop > max {
-				e.ScrollTop = max
-			}
-			return EventConsumed
-		}
-	case *tcell.EventKey:
-		switch tev.Key() {
-		case tcell.KeyUp:
-			if e.Selected > 0 {
-				e.Selected--
-			}
-			return EventConsumed
-		case tcell.KeyDown:
-			if e.Selected < len(e.FlatList)-1 {
-				e.Selected++
-			}
-			return EventConsumed
-		case tcell.KeyEnter:
+	r := e.GetRect()
+	res := e.SelectableList.HandleListEvent(ev, r, len(e.FlatList))
+	if res.Result == EventConsumed {
+		switch res.Action {
+		case ListActionActivate:
 			e.ActivateSelected()
-			return EventConsumed
+		case ListActionContext:
+			if e.OnRightClick != nil && e.Selected >= 0 && e.Selected < len(e.FlatList) {
+				e.OnRightClick(e.FlatList[e.Selected], res.ScreenX, res.ScreenY)
+			}
+		}
+		return EventConsumed
+	}
+
+	if tev, ok := ev.(*tcell.EventKey); ok {
+		switch tev.Key() {
 		case tcell.KeyLeft:
 			e.collapseSelected()
 			return EventConsumed

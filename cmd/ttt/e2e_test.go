@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"ttt/internal/command"
@@ -24,6 +26,16 @@ type testHarness struct {
 func newTestHarness(t *testing.T, w, h int) *testHarness {
 	t.Helper()
 
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "alpha.txt"), []byte("a"), 0644)
+	os.WriteFile(filepath.Join(dir, "beta.txt"), []byte("b"), 0644)
+	os.WriteFile(filepath.Join(dir, "gamma.txt"), []byte("c"), 0644)
+	os.WriteFile(filepath.Join(dir, "delta.txt"), []byte("d"), 0644)
+	os.WriteFile(filepath.Join(dir, "epsilon.txt"), []byte("e"), 0644)
+	os.WriteFile(filepath.Join(dir, "zeta.txt"), []byte("f"), 0644)
+	os.MkdirAll(filepath.Join(dir, "subdir"), 0755)
+	os.WriteFile(filepath.Join(dir, "subdir", "nested.txt"), []byte("nested"), 0644)
+
 	sim := tcell.NewSimulationScreen("")
 	if err := sim.Init(); err != nil {
 		t.Fatal(err)
@@ -42,7 +54,7 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 
 	borders := buildBorderSet(cfg.Theme.Borders)
 
-	app := buildTestApp(&cfg, &borders)
+	app := buildAppFromConfig(&cfg, &borders, dir, "")
 	app.screen = screen
 	app.renderer = &render.Renderer{}
 
@@ -64,10 +76,6 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	}
 	h2.redraw()
 	return h2
-}
-
-func buildTestApp(cfg *config.AppConfig, borders *term.BorderSet) *App {
-	return buildAppFromConfig(cfg, borders, "", "")
 }
 
 func (h *testHarness) redraw() {
@@ -424,6 +432,216 @@ func TestThemeSwitchDialog(t *testing.T) {
 			t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.root.Overlays))
 		}
 	}
+}
+
+func TestExplorerKeyNavigation(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+
+	if len(h.app.explorer.FlatList) < 3 {
+		t.Skipf("expected at least 3 explorer items, got %d", len(h.app.explorer.FlatList))
+	}
+
+	h.app.explorer.Selected = 0
+
+	h.pressKey(tcell.KeyDown, tcell.ModNone)
+	if h.app.explorer.Selected != 1 {
+		t.Errorf("expected Selected 1 after Down, got %d", h.app.explorer.Selected)
+	}
+
+	h.pressKey(tcell.KeyDown, tcell.ModNone)
+	if h.app.explorer.Selected != 2 {
+		t.Errorf("expected Selected 2 after second Down, got %d", h.app.explorer.Selected)
+	}
+
+	h.pressKey(tcell.KeyUp, tcell.ModNone)
+	if h.app.explorer.Selected != 1 {
+		t.Errorf("expected Selected 1 after Up, got %d", h.app.explorer.Selected)
+	}
+
+	h.app.explorer.Selected = 0
+	h.pressKey(tcell.KeyUp, tcell.ModNone)
+	if h.app.explorer.Selected != 0 {
+		t.Errorf("expected Selected 0 (clamped at top), got %d", h.app.explorer.Selected)
+	}
+}
+
+func TestExplorerDirExpandCollapse(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+
+	h.app.explorer.Selected = 0
+	root := h.app.explorer.FlatList[0]
+	if !root.IsDir {
+		t.Fatal("expected root to be a directory")
+	}
+
+	initialCount := len(h.app.explorer.FlatList)
+
+	h.pressKey(tcell.KeyLeft, tcell.ModNone)
+	if root.Expanded {
+		t.Error("expected root to be collapsed after Left")
+	}
+	if len(h.app.explorer.FlatList) >= initialCount {
+		t.Error("expected fewer items after collapsing root")
+	}
+
+	h.pressKey(tcell.KeyRight, tcell.ModNone)
+	if !root.Expanded {
+		t.Error("expected root to be expanded after Right")
+	}
+	if len(h.app.explorer.FlatList) != initialCount {
+		t.Errorf("expected %d items after re-expanding, got %d", initialCount, len(h.app.explorer.FlatList))
+	}
+}
+
+func TestExplorerEnterOpensFile(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+
+	fileIdx := -1
+	for i, node := range h.app.explorer.FlatList {
+		if !node.IsDir {
+			fileIdx = i
+			break
+		}
+	}
+	if fileIdx < 0 {
+		t.Skip("no file found in explorer")
+	}
+
+	h.app.explorer.Selected = fileIdx
+	expectedPath := h.app.explorer.FlatList[fileIdx].Path
+
+	h.pressKey(tcell.KeyEnter, tcell.ModNone)
+
+	if h.app.editorGroup.ActiveFilePath() != expectedPath {
+		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.editorGroup.ActiveFilePath())
+	}
+}
+
+func TestExplorerEnterToggleDir(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+
+	h.app.explorer.Selected = 0
+	root := h.app.explorer.FlatList[0]
+	if !root.IsDir || !root.Expanded {
+		t.Fatal("expected root to be an expanded directory")
+	}
+
+	h.pressKey(tcell.KeyEnter, tcell.ModNone)
+	if root.Expanded {
+		t.Error("expected root to be collapsed after Enter")
+	}
+
+	h.pressKey(tcell.KeyEnter, tcell.ModNone)
+	if !root.Expanded {
+		t.Error("expected root to be expanded after second Enter")
+	}
+}
+
+func TestExplorerClickOpensFile(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+	h.redraw()
+
+	fileIdx := -1
+	for i, node := range h.app.explorer.FlatList {
+		if !node.IsDir {
+			fileIdx = i
+			break
+		}
+	}
+	if fileIdx < 0 {
+		t.Skip("no file found in explorer")
+	}
+
+	r := h.app.explorer.GetRect()
+	clickY := r.Y + (fileIdx - h.app.explorer.ScrollTop)
+	h.click(r.X+5, clickY)
+
+	if h.app.explorer.Selected != fileIdx {
+		t.Errorf("expected Selected %d after click, got %d", fileIdx, h.app.explorer.Selected)
+	}
+
+	expectedPath := h.app.explorer.FlatList[fileIdx].Path
+	if h.app.editorGroup.ActiveFilePath() != expectedPath {
+		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.editorGroup.ActiveFilePath())
+	}
+}
+
+func TestExplorerScrollFollowing(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+
+	itemCount := len(h.app.explorer.FlatList)
+	if itemCount < 5 {
+		t.Skipf("need at least 5 items for scroll test, got %d", itemCount)
+	}
+
+	h.app.explorer.Selected = itemCount - 1
+	r := h.app.explorer.GetRect()
+	contentH := r.H
+
+	h.redraw()
+
+	if contentH > 0 && itemCount > contentH {
+		if h.app.explorer.ScrollTop == 0 {
+			t.Error("expected ScrollTop > 0 when selected item is past visible area")
+		}
+	}
+}
+
+func TestChangesKeyNavigation(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.changes")
+
+	if len(h.app.changes.Files) == 0 {
+		t.Skip("no changed files in working directory")
+	}
+
+	h.app.changes.Selected = 0
+	h.pressKey(tcell.KeyDown, tcell.ModNone)
+	if len(h.app.changes.Files) > 1 {
+		if h.app.changes.Selected != 1 {
+			t.Errorf("expected Selected 1 after Down, got %d", h.app.changes.Selected)
+		}
+	}
+
+	h.pressKey(tcell.KeyUp, tcell.ModNone)
+	if h.app.changes.Selected != 0 {
+		t.Errorf("expected Selected 0 after Up, got %d", h.app.changes.Selected)
+	}
+}
+
+func TestChangesRefreshKey(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.changes")
+
+	countBefore := len(h.app.changes.Files)
+	h.pressRune('r')
+	countAfter := len(h.app.changes.Files)
+
+	// Just verify it doesn't crash; count may or may not change
+	_ = countBefore
+	_ = countAfter
 }
 
 func TestFocusEditor(t *testing.T) {
