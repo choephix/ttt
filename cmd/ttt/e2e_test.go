@@ -613,14 +613,7 @@ func TestChangesKeyNavigation(t *testing.T) {
 
 	h.exec("sidebar.changes")
 
-	hasFiles := false
-	for _, g := range h.app.changes.Groups {
-		if len(g.Files) > 0 {
-			hasFiles = true
-			break
-		}
-	}
-	if !hasFiles {
+	if h.app.changes.TotalChanges() == 0 {
 		t.Skip("no changed files in working directory")
 	}
 

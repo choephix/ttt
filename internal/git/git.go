@@ -12,6 +12,7 @@ import (
 type FileStatus struct {
 	Status string
 	Path   string
+	Staged bool
 }
 
 func RepoRoot(dir string) string {
@@ -40,11 +41,46 @@ func StatusFiles(dir string) ([]FileStatus, error) {
 		if len(line) < 4 {
 			continue
 		}
-		status := strings.TrimSpace(line[:2])
+		x := line[0] // index (staged) status
+		y := line[1] // worktree (unstaged) status
 		path := strings.TrimSpace(line[3:])
-		files = append(files, FileStatus{Status: status, Path: path})
+
+		if x != ' ' && x != '?' {
+			files = append(files, FileStatus{Status: string(x), Path: path, Staged: true})
+		}
+		if y != ' ' {
+			st := string(y)
+			if x == '?' && y == '?' {
+				st = "?"
+			}
+			files = append(files, FileStatus{Status: st, Path: path, Staged: false})
+		}
 	}
 	return files, nil
+}
+
+func Stage(dir, path string) error {
+	cmd := exec.Command("git", "-C", dir, "add", "--", path)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func Unstage(dir, path string) error {
+	cmd := exec.Command("git", "-C", dir, "reset", "HEAD", "--", path)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func Commit(dir, message string) error {
+	cmd := exec.Command("git", "-C", dir, "commit", "-m", message)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func BranchName(dir string) string {

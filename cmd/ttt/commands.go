@@ -815,7 +815,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 
 	app.changes.OnOpenDiff = func(dir string, status git.FileStatus) {
 		fullPath := filepath.Join(dir, status.Path)
-		if status.Status == "??" {
+		if status.Status == "?" {
 			app.editorGroup.OpenFile(fullPath)
 			app.root.SetFocus(app.editorGroup)
 			return
@@ -829,6 +829,15 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		parsed := diff.Parse(diffText)
 		app.editorGroup.OpenDiff(status.Path, parsed)
 		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.changes.OnCommit = func(dir string, message string) {
+		if err := git.Commit(dir, message); err != nil {
+			app.status.Message = "Commit failed: " + err.Error()
+		} else {
+			app.status.Message = "Committed: " + message
+			app.changes.Refresh()
+		}
 	}
 
 	app.contentSplit.OnResize = func(height int) {
