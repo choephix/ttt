@@ -28,6 +28,7 @@ const (
 	itemInput
 	itemBorder
 	itemSection
+	itemSpacer
 )
 
 type changesItem struct {
@@ -68,11 +69,9 @@ func (c *ChangesWidget) SetDirs(dirs []string) {
 }
 
 func (c *ChangesWidget) Refresh() {
-	oldInputs := make(map[string]*InputWidget)
+	oldGroups := make(map[string]ChangesGroup)
 	for _, g := range c.Groups {
-		if g.Input != nil {
-			oldInputs[g.Dir] = g.Input
-		}
+		oldGroups[g.Dir] = g
 	}
 	c.Groups = nil
 	for _, dir := range c.Dirs {
@@ -88,18 +87,26 @@ func (c *ChangesWidget) Refresh() {
 				unstaged = append(unstaged, f)
 			}
 		}
-		input := oldInputs[dir]
-		if input == nil {
-			input = NewInputWidget(" > ")
+		input := NewInputWidget(" > ")
+		expanded := !c.multiRoot
+		stagedExpanded := true
+		changesExpanded := true
+		if old, ok := oldGroups[dir]; ok {
+			if old.Input != nil {
+				input = old.Input
+			}
+			expanded = old.Expanded
+			stagedExpanded = old.StagedExpanded
+			changesExpanded = old.ChangesExpanded
 		}
 		c.Groups = append(c.Groups, ChangesGroup{
 			Dir:             dir,
 			Name:            filepath.Base(dir),
 			Staged:          staged,
 			Unstaged:        unstaged,
-			Expanded:        !c.multiRoot,
-			StagedExpanded:  true,
-			ChangesExpanded: true,
+			Expanded:        expanded,
+			StagedExpanded:  stagedExpanded,
+			ChangesExpanded: changesExpanded,
 			Input:           input,
 		})
 	}
@@ -114,6 +121,9 @@ func (c *ChangesWidget) buildItems() {
 			c.items = append(c.items, changesItem{kind: itemHeader, groupIndex: gi})
 		}
 		if !c.multiRoot || g.Expanded {
+			if c.multiRoot {
+				c.items = append(c.items, changesItem{kind: itemBorder, groupIndex: gi})
+			}
 			c.items = append(c.items, changesItem{kind: itemInput, groupIndex: gi})
 			c.items = append(c.items, changesItem{kind: itemBorder, groupIndex: gi})
 			if len(g.Staged) > 0 {
@@ -132,6 +142,8 @@ func (c *ChangesWidget) buildItems() {
 					}
 				}
 			}
+			c.items = append(c.items, changesItem{kind: itemBorder, groupIndex: gi})
+			c.items = append(c.items, changesItem{kind: itemSpacer, groupIndex: gi})
 		}
 	}
 }
@@ -217,13 +229,15 @@ func (c *ChangesWidget) Render(surface *RenderSurface) {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 		}
 
+		indent := 0
+
 		switch item.kind {
 		case itemHeader:
 			c.renderHeader(surface, y, w, style, item.groupIndex)
 		case itemInput:
-			c.Groups[item.groupIndex].Input.Render(surface, 0, y, w)
+			c.Groups[item.groupIndex].Input.Render(surface, indent, y, w-indent)
 		case itemBorder:
-			for x := 0; x < w; x++ {
+			for x := indent; x < w; x++ {
 				surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
 			}
 		case itemSection:
@@ -270,9 +284,6 @@ func (c *ChangesWidget) renderSectionHeader(surface *RenderSurface, y, w int, st
 	}
 
 	x := 1
-	if c.multiRoot {
-		x = 3
-	}
 
 	chevron := '▶'
 	if expanded {
@@ -318,9 +329,6 @@ func (c *ChangesWidget) renderFile(surface *RenderSurface, y, w int, style term.
 	}
 
 	x := 1
-	if c.multiRoot {
-		x = 3
-	}
 
 	badge := statusBadge(f.Status)
 	badgeStyle := statusStyle(f.Status)
