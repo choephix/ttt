@@ -7,6 +7,7 @@ import (
 	"ttt/internal/config"
 	"ttt/internal/render"
 	"ttt/internal/term"
+	"ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -164,6 +165,107 @@ func (h *testHarness) assertNotContains(text string) {
 
 func (h *testHarness) stop() {
 	h.screen.Fini()
+}
+
+type emptyWidget struct{ ui.BaseWidget }
+
+func newEmptyWidget() *emptyWidget                                       { return &emptyWidget{} }
+func (e *emptyWidget) Focusable() bool                                   { return false }
+func (e *emptyWidget) Render(surface *ui.RenderSurface)                  {}
+func (e *emptyWidget) HandleEvent(ev tcell.Event) ui.EventResult { return ui.EventIgnored }
+
+func TestSidebarTabClick(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	if h.app.sidebar.ActivePanel != "explorer" {
+		t.Fatalf("expected active panel 'explorer', got %q", h.app.sidebar.ActivePanel)
+	}
+
+	// Sidebar tabs render at y=1 (row below menu bar).
+	// Tabs are: " Files " (x=0..6), " Search " (x=7..14), " Changes " (x=15..23)
+	sidebarY := h.app.sidebar.GetRect().Y
+	sidebarX := h.app.sidebar.GetRect().X
+
+	// Click on "Search" tab (within x=7..14)
+	h.click(sidebarX+10, sidebarY)
+	if h.app.sidebar.ActivePanel != "search" {
+		t.Errorf("expected active panel 'search' after click, got %q", h.app.sidebar.ActivePanel)
+	}
+
+	// Click on "Changes" tab (within x=15..23)
+	h.click(sidebarX+18, sidebarY)
+	if h.app.sidebar.ActivePanel != "changes" {
+		t.Errorf("expected active panel 'changes' after click, got %q", h.app.sidebar.ActivePanel)
+	}
+
+	// Click back on "Files" tab (within x=0..6)
+	h.click(sidebarX+3, sidebarY)
+	if h.app.sidebar.ActivePanel != "explorer" {
+		t.Errorf("expected active panel 'explorer' after click, got %q", h.app.sidebar.ActivePanel)
+	}
+}
+
+func TestBottomPanelTabClick(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	// Add two panels to bottom panel
+	h.app.bottomPanel.AddPanel("test-a", "Alpha", newEmptyWidget())
+	h.app.bottomPanel.AddPanel("test-b", "Beta", newEmptyWidget())
+	h.app.contentSplit.ShowBottom = true
+	h.app.contentSplit.BottomH = 10
+	h.redraw()
+
+	if h.app.bottomPanel.ActivePanel != "test-a" {
+		t.Fatalf("expected active panel 'test-a', got %q", h.app.bottomPanel.ActivePanel)
+	}
+
+	// Bottom panel tabs at the top of the bottom panel area
+	panelY := h.app.bottomPanel.GetRect().Y
+	panelX := h.app.bottomPanel.GetRect().X
+
+	// Click on "Beta" tab: " Alpha " is 7 chars, " Beta " starts at x=7
+	h.click(panelX+9, panelY)
+	if h.app.bottomPanel.ActivePanel != "test-b" {
+		t.Errorf("expected active panel 'test-b' after click, got %q", h.app.bottomPanel.ActivePanel)
+	}
+
+	// Click back on "Alpha" tab
+	h.click(panelX+3, panelY)
+	if h.app.bottomPanel.ActivePanel != "test-a" {
+		t.Errorf("expected active panel 'test-a' after click, got %q", h.app.bottomPanel.ActivePanel)
+	}
+}
+
+func TestTabbedPanelRemovePanel(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.app.bottomPanel.AddPanel("p1", "One", newEmptyWidget())
+	h.app.bottomPanel.AddPanel("p2", "Two", newEmptyWidget())
+	h.app.bottomPanel.AddPanel("p3", "Three", newEmptyWidget())
+	h.app.bottomPanel.SetActivePanel("p2")
+
+	if h.app.bottomPanel.PanelCount() != 3 {
+		t.Fatalf("expected 3 panels, got %d", h.app.bottomPanel.PanelCount())
+	}
+
+	// Remove active panel, should switch to next
+	h.app.bottomPanel.RemovePanel("p2")
+	if h.app.bottomPanel.PanelCount() != 2 {
+		t.Fatalf("expected 2 panels, got %d", h.app.bottomPanel.PanelCount())
+	}
+	if h.app.bottomPanel.ActivePanel == "p2" {
+		t.Error("active panel should have changed after removing it")
+	}
+
+	// Remove all
+	h.app.bottomPanel.RemovePanel("p1")
+	h.app.bottomPanel.RemovePanel("p3")
+	if h.app.bottomPanel.PanelCount() != 0 {
+		t.Fatalf("expected 0 panels, got %d", h.app.bottomPanel.PanelCount())
+	}
 }
 
 func TestStartup(t *testing.T) {

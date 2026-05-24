@@ -6,88 +6,25 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type sidebarEntry struct {
-	ID    string
-	Title string
-	W     Widget
-}
-
 type SidebarWidget struct {
 	BaseWidget
-	panels      []sidebarEntry
-	ActivePanel string
-	Visible     bool
-	Borders     *term.BorderSet
-	TabBar      *PanelTabBarWidget
-	MoreButton  *MoreButtonWidget
-	OnSwitch    func(id string)
+	TabbedPanel
+	Visible    bool
+	MoreButton *MoreButtonWidget
+	OnSwitch   func(id string)
 }
 
 func NewSidebarWidget() *SidebarWidget {
-	tabBar := NewPanelTabBarWidget()
-	return &SidebarWidget{
-		Visible:    true,
-		TabBar:     tabBar,
-		MoreButton: NewMoreButtonWidget(),
+	s := &SidebarWidget{
+		TabbedPanel: NewTabbedPanel(),
+		Visible:     true,
+		MoreButton:  NewMoreButtonWidget(),
 	}
-}
-
-func (s *SidebarWidget) AddPanel(id, title string, w Widget) {
-	s.panels = append(s.panels, sidebarEntry{ID: id, Title: title, W: w})
-	if s.ActivePanel == "" {
-		s.ActivePanel = id
-	}
-	s.syncTabs()
-}
-
-func (s *SidebarWidget) SetActivePanel(id string) {
-	for _, p := range s.panels {
-		if p.ID == id {
-			s.ActivePanel = id
-			s.syncTabs()
-			return
-		}
-	}
-}
-
-func (s *SidebarWidget) ActiveWidget() Widget {
-	for _, p := range s.panels {
-		if p.ID == s.ActivePanel {
-			return p.W
-		}
-	}
-	return nil
+	s.InitTabClick()
+	return s
 }
 
 func (s *SidebarWidget) Focusable() bool { return true }
-
-func (s *SidebarWidget) syncTabs() {
-	var tabs []Tab
-	for _, p := range s.panels {
-		tabs = append(tabs, Tab{
-			Name:   p.Title,
-			Active: p.ID == s.ActivePanel,
-		})
-	}
-	s.TabBar.SetTabs(tabs)
-}
-
-func (s *SidebarWidget) handleTabClick(mx int) {
-	x := 0
-	for _, p := range s.panels {
-		label := " " + p.Title + " "
-		end := x + len([]rune(label))
-		if mx >= x && mx < end {
-			s.ActivePanel = p.ID
-			s.syncTabs()
-			if s.OnSwitch != nil {
-				s.OnSwitch(p.ID)
-			}
-			return
-		}
-		x = end
-	}
-}
 
 func (s *SidebarWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
@@ -135,11 +72,10 @@ func (s *SidebarWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 	if tev, ok := ev.(*tcell.EventMouse); ok {
 		if tev.Buttons()&tcell.Button1 != 0 {
-			mx, my := tev.Position()
+			_, my := tev.Position()
 			r := s.GetRect()
 			if my == r.Y {
-				s.handleTabClick(mx - r.X)
-				return EventConsumed
+				return s.TabBar.HandleEvent(ev)
 			}
 		}
 	}

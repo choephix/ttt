@@ -6,103 +6,25 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-type panelEntry struct {
-	ID    string
-	Title string
-	W     Widget
-}
-
 type BottomPanelWidget struct {
 	BaseWidget
-	TabBar      *PanelTabBarWidget
-	panels      []panelEntry
-	ActivePanel string
-	Visible     bool
-	Borders     *term.BorderSet
+	TabbedPanel
+	Visible bool
 }
 
 func NewBottomPanelWidget(borders *term.BorderSet) *BottomPanelWidget {
-	tabBar := NewPanelTabBarWidget()
-	tabBar.Borders = borders
-	return &BottomPanelWidget{
-		TabBar:  tabBar,
-		Visible: true,
-		Borders: borders,
+	tp := NewTabbedPanel()
+	tp.Borders = borders
+	tp.TabBar.Borders = borders
+	bp := &BottomPanelWidget{
+		TabbedPanel: tp,
+		Visible:     true,
 	}
-}
-
-func (bp *BottomPanelWidget) AddPanel(id, title string, w Widget) {
-	bp.panels = append(bp.panels, panelEntry{ID: id, Title: title, W: w})
-	if bp.ActivePanel == "" {
-		bp.ActivePanel = id
-	}
-	bp.syncTabs()
-}
-
-func (bp *BottomPanelWidget) RemovePanel(id string) {
-	for i, p := range bp.panels {
-		if p.ID == id {
-			bp.panels = append(bp.panels[:i], bp.panels[i+1:]...)
-			if bp.ActivePanel == id {
-				if len(bp.panels) > 0 {
-					idx := i
-					if idx >= len(bp.panels) {
-						idx = len(bp.panels) - 1
-					}
-					bp.ActivePanel = bp.panels[idx].ID
-				} else {
-					bp.ActivePanel = ""
-				}
-			}
-			bp.syncTabs()
-			return
-		}
-	}
-}
-
-func (bp *BottomPanelWidget) PanelCount() int {
-	return len(bp.panels)
-}
-
-func (bp *BottomPanelWidget) SetActivePanel(id string) {
-	for _, p := range bp.panels {
-		if p.ID == id {
-			bp.ActivePanel = id
-			bp.syncTabs()
-			return
-		}
-	}
-}
-
-func (bp *BottomPanelWidget) PanelIDs() []string {
-	ids := make([]string, len(bp.panels))
-	for i, p := range bp.panels {
-		ids[i] = p.ID
-	}
-	return ids
-}
-
-func (bp *BottomPanelWidget) ActiveWidget() Widget {
-	for _, p := range bp.panels {
-		if p.ID == bp.ActivePanel {
-			return p.W
-		}
-	}
-	return nil
+	bp.InitTabClick()
+	return bp
 }
 
 func (bp *BottomPanelWidget) Focusable() bool { return true }
-
-func (bp *BottomPanelWidget) syncTabs() {
-	var tabs []Tab
-	for _, p := range bp.panels {
-		tabs = append(tabs, Tab{
-			Name:   p.Title,
-			Active: p.ID == bp.ActivePanel,
-		})
-	}
-	bp.TabBar.SetTabs(tabs)
-}
 
 func (bp *BottomPanelWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
@@ -118,17 +40,14 @@ func (bp *BottomPanelWidget) Render(surface *RenderSurface) {
 		horizontal = bp.Borders.Horizontal
 	}
 
-	// Tab bar: 1 row
 	bp.TabBar.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
 	tabSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: 1})
 	bp.TabBar.Render(tabSurface)
 
-	// Divider line below tabs
 	for x := 0; x < w; x++ {
 		surface.SetCell(x, 1, term.Cell{Ch: horizontal, Style: bs})
 	}
 
-	// Content area below divider
 	contentH := h - 2
 	active := bp.ActiveWidget()
 	if active != nil && contentH > 0 {
