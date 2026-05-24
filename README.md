@@ -17,7 +17,7 @@ A fully-featured code editor that lives in the terminal. Not a simplified termin
 - **Mouse support** — click to position cursor, click tabs, drag sidebar/panel dividers, right-click context menus
 - **Git blame** — inline blame info for the current line shown in the status bar (author, relative time, summary)
 - **Line numbers** with current-line highlighting
-- **Integrated terminal emulator** — multiple tabs, full VT escape sequence support
+- **Integrated terminal emulator** via [vt10x](https://github.com/hinshun/vt10x) — multiple tabs, full VT escape sequence support
 - **Diff-based renderer** for efficient terminal updates (double-buffered cell grid)
 
 ### Multi-Folder Workspaces
