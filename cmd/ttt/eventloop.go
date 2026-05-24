@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"ttt/internal/command"
+	"log/slog"
 	"ttt/internal/git"
 	"ttt/internal/render"
 	"ttt/internal/term"
-	"ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -14,7 +13,6 @@ import (
 func runEventLoop(
 	screen *term.TcellScreen,
 	renderer *render.Renderer,
-	cmdRegistry *command.Registry,
 	app *appWidgets,
 	running *bool,
 	quitPending *bool,
@@ -83,6 +81,7 @@ func runEventLoop(
 				*quitPending = false
 				app.status.Message = ""
 			}
+			slog.Debug("key", "key", tev.Key(), "rune", string(tev.Rune()), "mod", tev.Modifiers())
 			app.root.HandleEvent(tev)
 			syncStatus()
 			redraw()
@@ -90,89 +89,10 @@ func runEventLoop(
 		case *tcell.EventMouse:
 			mx, my := tev.Position()
 			btn := tev.Buttons()
-
-			if len(app.root.Overlays) > 0 {
-				app.root.Overlays[len(app.root.Overlays)-1].Widget.HandleEvent(tev)
-				redraw()
-				continue
-			}
-
-			menuR := app.menuBar.GetRect()
-			if btn&tcell.Button1 != 0 && my == menuR.Y {
-				app.menuBar.HandleEvent(tev)
-				redraw()
-				continue
-			}
-
-			statusR := app.statusBar.GetRect()
-			if btn&tcell.Button1 != 0 && my == statusR.Y {
-				app.statusBar.HandleEvent(tev)
-				redraw()
-				continue
-			}
-
-			if btn&tcell.Button2 != 0 {
-				handleRightClick(app, cmdRegistry, mx, my)
-				redraw()
-				continue
-			}
-
-			if app.splitPanel.HandleEvent(tev) == ui.EventConsumed {
-				redraw()
-				continue
-			}
-
-			if app.contentSplit.HandleEvent(tev) == ui.EventConsumed {
-				redraw()
-				continue
-			}
-
-			isWheel := btn&tcell.WheelUp != 0 || btn&tcell.WheelDown != 0
-
-			if btn&tcell.Button1 != 0 || isWheel {
-				tabR := app.editorGroup.TabBar.GetRect()
-				if btn&tcell.Button1 != 0 && my >= tabR.Y && my <= tabR.Y+1 &&
-					mx >= tabR.X+tabR.W-4 && mx <= tabR.X+tabR.W-2 {
-					app.editorGroup.TabBar.HandleEvent(tev)
-					syncStatus()
-					redraw()
-					continue
-				}
-
-				panelRect := app.splitPanel.GetRect()
-				inPanel := my >= panelRect.Y && my < panelRect.Y+panelRect.H &&
-					mx >= panelRect.X && mx < panelRect.X+panelRect.W
-				if inPanel {
-					if app.sidebar.Visible {
-						divX := app.splitPanel.DividerScreenX()
-						if mx < divX {
-							app.sidebar.HandleEvent(tev)
-							if !isWheel {
-								cmdRegistry.Execute("sidebar.focus")
-							}
-						} else {
-							app.editorGroup.HandleEvent(tev)
-							if !isWheel {
-								cmdRegistry.Execute("editor.focus")
-							}
-						}
-					} else {
-						if btn&tcell.Button1 != 0 && mx == panelRect.X {
-							cmdRegistry.Execute("sidebar.toggle")
-						} else {
-							app.editorGroup.HandleEvent(tev)
-							if !isWheel {
-								cmdRegistry.Execute("editor.focus")
-							}
-						}
-					}
-					redraw()
-				}
-			} else if btn == tcell.ButtonNone {
-				if app.editorGroup.HandleEvent(tev) == ui.EventConsumed {
-					redraw()
-				}
-			}
+			slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
+			app.root.HandleEvent(tev)
+			syncStatus()
+			redraw()
 
 		case *tcell.EventResize:
 			w, h := screen.Size()

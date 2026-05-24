@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log/slog"
 	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -15,6 +16,9 @@ type SplitPanelWidget struct {
 	ShowLeft          bool
 	RightBorderStartY int
 	OnResize          func(width int)
+	OnLeftClick       func()
+	OnRightClick      func()
+	OnLeftEdgeClick   func()
 	dragging          bool
 }
 
@@ -153,7 +157,7 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 
 func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 	mev, ok := ev.(*tcell.EventMouse)
-	if !ok || s.OnResize == nil {
+	if !ok {
 		return EventIgnored
 	}
 
@@ -164,19 +168,61 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	if s.dragging {
 		if btn&tcell.Button1 != 0 {
-			newWidth := mx - r.X - 1
-			s.OnResize(newWidth)
+			if s.OnResize != nil {
+				newWidth := mx - r.X - 1
+				s.OnResize(newWidth)
+			}
 			return EventConsumed
 		}
 		s.dragging = false
 		return EventIgnored
 	}
 
-	if btn&tcell.Button1 != 0 && inBounds && s.ShowLeft {
-		divX := r.X + s.DividerPos + 1
-		if mx == divX {
+	if !inBounds {
+		return EventIgnored
+	}
+
+	isClick := btn&tcell.Button1 != 0
+
+	if s.ShowLeft {
+		divX := s.DividerScreenX()
+		slog.Debug("splitPanel", "action", "route", "mx", mx, "divX", divX, "showLeft", true)
+		if isClick && mx == divX && s.OnResize != nil {
 			s.dragging = true
 			return EventConsumed
+		}
+		if mx < divX {
+			if s.Left != nil {
+				result := s.Left.HandleEvent(ev)
+				slog.Debug("splitPanel", "action", "leftChild", "result", result)
+				if result == EventConsumed && isClick && s.OnLeftClick != nil {
+					s.OnLeftClick()
+				}
+				return result
+			}
+		} else {
+			if s.Right != nil {
+				result := s.Right.HandleEvent(ev)
+				slog.Debug("splitPanel", "action", "rightChild", "result", result)
+				if result == EventConsumed && isClick && s.OnRightClick != nil {
+					s.OnRightClick()
+				}
+				return result
+			}
+		}
+	} else {
+		if isClick && mx == r.X {
+			if s.OnLeftEdgeClick != nil {
+				s.OnLeftEdgeClick()
+			}
+			return EventConsumed
+		}
+		if s.Right != nil {
+			result := s.Right.HandleEvent(ev)
+			if result == EventConsumed && isClick && s.OnRightClick != nil {
+				s.OnRightClick()
+			}
+			return result
 		}
 	}
 

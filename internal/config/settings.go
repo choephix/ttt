@@ -13,6 +13,7 @@ type Settings struct {
 	SidebarVisible bool   `json:"sidebarVisible"`
 	SidebarWidth   int    `json:"sidebarWidth"`
 	Theme          string `json:"theme,omitempty"`
+	DebugMode      bool   `json:"debugMode,omitempty"`
 }
 
 func DefaultSettings() Settings {

@@ -135,5 +135,12 @@ func handleRightClick(app *appWidgets, reg *command.Registry, mx, my int) {
 		}
 	}
 
+	tabR := app.editorGroup.TabBar.GetRect()
+	if my >= tabR.Y && my < tabR.Y+tabR.H {
+		ev := tcell.NewEventMouse(mx, my, tcell.Button2, 0)
+		app.editorGroup.TabBar.HandleEvent(ev)
+		return
+	}
+
 	openContextMenu(app, reg, editorContextMenu, mx, my)
 }

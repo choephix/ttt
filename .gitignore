@@ -20,3 +20,4 @@ vendor/
 *.swp
 *.swo
 .DS_Store
+*.log

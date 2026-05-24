@@ -19,15 +19,16 @@ type SidebarWidget struct {
 	Visible     bool
 	Borders     *term.BorderSet
 	TabBar      *PanelTabBarWidget
+	MoreButton  *MoreButtonWidget
 	OnSwitch    func(id string)
 }
 
 func NewSidebarWidget() *SidebarWidget {
 	tabBar := NewPanelTabBarWidget()
-	tabBar.ShowMore = true
 	return &SidebarWidget{
-		Visible: true,
-		TabBar:  tabBar,
+		Visible:    true,
+		TabBar:     tabBar,
+		MoreButton: NewMoreButtonWidget(),
 	}
 }
 
@@ -102,6 +103,12 @@ func (s *SidebarWidget) Render(surface *RenderSurface) {
 	tabSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: 1})
 	s.TabBar.Render(tabSurface)
 
+	if s.MoreButton != nil && w >= 5 {
+		s.MoreButton.SetRect(Rect{X: r.X + w - 4, Y: r.Y, W: 3, H: 1})
+		moreSurface := surface.Sub(Rect{X: w - 4, Y: 0, W: 3, H: 1})
+		s.MoreButton.Render(moreSurface)
+	}
+
 	bs := term.StyleBorder
 	horizontal := '─'
 	if s.Borders != nil {
@@ -121,6 +128,11 @@ func (s *SidebarWidget) Render(surface *RenderSurface) {
 }
 
 func (s *SidebarWidget) HandleEvent(ev tcell.Event) EventResult {
+	if s.MoreButton != nil {
+		if s.MoreButton.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
+		}
+	}
 	if tev, ok := ev.(*tcell.EventMouse); ok {
 		if tev.Buttons()&tcell.Button1 != 0 {
 			mx, my := tev.Position()

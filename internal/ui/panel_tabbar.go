@@ -4,10 +4,8 @@ import "ttt/internal/term"
 
 type PanelTabBarWidget struct {
 	BaseWidget
-	Tabs     []Tab
-	Borders  *term.BorderSet
-	ShowMore bool
-	OnMore   func()
+	Tabs    []Tab
+	Borders *term.BorderSet
 }
 
 func NewPanelTabBarWidget() *PanelTabBarWidget {
@@ -43,9 +41,4 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 		}
 	}
 
-	if p.ShowMore && w >= 5 {
-		surface.SetCell(w-4, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
-		surface.SetCell(w-3, 0, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
-		surface.SetCell(w-2, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
-	}
 }

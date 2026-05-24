@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log/slog"
 	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -29,14 +30,15 @@ type chordState struct {
 }
 
 type Root struct {
-	Main       Widget
-	Overlays   []Overlay
-	Focused    Widget
-	Width      int
-	Height     int
-	GlobalKeys []GlobalKeyBinding
-	ChordKeys  []ChordKeyBinding
-	chord      *chordState
+	Main         Widget
+	Overlays     []Overlay
+	Focused      Widget
+	Width        int
+	Height       int
+	GlobalKeys   []GlobalKeyBinding
+	ChordKeys    []ChordKeyBinding
+	chord        *chordState
+	OnRightClick func(mx, my int)
 }
 
 func NewRoot(main Widget) *Root {
@@ -67,6 +69,7 @@ func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 	if len(r.Overlays) > 0 {
 		top := r.Overlays[len(r.Overlays)-1]
+		slog.Debug("root", "action", "overlayIntercept", "modal", top.Modal, "count", len(r.Overlays))
 		if top.Modal {
 			return top.Widget.HandleEvent(ev)
 		}
@@ -74,10 +77,18 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 
 	kev, isKey := ev.(*tcell.EventKey)
 	if !isKey {
-		if r.Focused != nil {
-			return r.Focused.HandleEvent(ev)
+		if mev, ok := ev.(*tcell.EventMouse); ok {
+			btn := mev.Buttons()
+			if btn&tcell.Button2 != 0 && r.OnRightClick != nil {
+				mx, my := mev.Position()
+				slog.Debug("root", "action", "rightClick", "x", mx, "y", my)
+				r.OnRightClick(mx, my)
+				return EventConsumed
+			}
 		}
-		return EventIgnored
+		result := r.Main.HandleEvent(ev)
+		slog.Debug("root", "action", "mouseToMain", "result", result)
+		return result
 	}
 
 	// Mid-chord: try matching next step
@@ -141,11 +152,13 @@ func (r *Root) Render(cells [][]term.Cell) {
 
 func (r *Root) PushOverlay(o Overlay) {
 	r.Overlays = append(r.Overlays, o)
+	slog.Debug("root", "action", "pushOverlay", "count", len(r.Overlays), "modal", o.Modal)
 }
 
 func (r *Root) PopOverlay() {
 	if len(r.Overlays) > 0 {
 		r.Overlays = r.Overlays[:len(r.Overlays)-1]
+		slog.Debug("root", "action", "popOverlay", "count", len(r.Overlays))
 	}
 }
 

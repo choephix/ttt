@@ -1,8 +1,9 @@
 package ui
 
 import (
-	"ttt/internal/term"
+	"log/slog"
 	"path/filepath"
+	"ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -24,12 +25,11 @@ type TabBarWidget struct {
 	Tabs         []Tab
 	Borders      *term.BorderSet
 	ScrollOffset int
-	ShowMore       bool
-	OnTabClick     func(index int)
-	OnTabClose     func(index int)
-	OnMore         func(screenX, screenY int)
+	MoreButton      *MoreButtonWidget
+	OnTabClick      func(index int)
+	OnTabClose      func(index int)
 	OnTabRightClick func(index, screenX, screenY int)
-	tabSpans       []tabSpan
+	tabSpans        []tabSpan
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -167,10 +167,11 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 		}
 	}
 
-	if t.ShowMore && w >= 5 {
-		surface.SetCell(w-4, 1, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
-		surface.SetCell(w-3, 1, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
-		surface.SetCell(w-2, 1, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+	if t.MoreButton != nil && w >= 5 {
+		r := t.GetRect()
+		t.MoreButton.SetRect(Rect{X: r.X + w - 4, Y: r.Y + 1, W: 3, H: 1})
+		moreSurface := surface.Sub(Rect{X: w - 4, Y: 1, W: 3, H: 1})
+		t.MoreButton.Render(moreSurface)
 	}
 }
 
@@ -181,11 +182,20 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 	r := t.GetRect()
 	mx, my := mev.Position()
-	if my < r.Y || my >= r.Y+r.H || mx < r.X || mx >= r.X+r.W {
-		return EventIgnored
+	btn := mev.Buttons()
+
+	slog.Debug("tabBar", "mx", mx, "my", my, "btn", btn, "rect", r, "hasMore", t.MoreButton != nil)
+
+	if t.MoreButton != nil {
+		if t.MoreButton.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
+		}
 	}
 
-	btn := mev.Buttons()
+	if my < r.Y || my >= r.Y+r.H || mx < r.X || mx >= r.X+r.W {
+		slog.Debug("tabBar", "action", "outOfBounds")
+		return EventIgnored
+	}
 
 	if btn&tcell.Button2 != 0 && t.OnTabRightClick != nil {
 		localX := mx - r.X + t.ScrollOffset

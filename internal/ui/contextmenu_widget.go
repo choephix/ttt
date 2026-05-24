@@ -27,6 +27,7 @@ type ContextMenuWidget struct {
 	OnExec      func(command string)
 	OnDismiss   func()
 	OnNavigate  func(dir int)
+	firstEvent  bool
 }
 
 func NewContextMenuWidget(items []ContextMenuItem, x, y int) *ContextMenuWidget {
@@ -38,10 +39,11 @@ func NewContextMenuWidget(items []ContextMenuItem, x, y int) *ContextMenuWidget 
 		}
 	}
 	return &ContextMenuWidget{
-		Items:    items,
-		Selected: sel,
-		AnchorX:  x,
-		AnchorY:  y,
+		Items:      items,
+		Selected:   sel,
+		AnchorX:    x,
+		AnchorY:    y,
+		firstEvent: true,
 	}
 }
 
@@ -195,6 +197,11 @@ func (c *ContextMenuWidget) HandleEvent(ev tcell.Event) EventResult {
 		btn := tev.Buttons()
 		mx, my := tev.Position()
 		r := c.GetRect()
+
+		if c.firstEvent {
+			c.firstEvent = false
+			return EventConsumed
+		}
 
 		if btn&tcell.Button1 != 0 {
 			if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {

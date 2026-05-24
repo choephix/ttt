@@ -78,7 +78,7 @@ func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
 
 func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 	mev, ok := ev.(*tcell.EventMouse)
-	if !ok || !cs.ShowBottom {
+	if !ok {
 		return EventIgnored
 	}
 
@@ -98,15 +98,25 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 
-	needed := cs.BottomH + 1
-	if needed >= r.H {
-		needed = r.H - 1
-	}
-	divY := r.Y + r.H - needed
+	if cs.ShowBottom {
+		needed := cs.BottomH + 1
+		if needed >= r.H {
+			needed = r.H - 1
+		}
+		divY := r.Y + r.H - needed
 
-	if btn&tcell.Button1 != 0 && my == divY {
-		cs.dragging = true
-		return EventConsumed
+		if btn&tcell.Button1 != 0 && my == divY {
+			cs.dragging = true
+			return EventConsumed
+		}
+
+		if my > divY && cs.Bottom != nil {
+			return cs.Bottom.HandleEvent(ev)
+		}
+	}
+
+	if cs.Top != nil {
+		return cs.Top.HandleEvent(ev)
 	}
 
 	return EventIgnored

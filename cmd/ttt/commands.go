@@ -119,9 +119,6 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
 		Handler: func() {
-			if len(app.root.Overlays) > 0 {
-				app.root.PopOverlay()
-			}
 			app.root.SetFocus(app.editorGroup)
 		},
 	})
@@ -470,6 +467,28 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 	})
 
 	reg.Register(command.Command{
+		ID: "explorer.refresh", Title: "Refresh Explorer",
+		Handler: func() { app.explorer.Reload() },
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.refresh", Title: "Refresh Changes",
+		Handler: func() { app.changes.Refresh() },
+	})
+
+	reg.Register(command.Command{
+		ID: "search.clear", Title: "Clear Search Results",
+		Handler: func() {
+			app.search.Input.Text = ""
+			app.search.Input.CursorPos = 0
+			app.search.Groups = nil
+			app.search.FlatList = nil
+			app.search.Selected = 0
+			app.search.ScrollTop = 0
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "tab.closeOthers", Title: "Close Other Tabs",
 		Handler: func() { app.editorGroup.CloseOtherTabs() },
 	})
@@ -626,12 +645,48 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		openMenuBarDropdown(app, reg, index)
 	}
 
+	app.root.OnRightClick = func(mx, my int) {
+		handleRightClick(app, reg, mx, my)
+	}
+
+	app.splitPanel.OnLeftClick = func() {
+		reg.Execute("sidebar.focus")
+	}
+	app.splitPanel.OnRightClick = func() {
+		reg.Execute("editor.focus")
+	}
+	app.splitPanel.OnLeftEdgeClick = func() {
+		reg.Execute("sidebar.toggle")
+	}
+
+	app.sidebar.MoreButton.OnClick = func(sx, sy int) {
+		var items []ui.ContextMenuItem
+		switch app.sidebar.ActivePanel {
+		case "explorer":
+			items = []ui.ContextMenuItem{
+				{Label: "New File", Command: "file.new"},
+				{Label: "Refresh", Command: "explorer.refresh"},
+			}
+		case "search":
+			items = []ui.ContextMenuItem{
+				{Label: "Clear Results", Command: "search.clear"},
+			}
+		case "changes":
+			items = []ui.ContextMenuItem{
+				{Label: "Refresh", Command: "changes.refresh"},
+			}
+		}
+		if len(items) > 0 {
+			openContextMenu(app, reg, items, sx, sy)
+		}
+	}
+
 	app.editorGroup.TabBar.OnTabClose = func(index int) {
 		app.editorGroup.SwitchTab(index)
 		reg.Execute("tab.close")
 	}
 
-	app.editorGroup.TabBar.OnMore = func(sx, sy int) {
+	app.editorGroup.TabBar.MoreButton.OnClick = func(sx, sy int) {
 		moreMenu := []ui.ContextMenuItem{
 			{Label: "Close All", Command: "tab.closeAll"},
 		}

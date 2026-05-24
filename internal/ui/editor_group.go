@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log/slog"
 	"ttt/internal/config"
 	"ttt/internal/core/buffer"
 	"ttt/internal/core/clipboard"
@@ -51,7 +52,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 
 	tabBar := NewTabBarWidget()
 	tabBar.Borders = borders
-	tabBar.ShowMore = true
+	tabBar.MoreButton = NewMoreButtonWidget()
 
 	g := &EditorGroupWidget{
 		TabBar:      tabBar,
@@ -476,7 +477,9 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 }
 
 func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
-	if g.TabBar.HandleEvent(ev) == EventConsumed {
+	result := g.TabBar.HandleEvent(ev)
+	slog.Debug("editorGroup", "tabBarResult", result)
+	if result == EventConsumed {
 		return EventConsumed
 	}
 	t := g.tabs[g.active]
