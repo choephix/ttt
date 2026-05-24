@@ -92,6 +92,9 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	for i := range g.tabs {
 		if g.tabs[i].FilePath == path {
 			g.tabs[i].Pinned = true
+			if g.tabs[i].Buf != nil && !g.tabs[i].Buf.Dirty {
+				g.tabs[i].Buf.LoadFile(path)
+			}
 			g.SwitchTab(i)
 			return
 		}
@@ -148,6 +151,8 @@ func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff) {
 	tabName := path + " (diff)"
 	for i, t := range g.tabs {
 		if t.FilePath == tabName {
+			t.Content = NewDiffViewWidget(path, fd)
+			g.tabs[i] = t
 			g.SwitchTab(i)
 			return
 		}

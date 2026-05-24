@@ -25,6 +25,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	reg.Register(command.Command{
 		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
+			app.explorer.Reload()
 			app.sidebar.SetActivePanel("explorer")
 			if !app.sidebar.Visible {
 				app.ShowSidebar()
