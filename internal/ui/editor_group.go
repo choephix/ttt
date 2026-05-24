@@ -26,6 +26,7 @@ type editorTab struct {
 	Highlighter *highlight.Highlighter
 	TabSize     int
 	Content     Widget
+	Pinned      bool
 }
 
 type EditorGroupWidget struct {
@@ -88,8 +89,9 @@ func (g *EditorGroupWidget) activeTab() *editorTab {
 }
 
 func (g *EditorGroupWidget) OpenFile(path string) {
-	for i, t := range g.tabs {
-		if t.FilePath == path {
+	for i := range g.tabs {
+		if g.tabs[i].FilePath == path {
+			g.tabs[i].Pinned = true
 			g.SwitchTab(i)
 			return
 		}
@@ -105,7 +107,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 {
 		tabSize = detected.Size
 	}
-	g.tabs = append(g.tabs, editorTab{
+	newTab := editorTab{
 		FilePath:    path,
 		Buf:         newBuf,
 		Cur:         &cursor.Cursor{},
@@ -114,8 +116,14 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Sel:         &selection.Selection{},
 		Highlighter: highlight.New(path),
 		TabSize:     tabSize,
-	})
-	g.SwitchTab(len(g.tabs) - 1)
+	}
+	if t := g.activeTab(); t != nil && !t.Pinned && t.Content == nil && t.Buf != nil && !t.Buf.Dirty {
+		g.tabs[g.active] = newTab
+		g.syncTabs()
+	} else {
+		g.tabs = append(g.tabs, newTab)
+		g.SwitchTab(len(g.tabs) - 1)
+	}
 }
 
 func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {

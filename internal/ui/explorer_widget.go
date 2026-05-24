@@ -222,6 +222,7 @@ func (e *ExplorerWidget) ActivateSelected() {
 	}
 }
 
+
 func (e *ExplorerWidget) collapseSelected() {
 	if e.Selected < 0 || e.Selected >= len(e.FlatList) {
 		return
