@@ -32,9 +32,9 @@
     "active": { "fg": "#fafafa", "bg": "#444444", "bold": true }
   },
   "diff": {
-    "added": { "bg": "#1b5e20" },
-    "deleted": { "bg": "#c62828" },
-    "modified": { "bg": "#df8d04" }
+    "added": { "bg": "#1e2e1e" },
+    "deleted": { "bg": "#2e1e1e" },
+    "modified": { "bg": "#2e2e1e" }
   },
   "scrollbar": { "fg": "#6e6e6e", "bg": "#262626" },
   "syntax": {

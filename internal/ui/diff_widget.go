@@ -117,16 +117,18 @@ func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text st
 		if i < len(runes) {
 			ch = runes[i]
 		}
-		style := baseStyle
-		if baseStyle == term.StyleDefault {
-			for _, sp := range spans {
-				if i >= sp.Start && i < sp.End {
-					style = sp.Style
-					break
-				}
+		style := term.StyleDefault
+		for _, sp := range spans {
+			if i >= sp.Start && i < sp.End {
+				style = sp.Style
+				break
 			}
 		}
-		surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: style})
+		cell := term.Cell{Ch: ch, Style: style}
+		if baseStyle != term.StyleDefault {
+			cell.BgStyle = baseStyle
+		}
+		surface.SetCell(x+i, y, cell)
 	}
 }
 

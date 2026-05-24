@@ -16,6 +16,8 @@ A fully-featured code editor that lives in the terminal. Not a simplified termin
 - Chord keybindings (e.g. Ctrl+K Ctrl+C)
 - Mouse support: click to position, click tabs, drag dividers
 - Diff-based renderer for efficient terminal updates
+- Integrated terminal emulator with multiple tabs
+- Diff view with syntax highlighting on top of diff background colors
 
 ## Getting Started
 
@@ -62,16 +64,29 @@ When a directory is opened, the file explorer and git changes panel are rooted t
 | Ctrl+D | Show git changes |
 | Ctrl+A | Select all |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / Cut / Paste |
+| Ctrl+` | Toggle integrated terminal |
 | Ctrl+PgDn / Ctrl+PgUp | Next / Previous tab |
 | Ctrl+W | Close tab |
+
+### Integrated Terminal
+
+TTT includes a built-in terminal emulator. Press Ctrl+` to toggle the terminal panel. Features:
+
+- Multiple terminal tabs with a `+` button to spawn new ones
+- Tab labels show the shell name (e.g. "zsh 1", "bash 2")
+- Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
+- 256-color rendering with direct RGB color support
+- When the terminal is focused, all keys go to the PTY except Ctrl+` (to toggle the panel)
+- Terminal shell and scrollback are configurable in `settings.json`
+- Terminal ANSI colors are theme-configurable via the `terminal` field in `theme.json`
 
 ### Configuration
 
 Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.config/ttt/`:
 
 - `keybindings.json` — custom keybindings
-- `settings.json` — editor settings (tabSize, sidebarWidth, etc.)
-- `theme.json` — colors and styles
+- `settings.json` — editor settings (tabSize, sidebarWidth, terminal shell/scrollback, etc.)
+- `theme.json` — colors and styles (including terminal ANSI colors)
 
 The default theme sets explicit foreground/background colors (`#d4d4d4` on `#1e1e1e`). To use your terminal's native colors instead, set them to empty in `theme.json`:
 
