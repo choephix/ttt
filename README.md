@@ -173,27 +173,26 @@ File, Edit, Selection, View, and Help menus accessible via the menu bar or keybo
 - [Git](https://git-scm.com/) — required for source control features
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) — required for workspace search
 
+### Go Install
+
+```sh
+go install github.com/eugenioenko/ttt/cmd/ttt@latest
+```
+
+This installs the `ttt` binary to your `$GOPATH/bin` (or `$HOME/go/bin` by default). Make sure that directory is in your `PATH`.
+
 ### From Source
 
 ```sh
 git clone https://github.com/eugenioenko/ttt.git
 cd ttt
 make build
-./bin/ttt
 ```
 
-To install to your `$GOPATH/bin`:
+This produces an optimized binary at `bin/ttt`. Add it to your `PATH` or copy it somewhere convenient:
 
 ```sh
-git clone https://github.com/eugenioenko/ttt.git
-cd ttt
-go install ./cmd/ttt
-```
-
-### Quick Start
-
-```sh
-make run          # build and run in one step
+cp bin/ttt ~/.local/bin/
 ```
 
 ### Configuration
