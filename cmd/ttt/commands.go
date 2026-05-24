@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"ttt/internal/command"
@@ -706,7 +708,19 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
 		Handler: func() {
-			app.status.Message = "ttt — Terminal Text Tool"
+			url := "https://github.com/eugenioenko/ttt"
+			var cmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				cmd = exec.Command("open", url)
+			case "windows":
+				cmd = exec.Command("cmd", "/c", "start", url)
+			default:
+				cmd = exec.Command("xdg-open", url)
+			}
+			if err := cmd.Start(); err != nil {
+				app.status.Message = "ttt — Terminal Text Tool"
+			}
 		},
 	})
 

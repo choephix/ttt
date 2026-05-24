@@ -14,76 +14,89 @@ var menuBarLabels = []string{
 var menuBarMenus = [][]ui.ContextMenuItem{
 	// File
 	{
-		{Label: "New File", Shortcut: "", Command: "file.new"},
+		{Label: "New File", Command: "file.new"},
 		ui.MenuSep(),
-		{Label: "Save", Shortcut: "Ctrl+S", Command: "file.save"},
-		{Label: "Save As...", Shortcut: "", Command: "file.saveAs"},
+		{Label: "Save", Command: "file.save"},
+		{Label: "Save As...", Command: "file.saveAs"},
 		ui.MenuSep(),
-		{Label: "Add Folder to Workspace", Shortcut: "", Command: "workspace.addFolder"},
-		{Label: "Save Workspace As...", Shortcut: "", Command: "workspace.saveAs"},
+		{Label: "Add Folder to Workspace", Command: "workspace.addFolder"},
+		{Label: "Save Workspace As...", Command: "workspace.saveAs"},
 		ui.MenuSep(),
-		{Label: "Quit", Shortcut: "Ctrl+Q", Command: "editor.quit"},
+		{Label: "Quit", Command: "editor.quit"},
 	},
 	// Edit
 	{
-		{Label: "Undo", Shortcut: "Ctrl+Z", Command: "editor.undo"},
-		{Label: "Redo", Shortcut: "Ctrl+Y", Command: "editor.redo"},
+		{Label: "Undo", Command: "editor.undo"},
+		{Label: "Redo", Command: "editor.redo"},
 		ui.MenuSep(),
-		{Label: "Cut", Shortcut: "Ctrl+X", Command: "editor.cut"},
-		{Label: "Copy", Shortcut: "Ctrl+C", Command: "editor.copy"},
-		{Label: "Paste", Shortcut: "Ctrl+V", Command: "editor.paste"},
+		{Label: "Cut", Command: "editor.cut"},
+		{Label: "Copy", Command: "editor.copy"},
+		{Label: "Paste", Command: "editor.paste"},
 		ui.MenuSep(),
-		{Label: "Find", Shortcut: "Ctrl+F", Command: "search.find"},
-		{Label: "Replace", Shortcut: "Ctrl+H", Command: "search.replace"},
+		{Label: "Find", Command: "search.find"},
+		{Label: "Replace", Command: "search.replace"},
 	},
 	// Selection
 	{
-		{Label: "Select All", Shortcut: "Ctrl+A", Command: "editor.selectAll"},
+		{Label: "Select All", Command: "editor.selectAll"},
 	},
 	// View
 	{
-		{Label: "Command Palette", Shortcut: "Ctrl+P", Command: "command.palette"},
+		{Label: "Command Palette", Command: "command.palette"},
 		ui.MenuSep(),
-		{Label: "Explorer", Shortcut: "Ctrl+E", Command: "sidebar.explorer"},
-		{Label: "Search", Shortcut: "Ctrl+Shift+F", Command: "sidebar.search"},
-		{Label: "Changes", Shortcut: "Ctrl+D", Command: "sidebar.changes"},
+		{Label: "Explorer", Command: "sidebar.explorer"},
+		{Label: "Search", Command: "sidebar.search"},
+		{Label: "Changes", Command: "sidebar.changes"},
 		ui.MenuSep(),
-		{Label: "Toggle Sidebar", Shortcut: "Ctrl+B", Command: "sidebar.toggle"},
-		{Label: "Toggle Terminal", Shortcut: "Ctrl+`", Command: "terminal.toggle"},
-		{Label: "New Terminal", Shortcut: "", Command: "terminal.new"},
+		{Label: "Toggle Sidebar", Command: "sidebar.toggle"},
+		{Label: "Toggle Terminal", Command: "terminal.toggle"},
+		{Label: "New Terminal", Command: "terminal.new"},
 		ui.MenuSep(),
-		{Label: "Toggle Panel", Shortcut: "", Command: "panel.toggle"},
+		{Label: "Toggle Panel", Command: "panel.toggle"},
 		ui.MenuSep(),
-		{Label: "Switch Theme", Shortcut: "Ctrl+K T", Command: "theme.switch"},
+		{Label: "Switch Theme", Command: "theme.switch"},
 	},
 	// Help
 	{
-		{Label: "About", Shortcut: "", Command: "about"},
+		{Label: "About", Command: "about"},
 	},
 }
 
 var editorContextMenu = []ui.ContextMenuItem{
-	{Label: "Undo", Shortcut: "Ctrl+Z", Command: "editor.undo"},
-	{Label: "Redo", Shortcut: "Ctrl+Y", Command: "editor.redo"},
+	{Label: "Undo", Command: "editor.undo"},
+	{Label: "Redo", Command: "editor.redo"},
 	ui.MenuSep(),
-	{Label: "Cut", Shortcut: "Ctrl+X", Command: "editor.cut"},
-	{Label: "Copy", Shortcut: "Ctrl+C", Command: "editor.copy"},
-	{Label: "Paste", Shortcut: "Ctrl+V", Command: "editor.paste"},
+	{Label: "Cut", Command: "editor.cut"},
+	{Label: "Copy", Command: "editor.copy"},
+	{Label: "Paste", Command: "editor.paste"},
 	ui.MenuSep(),
-	{Label: "Select All", Shortcut: "Ctrl+A", Command: "editor.selectAll"},
+	{Label: "Select All", Command: "editor.selectAll"},
 	ui.MenuSep(),
-	{Label: "Find", Shortcut: "Ctrl+F", Command: "search.find"},
-	{Label: "Replace", Shortcut: "Ctrl+H", Command: "search.replace"},
-	{Label: "Go to Line", Shortcut: "Ctrl+G", Command: "editor.goToLine"},
+	{Label: "Find", Command: "search.find"},
+	{Label: "Replace", Command: "search.replace"},
+	{Label: "Go to Line", Command: "editor.goToLine"},
 }
 
 var changesContextMenu = []ui.ContextMenuItem{
-	{Label: "Open Diff", Shortcut: "", Command: "changes.openDiff"},
-	{Label: "Open File", Shortcut: "", Command: "changes.openFile"},
+	{Label: "Open Diff", Command: "changes.openDiff"},
+	{Label: "Open File", Command: "changes.openFile"},
+}
+
+func resolveShortcuts(reg *command.Registry, items []ui.ContextMenuItem) []ui.ContextMenuItem {
+	resolved := make([]ui.ContextMenuItem, len(items))
+	for i, item := range items {
+		resolved[i] = item
+		if item.Command != "" {
+			if cmd, ok := reg.Get(item.Command); ok && cmd.Shortcut != "" {
+				resolved[i].Shortcut = cmd.Shortcut
+			}
+		}
+	}
+	return resolved
 }
 
 func openContextMenu(app *App, reg *command.Registry, items []ui.ContextMenuItem, x, y int) {
-	menu := ui.NewContextMenuWidget(items, x, y)
+	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), x, y)
 	menu.Borders = app.borders
 	menu.OnExec = func(cmd string) {
 		app.root.PopOverlay()
@@ -102,7 +115,7 @@ func openMenuBarDropdown(app *App, reg *command.Registry, index int) {
 	}
 	app.menuBar.Selected = index
 	anchorX := app.menuBar.ItemAnchorX(index)
-	menu := ui.NewContextMenuWidget(menuBarMenus[index], anchorX, 1)
+	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, menuBarMenus[index]), anchorX, 1)
 	menu.Borders = app.borders
 	menu.OnExec = func(cmd string) {
 		app.root.PopOverlay()
