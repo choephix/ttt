@@ -13,12 +13,13 @@ type InputAction struct {
 }
 
 type InputWidget struct {
-	Text      string
-	Prefix    string
-	CursorPos int
-	Style     term.Style
-	Actions   []InputAction
-	OnChange  func(text string)
+	Text         string
+	Prefix       string
+	CursorPos    int
+	scrollOffset int
+	Style        term.Style
+	Actions      []InputAction
+	OnChange     func(text string)
 }
 
 func NewInputWidget(prefix string) *InputWidget {
@@ -30,18 +31,35 @@ func NewInputWidget(prefix string) *InputWidget {
 
 func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 	actionsW := inp.actionsWidth()
-	textW := w - actionsW
+	prefixRunes := []rune(inp.Prefix)
+	prefixW := len(prefixRunes)
+	textW := w - actionsW - prefixW
 
-	runes := []rune(inp.Prefix + inp.Text)
-	for i := 0; i < textW; i++ {
-		ch := ' '
-		if i < len(runes) {
-			ch = runes[i]
-		}
+	for i, ch := range prefixRunes {
 		surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: inp.Style})
 	}
 
-	ax := x + textW
+	if textW > 0 {
+		textRunes := []rune(inp.Text)
+
+		if inp.CursorPos < inp.scrollOffset {
+			inp.scrollOffset = inp.CursorPos
+		}
+		if inp.CursorPos >= inp.scrollOffset+textW {
+			inp.scrollOffset = inp.CursorPos - textW + 1
+		}
+
+		for i := 0; i < textW; i++ {
+			ch := ' '
+			ri := inp.scrollOffset + i
+			if ri < len(textRunes) {
+				ch = textRunes[ri]
+			}
+			surface.SetCell(x+prefixW+i, y, term.Cell{Ch: ch, Style: inp.Style})
+		}
+	}
+
+	ax := x + prefixW + textW
 	for _, action := range inp.Actions {
 		style := term.StyleMuted
 		if action.Active {
@@ -72,7 +90,11 @@ func (inp *InputWidget) actionsWidth() int {
 }
 
 func (inp *InputWidget) CursorX(x int) int {
-	return x + len([]rune(inp.Prefix)) + inp.CursorPos
+	return x + len([]rune(inp.Prefix)) + inp.CursorPos - inp.scrollOffset
+}
+
+func (inp *InputWidget) ResetScroll() {
+	inp.scrollOffset = 0
 }
 
 func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {

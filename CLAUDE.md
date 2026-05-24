@@ -15,11 +15,17 @@ make test         # go test ./...
 make fmt          # gofmt -w .
 make lint         # golint ./...
 go test ./internal/core/buffer/   # run tests for a single package
+
+# Open a multi-folder workspace
+bin/ttt --workspace project.ttt
+
+# Open specific folders or files
+bin/ttt ~/projectA ~/projectB file.go
 ```
 
 ## Architecture
 
-The codebase follows a strict layered architecture: **core → view → render → term → ui**. The core layer has zero terminal dependencies and is fully unit-testable in isolation.
+The codebase follows a strict layered architecture: **core → view → render → term → ui**, with `workspace` sitting alongside as an independent support layer. The core layer has zero terminal dependencies and is fully unit-testable in isolation.
 
 ### Layers
 
@@ -40,7 +46,9 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 - **`internal/ui/`** — Window manager and pane system. `Window` binds a `Rect`, `Viewport`, and `Buffer` together. `WindowManager` tracks focus across windows. Also contains `terminal_widget.go` (renders vt10x grid as direct-color cells, handles key-to-VT translation), `root.go` (ForceKeys and RawKeyConsumer interface for terminal key routing), and `content_split.go` (OnTopClick/OnBottomClick for focus routing between editor and bottom panel).
 
-- **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw.
+- **`internal/workspace/`** — Multi-folder workspace management. `Folder` and `Workspace` types track one or more project roots, with `IsRepo` git-detection, `FolderForFile` lookup (longest-prefix match), and JSON-based workspace file loading/saving (`.ttt` files). The editor falls back to `cwd` when no folders are explicitly provided.
+
+- **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw. Accepts a `--workspace <file>` flag to open a saved workspace, or folder/file paths as positional arguments.
 
 ### Key Design Constraints
 
