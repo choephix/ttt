@@ -105,9 +105,38 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		},
 	})
 
+	saveAs := func() {
+		current := app.editorGroup.ActiveFilePath()
+		initial := ""
+		if current != "untitled" {
+			initial = current
+		}
+		dialog := ui.NewInputDialogWidget("Save As", initial)
+		dialog.Borders = app.borders
+		dialog.OnSubmit = func(path string) {
+			app.DismissDialog()
+			if path != "" {
+				app.editorGroup.SaveAs(path)
+			}
+		}
+		dialog.OnDismiss = func() {
+			app.DismissDialog()
+		}
+		app.ShowDialog(dialog)
+	}
+
 	reg.Register(command.Command{
 		ID: "file.save", Title: "Save File",
-		Handler: func() { app.editorGroup.Save() },
+		Handler: func() {
+			if !app.editorGroup.Save() {
+				saveAs()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "file.saveAs", Title: "Save As...",
+		Handler: saveAs,
 	})
 
 	reg.Register(command.Command{

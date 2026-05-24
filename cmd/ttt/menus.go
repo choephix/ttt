@@ -17,6 +17,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "New File", Shortcut: "", Command: "file.new"},
 		ui.MenuSep(),
 		{Label: "Save", Shortcut: "Ctrl+S", Command: "file.save"},
+		{Label: "Save As...", Shortcut: "", Command: "file.saveAs"},
 		ui.MenuSep(),
 		{Label: "Quit", Shortcut: "Ctrl+Q", Command: "editor.quit"},
 	},

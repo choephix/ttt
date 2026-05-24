@@ -213,14 +213,27 @@ func (g *EditorGroupWidget) CloseAllTabs() {
 	g.syncTabs()
 }
 
-func (g *EditorGroupWidget) Save() {
+func (g *EditorGroupWidget) Save() bool {
+	t := &g.tabs[g.active]
+	if t.Content != nil {
+		return false
+	}
+	if t.FilePath == "untitled" {
+		return false
+	}
+	t.Buf.SaveFile(t.FilePath)
+	return true
+}
+
+func (g *EditorGroupWidget) SaveAs(path string) {
 	t := &g.tabs[g.active]
 	if t.Content != nil {
 		return
 	}
-	if t.FilePath != "untitled" {
-		t.Buf.SaveFile(t.FilePath)
-	}
+	t.FilePath = path
+	t.Buf.SaveFile(path)
+	t.Highlighter = highlight.New(path)
+	g.syncTabs()
 }
 
 func (g *EditorGroupWidget) ActiveFilePath() string {
