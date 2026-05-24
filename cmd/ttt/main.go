@@ -45,7 +45,7 @@ func main() {
 	cmdRegistry := command.NewRegistry()
 	borders := buildBorderSet(cfg.Theme.Borders)
 
-	app := buildWidgets(&cfg, &borders)
+	app := buildApp(&cfg, &borders)
 	app.screen = screen
 	app.renderer = renderer
 
@@ -57,5 +57,5 @@ func main() {
 	w, h := screen.Size()
 	app.root.SetSize(w, h)
 
-	runEventLoop(screen, renderer, app, &running, &quitPending, app.closeTerminal)
+	runEventLoop(screen, renderer, app, &running, &quitPending, app.CloseTerminal)
 }

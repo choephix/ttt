@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,56 +11,13 @@ import (
 	"ttt/internal/core/buffer"
 	"ttt/internal/core/diff"
 	"ttt/internal/git"
-	"ttt/internal/term"
-	"ttt/internal/terminal"
 	"ttt/internal/ui"
-	"ttt/internal/view"
-
-	"github.com/gdamore/tcell/v2"
 )
 
-type terminalTab struct {
-	term   *terminal.Terminal
-	widget *ui.TerminalWidget
-}
-
-type appWidgets struct {
-	root         *ui.Root
-	editorGroup  *ui.EditorGroupWidget
-	sidebar      *ui.SidebarWidget
-	splitPanel   *ui.SplitPanelWidget
-	contentSplit *ui.ContentSplitWidget
-	bottomPanel  *ui.BottomPanelWidget
-	explorer     *ui.ExplorerWidget
-	search       *ui.SearchWidget
-	changes      *ui.ChangesWidget
-	menuBar      *ui.MenuBarWidget
-	statusBar    *ui.StatusBarWidget
-	status       *view.StatusBar
-	borders      *term.BorderSet
-	screen       *term.TcellScreen
-	renderer     interface{ Clear() }
-	settings     *config.Settings
-	cwd          string
-	palette      *ui.TerminalColorPalette
-	terminals    []terminalTab
-
-	showSidebar      func()
-	hideSidebar      func()
-	setSidebarWidth  func(int)
-	closeTerminal    func(panelID string)
-}
-
-func registerCommands(reg *command.Registry, app *appWidgets, running *bool, quitPending *bool) {
+func registerCommands(reg *command.Registry, app *App, running *bool, quitPending *bool) {
 	reg.Register(command.Command{
 		ID: "sidebar.toggle", Title: "Toggle Sidebar",
-		Handler: func() {
-			if app.sidebar.Visible {
-				app.hideSidebar()
-			} else {
-				app.showSidebar()
-			}
-		},
+		Handler: app.ToggleSidebar,
 	})
 
 	reg.Register(command.Command{
@@ -69,7 +25,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		Handler: func() {
 			app.sidebar.SetActivePanel("explorer")
 			if !app.sidebar.Visible {
-				app.showSidebar()
+				app.ShowSidebar()
 			}
 			app.root.SetFocus(app.explorer)
 		},
@@ -80,7 +36,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		Handler: func() {
 			app.sidebar.SetActivePanel("search")
 			if !app.sidebar.Visible {
-				app.showSidebar()
+				app.ShowSidebar()
 			}
 			app.root.SetFocus(app.search)
 		},
@@ -92,7 +48,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			app.changes.Refresh()
 			app.sidebar.SetActivePanel("changes")
 			if !app.sidebar.Visible {
-				app.showSidebar()
+				app.ShowSidebar()
 			}
 			app.root.SetFocus(app.changes)
 		},
@@ -102,7 +58,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
 		Handler: func() {
 			if app.sidebar.Visible {
-				app.setSidebarWidth(app.splitPanel.DividerPos + 1)
+				app.SetSidebarWidth(app.splitPanel.DividerPos + 1)
 			}
 		},
 	})
@@ -111,35 +67,19 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
 		Handler: func() {
 			if app.sidebar.Visible {
-				app.setSidebarWidth(app.splitPanel.DividerPos - 1)
+				app.SetSidebarWidth(app.splitPanel.DividerPos - 1)
 			}
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "sidebar.focus", Title: "Focus Sidebar",
-		Handler: func() {
-			if !app.sidebar.Visible {
-				app.showSidebar()
-			}
-			if w := app.sidebar.ActiveWidget(); w != nil {
-				app.root.SetFocus(w)
-			}
-		},
+		Handler: app.FocusSidebar,
 	})
-
-	unfocusTerminals := func() {
-		for _, tt := range app.terminals {
-			tt.widget.SetFocused(false)
-		}
-	}
 
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
-		Handler: func() {
-			unfocusTerminals()
-			app.root.SetFocus(app.editorGroup)
-		},
+		Handler: app.FocusEditor,
 	})
 
 	reg.Register(command.Command{
@@ -217,13 +157,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 
 	reg.Register(command.Command{
 		ID: "panel.toggle", Title: "Toggle Panel",
-		Handler: func() {
-			app.contentSplit.ShowBottom = !app.contentSplit.ShowBottom
-			if !app.contentSplit.ShowBottom {
-				unfocusTerminals()
-				app.root.SetFocus(app.editorGroup)
-			}
-		},
+		Handler: app.ToggleBottomPanel,
 	})
 
 	reg.Register(command.Command{
@@ -238,78 +172,9 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		},
 	})
 
-	app.closeTerminal = func(panelID string) {
-		for i, tt := range app.terminals {
-			if fmt.Sprintf("terminal-%d", i) == panelID {
-				tt.term.Close()
-				tt.widget.SetFocused(false)
-				break
-			}
-		}
-		app.bottomPanel.RemovePanel(panelID)
-		if app.bottomPanel.PanelCount() == 0 {
-			app.contentSplit.ShowBottom = false
-			unfocusTerminals()
-			app.root.SetFocus(app.editorGroup)
-		} else {
-			if w := app.bottomPanel.ActiveWidget(); w != nil {
-				unfocusTerminals()
-				app.root.SetFocus(w)
-				if tw, ok := w.(*ui.TerminalWidget); ok {
-					tw.SetFocused(true)
-				}
-			}
-		}
-	}
-
-	spawnTerminal := func() {
-		r := app.contentSplit.GetRect()
-		cols := r.W
-		rows := r.H - 3
-		if cols <= 0 {
-			cols = 80
-		}
-		if rows <= 0 {
-			rows = 24
-		}
-
-		t, err := terminal.New(
-			app.settings.Terminal.Shell,
-			cols, rows,
-			nil,
-		)
-		if err != nil {
-			slog.Error("terminal.New", "err", err)
-			app.status.Message = "Failed to open terminal: " + err.Error()
-			return
-		}
-
-		tw := ui.NewTerminalWidget(t, app.palette)
-		idx := len(app.terminals)
-		app.terminals = append(app.terminals, terminalTab{term: t, widget: tw})
-
-		label := fmt.Sprintf("[>_%d]", idx+1)
-		app.bottomPanel.AddPanel(fmt.Sprintf("terminal-%d", idx), label, tw)
-		app.bottomPanel.SetActivePanel(fmt.Sprintf("terminal-%d", idx))
-
-		if !app.contentSplit.ShowBottom {
-			app.contentSplit.ShowBottom = true
-		}
-		app.root.SetFocus(tw)
-		tw.SetFocused(true)
-
-		panelID := fmt.Sprintf("terminal-%d", idx)
-		t.OnUpdate = func() {
-			app.screen.PostEvent(tcell.NewEventInterrupt(nil))
-		}
-		t.OnExit = func() {
-			app.screen.PostEvent(tcell.NewEventInterrupt(panelID))
-		}
-	}
-
 	reg.Register(command.Command{
 		ID: "terminal.new", Title: "New Terminal",
-		Handler: spawnTerminal,
+		Handler: app.SpawnTerminal,
 	})
 
 	reg.Register(command.Command{
@@ -324,17 +189,13 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.contentSplit.BottomH = half
 				app.contentSplit.ShowBottom = true
 				if len(app.terminals) == 0 {
-					spawnTerminal()
+					app.SpawnTerminal()
 				} else {
-					unfocusTerminals()
 					last := app.terminals[len(app.terminals)-1]
 					app.root.SetFocus(last.widget)
-					last.widget.SetFocused(true)
 				}
 			} else {
-				app.contentSplit.ShowBottom = false
-				unfocusTerminals()
-				app.root.SetFocus(app.editorGroup)
+				app.HideBottomPanel()
 			}
 		},
 	})
@@ -346,15 +207,12 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			dialog.Borders = app.borders
 			dialog.OnSubmit = func(line int) {
 				app.editorGroup.GoToLine(line)
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
+				app.DismissDialog()
 			}
 			dialog.OnDismiss = func() {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
+				app.DismissDialog()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
-			app.root.SetFocus(dialog)
+			app.ShowDialog(dialog)
 		},
 	})
 
@@ -375,12 +233,10 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.editorGroup.Editor.Cursor.Col = match.Col
 			}
 			findBar.OnDismiss = func() {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
+				app.DismissDialog()
 				app.editorGroup.ClearSearch()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: findBar, Modal: true})
-			app.root.SetFocus(findBar)
+			app.ShowDialog(findBar)
 		},
 	})
 
@@ -422,12 +278,10 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				app.editorGroup.ReplaceAll(query, replacement)
 			}
 			bar.OnDismiss = func() {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
+				app.DismissDialog()
 				app.editorGroup.ClearSearch()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: bar, Modal: true})
-			app.root.SetFocus(bar)
+			app.ShowDialog(bar)
 		},
 	})
 
@@ -439,20 +293,17 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			palette.Input.SetText("")
 		}
 		palette.OnExecute = func(id string) {
-			app.root.PopOverlay()
-			app.root.SetFocus(app.editorGroup)
+			app.DismissDialog()
 			reg.Execute(id)
 		}
 		palette.OnOpenFile = func(relPath string) {
-			app.root.PopOverlay()
-			app.root.SetFocus(app.editorGroup)
+			app.DismissDialog()
 			app.editorGroup.OpenFile(filepath.Join(app.cwd, relPath))
 		}
 		palette.OnDismiss = func() {
-			app.root.PopOverlay()
-			app.root.SetFocus(app.editorGroup)
+			app.DismissDialog()
 		}
-		app.root.PushOverlay(ui.Overlay{Widget: palette, Modal: true})
+		app.ShowDialog(palette)
 	}
 
 	reg.Register(command.Command{
@@ -496,8 +347,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				applyTheme(theme)
 			}
 			picker.OnExecute = func(path string) {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
+				app.DismissDialog()
 				theme, err := config.LoadThemeFromFile(path)
 				if err != nil {
 					return
@@ -510,13 +360,12 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				config.SaveSettings(*app.settings)
 			}
 			picker.OnDismiss = func() {
-				app.root.PopOverlay()
-				app.root.SetFocus(app.editorGroup)
+				app.DismissDialog()
 				app.screen.SetStyleMap(originalStyleMap)
 				*app.palette = originalPalette
 				app.renderer.Clear()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
+			app.ShowDialog(picker)
 		},
 	})
 
@@ -532,8 +381,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		picker := ui.NewCommandPaletteWidget(cmds)
 		picker.Borders = app.borders
 		picker.OnExecute = func(id string) {
-			app.root.PopOverlay()
-			app.root.SetFocus(app.editorGroup)
+			app.DismissDialog()
 			if id == "detect" {
 				if app.editorGroup.Editor != nil && app.editorGroup.Editor.Buf != nil {
 					if info := buffer.DetectIndent(app.editorGroup.Editor.Buf.Lines); info.Size > 0 {
@@ -547,10 +395,9 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			}
 		}
 		picker.OnDismiss = func() {
-			app.root.PopOverlay()
-			app.root.SetFocus(app.editorGroup)
+			app.DismissDialog()
 		}
-		app.root.PushOverlay(ui.Overlay{Widget: picker, Modal: true})
+		app.ShowDialog(picker)
 	}
 
 	app.statusBar.OnIndentClick = openIndentPicker
@@ -663,13 +510,12 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 				}
 				app.explorer.Reload()
 				app.editorGroup.OpenFile(newPath)
-				app.root.SetFocus(app.editorGroup)
+				app.FocusEditor()
 			}
 			dialog.OnDismiss = func() {
 				app.root.PopOverlay()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
-			app.root.SetFocus(dialog)
+			app.ShowDialog(dialog)
 		},
 	})
 
@@ -698,8 +544,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			dialog.OnDismiss = func() {
 				app.root.PopOverlay()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
-			app.root.SetFocus(dialog)
+			app.ShowDialog(dialog)
 		},
 	})
 
@@ -725,8 +570,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			dialog.OnDismiss = func() {
 				app.root.PopOverlay()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
-			app.root.SetFocus(dialog)
+			app.ShowDialog(dialog)
 		},
 	})
 
@@ -750,8 +594,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			dialog.OnDismiss = func() {
 				app.root.PopOverlay()
 			}
-			app.root.PushOverlay(ui.Overlay{Widget: dialog, Modal: true})
-			app.root.SetFocus(dialog)
+			app.ShowDialog(dialog)
 		},
 	})
 
@@ -893,22 +736,17 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 	}
 
 	app.contentSplit.OnTopClick = func() {
-		unfocusTerminals()
 		app.root.SetFocus(app.editorGroup)
 	}
 
 	app.contentSplit.OnBottomClick = func() {
 		if w := app.bottomPanel.ActiveWidget(); w != nil {
-			unfocusTerminals()
 			app.root.SetFocus(w)
-			if tw, ok := w.(*ui.TerminalWidget); ok {
-				tw.SetFocused(true)
-			}
 		}
 	}
 
 	app.splitPanel.OnResize = func(width int) {
-		app.setSidebarWidth(width)
+		app.SetSidebarWidth(width)
 	}
 
 	app.bottomPanel.TabBar.OnTabClick = func(index int) {
@@ -916,11 +754,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		if index >= 0 && index < len(panels) {
 			app.bottomPanel.SetActivePanel(panels[index])
 			if w := app.bottomPanel.ActiveWidget(); w != nil {
-				unfocusTerminals()
 				app.root.SetFocus(w)
-				if tw, ok := w.(*ui.TerminalWidget); ok {
-					tw.SetFocused(true)
-				}
 			}
 		}
 	}
@@ -941,12 +775,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 
 	reg.Register(command.Command{
 		ID: "terminal.closeAll", Title: "Close All Terminals",
-		Handler: func() {
-			panels := app.bottomPanel.PanelIDs()
-			for i := len(panels) - 1; i >= 0; i-- {
-				app.closeTerminal(panels[i])
-			}
-		},
+		Handler: app.CloseAllTerminals,
 	})
 }
 

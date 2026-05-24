@@ -39,8 +39,12 @@ func resolveArgs() (workDir string, openFile string) {
 	return
 }
 
-func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
+func buildApp(cfg *config.AppConfig, borders *term.BorderSet) *App {
 	workDir, openFile := resolveArgs()
+	return buildAppFromConfig(cfg, borders, workDir, openFile)
+}
+
+func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, workDir, openFile string) *App {
 
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
 	if openFile != "" {
@@ -99,9 +103,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 	root := ui.NewRoot(rootBox)
 	root.SetFocus(editorGroup)
 
-	palette := buildTerminalPalettePtr(cfg.Theme)
-
-	app := &appWidgets{
+	return &App{
 		root:         root,
 		editorGroup:  editorGroup,
 		sidebar:      sidebar,
@@ -117,27 +119,6 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 		borders:      borders,
 		settings:     &cfg.Settings,
 		cwd:          workDir,
-		palette:      palette,
+		palette:      buildTerminalPalettePtr(cfg.Theme),
 	}
-	app.showSidebar = func() {
-		sidebar.Visible = true
-		splitPanel.ShowLeft = true
-	}
-	app.hideSidebar = func() {
-		sidebar.Visible = false
-		splitPanel.ShowLeft = false
-	}
-	app.setSidebarWidth = func(w int) {
-		if w <= 0 {
-			app.hideSidebar()
-			return
-		}
-		if !sidebar.Visible {
-			app.showSidebar()
-		}
-		sidebarWidth = w
-		splitPanel.DividerPos = sidebarWidth
-	}
-
-	return app
 }

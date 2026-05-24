@@ -13,7 +13,7 @@ import (
 func runEventLoop(
 	screen *term.TcellScreen,
 	renderer *render.Renderer,
-	app *appWidgets,
+	app *App,
 	running *bool,
 	quitPending *bool,
 	closeTerminal func(panelID string),
@@ -112,7 +112,7 @@ func runEventLoop(
 	}
 }
 
-func resizeTerminals(app *appWidgets) {
+func resizeTerminals(app *App) {
 	if !app.contentSplit.ShowBottom {
 		return
 	}

@@ -78,7 +78,7 @@ var changesContextMenu = []ui.ContextMenuItem{
 	{Label: "Open File", Shortcut: "", Command: "changes.openFile"},
 }
 
-func openContextMenu(app *appWidgets, reg *command.Registry, items []ui.ContextMenuItem, x, y int) {
+func openContextMenu(app *App, reg *command.Registry, items []ui.ContextMenuItem, x, y int) {
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = app.borders
 	menu.OnExec = func(cmd string) {
@@ -92,7 +92,7 @@ func openContextMenu(app *appWidgets, reg *command.Registry, items []ui.ContextM
 	app.root.SetFocus(menu)
 }
 
-func openMenuBarDropdown(app *appWidgets, reg *command.Registry, index int) {
+func openMenuBarDropdown(app *App, reg *command.Registry, index int) {
 	if index < 0 || index >= len(menuBarMenus) {
 		return
 	}
@@ -118,7 +118,7 @@ func openMenuBarDropdown(app *appWidgets, reg *command.Registry, index int) {
 	app.root.SetFocus(menu)
 }
 
-func handleRightClick(app *appWidgets, reg *command.Registry, mx, my int) {
+func handleRightClick(app *App, reg *command.Registry, mx, my int) {
 	panelRect := app.splitPanel.GetRect()
 	if my < panelRect.Y || my >= panelRect.Y+panelRect.H {
 		return
