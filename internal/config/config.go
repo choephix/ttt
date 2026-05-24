@@ -137,6 +137,11 @@ func ConfigFilePath(filename string) string {
 			return path
 		}
 	}
+	if home, err := os.UserHomeDir(); err == nil {
+		dir := filepath.Join(home, ".config", "ttt")
+		os.MkdirAll(dir, 0755)
+		return filepath.Join(dir, filename)
+	}
 	return filepath.Join(".config", filename)
 }
 

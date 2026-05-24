@@ -193,7 +193,7 @@ func TestSidebarTabClick(t *testing.T) {
 	}
 
 	// Sidebar tabs render at y=1 (row below menu bar).
-	// Tabs are: " Files " (x=0..6), " Search " (x=7..14), " Changes " (x=15..23)
+	// Tabs are: " Explore " (x=0..8), " Find " (x=9..14), " Changes " (x=15..23)
 	sidebarY := h.app.sidebar.GetRect().Y
 	sidebarX := h.app.sidebar.GetRect().X
 
@@ -209,7 +209,7 @@ func TestSidebarTabClick(t *testing.T) {
 		t.Errorf("expected active panel 'changes' after click, got %q", h.app.sidebar.ActivePanel)
 	}
 
-	// Click back on "Files" tab (within x=0..6)
+	// Click back on "Explore" tab (within x=0..6)
 	h.click(sidebarX+3, sidebarY)
 	if h.app.sidebar.ActivePanel != "explorer" {
 		t.Errorf("expected active panel 'explorer' after click, got %q", h.app.sidebar.ActivePanel)
@@ -285,20 +285,20 @@ func TestStartup(t *testing.T) {
 	h.assertContains("File")
 	h.assertContains("Edit")
 	h.assertContains("View")
-	h.assertContains("Files")
+	h.assertContains("Explore")
 }
 
 func TestToggleSidebar(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.assertContains("Files")
+	h.assertContains("Explore")
 
 	h.exec("sidebar.toggle")
-	h.assertNotContains("Files")
+	h.assertNotContains("Explore")
 
 	h.exec("sidebar.toggle")
-	h.assertContains("Files")
+	h.assertContains("Explore")
 }
 
 func TestTogglePanel(t *testing.T) {
@@ -325,10 +325,10 @@ func TestSidebarPanelSwitching(t *testing.T) {
 	defer h.stop()
 
 	h.exec("sidebar.explorer")
-	h.assertContains("Files")
+	h.assertContains("Explore")
 
 	h.exec("sidebar.search")
-	h.assertContains("Search")
+	h.assertContains("Find")
 
 	h.exec("sidebar.changes")
 	h.assertContains("Changes")
