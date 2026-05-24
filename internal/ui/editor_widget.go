@@ -28,8 +28,9 @@ type EditorPaneWidget struct {
 	TabSize      int
 	LineNumbers  bool
 	Highlighter  *highlight.Highlighter
-	SearchQuery  string
-	SearchActive int
+	SearchQuery   string
+	SearchMatches []FindMatch
+	SearchActive  int
 	lastClickTime int64
 	lastClickLine int
 	lastClickCol  int
@@ -79,11 +80,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	sel := e.Selection
 	hasSel := sel != nil && sel.Active
 
-	hasSearch := e.SearchQuery != ""
-	var searchMatches []FindMatch
-	if hasSearch {
-		searchMatches = FindInLines(e.Buf.Lines, e.SearchQuery)
-	}
+	hasSearch := len(e.SearchMatches) > 0
 
 	matchLine, matchCol, hasMatch := e.findMatchingBracket()
 
@@ -125,7 +122,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					}
 				}
 				if hasSearch {
-					for mi, m := range searchMatches {
+					for mi, m := range e.SearchMatches {
 						if m.Line == lineIdx && colIdx >= m.Col && colIdx < m.Col+m.Len {
 							if mi == e.SearchActive {
 								style = term.StyleSearchActive
@@ -136,10 +133,11 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 						}
 					}
 				}
+				isSearchHighlight := style == term.StyleSearchActive || style == term.StyleSearchMatch
 				bgStyle := term.Style(0)
 				if hasSel && sel.Contains(lineIdx, colIdx, e.Cursor.Line, e.Cursor.Col) {
 					bgStyle = term.StyleSelection
-				} else if lineIdx == e.Cursor.Line && !hasSel {
+				} else if lineIdx == e.Cursor.Line && !hasSel && !isSearchHighlight {
 					bgStyle = term.StyleActiveLine
 				}
 				if hasMatch && ((lineIdx == e.Cursor.Line && colIdx == e.Cursor.Col) ||

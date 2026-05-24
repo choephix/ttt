@@ -37,8 +37,6 @@ type EditorGroupWidget struct {
 	TabSize      int
 	LineNumbers  bool
 	Borders      *term.BorderSet
-	searchQuery  string
-	searchMatches []FindMatch
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
@@ -288,11 +286,13 @@ func (g *EditorGroupWidget) SelectAll() {
 	t.Cur.Col = len([]rune(t.Buf.Lines[lastLine]))
 }
 
-func (g *EditorGroupWidget) SetSearchQuery(query string) {
+func (g *EditorGroupWidget) SetSearch(query string, matches []FindMatch) {
 	if !g.IsEditorActive() {
 		return
 	}
 	g.Editor.SearchQuery = query
+	g.Editor.SearchMatches = matches
+	g.Editor.SearchActive = 0
 }
 
 func (g *EditorGroupWidget) SetSearchActive(idx int) {
@@ -317,29 +317,23 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.scrollViewport()
 }
 
-func (g *EditorGroupWidget) StoreSearchMatches(query string, matches []FindMatch) {
-	g.searchQuery = query
-	g.searchMatches = matches
-}
-
 func (g *EditorGroupWidget) ClearSearch() {
 	if !g.IsEditorActive() {
 		return
 	}
 	g.Editor.SearchQuery = ""
+	g.Editor.SearchMatches = nil
 	g.Editor.SearchActive = 0
-	g.searchQuery = ""
-	g.searchMatches = nil
 }
 
 func (g *EditorGroupWidget) FindNext() {
-	if !g.IsEditorActive() || len(g.searchMatches) == 0 {
+	if !g.IsEditorActive() || len(g.Editor.SearchMatches) == 0 {
 		return
 	}
 	cur := g.Editor.SearchActive
-	cur = (cur + 1) % len(g.searchMatches)
+	cur = (cur + 1) % len(g.Editor.SearchMatches)
 	g.Editor.SearchActive = cur
-	m := g.searchMatches[cur]
+	m := g.Editor.SearchMatches[cur]
 	g.Editor.Cursor.Line = m.Line
 	g.Editor.Cursor.Col = m.Col
 	g.Editor.scrollViewport()
@@ -379,13 +373,13 @@ func (g *EditorGroupWidget) ReplaceAll(query, replacement string) {
 }
 
 func (g *EditorGroupWidget) FindPrev() {
-	if !g.IsEditorActive() || len(g.searchMatches) == 0 {
+	if !g.IsEditorActive() || len(g.Editor.SearchMatches) == 0 {
 		return
 	}
 	cur := g.Editor.SearchActive
-	cur = (cur - 1 + len(g.searchMatches)) % len(g.searchMatches)
+	cur = (cur - 1 + len(g.Editor.SearchMatches)) % len(g.Editor.SearchMatches)
 	g.Editor.SearchActive = cur
-	m := g.searchMatches[cur]
+	m := g.Editor.SearchMatches[cur]
 	g.Editor.Cursor.Line = m.Line
 	g.Editor.Cursor.Col = m.Col
 	g.Editor.scrollViewport()

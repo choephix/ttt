@@ -222,9 +222,8 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			findBar := ui.NewFindBarWidget()
 			findBar.Borders = app.borders
 			findBar.OnSearch = func(query string) []ui.FindMatch {
-				app.editorGroup.SetSearchQuery(query)
 				matches := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
-				app.editorGroup.StoreSearchMatches(query, matches)
+				app.editorGroup.SetSearch(query, matches)
 				return matches
 			}
 			findBar.OnNavigate = func(match ui.FindMatch) {
@@ -261,9 +260,8 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			bar := ui.NewReplaceBarWidget()
 			bar.Borders = app.borders
 			bar.OnSearch = func(query string) []ui.FindMatch {
-				app.editorGroup.SetSearchQuery(query)
 				matches := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
-				app.editorGroup.StoreSearchMatches(query, matches)
+				app.editorGroup.SetSearch(query, matches)
 				return matches
 			}
 			bar.OnNavigate = func(match ui.FindMatch) {
