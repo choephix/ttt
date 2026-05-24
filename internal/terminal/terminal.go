@@ -26,7 +26,9 @@ type Terminal struct {
 	cols, rows int
 	done       chan struct{}
 	closed     bool
+	exited     bool
 	OnUpdate   func()
+	OnExit     func()
 }
 
 func New(shell string, cols, rows int, env []string) (*Terminal, error) {
@@ -80,9 +82,21 @@ func (t *Terminal) readLoop() {
 			}
 		}
 		if err != nil {
+			t.mu.Lock()
+			t.exited = true
+			t.mu.Unlock()
+			if t.OnExit != nil {
+				t.OnExit()
+			}
 			return
 		}
 	}
+}
+
+func (t *Terminal) Exited() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.exited
 }
 
 func (t *Terminal) Write(p []byte) (int, error) {

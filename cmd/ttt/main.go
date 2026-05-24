@@ -57,5 +57,5 @@ func main() {
 	w, h := screen.Size()
 	app.root.SetSize(w, h)
 
-	runEventLoop(screen, renderer, app, &running, &quitPending)
+	runEventLoop(screen, renderer, app, &running, &quitPending, app.closeTerminal)
 }

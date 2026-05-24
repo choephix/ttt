@@ -48,8 +48,6 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 	}
 
 	bottomPanel := ui.NewBottomPanelWidget(borders)
-	bottomPanel.AddPanel("output", "OUTPUT", ui.NewPlaceholderWidget(""))
-	bottomPanel.AddPanel("debug", "DEBUG", ui.NewPlaceholderWidget(""))
 
 	contentSplit := ui.NewContentSplitWidget()
 	contentSplit.Top = editorGroup

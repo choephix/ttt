@@ -39,6 +39,31 @@ func (bp *BottomPanelWidget) AddPanel(id, title string, w Widget) {
 	bp.syncTabs()
 }
 
+func (bp *BottomPanelWidget) RemovePanel(id string) {
+	for i, p := range bp.panels {
+		if p.ID == id {
+			bp.panels = append(bp.panels[:i], bp.panels[i+1:]...)
+			if bp.ActivePanel == id {
+				if len(bp.panels) > 0 {
+					idx := i
+					if idx >= len(bp.panels) {
+						idx = len(bp.panels) - 1
+					}
+					bp.ActivePanel = bp.panels[idx].ID
+				} else {
+					bp.ActivePanel = ""
+				}
+			}
+			bp.syncTabs()
+			return
+		}
+	}
+}
+
+func (bp *BottomPanelWidget) PanelCount() int {
+	return len(bp.panels)
+}
+
 func (bp *BottomPanelWidget) SetActivePanel(id string) {
 	for _, p := range bp.panels {
 		if p.ID == id {

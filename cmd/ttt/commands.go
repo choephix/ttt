@@ -46,9 +46,10 @@ type appWidgets struct {
 	palette      ui.TerminalColorPalette
 	terminals    []terminalTab
 
-	showSidebar    func()
-	hideSidebar    func()
-	setSidebarWidth func(int)
+	showSidebar      func()
+	hideSidebar      func()
+	setSidebarWidth  func(int)
+	closeTerminal    func(panelID string)
 }
 
 func registerCommands(reg *command.Registry, app *appWidgets, running *bool, quitPending *bool) {
@@ -237,6 +238,30 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		},
 	})
 
+	app.closeTerminal = func(panelID string) {
+		for i, tt := range app.terminals {
+			if fmt.Sprintf("terminal-%d", i) == panelID {
+				tt.term.Close()
+				tt.widget.SetFocused(false)
+				break
+			}
+		}
+		app.bottomPanel.RemovePanel(panelID)
+		if app.bottomPanel.PanelCount() == 0 {
+			app.contentSplit.ShowBottom = false
+			unfocusTerminals()
+			app.root.SetFocus(app.editorGroup)
+		} else {
+			if w := app.bottomPanel.ActiveWidget(); w != nil {
+				unfocusTerminals()
+				app.root.SetFocus(w)
+				if tw, ok := w.(*ui.TerminalWidget); ok {
+					tw.SetFocused(true)
+				}
+			}
+		}
+	}
+
 	spawnTerminal := func() {
 		r := app.contentSplit.GetRect()
 		cols := r.W
@@ -281,8 +306,12 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		app.root.SetFocus(tw)
 		tw.SetFocused(true)
 
+		panelID := fmt.Sprintf("terminal-%d", idx)
 		t.OnUpdate = func() {
 			app.screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
+		t.OnExit = func() {
+			app.screen.PostEvent(tcell.NewEventInterrupt(panelID))
 		}
 	}
 
@@ -895,6 +924,13 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 
 	app.bottomPanel.TabBar.OnAdd = func() {
 		reg.Execute("terminal.new")
+	}
+
+	app.bottomPanel.TabBar.OnTabClose = func(index int) {
+		panels := app.bottomPanel.PanelIDs()
+		if index >= 0 && index < len(panels) {
+			app.closeTerminal(panels[index])
+		}
 	}
 }
 

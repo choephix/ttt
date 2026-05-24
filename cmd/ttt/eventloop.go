@@ -16,6 +16,7 @@ func runEventLoop(
 	app *appWidgets,
 	running *bool,
 	quitPending *bool,
+	closeTerminal func(panelID string),
 ) {
 	lastBlameLine := -1
 	lastBlameFile := ""
@@ -103,6 +104,9 @@ func runEventLoop(
 			redraw()
 
 		case *tcell.EventInterrupt:
+			if panelID, ok := tev.Data().(string); ok && panelID != "" {
+				closeTerminal(panelID)
+			}
 			redraw()
 		}
 	}
