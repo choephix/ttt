@@ -551,6 +551,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 }
 
 func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
+	if len(e.Buf.Lines) == 0 {
+		return 0, 0
+	}
 	gutterW := e.gutterWidth()
 	line = my - r.Y + e.Viewport.TopLine
 	col = mx - r.X - gutterW + e.Viewport.LeftCol
