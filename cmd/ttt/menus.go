@@ -43,9 +43,10 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 	// View
 	{
 		{Label: "Command Palette", Command: "command.palette"},
+		{Label: "Quick Open", Command: "file.quickOpen"},
 		ui.MenuSep(),
-		{Label: "Explorer", Command: "sidebar.explorer"},
-		{Label: "Search", Command: "sidebar.search"},
+		{Label: "Explore", Command: "sidebar.explorer"},
+		{Label: "Find", Command: "sidebar.search"},
 		{Label: "Changes", Command: "sidebar.changes"},
 		ui.MenuSep(),
 		{Label: "Toggle Sidebar", Command: "sidebar.toggle"},

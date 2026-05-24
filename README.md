@@ -233,13 +233,13 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 |----------|--------|
 | | **General** |
 | Ctrl+Q | Quit |
-| Ctrl+Shift+P | Command palette |
-| Ctrl+P | Quick open file |
+| Ctrl+P | Command palette |
+| Alt+P | Quick open file |
 | Escape | Focus editor |
 | | **File** |
 | Ctrl+N | New file |
 | Ctrl+S | Save |
-| Ctrl+Shift+S | Save as |
+| Ctrl+K S | Save as |
 | | **Editor** |
 | Ctrl+Z | Undo |
 | Ctrl+Y | Redo |
@@ -252,12 +252,12 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | Ctrl+F | Find |
 | Ctrl+H | Find and replace |
 | F3 / Shift+F3 | Find next / previous |
-| Ctrl+Shift+F | Search across files |
 | | **View** |
 | Ctrl+B | Toggle sidebar |
 | Ctrl+J | Toggle bottom panel |
-| Ctrl+Shift+E | Show file explorer |
-| Ctrl+Shift+G | Show git changes |
+| Ctrl+K E | Show file explorer |
+| Ctrl+K F | Search across files |
+| Ctrl+K C | Show changes |
 | Ctrl+0 | Focus sidebar |
 | Ctrl+K Ctrl+T | Switch theme |
 | | **Tabs** |
@@ -265,7 +265,7 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | Ctrl+W | Close tab |
 | | **Terminal** |
 | Ctrl+` | Toggle terminal |
-| Ctrl+Shift+` | New terminal tab |
+| Ctrl+K T | New terminal tab |
 | | **Changes Panel** |
 | Space | Toggle stage/unstage file |
 | A | Stage all |

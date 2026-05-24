@@ -150,6 +150,7 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 func (inp *InputWidget) SetText(text string) {
 	inp.Text = text
 	inp.CursorPos = len([]rune(text))
+	inp.notify()
 }
 
 func (inp *InputWidget) Clear() {

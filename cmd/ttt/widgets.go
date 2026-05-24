@@ -101,8 +101,8 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
-	sidebar.AddPanel("explorer", "Files", explorer)
-	sidebar.AddPanel("search", "Search", search)
+	sidebar.AddPanel("explorer", "Explore", explorer)
+	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes)
 	sidebar.Visible = cfg.Settings.SidebarVisible
 	sidebar.Borders = borders
