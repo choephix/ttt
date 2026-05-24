@@ -35,6 +35,10 @@ func NewTcellScreen() (*TcellScreen, error) {
 	return &TcellScreen{scr: s, styleMap: DefaultStyleMap()}, nil
 }
 
+func NewTcellScreenFrom(s tcell.Screen) *TcellScreen {
+	return &TcellScreen{scr: s, styleMap: DefaultStyleMap()}
+}
+
 func (t *TcellScreen) SetStyleMap(m StyleMap) {
 	t.styleMap = m
 }
