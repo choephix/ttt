@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/term"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"ttt/internal/command"
-	"ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
 )

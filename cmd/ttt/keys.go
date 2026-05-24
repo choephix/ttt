@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/config"
 
 	"github.com/gdamore/tcell/v2"
 )

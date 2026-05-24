@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"ttt/internal/git"
-	"ttt/internal/render"
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/render"
+	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

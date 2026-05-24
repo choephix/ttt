@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
-	"ttt/internal/git"
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

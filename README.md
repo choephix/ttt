@@ -17,6 +17,7 @@ A fully-featured code editor that lives in the terminal. Not a simplified termin
 - **Mouse support** — click to position cursor, click tabs, drag sidebar/panel dividers, right-click context menus
 - **Git blame** — inline blame info for the current line shown in the status bar (author, relative time, summary)
 - **Line numbers** with current-line highlighting
+- **Integrated terminal emulator** — multiple tabs, full VT escape sequence support
 - **Diff-based renderer** for efficient terminal updates (double-buffered cell grid)
 
 ### Multi-Folder Workspaces
@@ -164,25 +165,35 @@ To use your terminal's native colors instead of the theme's, set foreground/back
 
 File, Edit, Selection, View, and Help menus accessible via the menu bar or keyboard shortcuts. Menus display resolved keybindings next to each command. Navigate between menus with left/right arrow keys.
 
-## Getting Started
+## Installation
 
 ### Prerequisites
 
-- Go 1.18 or newer
+- [Go](https://go.dev/) 1.18 or newer
 - [Git](https://git-scm.com/) — required for source control features
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) — required for workspace search
 
-### Build and Run
+### From Source
 
 ```sh
+git clone https://github.com/eugenioenko/ttt.git
+cd ttt
 make build
 ./bin/ttt
 ```
 
-Or:
+To install to your `$GOPATH/bin`:
 
 ```sh
-make run
+git clone https://github.com/eugenioenko/ttt.git
+cd ttt
+go install ./cmd/ttt
+```
+
+### Quick Start
+
+```sh
+make run          # build and run in one step
 ```
 
 ### Configuration

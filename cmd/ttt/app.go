@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"ttt/internal/config"
-	"ttt/internal/render"
-	"ttt/internal/term"
-	"ttt/internal/terminal"
-	"ttt/internal/ui"
-	"ttt/internal/view"
-	"ttt/internal/workspace"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/render"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/terminal"
+	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/workspace"
 
 	"github.com/gdamore/tcell/v2"
 )

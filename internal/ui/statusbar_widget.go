@@ -2,8 +2,8 @@ package ui
 
 import (
 	"fmt"
-	"ttt/internal/term"
-	"ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/view"
 
 	"github.com/gdamore/tcell/v2"
 )

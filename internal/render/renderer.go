@@ -1,6 +1,6 @@
 package render
 
-import "ttt/internal/term"
+import "github.com/eugenioenko/ttt/internal/term"
 
 // Renderer handles diff-based rendering to the terminal screen.
 type Renderer struct {

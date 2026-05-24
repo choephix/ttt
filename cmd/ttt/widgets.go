@@ -3,12 +3,12 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"ttt/internal/config"
-	"ttt/internal/git"
-	"ttt/internal/term"
-	"ttt/internal/ui"
-	"ttt/internal/view"
-	"ttt/internal/workspace"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
 func resolveArgs() (ws *workspace.Workspace, openFiles []string) {

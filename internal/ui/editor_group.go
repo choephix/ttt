@@ -2,16 +2,16 @@ package ui
 
 import (
 	"log/slog"
-	"ttt/internal/config"
-	"ttt/internal/core/buffer"
-	"ttt/internal/core/clipboard"
-	"ttt/internal/core/cursor"
-	"ttt/internal/core/diff"
-	"ttt/internal/core/highlight"
-	"ttt/internal/core/selection"
-	"ttt/internal/core/undo"
-	"ttt/internal/term"
-	"ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/buffer"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
+	"github.com/eugenioenko/ttt/internal/core/cursor"
+	"github.com/eugenioenko/ttt/internal/core/diff"
+	"github.com/eugenioenko/ttt/internal/core/highlight"
+	"github.com/eugenioenko/ttt/internal/core/selection"
+	"github.com/eugenioenko/ttt/internal/core/undo"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/view"
 
 	"github.com/gdamore/tcell/v2"
 )

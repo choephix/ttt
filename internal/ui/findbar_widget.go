@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

@@ -1,6 +1,6 @@
 package undo
 
-import "ttt/internal/core/buffer"
+import "github.com/eugenioenko/ttt/internal/core/buffer"
 
 // EditCommand defines the interface for undoable buffer edits.
 type EditCommand interface {

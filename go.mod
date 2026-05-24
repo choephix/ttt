@@ -1,4 +1,4 @@
-module ttt
+module github.com/eugenioenko/ttt
 
 go 1.24.4
 

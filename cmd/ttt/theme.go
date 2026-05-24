@@ -1,9 +1,9 @@
 package main
 
 import (
-	"ttt/internal/config"
-	"ttt/internal/term"
-	"ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
 )

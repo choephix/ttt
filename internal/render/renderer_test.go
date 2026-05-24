@@ -1,7 +1,7 @@
 package render
 
 import (
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/term"
 	"testing"
 )
 

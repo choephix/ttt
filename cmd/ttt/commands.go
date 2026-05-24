@@ -8,12 +8,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"ttt/internal/command"
-	"ttt/internal/config"
-	"ttt/internal/core/buffer"
-	"ttt/internal/core/diff"
-	"ttt/internal/git"
-	"ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/buffer"
+	"github.com/eugenioenko/ttt/internal/core/diff"
+	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/ui"
 )
 
 func registerCommands(reg *command.Registry, app *App, running *bool, quitPending *bool) {

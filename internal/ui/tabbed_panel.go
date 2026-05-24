@@ -1,6 +1,6 @@
 package ui
 
-import "ttt/internal/term"
+import "github.com/eugenioenko/ttt/internal/term"
 
 type panelEntry struct {
 	ID    string

@@ -1,11 +1,11 @@
 package ui
 
 import (
-	"ttt/internal/core/buffer"
-	"ttt/internal/core/cursor"
-	"ttt/internal/core/selection"
-	"ttt/internal/term"
-	"ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/core/buffer"
+	"github.com/eugenioenko/ttt/internal/core/cursor"
+	"github.com/eugenioenko/ttt/internal/core/selection"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/view"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"

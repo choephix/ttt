@@ -2,7 +2,7 @@ package highlight
 
 import (
 	"strings"
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"

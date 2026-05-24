@@ -1,7 +1,7 @@
 package buffers
 
 import (
-	"ttt/internal/core/buffer"
+	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"testing"
 )
 

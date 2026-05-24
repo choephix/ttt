@@ -3,10 +3,10 @@ package main
 import (
 	"log/slog"
 	"os"
-	"ttt/internal/command"
-	"ttt/internal/config"
-	"ttt/internal/render"
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/render"
+	"github.com/eugenioenko/ttt/internal/term"
 )
 
 func initLogger(debug bool) *os.File {

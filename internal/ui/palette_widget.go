@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"ttt/internal/command"
-	"ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )

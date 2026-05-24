@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"ttt/internal/command"
-	"ttt/internal/config"
-	"ttt/internal/render"
-	"ttt/internal/term"
-	"ttt/internal/ui"
-	"ttt/internal/workspace"
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/render"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/workspace"
 
 	"github.com/gdamore/tcell/v2"
 )
