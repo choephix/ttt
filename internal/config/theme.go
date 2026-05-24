@@ -72,6 +72,60 @@ type SyntaxStyles struct {
 	Attribute   StyleDef `json:"attribute"`
 }
 
+type TerminalColors struct {
+	Foreground    string `json:"foreground,omitempty"`
+	Background    string `json:"background,omitempty"`
+	Black         string `json:"black,omitempty"`
+	Red           string `json:"red,omitempty"`
+	Green         string `json:"green,omitempty"`
+	Yellow        string `json:"yellow,omitempty"`
+	Blue          string `json:"blue,omitempty"`
+	Magenta       string `json:"magenta,omitempty"`
+	Cyan          string `json:"cyan,omitempty"`
+	White         string `json:"white,omitempty"`
+	BrightBlack   string `json:"brightBlack,omitempty"`
+	BrightRed     string `json:"brightRed,omitempty"`
+	BrightGreen   string `json:"brightGreen,omitempty"`
+	BrightYellow  string `json:"brightYellow,omitempty"`
+	BrightBlue    string `json:"brightBlue,omitempty"`
+	BrightMagenta string `json:"brightMagenta,omitempty"`
+	BrightCyan    string `json:"brightCyan,omitempty"`
+	BrightWhite   string `json:"brightWhite,omitempty"`
+}
+
+func DefaultTerminalColors() TerminalColors {
+	return TerminalColors{
+		Foreground:    "#d4d4d4",
+		Background:    "#1e1e1e",
+		Black:         "#1e1e1e",
+		Red:           "#f44747",
+		Green:         "#6a9955",
+		Yellow:        "#d7ba7d",
+		Blue:          "#569cd6",
+		Magenta:       "#c586c0",
+		Cyan:          "#4ec9b0",
+		White:         "#d4d4d4",
+		BrightBlack:   "#808080",
+		BrightRed:     "#f14c4c",
+		BrightGreen:   "#73c991",
+		BrightYellow:  "#e2c08d",
+		BrightBlue:    "#6cb6ff",
+		BrightMagenta: "#d670d6",
+		BrightCyan:    "#58d1c9",
+		BrightWhite:   "#e5e5e5",
+	}
+}
+
+// ANSIPalette returns the 16 ANSI colors as an ordered array [0..15].
+func (tc TerminalColors) ANSIPalette() [16]string {
+	return [16]string{
+		tc.Black, tc.Red, tc.Green, tc.Yellow,
+		tc.Blue, tc.Magenta, tc.Cyan, tc.White,
+		tc.BrightBlack, tc.BrightRed, tc.BrightGreen, tc.BrightYellow,
+		tc.BrightBlue, tc.BrightMagenta, tc.BrightCyan, tc.BrightWhite,
+	}
+}
+
 type ThemeConfig struct {
 	Default      StyleDef `json:"default"`
 	Success string `json:"success,omitempty"`
@@ -88,10 +142,12 @@ type ThemeConfig struct {
 	Scrollbar       StyleDef    `json:"scrollbar"`
 	Syntax          SyntaxStyles `json:"syntax"`
 	Borders         BorderChars `json:"borders"`
+	Terminal        TerminalColors `json:"terminal,omitempty"`
 }
 
 func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
+		Terminal: DefaultTerminalColors(),
 		Default: StyleDef{Fg: "#fafafa", Bg: "#1f1f1f"},
 
 		Menu: MenuStyles{

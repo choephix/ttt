@@ -48,6 +48,32 @@ func (t *TcellScreen) Size() (w, h int) {
 }
 
 func (t *TcellScreen) SetCell(x, y int, c Cell) {
+	if c.Direct {
+		s := tcell.StyleDefault
+		if c.Fg.Set {
+			s = s.Foreground(tcell.NewRGBColor(int32(c.Fg.R), int32(c.Fg.G), int32(c.Fg.B)))
+		}
+		if c.Bg.Set {
+			s = s.Background(tcell.NewRGBColor(int32(c.Bg.R), int32(c.Bg.G), int32(c.Bg.B)))
+		}
+		if c.Attrs&CellAttrBold != 0 {
+			s = s.Bold(true)
+		}
+		if c.Attrs&CellAttrUnderline != 0 {
+			s = s.Underline(true)
+		}
+		if c.Attrs&CellAttrItalic != 0 {
+			s = s.Italic(true)
+		}
+		if c.Attrs&CellAttrReverse != 0 {
+			s = s.Reverse(true)
+		}
+		if c.Attrs&CellAttrBlink != 0 {
+			s = s.Blink(true)
+		}
+		t.scr.SetContent(x, y, c.Ch, nil, s)
+		return
+	}
 	s := t.styleMap[c.Style]
 	if c.BgStyle != 0 {
 		_, bg, _ := t.styleMap[c.BgStyle].Decompose()
@@ -79,4 +105,8 @@ func (t *TcellScreen) ShowCursor(x, y int) {
 
 func (t *TcellScreen) HideCursor() {
 	t.scr.HideCursor()
+}
+
+func (t *TcellScreen) PostEvent(ev tcell.Event) error {
+	return t.scr.PostEvent(ev)
 }

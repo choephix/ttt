@@ -39,11 +39,36 @@ const (
 	StyleBracketMatch
 )
 
+// DirectColor holds an RGBA color for terminal emulator output.
+// Zero value means "use default".
+type DirectColor struct {
+	R, G, B byte
+	Set     bool
+}
+
+// CellAttr holds text attribute flags for direct-style cells.
+type CellAttr byte
+
+const (
+	CellAttrBold      CellAttr = 1 << iota
+	CellAttrUnderline
+	CellAttrItalic
+	CellAttrReverse
+	CellAttrBlink
+)
+
 // Cell represents a single character cell on the screen.
 type Cell struct {
 	Ch      rune
 	Style   Style
 	BgStyle Style // when non-zero, background comes from this style instead of Style
+
+	// Direct-style fields for terminal emulator cells.
+	// When Direct is true, Fg/Bg/Attrs are used instead of Style.
+	Direct   bool
+	Fg       DirectColor
+	Bg       DirectColor
+	Attrs    CellAttr
 }
 
 // Screen abstracts the terminal screen.

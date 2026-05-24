@@ -5,15 +5,27 @@ import (
 	"os"
 )
 
+type TerminalSettings struct {
+	Shell      string `json:"shell,omitempty"`
+	Scrollback int    `json:"scrollback,omitempty"`
+}
+
+func DefaultTerminalSettings() TerminalSettings {
+	return TerminalSettings{
+		Scrollback: 1000,
+	}
+}
+
 type Settings struct {
-	TabSize        int    `json:"tabSize"`
-	InsertSpaces   bool   `json:"insertSpaces"`
-	WordWrap       bool   `json:"wordWrap"`
-	LineNumbers    bool   `json:"lineNumbers"`
-	SidebarVisible bool   `json:"sidebarVisible"`
-	SidebarWidth   int    `json:"sidebarWidth"`
-	Theme          string `json:"theme,omitempty"`
-	DebugMode      bool   `json:"debugMode,omitempty"`
+	TabSize        int              `json:"tabSize"`
+	InsertSpaces   bool             `json:"insertSpaces"`
+	WordWrap       bool             `json:"wordWrap"`
+	LineNumbers    bool             `json:"lineNumbers"`
+	SidebarVisible bool             `json:"sidebarVisible"`
+	SidebarWidth   int              `json:"sidebarWidth"`
+	Theme          string           `json:"theme,omitempty"`
+	DebugMode      bool             `json:"debugMode,omitempty"`
+	Terminal       TerminalSettings `json:"terminal,omitempty"`
 }
 
 func DefaultSettings() Settings {
@@ -24,6 +36,7 @@ func DefaultSettings() Settings {
 		LineNumbers:    true,
 		SidebarVisible: true,
 		SidebarWidth:   30,
+		Terminal:       DefaultTerminalSettings(),
 	}
 }
 

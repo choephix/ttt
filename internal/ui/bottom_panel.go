@@ -49,6 +49,14 @@ func (bp *BottomPanelWidget) SetActivePanel(id string) {
 	}
 }
 
+func (bp *BottomPanelWidget) PanelIDs() []string {
+	ids := make([]string, len(bp.panels))
+	for i, p := range bp.panels {
+		ids[i] = p.ID
+	}
+	return ids
+}
+
 func (bp *BottomPanelWidget) ActiveWidget() Widget {
 	for _, p := range bp.panels {
 		if p.ID == bp.ActivePanel {
@@ -106,6 +114,13 @@ func (bp *BottomPanelWidget) Render(surface *RenderSurface) {
 }
 
 func (bp *BottomPanelWidget) HandleEvent(ev tcell.Event) EventResult {
+	if mev, ok := ev.(*tcell.EventMouse); ok {
+		_, my := mev.Position()
+		r := bp.GetRect()
+		if my == r.Y {
+			return bp.TabBar.HandleEvent(ev)
+		}
+	}
 	active := bp.ActiveWidget()
 	if active != nil {
 		return active.HandleEvent(ev)

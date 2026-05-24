@@ -50,8 +50,6 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 	bottomPanel := ui.NewBottomPanelWidget(borders)
 	bottomPanel.AddPanel("output", "OUTPUT", ui.NewPlaceholderWidget(""))
 	bottomPanel.AddPanel("debug", "DEBUG", ui.NewPlaceholderWidget(""))
-	bottomPanel.AddPanel("terminal", "TERMINAL", ui.NewPlaceholderWidget(""))
-	bottomPanel.AddPanel("ports", "PORTS", ui.NewPlaceholderWidget(""))
 
 	contentSplit := ui.NewContentSplitWidget()
 	contentSplit.Top = editorGroup
@@ -103,6 +101,8 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 	root := ui.NewRoot(rootBox)
 	root.SetFocus(editorGroup)
 
+	palette := buildTerminalPalette(cfg.Theme.Terminal)
+
 	app := &appWidgets{
 		root:         root,
 		editorGroup:  editorGroup,
@@ -119,6 +119,7 @@ func buildWidgets(cfg *config.AppConfig, borders *term.BorderSet) *appWidgets {
 		borders:      borders,
 		settings:     &cfg.Settings,
 		cwd:          workDir,
+		palette:      palette,
 	}
 	app.showSidebar = func() {
 		sidebar.Visible = true

@@ -8,13 +8,15 @@ import (
 
 type ContentSplitWidget struct {
 	BaseWidget
-	Top         Widget
-	Bottom      Widget
-	ShowBottom  bool
-	BottomH     int
-	Borders     *term.BorderSet
-	OnResize    func(height int)
-	dragging    bool
+	Top            Widget
+	Bottom         Widget
+	ShowBottom     bool
+	BottomH        int
+	Borders        *term.BorderSet
+	OnResize       func(height int)
+	OnBottomClick  func()
+	OnTopClick     func()
+	dragging       bool
 }
 
 func NewContentSplitWidget() *ContentSplitWidget {
@@ -111,12 +113,20 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 
 		if my > divY && cs.Bottom != nil {
-			return cs.Bottom.HandleEvent(ev)
+			result := cs.Bottom.HandleEvent(ev)
+			if result == EventConsumed && btn&tcell.Button1 != 0 && cs.OnBottomClick != nil {
+				cs.OnBottomClick()
+			}
+			return result
 		}
 	}
 
 	if cs.Top != nil {
-		return cs.Top.HandleEvent(ev)
+		result := cs.Top.HandleEvent(ev)
+		if result == EventConsumed && btn&tcell.Button1 != 0 && cs.OnTopClick != nil {
+			cs.OnTopClick()
+		}
+		return result
 	}
 
 	return EventIgnored

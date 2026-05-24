@@ -3,6 +3,7 @@ package main
 import (
 	"ttt/internal/config"
 	"ttt/internal/term"
+	"ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -97,4 +98,18 @@ func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 		s = s.Bold(true)
 	}
 	m[idx] = s
+}
+
+func buildTerminalPalette(tc config.TerminalColors) ui.TerminalColorPalette {
+	ansi := tc.ANSIPalette()
+	p := ui.TerminalColorPalette{
+		Fg:       ui.ParseHexColor(tc.Foreground),
+		Bg:       ui.ParseHexColor(tc.Background),
+		Color256: ui.Build256Palette(),
+	}
+	for i, hex := range ansi {
+		p.ANSI[i] = ui.ParseHexColor(hex)
+		p.Color256[i] = p.ANSI[i]
+	}
+	return p
 }

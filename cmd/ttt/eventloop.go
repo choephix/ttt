@@ -62,6 +62,7 @@ func runEventLoop(
 			cells[y] = make([]term.Cell, app.root.Width)
 		}
 		app.root.Render(cells)
+		resizeTerminals(app)
 		renderer.SetCurrent(cells)
 		if cx, cy, visible := app.root.CursorPosition(); visible {
 			screen.ShowCursor(cx, cy)
@@ -97,8 +98,27 @@ func runEventLoop(
 		case *tcell.EventResize:
 			w, h := screen.Size()
 			app.root.SetSize(w, h)
+			resizeTerminals(app)
 			renderer.Clear()
 			redraw()
+
+		case *tcell.EventInterrupt:
+			redraw()
 		}
+	}
+}
+
+func resizeTerminals(app *appWidgets) {
+	if !app.contentSplit.ShowBottom {
+		return
+	}
+	r := app.bottomPanel.GetRect()
+	cols := r.W
+	rows := r.H - 2
+	if cols <= 0 || rows <= 0 {
+		return
+	}
+	for _, tt := range app.terminals {
+		tt.term.Resize(cols, rows)
 	}
 }

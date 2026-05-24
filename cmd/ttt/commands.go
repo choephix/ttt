@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,9 +13,17 @@ import (
 	"ttt/internal/core/diff"
 	"ttt/internal/git"
 	"ttt/internal/term"
+	"ttt/internal/terminal"
 	"ttt/internal/ui"
 	"ttt/internal/view"
+
+	"github.com/gdamore/tcell/v2"
 )
+
+type terminalTab struct {
+	term   *terminal.Terminal
+	widget *ui.TerminalWidget
+}
 
 type appWidgets struct {
 	root         *ui.Root
@@ -34,6 +43,8 @@ type appWidgets struct {
 	renderer     interface{ Clear() }
 	settings     *config.Settings
 	cwd          string
+	palette      ui.TerminalColorPalette
+	terminals    []terminalTab
 
 	showSidebar    func()
 	hideSidebar    func()
@@ -116,9 +127,16 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		},
 	})
 
+	unfocusTerminals := func() {
+		for _, tt := range app.terminals {
+			tt.widget.SetFocused(false)
+		}
+	}
+
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
 		Handler: func() {
+			unfocusTerminals()
 			app.root.SetFocus(app.editorGroup)
 		},
 	})
@@ -185,6 +203,9 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		ID: "editor.quit", Title: "Quit",
 		Handler: func() {
 			if !app.editorGroup.AnyDirty() || *quitPending {
+				for _, tt := range app.terminals {
+					tt.term.Close()
+				}
 				*running = false
 				return
 			}
@@ -197,6 +218,10 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		ID: "panel.toggle", Title: "Toggle Panel",
 		Handler: func() {
 			app.contentSplit.ShowBottom = !app.contentSplit.ShowBottom
+			if !app.contentSplit.ShowBottom {
+				unfocusTerminals()
+				app.root.SetFocus(app.editorGroup)
+			}
 		},
 	})
 
@@ -208,6 +233,81 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 			}
 			if w := app.bottomPanel.ActiveWidget(); w != nil {
 				app.root.SetFocus(w)
+			}
+		},
+	})
+
+	spawnTerminal := func() {
+		r := app.contentSplit.GetRect()
+		cols := r.W
+		rows := r.H - 3
+		if cols <= 0 {
+			cols = 80
+		}
+		if rows <= 0 {
+			rows = 24
+		}
+
+		t, err := terminal.New(
+			app.settings.Terminal.Shell,
+			cols, rows,
+			nil,
+		)
+		if err != nil {
+			slog.Error("terminal.New", "err", err)
+			app.status.Message = "Failed to open terminal: " + err.Error()
+			return
+		}
+
+		tw := ui.NewTerminalWidget(t, app.palette)
+		idx := len(app.terminals)
+		app.terminals = append(app.terminals, terminalTab{term: t, widget: tw})
+
+		shellName := filepath.Base(app.settings.Terminal.Shell)
+		if shellName == "" || shellName == "." {
+			if s := os.Getenv("SHELL"); s != "" {
+				shellName = filepath.Base(s)
+			} else {
+				shellName = "sh"
+			}
+		}
+		label := fmt.Sprintf("%s %d", shellName, idx+1)
+		app.bottomPanel.AddPanel(fmt.Sprintf("terminal-%d", idx), label, tw)
+		app.bottomPanel.SetActivePanel(fmt.Sprintf("terminal-%d", idx))
+
+		if !app.contentSplit.ShowBottom {
+			app.contentSplit.ShowBottom = true
+		}
+		app.root.SetFocus(tw)
+		tw.SetFocused(true)
+
+		t.OnUpdate = func() {
+			app.screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
+	}
+
+	reg.Register(command.Command{
+		ID: "terminal.new", Title: "New Terminal",
+		Handler: spawnTerminal,
+	})
+
+	reg.Register(command.Command{
+		ID: "terminal.toggle", Title: "Toggle Terminal",
+		Handler: func() {
+			if !app.contentSplit.ShowBottom {
+				app.contentSplit.ShowBottom = true
+				if len(app.terminals) == 0 {
+					spawnTerminal()
+				} else {
+					unfocusTerminals()
+					last := app.terminals[len(app.terminals)-1]
+					app.root.SetFocus(last.widget)
+					last.widget.SetFocused(true)
+				}
+			} else {
+				app.contentSplit.ShowBottom = false
+				unfocusTerminals()
+				app.root.SetFocus(app.editorGroup)
 			}
 		},
 	})
@@ -653,7 +753,8 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		reg.Execute("sidebar.focus")
 	}
 	app.splitPanel.OnRightClick = func() {
-		reg.Execute("editor.focus")
+		// Don't force editor.focus here — let ContentSplit decide
+		// based on whether the click landed in top (editor) or bottom (panel).
 	}
 	app.splitPanel.OnLeftEdgeClick = func() {
 		reg.Execute("sidebar.toggle")
@@ -759,9 +860,48 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 		}
 	}
 
+	app.contentSplit.OnTopClick = func() {
+		unfocusTerminals()
+		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.contentSplit.OnBottomClick = func() {
+		if w := app.bottomPanel.ActiveWidget(); w != nil {
+			unfocusTerminals()
+			app.root.SetFocus(w)
+			if tw, ok := w.(*ui.TerminalWidget); ok {
+				tw.SetFocused(true)
+			}
+		}
+	}
+
 	app.splitPanel.OnResize = func(width int) {
 		app.setSidebarWidth(width)
 	}
+
+	app.bottomPanel.TabBar.OnTabClick = func(index int) {
+		panels := app.bottomPanel.PanelIDs()
+		if index >= 0 && index < len(panels) {
+			app.bottomPanel.SetActivePanel(panels[index])
+			if w := app.bottomPanel.ActiveWidget(); w != nil {
+				unfocusTerminals()
+				app.root.SetFocus(w)
+				if tw, ok := w.(*ui.TerminalWidget); ok {
+					tw.SetFocused(true)
+				}
+			}
+		}
+	}
+
+	app.bottomPanel.TabBar.OnAdd = func() {
+		reg.Execute("terminal.new")
+	}
+}
+
+// Commands that work even when terminal has raw key focus.
+var forceKeyCommands = map[string]bool{
+	"panel.toggle":    true,
+	"terminal.toggle": true,
 }
 
 func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBinding) {
@@ -782,9 +922,11 @@ func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBind
 			})
 		} else {
 			key, mod, rn := comboToTcell(kb.Steps[0])
-			root.AddGlobalKey(key, mod, rn, func() {
-				reg.Execute(cmdID)
-			})
+			handler := func() { reg.Execute(cmdID) }
+			root.AddGlobalKey(key, mod, rn, handler)
+			if forceKeyCommands[cmdID] {
+				root.AddForceKey(key, mod, rn, handler)
+			}
 		}
 	}
 }

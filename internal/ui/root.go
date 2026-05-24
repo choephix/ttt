@@ -36,6 +36,7 @@ type Root struct {
 	Width        int
 	Height       int
 	GlobalKeys   []GlobalKeyBinding
+	ForceKeys    []GlobalKeyBinding // checked even when focused widget wants raw keys
 	ChordKeys    []ChordKeyBinding
 	chord        *chordState
 	OnRightClick func(mx, my int)
@@ -53,6 +54,10 @@ func (r *Root) SetSize(w, h int) {
 
 func (r *Root) AddGlobalKey(key tcell.Key, mod tcell.ModMask, rn rune, handler func()) {
 	r.GlobalKeys = append(r.GlobalKeys, GlobalKeyBinding{Key: key, Mod: mod, Rune: rn, Handler: handler})
+}
+
+func (r *Root) AddForceKey(key tcell.Key, mod tcell.ModMask, rn rune, handler func()) {
+	r.ForceKeys = append(r.ForceKeys, GlobalKeyBinding{Key: key, Mod: mod, Rune: rn, Handler: handler})
 }
 
 func (r *Root) AddChordKey(steps []GlobalKeyBinding, handler func()) {
@@ -123,6 +128,20 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 	if len(candidates) > 0 {
 		r.chord = &chordState{candidates: candidates, stepIdx: 1}
 		return EventConsumed
+	}
+
+	// When focused widget is a raw key consumer (e.g. terminal),
+	// only check force keys, then send directly to it.
+	if r.Focused != nil {
+		if rk, ok := r.Focused.(RawKeyConsumer); ok && rk.WantsRawKeys() {
+			for _, gk := range r.ForceKeys {
+				if matchKey(kev, gk) {
+					gk.Handler()
+					return EventConsumed
+				}
+			}
+			return r.Focused.HandleEvent(ev)
+		}
 	}
 
 	// Single-key global bindings

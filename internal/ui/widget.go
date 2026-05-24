@@ -37,3 +37,10 @@ type Widget interface {
 type CursorProvider interface {
 	CursorPosition() (x, y int, visible bool)
 }
+
+// RawKeyConsumer indicates a widget that wants all key events
+// sent directly to it, bypassing global key bindings.
+// Used by the terminal widget.
+type RawKeyConsumer interface {
+	WantsRawKeys() bool
+}
