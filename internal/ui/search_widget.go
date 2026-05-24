@@ -28,14 +28,18 @@ type SearchFileGroup struct {
 
 type SearchWidget struct {
 	BaseWidget
-	Input     *InputWidget
-	Groups    []SearchFileGroup
-	FlatList  []searchItem
-	Selected  int
-	ScrollTop int
-	WorkDirs  []string
-	Searching bool
-	Error     string
+	Input       *InputWidget
+	Include     *InputWidget
+	Exclude     *InputWidget
+	focusIdx    int
+	showFilters bool
+	Groups      []SearchFileGroup
+	FlatList    []searchItem
+	Selected    int
+	ScrollTop   int
+	WorkDirs    []string
+	Searching   bool
+	Error       string
 	OnOpenMatch func(path string, line, col int)
 }
 
@@ -48,10 +52,24 @@ type searchItem struct {
 func NewSearchWidget() *SearchWidget {
 	s := &SearchWidget{}
 	s.Input = NewInputWidget(" > ")
-	s.Input.OnChange = func(text string) {
-		s.runSearch()
-	}
+	s.Include = NewInputWidget(" > ")
+	s.Exclude = NewInputWidget(" > ")
+	onChange := func(string) { s.runSearch() }
+	s.Input.OnChange = onChange
+	s.Include.OnChange = onChange
+	s.Exclude.OnChange = onChange
 	return s
+}
+
+func (s *SearchWidget) focusedInput() *InputWidget {
+	switch s.focusIdx {
+	case 1:
+		return s.Include
+	case 2:
+		return s.Exclude
+	default:
+		return s.Input
+	}
 }
 
 func (s *SearchWidget) SetWorkDirs(dirs []string) {
@@ -60,9 +78,22 @@ func (s *SearchWidget) SetWorkDirs(dirs []string) {
 
 func (s *SearchWidget) Focusable() bool { return true }
 
+func (s *SearchWidget) resultsStartY() int {
+	if s.showFilters {
+		return 9
+	}
+	return 3
+}
+
 func (s *SearchWidget) CursorPosition() (int, int, bool) {
 	r := s.GetRect()
-	return s.Input.CursorX(r.X), r.Y, true
+	if !s.showFilters || s.focusIdx == 0 {
+		return s.Input.CursorX(r.X), r.Y, true
+	}
+	if s.focusIdx == 1 {
+		return s.Include.CursorX(r.X), r.Y + 4, true
+	}
+	return s.Exclude.CursorX(r.X), r.Y + 7, true
 }
 
 func (s *SearchWidget) runSearch() {
@@ -87,7 +118,20 @@ func (s *SearchWidget) runSearch() {
 		dirs = []string{"."}
 	}
 
-	args := []string{"--json", "--smart-case", "--max-count=100", s.Input.Text}
+	args := []string{"--json", "--smart-case", "--max-count=100"}
+	for _, g := range strings.Split(s.Include.Text, ",") {
+		g = strings.TrimSpace(g)
+		if g != "" {
+			args = append(args, "--glob", g)
+		}
+	}
+	for _, g := range strings.Split(s.Exclude.Text, ",") {
+		g = strings.TrimSpace(g)
+		if g != "" {
+			args = append(args, "--glob", "!"+g)
+		}
+	}
+	args = append(args, s.Input.Text)
 	args = append(args, dirs...)
 	cmd := exec.Command("rg", args...)
 	out, err := cmd.Output()
@@ -205,7 +249,40 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		surface.SetCell(x, 1, term.Cell{Ch: '─', Style: term.StyleBorder})
 	}
 
-	startY := 2
+	toggle := " ▼ "
+	if s.showFilters {
+		toggle = " ◀ "
+	}
+	tx := w - len([]rune(toggle))
+	for i, ch := range toggle {
+		surface.SetCell(tx+i, 2, term.Cell{Ch: ch, Style: term.StyleMuted})
+	}
+
+	startY := s.resultsStartY()
+
+	if s.showFilters {
+		includeLabel := "files to include"
+		for i, ch := range includeLabel {
+			if i+1 < w {
+				surface.SetCell(i+1, 3, term.Cell{Ch: ch, Style: term.StyleMuted})
+			}
+		}
+		s.Include.Render(surface, 0, 4, w)
+		for x := 0; x < w; x++ {
+			surface.SetCell(x, 5, term.Cell{Ch: '─', Style: term.StyleBorder})
+		}
+
+		excludeLabel := "files to exclude"
+		for i, ch := range excludeLabel {
+			if i+1 < w {
+				surface.SetCell(i+1, 6, term.Cell{Ch: ch, Style: term.StyleMuted})
+			}
+		}
+		s.Exclude.Render(surface, 0, 7, w)
+		for x := 0; x < w; x++ {
+			surface.SetCell(x, 8, term.Cell{Ch: '─', Style: term.StyleBorder})
+		}
+	}
 
 	if s.Error != "" {
 		for i, ch := range s.Error {
@@ -339,13 +416,37 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 	case *tcell.EventMouse:
 		btn := tev.Buttons()
 		if btn&tcell.Button1 != 0 {
-			_, my := tev.Position()
+			mx, my := tev.Position()
 			r := s.GetRect()
 			localY := my - r.Y
 
-			startY := 3
+			if localY == 0 {
+				s.focusIdx = 0
+				return EventConsumed
+			}
+
+			if localY == 2 && mx >= r.X+r.W-3 {
+				s.showFilters = !s.showFilters
+				if !s.showFilters && s.focusIdx > 0 {
+					s.focusIdx = 0
+				}
+				return EventConsumed
+			}
+
+			if s.showFilters {
+				if localY == 4 {
+					s.focusIdx = 1
+					return EventConsumed
+				}
+				if localY == 7 {
+					s.focusIdx = 2
+					return EventConsumed
+				}
+			}
+
+			startY := s.resultsStartY()
 			if len(s.Groups) > 0 {
-				startY = 3
+				startY++
 			}
 
 			idx := s.ScrollTop + (localY - startY)
@@ -375,6 +476,16 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case *tcell.EventKey:
 		switch tev.Key() {
+		case tcell.KeyTab:
+			if s.showFilters {
+				s.focusIdx = (s.focusIdx + 1) % 3
+			}
+			return EventConsumed
+		case tcell.KeyBacktab:
+			if s.showFilters {
+				s.focusIdx = (s.focusIdx + 2) % 3
+			}
+			return EventConsumed
 		case tcell.KeyEnter:
 			if len(s.FlatList) == 0 {
 				s.runSearch()
@@ -399,7 +510,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			s.expandSelected()
 			return EventConsumed
 		default:
-			if s.Input.HandleEvent(ev) == EventConsumed {
+			if s.focusedInput().HandleEvent(ev) == EventConsumed {
 				return EventConsumed
 			}
 		}
