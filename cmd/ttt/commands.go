@@ -949,6 +949,7 @@ func registerCommands(reg *command.Registry, app *appWidgets, running *bool, qui
 var forceKeyCommands = map[string]bool{
 	"panel.toggle":    true,
 	"terminal.toggle": true,
+	"quit":            true,
 }
 
 func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBinding) {
