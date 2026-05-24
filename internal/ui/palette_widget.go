@@ -235,7 +235,7 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		p.notifySelectionChange()
 	default:
-		p.Input.HandleEvent(kev)
+		p.Input.HandleEvent(ev)
 	}
 
 	return EventConsumed

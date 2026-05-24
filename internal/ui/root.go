@@ -72,31 +72,64 @@ func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 }
 
 func (r *Root) HandleEvent(ev tcell.Event) EventResult {
-	if len(r.Overlays) > 0 {
-		top := r.Overlays[len(r.Overlays)-1]
-		slog.Debug("root", "action", "overlayIntercept", "modal", top.Modal, "count", len(r.Overlays))
-		if top.Modal {
-			return top.Widget.HandleEvent(ev)
-		}
+	if res := r.handleOverlay(ev); res == EventConsumed {
+		return EventConsumed
 	}
 
 	kev, isKey := ev.(*tcell.EventKey)
 	if !isKey {
-		if mev, ok := ev.(*tcell.EventMouse); ok {
-			btn := mev.Buttons()
-			if btn&tcell.Button2 != 0 && r.OnRightClick != nil {
-				mx, my := mev.Position()
-				slog.Debug("root", "action", "rightClick", "x", mx, "y", my)
-				r.OnRightClick(mx, my)
-				return EventConsumed
-			}
-		}
-		result := r.Main.HandleEvent(ev)
-		slog.Debug("root", "action", "mouseToMain", "result", result)
-		return result
+		return r.handleMouse(ev)
 	}
 
-	// Mid-chord: try matching next step
+	if res := r.handleChord(kev); res == EventConsumed {
+		return EventConsumed
+	}
+
+	if r.Focused != nil {
+		if rk, ok := r.Focused.(RawKeyConsumer); ok && rk.WantsRawKeys() {
+			return r.handleRawKeyConsumer(kev)
+		}
+	}
+
+	if res := r.handleGlobalKeys(kev); res == EventConsumed {
+		return EventConsumed
+	}
+
+	if r.Focused != nil {
+		return r.Focused.HandleEvent(ev)
+	}
+
+	return EventIgnored
+}
+
+func (r *Root) handleOverlay(ev tcell.Event) EventResult {
+	if len(r.Overlays) == 0 {
+		return EventIgnored
+	}
+	top := r.Overlays[len(r.Overlays)-1]
+	slog.Debug("root", "action", "overlayIntercept", "modal", top.Modal, "count", len(r.Overlays))
+	if top.Modal {
+		return top.Widget.HandleEvent(ev)
+	}
+	return EventIgnored
+}
+
+func (r *Root) handleMouse(ev tcell.Event) EventResult {
+	if mev, ok := ev.(*tcell.EventMouse); ok {
+		btn := mev.Buttons()
+		if btn&tcell.Button2 != 0 && r.OnRightClick != nil {
+			mx, my := mev.Position()
+			slog.Debug("root", "action", "rightClick", "x", mx, "y", my)
+			r.OnRightClick(mx, my)
+			return EventConsumed
+		}
+	}
+	result := r.Main.HandleEvent(ev)
+	slog.Debug("root", "action", "mouseToMain", "result", result)
+	return result
+}
+
+func (r *Root) handleChord(kev *tcell.EventKey) EventResult {
 	if r.chord != nil {
 		var next []int
 		for _, ci := range r.chord.candidates {
@@ -118,7 +151,6 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		r.chord = nil
 	}
 
-	// Check if key starts a chord
 	var candidates []int
 	for i, chord := range r.ChordKeys {
 		if len(chord.Steps) > 1 && matchKey(kev, chord.Steps[0]) {
@@ -130,32 +162,26 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	// When focused widget is a raw key consumer (e.g. terminal),
-	// only check force keys, then send directly to it.
-	if r.Focused != nil {
-		if rk, ok := r.Focused.(RawKeyConsumer); ok && rk.WantsRawKeys() {
-			for _, gk := range r.ForceKeys {
-				if matchKey(kev, gk) {
-					gk.Handler()
-					return EventConsumed
-				}
-			}
-			return r.Focused.HandleEvent(ev)
+	return EventIgnored
+}
+
+func (r *Root) handleRawKeyConsumer(kev *tcell.EventKey) EventResult {
+	for _, gk := range r.ForceKeys {
+		if matchKey(kev, gk) {
+			gk.Handler()
+			return EventConsumed
 		}
 	}
+	return r.Focused.HandleEvent(kev)
+}
 
-	// Single-key global bindings
+func (r *Root) handleGlobalKeys(kev *tcell.EventKey) EventResult {
 	for _, gk := range r.GlobalKeys {
 		if matchKey(kev, gk) {
 			gk.Handler()
 			return EventConsumed
 		}
 	}
-
-	if r.Focused != nil {
-		return r.Focused.HandleEvent(ev)
-	}
-
 	return EventIgnored
 }
 

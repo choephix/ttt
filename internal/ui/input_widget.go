@@ -75,15 +75,19 @@ func (inp *InputWidget) CursorX(x int) int {
 	return x + len([]rune(inp.Prefix)) + inp.CursorPos
 }
 
-func (inp *InputWidget) HandleEvent(ev *tcell.EventKey) bool {
-	switch ev.Key() {
+func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
+	kev, ok := ev.(*tcell.EventKey)
+	if !ok {
+		return EventIgnored
+	}
+	switch kev.Key() {
 	case tcell.KeyRune:
 		runes := []rune(inp.Text)
-		runes = append(runes[:inp.CursorPos], append([]rune{ev.Rune()}, runes[inp.CursorPos:]...)...)
+		runes = append(runes[:inp.CursorPos], append([]rune{kev.Rune()}, runes[inp.CursorPos:]...)...)
 		inp.Text = string(runes)
 		inp.CursorPos++
 		inp.notify()
-		return true
+		return EventConsumed
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if inp.CursorPos > 0 {
 			runes := []rune(inp.Text)
@@ -92,7 +96,7 @@ func (inp *InputWidget) HandleEvent(ev *tcell.EventKey) bool {
 			inp.CursorPos--
 			inp.notify()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyDelete:
 		runes := []rune(inp.Text)
 		if inp.CursorPos < len(runes) {
@@ -100,25 +104,25 @@ func (inp *InputWidget) HandleEvent(ev *tcell.EventKey) bool {
 			inp.Text = string(runes)
 			inp.notify()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyLeft:
 		if inp.CursorPos > 0 {
 			inp.CursorPos--
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyRight:
 		if inp.CursorPos < len([]rune(inp.Text)) {
 			inp.CursorPos++
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyHome:
 		inp.CursorPos = 0
-		return true
+		return EventConsumed
 	case tcell.KeyEnd:
 		inp.CursorPos = len([]rune(inp.Text))
-		return true
+		return EventConsumed
 	}
-	return false
+	return EventIgnored
 }
 
 func (inp *InputWidget) SetText(text string) {

@@ -396,7 +396,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			s.expandSelected()
 			return EventConsumed
 		default:
-			if s.Input.HandleEvent(tev) {
+			if s.Input.HandleEvent(ev) == EventConsumed {
 				return EventConsumed
 			}
 		}
