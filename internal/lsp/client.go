@@ -24,7 +24,6 @@ func NewClient(command []string, workDir string) (*Client, error) {
 	}
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Dir = workDir
-	cmd.Stderr = os.Stderr
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -199,7 +198,9 @@ func (c *Client) Shutdown() error {
 	if err != nil {
 		return err
 	}
-	return c.notify("exit", nil)
+	_ = c.notify("exit", nil)
+	c.cmd.Wait()
+	return nil
 }
 
 func (c *Client) Close() {

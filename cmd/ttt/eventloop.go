@@ -43,9 +43,7 @@ func runEventLoop(
 		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
 			lang := app.editorGroup.Editor.Highlighter.Language()
 			app.status.Language = lang
-			hasLSP := app.lspManager != nil && app.lspManager.HasServer(strings.ToLower(lang))
-			app.status.LSP = hasLSP
-			slog.Debug("syncStatus lsp", "lang", lang, "langLower", strings.ToLower(lang), "hasLSP", hasLSP, "managerNil", app.lspManager == nil)
+			app.status.LSP = app.lspManager != nil && app.lspManager.HasServer(strings.ToLower(lang))
 		} else {
 			app.status.Language = ""
 			app.status.LSP = false

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/config"
 )
@@ -16,11 +17,6 @@ type Manager struct {
 }
 
 func NewManager(cfg config.LSPSettings) *Manager {
-	var langs []string
-	for k := range cfg.Servers {
-		langs = append(langs, k)
-	}
-	slog.Debug("lsp manager created", "configured_languages", langs)
 	return &Manager{
 		servers: make(map[string]*Client),
 		config:  cfg,
@@ -64,28 +60,34 @@ func (m *Manager) ClientForLanguage(lang, workDir string) (*Client, error) {
 func (m *Manager) HasServer(lang string) bool {
 	key := strings.ToLower(lang)
 	_, ok := m.config.Servers[key]
-	slog.Debug("lsp HasServer", "lang", lang, "key", key, "found", ok, "configured", m.configuredLanguages())
 	return ok
-}
-
-func (m *Manager) configuredLanguages() []string {
-	var langs []string
-	for k := range m.config.Servers {
-		langs = append(langs, k)
-	}
-	return langs
 }
 
 func (m *Manager) Shutdown() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	var wg sync.WaitGroup
 	for lang, client := range m.servers {
-		slog.Info("lsp shutting down", "language", lang)
-		if err := client.Shutdown(); err != nil {
-			slog.Debug("lsp shutdown error", "language", lang, "err", err)
-			client.Close()
-		}
+		wg.Add(1)
+		go func(lang string, client *Client) {
+			defer wg.Done()
+			done := make(chan struct{})
+			go func() {
+				if err := client.Shutdown(); err != nil {
+					slog.Debug("lsp shutdown error", "language", lang, "err", err)
+					client.Close()
+				}
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(3 * time.Second):
+				slog.Debug("lsp shutdown timeout, killing", "language", lang)
+				client.Close()
+			}
+		}(lang, client)
 	}
+	wg.Wait()
 	m.servers = make(map[string]*Client)
 }
