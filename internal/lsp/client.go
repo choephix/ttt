@@ -129,6 +129,9 @@ func (c *Client) Initialize(rootURI string) error {
 				Completion: &CompletionClientCapabilities{
 					CompletionItem: &CompletionItemClientCapabilities{
 						SnippetSupport: false,
+						ResolveSupport: &CompletionItemResolveSupport{
+							Properties: []string{"additionalTextEdits"},
+						},
 					},
 				},
 			},
@@ -191,6 +194,18 @@ func (c *Client) Completion(uri string, line, col int) ([]CompletionItem, error)
 		return items, nil
 	}
 	return list.Items, nil
+}
+
+func (c *Client) ResolveCompletion(item CompletionItem) (*CompletionItem, error) {
+	result, err := c.call("completionItem/resolve", item)
+	if err != nil {
+		return nil, err
+	}
+	var resolved CompletionItem
+	if err := json.Unmarshal(result, &resolved); err != nil {
+		return nil, fmt.Errorf("parse resolve result: %w", err)
+	}
+	return &resolved, nil
 }
 
 func (c *Client) SignatureHelp(uri string, line, col int) (*SignatureHelp, error) {

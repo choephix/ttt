@@ -50,6 +50,7 @@ type App struct {
 	docVersionsMu      sync.Mutex
 	docVersions        map[string]int
 	completionItems    []ui.CompletionItem
+	lspCompletionItems []lsp.CompletionItem
 	autocompleteTimer  *time.Timer
 }
 
@@ -210,8 +211,9 @@ func (a *App) DismissHover() {
 	a.editorGroup.Hover = nil
 }
 
-func (a *App) ShowAutocomplete(items []ui.CompletionItem) {
+func (a *App) ShowAutocomplete(items []ui.CompletionItem, lspItems []lsp.CompletionItem) {
 	a.completionItems = items
+	a.lspCompletionItems = lspItems
 	prefix := a.currentPrefix()
 	filtered := ui.FilterCompletions(items, prefix)
 	if len(filtered) == 0 {
@@ -219,8 +221,8 @@ func (a *App) ShowAutocomplete(items []ui.CompletionItem) {
 	}
 	ac := ui.NewAutocompleteWidget(filtered, 0, 0)
 	ac.OnSelect = func(item ui.CompletionItem) {
+		a.resolveAndInsert(item)
 		a.DismissAutocomplete()
-		a.insertCompletion(item)
 	}
 	ac.OnDismiss = func() {
 		a.DismissAutocomplete()
@@ -252,6 +254,9 @@ func (a *App) identStart() (line, start, col int) {
 	editor := a.editorGroup.Editor
 	line = editor.Cursor.Line
 	col = editor.Cursor.Col
+	if line >= len(editor.Buf.Lines) {
+		return 0, 0, 0
+	}
 	runes := []rune(editor.Buf.Lines[line])
 	start = col
 	for start > 0 && isIdentRune(runes[start-1]) {
@@ -273,10 +278,50 @@ func (a *App) currentPrefix() string {
 func (a *App) DismissAutocomplete() {
 	a.editorGroup.Autocomplete = nil
 	a.completionItems = nil
+	a.lspCompletionItems = nil
 }
 
 func (a *App) IsAutocompleteActive() bool {
 	return a.editorGroup.Autocomplete != nil
+}
+
+func (a *App) resolveAndInsert(item ui.CompletionItem) {
+	var lspItem *lsp.CompletionItem
+	for i, li := range a.lspCompletionItems {
+		if li.Label == item.Label {
+			lspItem = &a.lspCompletionItems[i]
+			break
+		}
+	}
+
+	if lspItem != nil && len(lspItem.AdditionalTextEdits) == 0 {
+		path := a.editorGroup.ActiveFilePath()
+		lang := ""
+		if a.editorGroup.Editor != nil && a.editorGroup.Editor.Highlighter != nil {
+			lang = a.editorGroup.Editor.Highlighter.Language()
+		}
+		langKey, ok := a.lspReady(lang)
+		if ok {
+			workDir := a.lspWorkDir(path)
+			client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+			if err == nil {
+				resolved, err := client.ResolveCompletion(*lspItem)
+				if err == nil && resolved != nil {
+					for _, edit := range resolved.AdditionalTextEdits {
+						item.AdditionalEdits = append(item.AdditionalEdits, ui.AdditionalEdit{
+							StartLine: edit.Range.Start.Line,
+							StartCol:  edit.Range.Start.Character,
+							EndLine:   edit.Range.End.Line,
+							EndCol:    edit.Range.End.Character,
+							NewText:   edit.NewText,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	a.insertCompletion(item)
 }
 
 func (a *App) insertCompletion(item ui.CompletionItem) {
@@ -300,6 +345,36 @@ func (a *App) insertCompletion(item ui.CompletionItem) {
 	})
 	editor.Cursor.Line = line
 	editor.Cursor.Col = start + len([]rune(text))
+
+	for i := len(item.AdditionalEdits) - 1; i >= 0; i-- {
+		edit := item.AdditionalEdits[i]
+		linesBefore := len(editor.Buf.Lines)
+
+		if edit.StartLine != edit.EndLine || edit.StartCol != edit.EndCol {
+			editor.ExecCommand(&undo.DeleteSelectionCommand{
+				StartLine: edit.StartLine, StartCol: edit.StartCol,
+				EndLine: edit.EndLine, EndCol: edit.EndCol,
+			})
+		}
+		if edit.NewText != "" {
+			suffix := ""
+			if edit.StartLine < len(editor.Buf.Lines) {
+				runes := []rune(editor.Buf.Lines[edit.StartLine])
+				if edit.StartCol < len(runes) {
+					suffix = string(runes[edit.StartCol:])
+				}
+			}
+			editor.ExecCommand(&undo.PasteCommand{
+				Line: edit.StartLine, Col: edit.StartCol,
+				Text: edit.NewText, Suffix: suffix,
+			})
+		}
+
+		linesAdded := len(editor.Buf.Lines) - linesBefore
+		if linesAdded != 0 && edit.StartLine <= editor.Cursor.Line {
+			editor.Cursor.Line += linesAdded
+		}
+	}
 }
 
 func (a *App) ScheduleAutocomplete() {
@@ -414,7 +489,7 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 		}
 		uiItems := lspToUICompletions(items)
 		if len(uiItems) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&completionResult{items: uiItems}))
+			a.screen.PostEvent(tcell.NewEventInterrupt(&completionResult{items: uiItems, lspItems: items}))
 		}
 	}()
 }

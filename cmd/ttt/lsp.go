@@ -9,7 +9,8 @@ import (
 )
 
 type completionResult struct {
-	items []ui.CompletionItem
+	items    []ui.CompletionItem
+	lspItems []lsp.CompletionItem
 }
 
 type locationResult struct {
@@ -49,6 +50,15 @@ func lspToUICompletions(items []lsp.CompletionItem) []ui.CompletionItem {
 		}
 		if uiItem.InsertText == "" && item.TextEdit != nil {
 			uiItem.InsertText = item.TextEdit.NewText
+		}
+		for _, edit := range item.AdditionalTextEdits {
+			uiItem.AdditionalEdits = append(uiItem.AdditionalEdits, ui.AdditionalEdit{
+				StartLine: edit.Range.Start.Line,
+				StartCol:  edit.Range.Start.Character,
+				EndLine:   edit.Range.End.Line,
+				EndCol:    edit.Range.End.Character,
+				NewText:   edit.NewText,
+			})
 		}
 		result = append(result, uiItem)
 	}

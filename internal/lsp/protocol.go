@@ -47,7 +47,12 @@ type CompletionClientCapabilities struct {
 }
 
 type CompletionItemClientCapabilities struct {
-	SnippetSupport bool `json:"snippetSupport"`
+	SnippetSupport bool                              `json:"snippetSupport"`
+	ResolveSupport *CompletionItemResolveSupport      `json:"resolveSupport,omitempty"`
+}
+
+type CompletionItemResolveSupport struct {
+	Properties []string `json:"properties"`
 }
 
 type InitializeResult struct {
@@ -158,13 +163,15 @@ const (
 )
 
 type CompletionItem struct {
-	Label         string             `json:"label"`
-	Kind          CompletionItemKind `json:"kind,omitempty"`
-	Detail        string             `json:"detail,omitempty"`
-	InsertText    string             `json:"insertText,omitempty"`
-	FilterText    string             `json:"filterText,omitempty"`
-	SortText      string             `json:"sortText,omitempty"`
-	TextEdit      *TextEdit          `json:"textEdit,omitempty"`
+	Label               string             `json:"label"`
+	Kind                CompletionItemKind `json:"kind,omitempty"`
+	Detail              string             `json:"detail,omitempty"`
+	InsertText          string             `json:"insertText,omitempty"`
+	FilterText          string             `json:"filterText,omitempty"`
+	SortText            string             `json:"sortText,omitempty"`
+	TextEdit            *TextEdit          `json:"textEdit,omitempty"`
+	AdditionalTextEdits []TextEdit         `json:"additionalTextEdits,omitempty"`
+	Data                json.RawMessage    `json:"data,omitempty"`
 }
 
 type TextEdit struct {

@@ -50,13 +50,22 @@ func (k CompletionKind) Style() term.Style {
 	}
 }
 
+type AdditionalEdit struct {
+	StartLine int
+	StartCol  int
+	EndLine   int
+	EndCol    int
+	NewText   string
+}
+
 type CompletionItem struct {
-	Label      string
-	Detail     string
-	InsertText string
-	FilterText string
-	SortText   string
-	Kind       CompletionKind
+	Label           string
+	Detail          string
+	InsertText      string
+	FilterText      string
+	SortText        string
+	Kind            CompletionKind
+	AdditionalEdits []AdditionalEdit
 }
 
 func FilterCompletions(items []CompletionItem, prefix string) []CompletionItem {
@@ -135,14 +144,19 @@ func (a *AutocompleteWidget) visibleCount() int {
 func (a *AutocompleteWidget) menuWidth() int {
 	maxW := 0
 	for _, it := range a.Items {
-		// "  ■ label  " = 5 + label length
 		w := len([]rune(it.Label)) + 5
+		if it.Detail != "" {
+			w += len([]rune(it.Detail)) + 2
+		}
 		if w > maxW {
 			maxW = w
 		}
 	}
 	if maxW < 12 {
 		maxW = 12
+	}
+	if maxW > 60 {
+		maxW = 60
 	}
 	return maxW
 }
@@ -220,6 +234,16 @@ func (a *AutocompleteWidget) Render(surface *RenderSurface) {
 		surface.ClearRect(x+1, row, menuW-2, 1, style)
 		surface.SetCell(x+2, row, term.Cell{Ch: it.Kind.Symbol(), Style: it.Kind.Style()})
 		surface.DrawText(x+4, row, it.Label, x+1+contentW, style)
+
+		if it.Detail != "" {
+			detailRunes := []rune(it.Detail)
+			detailX := x + 1 + contentW - len(detailRunes)
+			labelEnd := x + 4 + len([]rune(it.Label)) + 1
+			if detailX < labelEnd {
+				detailX = labelEnd
+			}
+			surface.DrawText(detailX, row, it.Detail, x+1+contentW, term.StyleSyntaxComment)
+		}
 	}
 
 	if hasScroll {

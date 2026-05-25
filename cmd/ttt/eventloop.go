@@ -171,7 +171,7 @@ func runEventLoop(
 				}
 			case *completionResult:
 				if len(v.items) > 0 {
-					app.ShowAutocomplete(v.items)
+					app.ShowAutocomplete(v.items, v.lspItems)
 				}
 			case *hoverResult:
 				if v.text != "" {
