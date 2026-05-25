@@ -127,8 +127,8 @@ func registerViewCommands(reg *command.Registry, app *App) {
 				if len(app.terminals) == 0 {
 					app.SpawnTerminal()
 				} else {
-					last := app.terminals[len(app.terminals)-1]
-					app.root.SetFocus(last.widget)
+					app.bottomPanel.SetActivePanel("terminal")
+					app.root.SetFocus(app.terminalPanel)
 				}
 			} else {
 				app.HideBottomPanel()

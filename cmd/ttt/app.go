@@ -20,6 +20,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const terminalStripWidth = ui.VerticalTabBarWidth
 
 type terminalTab struct {
 	id     string
@@ -45,8 +46,9 @@ type App struct {
 	renderer     *render.Renderer
 	settings     *config.Settings
 	workspace    *workspace.Workspace
-	palette      *ui.TerminalColorPalette
-	terminals    []terminalTab
+	palette       *ui.TerminalColorPalette
+	terminalPanel *ui.TerminalPanelWidget
+	terminals     []terminalTab
 	lspManager         *lsp.Manager
 	docVersionsMu      sync.Mutex
 	docVersions        map[string]int
@@ -118,7 +120,7 @@ func (a *App) ToggleBottomPanel() {
 
 func (a *App) SpawnTerminal() {
 	r := a.contentSplit.GetRect()
-	cols := r.W
+	cols := r.W - terminalStripWidth
 	rows := r.H - 3
 	if cols <= 0 {
 		cols = 80
@@ -137,14 +139,13 @@ func (a *App) SpawnTerminal() {
 	tw := ui.NewTerminalWidget(t, a.palette)
 	panelID := fmt.Sprintf("terminal-%d", len(a.terminals))
 	a.terminals = append(a.terminals, terminalTab{id: panelID, term: t, widget: tw})
-	label := fmt.Sprintf("[>_%d]", len(a.terminals))
-	a.bottomPanel.AddPanel(panelID, label, tw)
-	a.bottomPanel.SetActivePanel(panelID)
+	a.terminalPanel.AddTerminal(tw)
+	a.bottomPanel.SetActivePanel("terminal")
 
 	if !a.contentSplit.ShowBottom {
 		a.contentSplit.ShowBottom = true
 	}
-	a.root.SetFocus(tw)
+	a.root.SetFocus(a.terminalPanel)
 
 	t.OnUpdate = func() {
 		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
@@ -159,22 +160,20 @@ func (a *App) CloseTerminal(panelID string) {
 		if tt.id == panelID {
 			tt.term.Close()
 			a.terminals = append(a.terminals[:i], a.terminals[i+1:]...)
+			a.terminalPanel.RemoveTerminal(i)
 			break
 		}
 	}
-	a.bottomPanel.RemovePanel(panelID)
-	if a.bottomPanel.PanelCount() == 0 {
-		a.contentSplit.ShowBottom = false
+	if a.terminalPanel.Count() == 0 {
 		a.FocusEditor()
-	} else if w := a.bottomPanel.ActiveWidget(); w != nil {
-		a.root.SetFocus(w)
+	} else {
+		a.root.SetFocus(a.terminalPanel)
 	}
 }
 
 func (a *App) CloseAllTerminals() {
-	panels := a.bottomPanel.PanelIDs()
-	for i := len(panels) - 1; i >= 0; i-- {
-		a.CloseTerminal(panels[i])
+	for i := len(a.terminals) - 1; i >= 0; i-- {
+		a.CloseTerminal(a.terminals[i].id)
 	}
 }
 

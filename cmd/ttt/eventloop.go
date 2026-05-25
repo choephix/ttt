@@ -227,7 +227,7 @@ func resizeTerminals(app *App) {
 		return
 	}
 	r := app.bottomPanel.GetRect()
-	cols := r.W
+	cols := r.W - terminalStripWidth
 	rows := r.H - 2
 	if cols <= 0 || rows <= 0 {
 		return
