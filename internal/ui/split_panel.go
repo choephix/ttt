@@ -19,6 +19,7 @@ type SplitPanelWidget struct {
 	OnLeftClick       func()
 	OnRightClick      func()
 	dragging          bool
+	wasPressed        bool
 }
 
 func NewSplitPanelWidget() *SplitPanelWidget {
@@ -163,10 +164,13 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 	r := s.GetRect()
 	mx, my := mev.Position()
 	btn := mev.Buttons()
+	pressed := btn&tcell.Button1 != 0
+	freshClick := pressed && !s.wasPressed
+	s.wasPressed = pressed
 	inBounds := my >= r.Y && my < r.Y+r.H && mx >= r.X && mx < r.X+r.W
 
 	if s.dragging {
-		if btn&tcell.Button1 != 0 {
+		if pressed {
 			if s.OnResize != nil {
 				newWidth := mx - r.X - 1
 				s.OnResize(newWidth)
@@ -181,12 +185,12 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 
-	isClick := btn&tcell.Button1 != 0
+	isClick := pressed
 
 	if s.ShowLeft {
 		divX := s.DividerScreenX()
 		slog.Debug("splitPanel", "action", "route", "mx", mx, "divX", divX, "showLeft", true)
-		if isClick && mx == divX && s.OnResize != nil {
+		if freshClick && mx == divX && s.OnResize != nil {
 			s.dragging = true
 			return EventConsumed
 		}
@@ -210,7 +214,7 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		}
 	} else {
-		if isClick && mx == r.X {
+		if freshClick && mx == r.X {
 			s.dragging = true
 			return EventConsumed
 		}

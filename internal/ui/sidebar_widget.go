@@ -80,12 +80,10 @@ func (s *SidebarWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 	if tev, ok := ev.(*tcell.EventMouse); ok {
-		if tev.Buttons()&tcell.Button1 != 0 {
-			_, my := tev.Position()
-			r := s.GetRect()
-			if my == r.Y {
-				return s.TabBar.HandleEvent(ev)
-			}
+		_, my := tev.Position()
+		r := s.GetRect()
+		if my == r.Y {
+			return s.TabBar.HandleEvent(ev)
 		}
 	}
 	active := s.ActiveWidget()

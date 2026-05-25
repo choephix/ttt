@@ -18,6 +18,7 @@ type PanelTabBarWidget struct {
 	addSpan    [2]int
 	overSpan   [2]int
 	HiddenTabs []int
+	wasPressed bool
 }
 
 func NewPanelTabBarWidget() *PanelTabBarWidget {
@@ -144,7 +145,10 @@ func (p *PanelTabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	if !ok {
 		return EventIgnored
 	}
-	if mev.Buttons()&tcell.Button1 == 0 {
+	pressed := mev.Buttons()&tcell.Button1 != 0
+	freshClick := pressed && !p.wasPressed
+	p.wasPressed = pressed
+	if !freshClick {
 		return EventIgnored
 	}
 	mx, _ := mev.Position()

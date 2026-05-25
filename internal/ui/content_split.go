@@ -17,6 +17,7 @@ type ContentSplitWidget struct {
 	OnBottomClick  func()
 	OnTopClick     func()
 	dragging       bool
+	wasPressed     bool
 }
 
 func NewContentSplitWidget() *ContentSplitWidget {
@@ -85,11 +86,14 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 
 	r := cs.GetRect()
-	_, my := mev.Position()
+	mx, my := mev.Position()
 	btn := mev.Buttons()
+	pressed := btn&tcell.Button1 != 0
+	freshClick := pressed && !cs.wasPressed
+	cs.wasPressed = pressed
 
 	if cs.dragging {
-		if btn&tcell.Button1 != 0 {
+		if pressed {
 			newH := r.Y + r.H - my - 1
 			if cs.OnResize != nil {
 				cs.OnResize(newH)
@@ -110,7 +114,8 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			divY = r.Y
 		}
 
-		if btn&tcell.Button1 != 0 && my == divY {
+		// Exclude last column to avoid colliding with the editor scrollbar drag
+		if freshClick && my == divY && mx < r.X+r.W-1 {
 			cs.dragging = true
 			return EventConsumed
 		}
@@ -124,7 +129,7 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	} else {
 		bottomEdge := r.Y + r.H - 1
-		if btn&tcell.Button1 != 0 && my == bottomEdge {
+		if pressed && my == bottomEdge {
 			cs.dragging = true
 			return EventConsumed
 		}

@@ -112,8 +112,10 @@ func (h *testHarness) pressCtrl(key tcell.Key) {
 
 func (h *testHarness) click(x, y int) {
 	h.t.Helper()
-	ev := tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
-	h.app.root.HandleEvent(ev)
+	down := tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
+	h.app.root.HandleEvent(down)
+	up := tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone)
+	h.app.root.HandleEvent(up)
 	h.redraw()
 }
 
