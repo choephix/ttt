@@ -33,6 +33,7 @@ type EditorGroupWidget struct {
 	BaseWidget
 	TabBar       *TabBarWidget
 	Editor       *EditorPaneWidget
+	Autocomplete *AutocompleteWidget
 	tabs         []editorTab
 	active       int
 	TabSize      int
@@ -530,9 +531,22 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 		g.Editor.SetRect(contentRect)
 		g.Editor.Render(contentSurface)
 	}
+
+	if g.Autocomplete != nil && len(g.Autocomplete.Items) > 0 {
+		g.Autocomplete.AnchorX = g.Editor.CursorX - r.X
+		g.Autocomplete.AnchorY = g.Editor.CursorY - r.Y
+		g.Autocomplete.Borders = g.Borders
+		g.Autocomplete.Render(surface)
+	}
 }
 
 func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
+	if g.Autocomplete != nil {
+		result := g.Autocomplete.HandleEvent(ev)
+		if result == EventConsumed {
+			return EventConsumed
+		}
+	}
 	result := g.TabBar.HandleEvent(ev)
 	slog.Debug("editorGroup", "tabBarResult", result)
 	if result == EventConsumed {

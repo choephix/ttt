@@ -176,6 +176,8 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	}
 }
 
+func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
+
 func (e *EditorPaneWidget) deleteSelection() {
 	if e.Selection == nil || !e.Selection.Active {
 		return

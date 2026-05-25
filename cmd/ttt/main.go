@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"os"
+
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/render"

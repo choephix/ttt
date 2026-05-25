@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
@@ -186,6 +187,59 @@ func (a *App) refreshWorkspaceWidgets() {
 	a.search.SetWorkDirs(paths)
 	a.changes.SetDirs(paths)
 	a.changes.Refresh()
+}
+
+func (a *App) ShowAutocomplete(items []ui.CompletionItem) {
+	ac := ui.NewAutocompleteWidget(items, 0, 0)
+	ac.OnSelect = func(item ui.CompletionItem) {
+		a.DismissAutocomplete()
+		a.insertCompletion(item)
+	}
+	ac.OnDismiss = func() {
+		a.DismissAutocomplete()
+	}
+	a.editorGroup.Autocomplete = ac
+}
+
+func (a *App) DismissAutocomplete() {
+	a.editorGroup.Autocomplete = nil
+}
+
+func (a *App) IsAutocompleteActive() bool {
+	return a.editorGroup.Autocomplete != nil
+}
+
+func (a *App) insertCompletion(item ui.CompletionItem) {
+	if !a.editorGroup.IsEditorActive() {
+		return
+	}
+	text := item.InsertText
+	if text == "" {
+		text = item.Label
+	}
+	editor := a.editorGroup.Editor
+	line := editor.Cursor.Line
+	col := editor.Cursor.Col
+	runes := []rune(editor.Buf.Lines[line])
+	start := col
+	for start > 0 && isIdentRune(runes[start-1]) {
+		start--
+	}
+	if start < col {
+		editor.ExecCommand(&undo.DeleteSelectionCommand{
+			StartLine: line, StartCol: start,
+			EndLine: line, EndCol: col,
+		})
+	}
+	editor.ExecCommand(&undo.InsertStringCommand{
+		Line: line, Col: start, Text: text,
+	})
+	editor.Cursor.Line = line
+	editor.Cursor.Col = start + len([]rune(text))
+}
+
+func isIdentRune(r rune) bool {
+	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
 
 func (a *App) ShowDialog(w ui.Widget) {

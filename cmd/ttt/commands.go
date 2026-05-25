@@ -82,7 +82,27 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
-		Handler: app.FocusEditor,
+		Handler: func() {
+			if app.IsAutocompleteActive() {
+				app.DismissAutocomplete()
+				return
+			}
+			app.FocusEditor()
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.autocomplete", Title: "Trigger Autocomplete",
+		Handler: func() {
+			if app.IsAutocompleteActive() {
+				app.DismissAutocomplete()
+				return
+			}
+			items := mockCompletions()
+			if len(items) > 0 {
+				app.ShowAutocomplete(items)
+			}
+		},
 	})
 
 	reg.Register(command.Command{
