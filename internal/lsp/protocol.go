@@ -39,7 +39,12 @@ type ClientCapabilities struct {
 }
 
 type TextDocumentClientCapabilities struct {
-	Completion *CompletionClientCapabilities `json:"completion,omitempty"`
+	Completion        *CompletionClientCapabilities        `json:"completion,omitempty"`
+	PublishDiagnostics *PublishDiagnosticsClientCapabilities `json:"publishDiagnostics,omitempty"`
+}
+
+type PublishDiagnosticsClientCapabilities struct {
+	RelatedInformation bool `json:"relatedInformation,omitempty"`
 }
 
 type CompletionClientCapabilities struct {
@@ -91,6 +96,11 @@ func (o *TextDocumentSyncOptions) UnmarshalJSON(data []byte) error {
 
 type DidOpenTextDocumentParams struct {
 	TextDocument TextDocumentItem `json:"textDocument"`
+}
+
+type DidSaveTextDocumentParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Text         string                 `json:"text,omitempty"`
 }
 
 type DidCloseTextDocumentParams struct {
@@ -202,6 +212,27 @@ type HoverResult struct {
 type MarkupContent struct {
 	Kind  string `json:"kind"`
 	Value string `json:"value"`
+}
+
+type PublishDiagnosticsParams struct {
+	URI         string       `json:"uri"`
+	Diagnostics []Diagnostic `json:"diagnostics"`
+}
+
+type DiagnosticSeverity int
+
+const (
+	SeverityError       DiagnosticSeverity = 1
+	SeverityWarning     DiagnosticSeverity = 2
+	SeverityInformation DiagnosticSeverity = 3
+	SeverityHint        DiagnosticSeverity = 4
+)
+
+type Diagnostic struct {
+	Range    Range              `json:"range"`
+	Severity DiagnosticSeverity `json:"severity,omitempty"`
+	Source   string             `json:"source,omitempty"`
+	Message  string             `json:"message"`
 }
 
 func (m *MarkupContent) UnmarshalJSON(data []byte) error {

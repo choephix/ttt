@@ -47,7 +47,10 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 		x += s.drawText(surface, x, "  ", term.StyleStatusBar)
 	}
 
-	if st.Blame != "" {
+	if st.DiagMessage != "" {
+		x += s.drawText(surface, x, st.DiagMessage, st.DiagLevel.Style())
+		x += s.drawText(surface, x, "  ", term.StyleStatusBar)
+	} else if st.Blame != "" {
 		x += s.drawText(surface, x, st.Blame, term.StyleMuted)
 	}
 

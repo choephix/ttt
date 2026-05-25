@@ -23,6 +23,12 @@ type hoverResult struct {
 
 type autocompleteTrigger struct{}
 
+type diagnosticsResult struct {
+	path        string
+	diagnostics []ui.Diagnostic
+}
+
+
 type signatureHelpResult struct {
 	label      string
 	paramStart int
@@ -88,6 +94,22 @@ func lspKindToUI(kind lsp.CompletionItemKind) ui.CompletionKind {
 	default:
 		return ui.CompletionVariable
 	}
+}
+
+func lspToUIDiagnostics(diags []lsp.Diagnostic) []ui.Diagnostic {
+	result := make([]ui.Diagnostic, len(diags))
+	for i, d := range diags {
+		result[i] = ui.Diagnostic{
+			StartLine: d.Range.Start.Line,
+			StartCol:  d.Range.Start.Character,
+			EndLine:   d.Range.End.Line,
+			EndCol:    d.Range.End.Character,
+			Severity:  ui.DiagnosticSeverity(d.Severity),
+			Message:   d.Message,
+			Source:    d.Source,
+		}
+	}
+	return result
 }
 
 func lspToSignatureHelpResult(sig *lsp.SignatureHelp) *signatureHelpResult {

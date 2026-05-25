@@ -612,6 +612,21 @@ func (a *App) NotifyLSPChange(path, lang, text string) {
 	}()
 }
 
+func (a *App) NotifyLSPSave(path, lang, text string) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			return
+		}
+		client.DidSave(fileURI(path), text)
+	}()
+}
+
 func (a *App) NotifyLSPClose(path, lang string) {
 	langKey, ok := a.lspReady(lang)
 	if !ok {

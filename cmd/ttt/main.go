@@ -10,6 +10,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func initLogger(debug bool) *os.File {
@@ -47,6 +49,14 @@ func main() {
 
 	lspManager := lsp.NewManager(cfg.Settings.LSP)
 	defer lspManager.Shutdown()
+	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {
+		path := uriToPath(params.URI)
+		diags := lspToUIDiagnostics(params.Diagnostics)
+		screen.PostEvent(tcell.NewEventInterrupt(&diagnosticsResult{
+			path:        path,
+			diagnostics: diags,
+		}))
+	}
 
 	renderer := &render.Renderer{}
 	cmdRegistry := command.NewRegistry()

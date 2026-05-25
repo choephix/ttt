@@ -60,6 +60,11 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleDanger, theme.Danger)
 	applyStyleDef(&m, term.StyleWarning, theme.Warning)
 
+	applyDiagStyle(&m, term.StyleDiagError, theme.Editor.Diagnostics.Error)
+	applyDiagStyle(&m, term.StyleDiagWarning, theme.Editor.Diagnostics.Warning)
+	applyDiagStyle(&m, term.StyleDiagInfo, theme.Editor.Diagnostics.Info)
+	applyDiagStyle(&m, term.StyleDiagHint, theme.Editor.Diagnostics.Hint)
+
 	return m
 }
 
@@ -101,6 +106,14 @@ func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 		s = s.Bold(true)
 	}
 	m[idx] = s
+}
+
+func applyDiagStyle(m *term.StyleMap, idx term.Style, def config.StyleDef) {
+	color := tcell.ColorRed
+	if def.Fg != "" {
+		color = tcell.GetColor(def.Fg)
+	}
+	m[idx] = tcell.StyleDefault.Underline(tcell.UnderlineStyleCurly, color)
 }
 
 func buildTerminalPalettePtr(theme config.ThemeConfig) *ui.TerminalColorPalette {

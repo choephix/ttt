@@ -19,6 +19,25 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+type DiagnosticSeverity int
+
+const (
+	DiagError       DiagnosticSeverity = 1
+	DiagWarning     DiagnosticSeverity = 2
+	DiagInformation DiagnosticSeverity = 3
+	DiagHint        DiagnosticSeverity = 4
+)
+
+type Diagnostic struct {
+	StartLine int
+	StartCol  int
+	EndLine   int
+	EndCol    int
+	Severity  DiagnosticSeverity
+	Message   string
+	Source    string
+}
+
 type editorTab struct {
 	FilePath    string
 	Buf         *buffer.Buffer
@@ -414,6 +433,13 @@ func (g *EditorGroupWidget) ClearSearch() {
 	g.Editor.SearchQuery = ""
 	g.Editor.SearchMatches = nil
 	g.Editor.SearchActive = 0
+}
+
+func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
+	t := g.activeTab()
+	if t != nil && t.FilePath == path {
+		g.Editor.Diagnostics = diags
+	}
 }
 
 func (g *EditorGroupWidget) FindNext() {

@@ -42,13 +42,21 @@ type MenuStyles struct {
 	Active StyleDef `json:"active"`
 }
 
+type DiagnosticStyles struct {
+	Error   StyleDef `json:"error"`
+	Warning StyleDef `json:"warning"`
+	Info    StyleDef `json:"info"`
+	Hint    StyleDef `json:"hint"`
+}
+
 type EditorStyles struct {
-	LineNumber   StyleDef `json:"lineNumber"`
-	ActiveLine   StyleDef `json:"activeLine"`
-	Selection    StyleDef `json:"selection"`
-	SearchMatch  StyleDef `json:"searchMatch"`
-	SearchActive StyleDef `json:"searchActive"`
-	BracketMatch StyleDef `json:"bracketMatch"`
+	LineNumber   StyleDef         `json:"lineNumber"`
+	ActiveLine   StyleDef         `json:"activeLine"`
+	Selection    StyleDef         `json:"selection"`
+	SearchMatch  StyleDef         `json:"searchMatch"`
+	SearchActive StyleDef         `json:"searchActive"`
+	BracketMatch StyleDef         `json:"bracketMatch"`
+	Diagnostics  DiagnosticStyles `json:"diagnostics"`
 }
 
 type DiffStyles struct {
@@ -218,6 +226,10 @@ func (t *ThemeConfig) ResolveColors() {
 	fillFg(&t.Success, "#73c991")
 	fillFg(&t.Danger, "#f14c4c")
 	fillFg(&t.Warning, "#e2c08d")
+	fillFg(&t.Editor.Diagnostics.Error, t.Danger.Fg)
+	fillFg(&t.Editor.Diagnostics.Warning, t.Warning.Fg)
+	fillFg(&t.Editor.Diagnostics.Info, t.Default.Fg)
+	fillFg(&t.Editor.Diagnostics.Hint, t.Default.Fg)
 }
 
 func fillFg(s *StyleDef, color string) {

@@ -16,6 +16,8 @@ type Client struct {
 	pending map[int]chan Response
 	mu      sync.Mutex
 	done    chan struct{}
+
+	OnDiagnostics func(params PublishDiagnosticsParams)
 }
 
 func NewClient(command []string, workDir string) (*Client, error) {
@@ -65,6 +67,12 @@ func (c *Client) readLoop() {
 		}
 		if resp.IsNotification() {
 			slog.Debug("lsp notification", "method", resp.Method)
+			if resp.Method == "textDocument/publishDiagnostics" && c.OnDiagnostics != nil {
+				var params PublishDiagnosticsParams
+				if err := json.Unmarshal(resp.Params, &params); err == nil {
+					c.OnDiagnostics(params)
+				}
+			}
 			continue
 		}
 		if resp.ID != nil {
@@ -134,6 +142,7 @@ func (c *Client) Initialize(rootURI string) error {
 						},
 					},
 				},
+				PublishDiagnostics: &PublishDiagnosticsClientCapabilities{},
 			},
 		},
 	})
@@ -167,6 +176,13 @@ func (c *Client) DidChange(uri, text string, version int) error {
 			Version: version,
 		},
 		ContentChanges: []TextDocumentContentChangeEvent{{Text: text}},
+	})
+}
+
+func (c *Client) DidSave(uri, text string) error {
+	return c.notify("textDocument/didSave", DidSaveTextDocumentParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Text:         text,
 	})
 }
 

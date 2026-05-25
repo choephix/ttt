@@ -307,6 +307,13 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 		Handler: func() {
 			if !app.editorGroup.Save() {
 				saveAs()
+				return
+			}
+			path := app.editorGroup.ActiveFilePath()
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang := app.editorGroup.Editor.Highlighter.Language()
+				text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")
+				app.NotifyLSPSave(path, lang, text)
 			}
 		},
 	})

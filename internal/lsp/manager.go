@@ -11,9 +11,10 @@ import (
 )
 
 type Manager struct {
-	servers map[string]*Client
-	config  config.LSPSettings
-	mu      sync.Mutex
+	servers       map[string]*Client
+	config        config.LSPSettings
+	mu            sync.Mutex
+	OnDiagnostics func(params PublishDiagnosticsParams)
 }
 
 func NewManager(cfg config.LSPSettings) *Manager {
@@ -46,6 +47,7 @@ func (m *Manager) ClientForLanguage(lang, workDir string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("start LSP for %s: %w", lang, err)
 	}
+	client.OnDiagnostics = m.OnDiagnostics
 
 	rootURI := "file://" + workDir
 	if err := client.Initialize(rootURI); err != nil {

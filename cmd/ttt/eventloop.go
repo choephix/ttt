@@ -7,6 +7,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -67,6 +69,22 @@ func runEventLoop(
 				app.status.Branch = git.BranchName(repoDir)
 			} else {
 				app.status.Branch = ""
+			}
+		}
+
+		app.status.DiagMessage = ""
+		if app.editorGroup.Editor != nil {
+			d := app.editorGroup.Editor.DiagnosticAt(line, col)
+			if d != nil {
+				app.status.DiagMessage = d.Message
+				switch d.Severity {
+				case ui.DiagError:
+					app.status.DiagLevel = view.NotifyError
+				case ui.DiagWarning:
+					app.status.DiagLevel = view.NotifyWarning
+				default:
+					app.status.DiagLevel = view.NotifyInfo
+				}
 			}
 		}
 
@@ -185,6 +203,8 @@ func runEventLoop(
 					app.editorGroup.GoToLine(loc.Range.Start.Line + 1)
 					app.root.SetFocus(app.editorGroup)
 				}
+			case *diagnosticsResult:
+				app.editorGroup.SetDiagnostics(v.path, v.diagnostics)
 			}
 			redraw()
 		}

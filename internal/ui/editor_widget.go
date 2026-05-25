@@ -37,6 +37,7 @@ type EditorPaneWidget struct {
 	clickCount    int
 	mouseDown     bool
 	scrollbar     Scrollbar
+	Diagnostics   []Diagnostic
 	OnChange      func()
 }
 
@@ -148,7 +149,8 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					(lineIdx == matchLine && colIdx == matchCol)) {
 					bgStyle = term.StyleBracketMatch
 				}
-				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style, BgStyle: bgStyle})
+				ulStyle := e.diagStyleAt(lineIdx, colIdx)
+				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style, BgStyle: bgStyle, UlStyle: ulStyle})
 			}
 		} else {
 			for x := 0; x < editorW; x++ {
@@ -172,6 +174,50 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
 }
 
+
+func (e *EditorPaneWidget) DiagnosticAt(line, col int) *Diagnostic {
+	for i := range e.Diagnostics {
+		d := &e.Diagnostics[i]
+		if line < d.StartLine || line > d.EndLine {
+			continue
+		}
+		if line == d.StartLine && col < d.StartCol {
+			continue
+		}
+		if line == d.EndLine && col >= d.EndCol {
+			continue
+		}
+		return d
+	}
+	return nil
+}
+
+func (e *EditorPaneWidget) diagStyleAt(line, col int) term.Style {
+	for _, d := range e.Diagnostics {
+		if line < d.StartLine || line > d.EndLine {
+			continue
+		}
+		if line == d.StartLine && col < d.StartCol {
+			continue
+		}
+		if line == d.EndLine && col >= d.EndCol {
+			continue
+		}
+		switch d.Severity {
+		case DiagError:
+			return term.StyleDiagError
+		case DiagWarning:
+			return term.StyleDiagWarning
+		case DiagInformation:
+			return term.StyleDiagInfo
+		case DiagHint:
+			return term.StyleDiagHint
+		default:
+			return term.StyleDiagError
+		}
+	}
+	return 0
+}
 
 func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	cmd.Apply(e.Buf)

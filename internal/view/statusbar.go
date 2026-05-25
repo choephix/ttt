@@ -32,6 +32,8 @@ type StatusBar struct {
 	Dirty        bool
 	Branch       string
 	Blame        string
+	DiagMessage  string
+	DiagLevel    NotifyLevel
 	Language     string
 	LSP          bool
 	TabSize      int

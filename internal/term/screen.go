@@ -40,6 +40,10 @@ const (
 	StyleSuccess
 	StyleDanger
 	StyleWarning
+	StyleDiagError
+	StyleDiagWarning
+	StyleDiagInfo
+	StyleDiagHint
 )
 
 // DirectColor holds an RGBA color for terminal emulator output.
@@ -65,6 +69,7 @@ type Cell struct {
 	Ch      rune
 	Style   Style
 	BgStyle Style // when non-zero, background comes from this style instead of Style
+	UlStyle Style // when non-zero, underline style+color comes from this style
 
 	// Direct-style fields for terminal emulator cells.
 	// When Direct is true, Fg/Bg/Attrs are used instead of Style.
