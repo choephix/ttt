@@ -300,22 +300,6 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.goToLine", Title: "Go to Line",
-		Handler: func() {
-			dialog := ui.NewGoToLineWidget()
-			dialog.Borders = app.borders
-			dialog.OnSubmit = func(line int) {
-				app.editorGroup.GoToLine(line)
-				app.DismissDialog()
-			}
-			dialog.OnDismiss = func() {
-				app.DismissDialog()
-			}
-			app.ShowDialog(dialog)
-		},
-	})
-
-	reg.Register(command.Command{
 		ID: "search.find", Title: "Find",
 		Handler: func() {
 			findBar := ui.NewFindBarWidget()
@@ -382,11 +366,13 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		},
 	})
 
-	openPalette := func(fileMode bool) {
+	openPalette := func(fileMode bool, initialText ...string) {
 		palette := ui.NewCommandPaletteWidget(reg.List())
 		palette.Borders = app.borders
 		palette.SetFiles(app.workspace.Paths())
-		if fileMode {
+		if len(initialText) > 0 {
+			palette.Input.SetText(initialText[0])
+		} else if fileMode {
 			palette.Input.SetText("")
 		}
 		palette.OnExecute = func(id string) {
@@ -396,6 +382,10 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		palette.OnOpenFile = func(absPath string) {
 			app.DismissDialog()
 			app.editorGroup.OpenFile(absPath)
+		}
+		palette.OnGoToLine = func(line int) {
+			app.DismissDialog()
+			app.editorGroup.GoToLine(line)
 		}
 		palette.OnDismiss = func() {
 			app.DismissDialog()
@@ -411,6 +401,11 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	reg.Register(command.Command{
 		ID: "file.quickOpen", Title: "Go to File",
 		Handler: func() { openPalette(true) },
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.goToLine", Title: "Go to Line",
+		Handler: func() { openPalette(false, ":") },
 	})
 
 	reg.Register(command.Command{

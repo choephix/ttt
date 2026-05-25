@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -15,6 +16,7 @@ type paletteMode int
 const (
 	paletteCommandMode paletteMode = iota
 	paletteFileMode
+	paletteGoToLineMode
 )
 
 type PaletteItem struct {
@@ -41,6 +43,7 @@ type CommandPaletteWidget struct {
 	files        []paletteFile
 	OnExecute          func(id string)
 	OnOpenFile         func(path string)
+	OnGoToLine         func(line int)
 	OnDismiss          func()
 	OnSelectionChange  func(id string)
 	Borders            *term.BorderSet
@@ -104,10 +107,15 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	if boxW > sw-4 {
 		boxW = sw - 4
 	}
-	maxItems := 10
-	boxH := 4 + len(p.Items)
-	if boxH > maxItems+4 {
-		boxH = maxItems + 4
+	var boxH int
+	if p.mode == paletteGoToLineMode {
+		boxH = 3
+	} else {
+		maxItems := 10
+		boxH = 4 + len(p.Items)
+		if boxH > maxItems+4 {
+			boxH = maxItems + 4
+		}
 	}
 	if boxH > sh-2 {
 		boxH = sh - 2
@@ -131,6 +139,10 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	p.inputX = boxX + 1
 	p.inputY = boxY + 1
 	p.Input.Render(surface, p.inputX, p.inputY, boxW-2)
+
+	if p.mode == paletteGoToLineMode {
+		return
+	}
 
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
 		surface.SetCell(x, boxY+2, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
@@ -208,7 +220,14 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 			p.OnDismiss()
 		}
 	case tcell.KeyEnter:
-		if p.Selected >= 0 && p.Selected < len(p.Items) {
+		if p.mode == paletteGoToLineMode {
+			if p.OnGoToLine != nil {
+				text := strings.TrimPrefix(p.Input.Text, ":")
+				if n, err := strconv.Atoi(text); err == nil && n > 0 {
+					p.OnGoToLine(n)
+				}
+			}
+		} else if p.Selected >= 0 && p.Selected < len(p.Items) {
 			item := p.Items[p.Selected]
 			if p.mode == paletteCommandMode {
 				if p.OnExecute != nil {
@@ -265,6 +284,11 @@ func (p *CommandPaletteWidget) filter() {
 		p.mode = paletteCommandMode
 		query := strings.TrimLeft(text[1:], " ")
 		p.filterCommands(query)
+	} else if strings.HasPrefix(text, ":") {
+		p.mode = paletteGoToLineMode
+		p.Items = nil
+		p.Selected = 0
+		p.scrollOffset = 0
 	} else {
 		p.mode = paletteFileMode
 		p.filterFiles(text)
