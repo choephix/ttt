@@ -64,6 +64,10 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 }
 
 var editorContextMenu = []ui.ContextMenuItem{
+	{Label: "Go to Definition", Command: "editor.goToDefinition"},
+	{Label: "Go to Type Definition", Command: "editor.goToTypeDefinition"},
+	{Label: "Go to Implementation", Command: "editor.goToImplementation"},
+	ui.MenuSep(),
 	{Label: "Undo", Command: "editor.undo"},
 	{Label: "Redo", Command: "editor.redo"},
 	ui.MenuSep(),

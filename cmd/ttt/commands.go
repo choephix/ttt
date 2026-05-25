@@ -114,6 +114,37 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		},
 	})
 
+	lspAction := func(action func(path, lang string, line, col int)) {
+		path := app.editorGroup.ActiveFilePath()
+		lang := ""
+		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+			lang = app.editorGroup.Editor.Highlighter.Language()
+		}
+		line, col := app.editorGroup.ActiveCursor()
+		action(path, lang, line, col)
+	}
+
+	reg.Register(command.Command{
+		ID: "editor.goToDefinition", Title: "Go to Definition",
+		Handler: func() {
+			lspAction(app.RequestDefinition)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.goToImplementation", Title: "Go to Implementation",
+		Handler: func() {
+			lspAction(app.RequestImplementation)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.goToTypeDefinition", Title: "Go to Type Definition",
+		Handler: func() {
+			lspAction(app.RequestTypeDefinition)
+		},
+	})
+
 	reg.Register(command.Command{
 		ID: "tab.next", Title: "Next Tab",
 		Handler: func() { app.editorGroup.NextTab() },

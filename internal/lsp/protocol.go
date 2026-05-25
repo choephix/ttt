@@ -160,3 +160,8 @@ type CompletionList struct {
 	IsIncomplete bool             `json:"isIncomplete"`
 	Items        []CompletionItem `json:"items"`
 }
+
+type Location struct {
+	URI   string `json:"uri"`
+	Range Range  `json:"range"`
+}

@@ -193,6 +193,37 @@ func (c *Client) Completion(uri string, line, col int) ([]CompletionItem, error)
 	return list.Items, nil
 }
 
+func (c *Client) Definition(uri string, line, col int) ([]Location, error) {
+	return c.locationRequest("textDocument/definition", uri, line, col)
+}
+
+func (c *Client) Implementation(uri string, line, col int) ([]Location, error) {
+	return c.locationRequest("textDocument/implementation", uri, line, col)
+}
+
+func (c *Client) TypeDefinition(uri string, line, col int) ([]Location, error) {
+	return c.locationRequest("textDocument/typeDefinition", uri, line, col)
+}
+
+func (c *Client) locationRequest(method, uri string, line, col int) ([]Location, error) {
+	result, err := c.call(method, TextDocumentPositionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var locs []Location
+	if err := json.Unmarshal(result, &locs); err != nil {
+		var single Location
+		if err2 := json.Unmarshal(result, &single); err2 != nil {
+			return nil, fmt.Errorf("parse %s result: %w", method, err)
+		}
+		return []Location{single}, nil
+	}
+	return locs, nil
+}
+
 func (c *Client) Shutdown() error {
 	_, err := c.call("shutdown", nil)
 	if err != nil {

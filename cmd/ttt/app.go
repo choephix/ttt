@@ -317,6 +317,57 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 	}()
 }
 
+func (a *App) RequestDefinition(path, lang string, line, col int) {
+	a.requestLocation("textDocument/definition", path, lang, line, col)
+}
+
+func (a *App) RequestImplementation(path, lang string, line, col int) {
+	a.requestLocation("textDocument/implementation", path, lang, line, col)
+}
+
+func (a *App) RequestTypeDefinition(path, lang string, line, col int) {
+	a.requestLocation("textDocument/typeDefinition", path, lang, line, col)
+}
+
+func (a *App) requestLocation(method, path, lang string, line, col int) {
+	if a.lspManager == nil || lang == "" {
+		return
+	}
+	langKey := strings.ToLower(lang)
+	if !a.lspManager.HasServer(langKey) {
+		a.StatusWarn(lang + " language server is not configured")
+		return
+	}
+	workDir := a.workspace.Primary()
+	if folder := a.workspace.FolderForFile(path); folder != nil {
+		workDir = folder.Path
+	}
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		var locs []lsp.Location
+		var reqErr error
+		switch method {
+		case "textDocument/definition":
+			locs, reqErr = client.Definition(fileURI(path), line, col)
+		case "textDocument/implementation":
+			locs, reqErr = client.Implementation(fileURI(path), line, col)
+		case "textDocument/typeDefinition":
+			locs, reqErr = client.TypeDefinition(fileURI(path), line, col)
+		}
+		if reqErr != nil {
+			slog.Error("lsp "+method, "err", reqErr)
+			return
+		}
+		if len(locs) > 0 {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&locationResult{locations: locs}))
+		}
+	}()
+}
+
 func (a *App) NotifyLSPOpen(path, lang, text string) {
 	if a.lspManager == nil || lang == "" {
 		return

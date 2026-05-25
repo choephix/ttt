@@ -148,6 +148,14 @@ func runEventLoop(
 				if len(v.items) > 0 {
 					app.ShowAutocomplete(v.items)
 				}
+			case *locationResult:
+				if len(v.locations) > 0 {
+					loc := v.locations[0]
+					path := uriToPath(loc.URI)
+					app.editorGroup.OpenFile(path)
+					app.editorGroup.GoToLine(loc.Range.Start.Line + 1)
+					app.root.SetFocus(app.editorGroup)
+				}
 			}
 			redraw()
 		}

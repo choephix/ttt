@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/ui"
 )
@@ -9,8 +11,16 @@ type completionResult struct {
 	items []ui.CompletionItem
 }
 
+type locationResult struct {
+	locations []lsp.Location
+}
+
 func fileURI(path string) string {
 	return "file://" + path
+}
+
+func uriToPath(uri string) string {
+	return strings.TrimPrefix(uri, "file://")
 }
 
 func lspToUICompletions(items []lsp.CompletionItem) []ui.CompletionItem {
