@@ -8,17 +8,31 @@ import (
 
 type ConfirmDialogWidget struct {
 	BaseWidget
-	Message   string
-	Selected  int
-	Borders   *term.BorderSet
-	OnConfirm func()
-	OnDismiss func()
+	Message    string
+	Buttons    []string
+	Selected   int
+	Borders    *term.BorderSet
+	OnButton   []func()
+	OnDismiss  func()
+	btnSpans   [][2]int
+	btnY       int
 }
 
 func NewConfirmDialogWidget(message string) *ConfirmDialogWidget {
 	return &ConfirmDialogWidget{
 		Message:  message,
+		Buttons:  []string{"Yes", "No"},
+		OnButton: make([]func(), 2),
 		Selected: 1,
+	}
+}
+
+func NewConfirmDialogWidget3(message, btn0, btn1, btn2 string) *ConfirmDialogWidget {
+	return &ConfirmDialogWidget{
+		Message:  message,
+		Buttons:  []string{btn0, btn1, btn2},
+		OnButton: make([]func(), 3),
+		Selected: 2,
 	}
 }
 
@@ -28,9 +42,16 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
 
 	msgW := len([]rune(d.Message)) + 4
+	btnW := 4
+	for _, btn := range d.Buttons {
+		btnW += len([]rune(btn)) + 4
+	}
 	boxW := 30
 	if msgW > boxW {
 		boxW = msgW
+	}
+	if btnW > boxW {
+		boxW = btnW
 	}
 	if boxW > sw-4 {
 		boxW = sw - 4
@@ -69,36 +90,60 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 		surface.SetCell(x, btnY, term.Cell{Ch: ' ', Style: term.StylePaletteItem})
 	}
 
-	yesLabel := " Yes "
-	noLabel := " No "
-	totalW := len(yesLabel) + 2 + len(noLabel)
+	labels := make([]string, len(d.Buttons))
+	totalW := 0
+	for i, btn := range d.Buttons {
+		labels[i] = " " + btn + " "
+		totalW += len([]rune(labels[i]))
+	}
+	totalW += (len(labels) - 1) * 2
 	startX := boxX + (boxW-totalW)/2
 
-	yesStyle := term.StylePaletteItem
-	noStyle := term.StylePaletteItem
-	if d.Selected == 0 {
-		yesStyle = term.StylePaletteSelected
-	} else {
-		noStyle = term.StylePaletteSelected
-	}
-
+	d.btnY = btnY
+	d.btnSpans = make([][2]int, len(labels))
 	bx := startX
-	for _, ch := range yesLabel {
-		surface.SetCell(bx, btnY, term.Cell{Ch: ch, Style: yesStyle})
-		bx++
-	}
-	bx += 2
-	for _, ch := range noLabel {
-		surface.SetCell(bx, btnY, term.Cell{Ch: ch, Style: noStyle})
-		bx++
+	for i, label := range labels {
+		style := term.StylePaletteItem
+		if d.Selected == i {
+			style = term.StylePaletteSelected
+		}
+		d.btnSpans[i][0] = bx
+		for _, ch := range label {
+			surface.SetCell(bx, btnY, term.Cell{Ch: ch, Style: style})
+			bx++
+		}
+		d.btnSpans[i][1] = bx
+		if i < len(labels)-1 {
+			bx += 2
+		}
 	}
 }
 
 func (d *ConfirmDialogWidget) HandleEvent(ev tcell.Event) EventResult {
+	if mev, ok := ev.(*tcell.EventMouse); ok {
+		if mev.Buttons()&tcell.Button1 != 0 {
+			mx, my := mev.Position()
+			if my == d.btnY {
+				for i, span := range d.btnSpans {
+					if mx >= span[0] && mx < span[1] {
+						d.Selected = i
+						if d.OnButton[i] != nil {
+							d.OnButton[i]()
+						}
+						return EventConsumed
+					}
+				}
+			}
+		}
+		return EventConsumed
+	}
+
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
 		return EventConsumed
 	}
+
+	n := len(d.Buttons)
 
 	switch kev.Key() {
 	case tcell.KeyEscape:
@@ -106,32 +151,26 @@ func (d *ConfirmDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 			d.OnDismiss()
 		}
 		return EventConsumed
-	case tcell.KeyLeft, tcell.KeyRight, tcell.KeyTab:
-		d.Selected = 1 - d.Selected
+	case tcell.KeyLeft:
+		d.Selected = (d.Selected - 1 + n) % n
+		return EventConsumed
+	case tcell.KeyRight, tcell.KeyTab:
+		d.Selected = (d.Selected + 1) % n
 		return EventConsumed
 	case tcell.KeyEnter:
-		if d.Selected == 0 {
-			if d.OnConfirm != nil {
-				d.OnConfirm()
-			}
-		} else {
-			if d.OnDismiss != nil {
-				d.OnDismiss()
-			}
+		if d.Selected >= 0 && d.Selected < len(d.OnButton) && d.OnButton[d.Selected] != nil {
+			d.OnButton[d.Selected]()
 		}
 		return EventConsumed
 	case tcell.KeyRune:
-		if kev.Rune() == 'y' || kev.Rune() == 'Y' {
-			if d.OnConfirm != nil {
-				d.OnConfirm()
+		for i, btn := range d.Buttons {
+			if len(btn) > 0 && (kev.Rune() == rune(btn[0]) || kev.Rune() == rune(btn[0]+32)) {
+				d.Selected = i
+				if d.OnButton[i] != nil {
+					d.OnButton[i]()
+				}
+				return EventConsumed
 			}
-			return EventConsumed
-		}
-		if kev.Rune() == 'n' || kev.Rune() == 'N' {
-			if d.OnDismiss != nil {
-				d.OnDismiss()
-			}
-			return EventConsumed
 		}
 	}
 

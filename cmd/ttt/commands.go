@@ -164,7 +164,34 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 
 	reg.Register(command.Command{
 		ID: "tab.close", Title: "Close Tab",
-		Handler: func() { app.editorGroup.CloseTab() },
+		Handler: func() {
+			if !app.editorGroup.IsDirty() {
+				app.editorGroup.CloseTab()
+				return
+			}
+			name := app.editorGroup.ActiveFileName()
+			dialog := ui.NewConfirmDialogWidget3(
+				"Save changes to "+name+"?",
+				"Discard", "Cancel", "Save",
+			)
+			dialog.Borders = app.borders
+			dialog.OnButton[0] = func() {
+				app.DismissDialog()
+				app.editorGroup.CloseTab()
+			}
+			dialog.OnButton[1] = func() {
+				app.DismissDialog()
+			}
+			dialog.OnButton[2] = func() {
+				app.DismissDialog()
+				reg.Execute("file.save")
+				app.editorGroup.CloseTab()
+			}
+			dialog.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(dialog)
+		},
 	})
 
 	reg.Register(command.Command{
@@ -714,13 +741,16 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			}
 			dialog := ui.NewConfirmDialogWidget("Delete " + node.Name + "?")
 			dialog.Borders = app.borders
-			dialog.OnConfirm = func() {
+			dialog.OnButton[0] = func() {
 				app.root.PopOverlay()
 				if err := os.RemoveAll(node.Path); err != nil {
 					app.StatusError("Error: "+err.Error())
 					return
 				}
 				app.explorer.Reload()
+			}
+			dialog.OnButton[1] = func() {
+				app.root.PopOverlay()
 			}
 			dialog.OnDismiss = func() {
 				app.root.PopOverlay()

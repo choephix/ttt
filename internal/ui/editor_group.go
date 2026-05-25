@@ -2,6 +2,7 @@ package ui
 
 import (
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/buffer"
@@ -298,6 +299,14 @@ func (g *EditorGroupWidget) ActiveCursor() (line, col int) {
 	return t.Cur.Line, t.Cur.Col
 }
 
+func (g *EditorGroupWidget) ActiveFileName() string {
+	t := g.activeTab()
+	if t == nil {
+		return "untitled"
+	}
+	return filepath.Base(t.FilePath)
+}
+
 func (g *EditorGroupWidget) IsDirty() bool {
 	t := g.activeTab()
 	if t == nil || t.Content != nil {
@@ -516,6 +525,7 @@ func (g *EditorGroupWidget) syncTabs() {
 }
 
 func (g *EditorGroupWidget) Render(surface *RenderSurface) {
+	g.syncTabs()
 	w, h := surface.Size()
 	r := g.GetRect()
 

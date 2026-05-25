@@ -43,12 +43,13 @@ func (t *TabBarWidget) SetTabs(tabs []Tab) {
 
 func (t *TabBarWidget) tabLabel(tab Tab) string {
 	name := filepath.Base(tab.Name)
-	label := " " + name
+	label := " "
 	if tab.Dirty {
-		label += "*"
+		label += "● "
 	}
+	label += name
 	if tab.Active && tab.Closable {
-		label += " ×"
+		label += " ✖"
 	}
 	label += " "
 	return label
@@ -121,17 +122,22 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 	for x := 0; x < w; x++ {
 		surface.SetCell(x, 1, term.Cell{Ch: ' '})
 	}
-	for _, s := range spans {
+	for i, s := range spans {
 		sx := s.start - t.ScrollOffset
 		ex := s.end - t.ScrollOffset
+		dirty := t.Tabs[i].Dirty
 		if s.active {
 			if sx >= 0 && sx < w {
 				surface.SetCell(sx, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
 			for ci, ch := range []rune(s.label) {
+				style := term.StyleActiveTab
+				if dirty && ch == '●' {
+					style = term.StyleWarning
+				}
 				x := sx + 1 + ci
 				if x >= 0 && x < w {
-					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: term.StyleActiveTab})
+					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style})
 				}
 			}
 			if ex-1 >= 0 && ex-1 < w {
@@ -139,9 +145,13 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 			}
 		} else {
 			for ci, ch := range []rune(s.label) {
+				style := term.StyleInactiveTab
+				if dirty && ch == '●' {
+					style = term.StyleWarning
+				}
 				x := sx + ci
 				if x >= 0 && x < w {
-					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: term.StyleInactiveTab})
+					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style})
 				}
 			}
 		}
