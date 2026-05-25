@@ -22,6 +22,9 @@ type FindBarWidget struct {
 	OnNavigate func(match FindMatch)
 	OnDismiss  func()
 	cursorPos  int
+	btnPrev    HitRegion
+	btnNext    HitRegion
+	btnClose   HitRegion
 }
 
 func NewFindBarWidget() *FindBarWidget {
@@ -87,6 +90,10 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	if sx > barX {
 		surface.DrawText(sx, row, suffix, barX+barW-1, term.StyleMuted)
 	}
+	btnStart := sx + len([]rune(info))
+	f.btnPrev = HitRegion{X: btnStart + 1, Y: row, W: 1}
+	f.btnNext = HitRegion{X: btnStart + 3, Y: row, W: 1}
+	f.btnClose = HitRegion{X: btnStart + 5, Y: row, W: 1}
 }
 
 func (f *FindBarWidget) currentDisplay() int {
@@ -117,40 +124,23 @@ func (f *FindBarWidget) navigate() {
 func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
-		btn := tev.Buttons()
-		mx, my := tev.Position()
-		r := f.GetRect()
-		sw, _ := r.W, r.H
-		barW := 40
-		if barW > sw-4 {
-			barW = sw - 4
-		}
-		barX := r.X + sw - barW - 1
-		barY := r.Y
-		row := barY + 1
-
-		if btn&tcell.Button1 != 0 && my == row {
-			buttons := " ▲ ▼ ✕"
-			btnStart := barX + barW - 2 - len([]rune(buttons))
-			localX := mx - btnStart
-			if localX >= 1 && localX <= 1 {
-				// ▲ prev
+		if tev.Buttons()&tcell.Button1 != 0 {
+			mx, my := tev.Position()
+			if f.btnPrev.Contains(mx, my) {
 				if len(f.Matches) > 0 {
 					f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
 					f.navigate()
 				}
 				return EventConsumed
 			}
-			if localX >= 3 && localX <= 3 {
-				// ▼ next
+			if f.btnNext.Contains(mx, my) {
 				if len(f.Matches) > 0 {
 					f.Current = (f.Current + 1) % len(f.Matches)
 					f.navigate()
 				}
 				return EventConsumed
 			}
-			if localX >= 5 && localX <= 5 {
-				// ✕ close
+			if f.btnClose.Contains(mx, my) {
 				if f.OnDismiss != nil {
 					f.OnDismiss()
 				}

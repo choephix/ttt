@@ -40,21 +40,9 @@ type StatusBar struct {
 	NotifyExpiry time.Time
 }
 
-func (s *StatusBar) Notify(msg string, duration time.Duration) {
+func (s *StatusBar) SetNotification(msg string, level NotifyLevel, duration time.Duration) {
 	s.Notification = msg
-	s.NotifyLevel = NotifyInfo
-	s.NotifyExpiry = time.Now().Add(duration)
-}
-
-func (s *StatusBar) NotifyWarn(msg string, duration time.Duration) {
-	s.Notification = msg
-	s.NotifyLevel = NotifyWarning
-	s.NotifyExpiry = time.Now().Add(duration)
-}
-
-func (s *StatusBar) NotifyError(msg string, duration time.Duration) {
-	s.Notification = msg
-	s.NotifyLevel = NotifyError
+	s.NotifyLevel = level
 	s.NotifyExpiry = time.Now().Add(duration)
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
@@ -20,6 +21,7 @@ import (
 )
 
 type terminalTab struct {
+	id     string
 	term   *terminal.Terminal
 	widget *ui.TerminalWidget
 }
@@ -45,6 +47,7 @@ type App struct {
 	palette      *ui.TerminalColorPalette
 	terminals    []terminalTab
 	lspManager      *lsp.Manager
+	docVersionsMu   sync.Mutex
 	docVersions     map[string]int
 	completionItems []ui.CompletionItem
 }
@@ -127,11 +130,9 @@ func (a *App) SpawnTerminal() {
 	}
 
 	tw := ui.NewTerminalWidget(t, a.palette)
-	idx := len(a.terminals)
-	a.terminals = append(a.terminals, terminalTab{term: t, widget: tw})
-
-	panelID := fmt.Sprintf("terminal-%d", idx)
-	label := fmt.Sprintf("[>_%d]", idx+1)
+	panelID := fmt.Sprintf("terminal-%d", len(a.terminals))
+	a.terminals = append(a.terminals, terminalTab{id: panelID, term: t, widget: tw})
+	label := fmt.Sprintf("[>_%d]", len(a.terminals))
 	a.bottomPanel.AddPanel(panelID, label, tw)
 	a.bottomPanel.SetActivePanel(panelID)
 
@@ -150,8 +151,9 @@ func (a *App) SpawnTerminal() {
 
 func (a *App) CloseTerminal(panelID string) {
 	for i, tt := range a.terminals {
-		if fmt.Sprintf("terminal-%d", i) == panelID {
+		if tt.id == panelID {
 			tt.term.Close()
+			a.terminals = append(a.terminals[:i], a.terminals[i+1:]...)
 			break
 		}
 	}
@@ -299,18 +301,23 @@ func isIdentRune(r rune) bool {
 	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
 
-func (a *App) RequestCompletions(path, lang string, line, col int) {
+func (a *App) lspReady(lang string) (string, bool) {
 	if a.lspManager == nil || lang == "" {
-		return
+		return "", false
 	}
 	langKey := strings.ToLower(lang)
 	if !a.lspManager.HasServer(langKey) {
+		return "", false
+	}
+	return langKey, true
+}
+
+func (a *App) RequestCompletions(path, lang string, line, col int) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
 		return
 	}
-	workDir := a.workspace.Primary()
-	if folder := a.workspace.FolderForFile(path); folder != nil {
-		workDir = folder.Path
-	}
+	workDir := a.lspWorkDir(path)
 	go func() {
 		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
 		if err != nil {
@@ -330,18 +337,14 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 }
 
 func (a *App) RequestHover(path, lang string, line, col int) {
-	if a.lspManager == nil || lang == "" {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
 		return
 	}
-	langKey := strings.ToLower(lang)
-	if !a.lspManager.HasServer(langKey) {
-		a.StatusWarn(lang + " language server is not configured")
-		return
-	}
-	workDir := a.workspace.Primary()
-	if folder := a.workspace.FolderForFile(path); folder != nil {
-		workDir = folder.Path
-	}
+	workDir := a.lspWorkDir(path)
 	go func() {
 		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
 		if err != nil {
@@ -372,18 +375,14 @@ func (a *App) RequestTypeDefinition(path, lang string, line, col int) {
 }
 
 func (a *App) requestLocation(method, path, lang string, line, col int) {
-	if a.lspManager == nil || lang == "" {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
 		return
 	}
-	langKey := strings.ToLower(lang)
-	if !a.lspManager.HasServer(langKey) {
-		a.StatusWarn(lang + " language server is not configured")
-		return
-	}
-	workDir := a.workspace.Primary()
-	if folder := a.workspace.FolderForFile(path); folder != nil {
-		workDir = folder.Path
-	}
+	workDir := a.lspWorkDir(path)
 	go func() {
 		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
 		if err != nil {
@@ -410,22 +409,23 @@ func (a *App) requestLocation(method, path, lang string, line, col int) {
 	}()
 }
 
-func (a *App) NotifyLSPOpen(path, lang, text string) {
-	if a.lspManager == nil || lang == "" {
-		return
-	}
-	langKey := strings.ToLower(lang)
-	if !a.lspManager.HasServer(langKey) {
-		return
-	}
+func (a *App) lspWorkDir(path string) string {
 	workDir := a.workspace.Primary()
 	if folder := a.workspace.FolderForFile(path); folder != nil {
 		workDir = folder.Path
 	}
-	if a.docVersions == nil {
-		a.docVersions = make(map[string]int)
+	return workDir
+}
+
+func (a *App) NotifyLSPOpen(path, lang, text string) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		return
 	}
+	workDir := a.lspWorkDir(path)
+	a.docVersionsMu.Lock()
 	a.docVersions[path] = 1
+	a.docVersionsMu.Unlock()
 	go func() {
 		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
 		if err != nil {
@@ -436,20 +436,17 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 }
 
 func (a *App) NotifyLSPChange(path, lang, text string) {
-	if a.lspManager == nil || lang == "" {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
 		return
 	}
-	langKey := strings.ToLower(lang)
-	if !a.lspManager.HasServer(langKey) {
-		return
-	}
-	if a.docVersions == nil {
-		a.docVersions = make(map[string]int)
-	}
+	workDir := a.lspWorkDir(path)
+	a.docVersionsMu.Lock()
 	a.docVersions[path]++
 	version := a.docVersions[path]
+	a.docVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, "")
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
 		if err != nil {
 			return
 		}
@@ -458,16 +455,16 @@ func (a *App) NotifyLSPChange(path, lang, text string) {
 }
 
 func (a *App) NotifyLSPClose(path, lang string) {
-	if a.lspManager == nil || lang == "" {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
 		return
 	}
-	langKey := strings.ToLower(lang)
-	if !a.lspManager.HasServer(langKey) {
-		return
-	}
+	workDir := a.lspWorkDir(path)
+	a.docVersionsMu.Lock()
 	delete(a.docVersions, path)
+	a.docVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, "")
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
 		if err != nil {
 			return
 		}
@@ -475,26 +472,16 @@ func (a *App) NotifyLSPClose(path, lang string) {
 	}()
 }
 
-func (a *App) StatusNotify(msg string) {
-	a.status.Notify(msg, 5*time.Second)
+func (a *App) statusMessage(msg string, level view.NotifyLevel) {
+	a.status.SetNotification(msg, level, 5*time.Second)
 	time.AfterFunc(5*time.Second, func() {
 		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
 	})
 }
 
-func (a *App) StatusWarn(msg string) {
-	a.status.NotifyWarn(msg, 5*time.Second)
-	time.AfterFunc(5*time.Second, func() {
-		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
-	})
-}
-
-func (a *App) StatusError(msg string) {
-	a.status.NotifyError(msg, 5*time.Second)
-	time.AfterFunc(5*time.Second, func() {
-		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
-	})
-}
+func (a *App) StatusNotify(msg string) { a.statusMessage(msg, view.NotifyInfo) }
+func (a *App) StatusWarn(msg string)   { a.statusMessage(msg, view.NotifyWarning) }
+func (a *App) StatusError(msg string)  { a.statusMessage(msg, view.NotifyError) }
 
 func (a *App) ShowDialog(w ui.Widget) {
 	a.root.PushOverlay(ui.Overlay{Widget: w, Modal: true})

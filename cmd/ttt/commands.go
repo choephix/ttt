@@ -17,6 +17,17 @@ import (
 )
 
 func registerCommands(reg *command.Registry, app *App, running *bool, quitPending *bool) {
+	registerViewCommands(reg, app)
+	registerEditorCommands(reg, app, running, quitPending)
+	registerSearchCommands(reg, app)
+	registerPaletteCommands(reg, app)
+	registerExplorerCommands(reg, app)
+	registerGitCommands(reg, app)
+	registerWorkspaceCommands(reg, app)
+	registerWidgetCallbacks(reg, app)
+}
+
+func registerViewCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "sidebar.toggle", Title: "Toggle Sidebar",
 		Handler: app.ToggleSidebar,
@@ -81,6 +92,77 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	})
 
 	reg.Register(command.Command{
+		ID: "panel.toggle", Title: "Toggle Panel",
+		Handler: app.ToggleBottomPanel,
+	})
+
+	reg.Register(command.Command{
+		ID: "panel.focus", Title: "Focus Panel",
+		Handler: func() {
+			if !app.contentSplit.ShowBottom {
+				app.contentSplit.ShowBottom = true
+			}
+			if w := app.bottomPanel.ActiveWidget(); w != nil {
+				app.root.SetFocus(w)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "terminal.new", Title: "New Terminal",
+		Handler: app.SpawnTerminal,
+	})
+
+	reg.Register(command.Command{
+		ID: "terminal.toggle", Title: "Toggle Terminal",
+		Handler: func() {
+			if !app.contentSplit.ShowBottom {
+				r := app.contentSplit.GetRect()
+				half := r.H / 2
+				if half > r.H-4 {
+					half = r.H - 4
+				}
+				app.contentSplit.BottomH = half
+				app.contentSplit.ShowBottom = true
+				if len(app.terminals) == 0 {
+					app.SpawnTerminal()
+				} else {
+					last := app.terminals[len(app.terminals)-1]
+					app.root.SetFocus(last.widget)
+				}
+			} else {
+				app.HideBottomPanel()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "terminal.closeAll", Title: "Close All Terminals",
+		Handler: app.CloseAllTerminals,
+	})
+
+	reg.Register(command.Command{
+		ID: "about", Title: "About ttt",
+		Handler: func() {
+			url := "https://github.com/eugenioenko/ttt"
+			var cmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				cmd = exec.Command("open", url)
+			case "windows":
+				cmd = exec.Command("cmd", "/c", "start", url)
+			default:
+				cmd = exec.Command("xdg-open", url)
+			}
+			if err := cmd.Start(); err != nil {
+				app.StatusNotify("ttt — Terminal Text Tool")
+			}
+		},
+	})
+}
+
+func registerEditorCommands(reg *command.Registry, app *App, running *bool, quitPending *bool) {
+	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
 		Handler: func() {
 			if app.IsAutocompleteActive() {
@@ -126,30 +208,22 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 
 	reg.Register(command.Command{
 		ID: "editor.hover", Title: "Show Hover",
-		Handler: func() {
-			lspAction(app.RequestHover)
-		},
+		Handler: func() { lspAction(app.RequestHover) },
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.goToDefinition", Title: "Go to Definition",
-		Handler: func() {
-			lspAction(app.RequestDefinition)
-		},
+		Handler: func() { lspAction(app.RequestDefinition) },
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.goToImplementation", Title: "Go to Implementation",
-		Handler: func() {
-			lspAction(app.RequestImplementation)
-		},
+		Handler: func() { lspAction(app.RequestImplementation) },
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.goToTypeDefinition", Title: "Go to Type Definition",
-		Handler: func() {
-			lspAction(app.RequestTypeDefinition)
-		},
+		Handler: func() { lspAction(app.RequestTypeDefinition) },
 	})
 
 	reg.Register(command.Command{
@@ -192,6 +266,16 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			}
 			app.ShowDialog(dialog)
 		},
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeOthers", Title: "Close Other Tabs",
+		Handler: func() { app.editorGroup.CloseOtherTabs() },
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeAll", Title: "Close All Tabs",
+		Handler: func() { app.editorGroup.CloseAllTabs() },
 	})
 
 	reg.Register(command.Command{
@@ -273,52 +357,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			app.StatusWarn("Unsaved changes. Press Ctrl+Q again to quit.")
 		},
 	})
+}
 
-	reg.Register(command.Command{
-		ID: "panel.toggle", Title: "Toggle Panel",
-		Handler: app.ToggleBottomPanel,
-	})
-
-	reg.Register(command.Command{
-		ID: "panel.focus", Title: "Focus Panel",
-		Handler: func() {
-			if !app.contentSplit.ShowBottom {
-				app.contentSplit.ShowBottom = true
-			}
-			if w := app.bottomPanel.ActiveWidget(); w != nil {
-				app.root.SetFocus(w)
-			}
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "terminal.new", Title: "New Terminal",
-		Handler: app.SpawnTerminal,
-	})
-
-	reg.Register(command.Command{
-		ID: "terminal.toggle", Title: "Toggle Terminal",
-		Handler: func() {
-			if !app.contentSplit.ShowBottom {
-				r := app.contentSplit.GetRect()
-				half := r.H / 2
-				if half > r.H-4 {
-					half = r.H - 4
-				}
-				app.contentSplit.BottomH = half
-				app.contentSplit.ShowBottom = true
-				if len(app.terminals) == 0 {
-					app.SpawnTerminal()
-				} else {
-					last := app.terminals[len(app.terminals)-1]
-					app.root.SetFocus(last.widget)
-				}
-			} else {
-				app.HideBottomPanel()
-			}
-		},
-	})
-
+func registerSearchCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "search.find", Title: "Find",
 		Handler: func() {
@@ -386,6 +427,20 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		},
 	})
 
+	reg.Register(command.Command{
+		ID: "search.clear", Title: "Clear Search Results",
+		Handler: func() {
+			app.search.Input.Text = ""
+			app.search.Input.CursorPos = 0
+			app.search.Groups = nil
+			app.search.FlatList = nil
+			app.search.Selected = 0
+			app.search.ScrollTop = 0
+		},
+	})
+}
+
+func registerPaletteCommands(reg *command.Registry, app *App) {
 	openPalette := func(fileMode bool, initialText ...string) {
 		palette := ui.NewCommandPaletteWidget(reg.List())
 		palette.Borders = app.borders
@@ -521,79 +576,12 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			app.editorGroup.OpenFile(path)
 		},
 	})
+}
 
-	reg.Register(command.Command{
-		ID: "changes.openDiff", Title: "Open Diff",
-		Handler: func() {
-			dir, status, ok := app.changes.SelectedFile()
-			if ok && app.changes.OnOpenDiff != nil {
-				app.changes.OnOpenDiff(dir, status)
-			}
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "changes.openFile", Title: "Open File",
-		Handler: func() {
-			fullPath := app.changes.SelectedFullPath()
-			if fullPath != "" {
-				app.editorGroup.OpenFile(fullPath)
-				app.root.SetFocus(app.editorGroup)
-			}
-		},
-	})
-
+func registerExplorerCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "explorer.refresh", Title: "Refresh Explorer",
 		Handler: func() { app.explorer.Reload() },
-	})
-
-	reg.Register(command.Command{
-		ID: "changes.refresh", Title: "Refresh Changes",
-		Handler: func() { app.changes.Refresh() },
-	})
-
-	registerGitCmd := func(id, title string, ops []func(string) error, verb string) {
-		reg.Register(command.Command{
-			ID: id, Title: title,
-			Handler: func() {
-				for _, dir := range app.changes.Dirs {
-					for _, op := range ops {
-						if err := op(dir); err != nil {
-							app.StatusError(fmt.Sprintf("%s failed: %v", verb, err))
-							return
-						}
-					}
-				}
-				app.StatusNotify(verb + " successfully")
-				app.changes.Refresh()
-			},
-		})
-	}
-	registerGitCmd("git.pull", "Git Pull", []func(string) error{git.Pull}, "Pulled")
-	registerGitCmd("git.push", "Git Push", []func(string) error{git.Push}, "Pushed")
-	registerGitCmd("git.sync", "Git Sync", []func(string) error{git.Pull, git.Push}, "Synced")
-
-	reg.Register(command.Command{
-		ID: "search.clear", Title: "Clear Search Results",
-		Handler: func() {
-			app.search.Input.Text = ""
-			app.search.Input.CursorPos = 0
-			app.search.Groups = nil
-			app.search.FlatList = nil
-			app.search.Selected = 0
-			app.search.ScrollTop = 0
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "tab.closeOthers", Title: "Close Other Tabs",
-		Handler: func() { app.editorGroup.CloseOtherTabs() },
-	})
-
-	reg.Register(command.Command{
-		ID: "tab.closeAll", Title: "Close All Tabs",
-		Handler: func() { app.editorGroup.CloseAllTabs() },
 	})
 
 	reg.Register(command.Command{
@@ -695,7 +683,58 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			)
 		},
 	})
+}
 
+func registerGitCommands(reg *command.Registry, app *App) {
+	reg.Register(command.Command{
+		ID: "changes.openDiff", Title: "Open Diff",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && app.changes.OnOpenDiff != nil {
+				app.changes.OnOpenDiff(dir, status)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.openFile", Title: "Open File",
+		Handler: func() {
+			fullPath := app.changes.SelectedFullPath()
+			if fullPath != "" {
+				app.editorGroup.OpenFile(fullPath)
+				app.root.SetFocus(app.editorGroup)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.refresh", Title: "Refresh Changes",
+		Handler: func() { app.changes.Refresh() },
+	})
+
+	registerGitCmd := func(id, title string, ops []func(string) error, verb string) {
+		reg.Register(command.Command{
+			ID: id, Title: title,
+			Handler: func() {
+				for _, dir := range app.changes.Dirs {
+					for _, op := range ops {
+						if err := op(dir); err != nil {
+							app.StatusError(fmt.Sprintf("%s failed: %v", verb, err))
+							return
+						}
+					}
+				}
+				app.StatusNotify(verb + " successfully")
+				app.changes.Refresh()
+			},
+		})
+	}
+	registerGitCmd("git.pull", "Git Pull", []func(string) error{git.Pull}, "Pulled")
+	registerGitCmd("git.push", "Git Push", []func(string) error{git.Push}, "Pushed")
+	registerGitCmd("git.sync", "Git Sync", []func(string) error{git.Pull, git.Push}, "Synced")
+}
+
+func registerWorkspaceCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
 		Handler: func() {
@@ -753,26 +792,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			})
 		},
 	})
+}
 
-	reg.Register(command.Command{
-		ID: "about", Title: "About ttt",
-		Handler: func() {
-			url := "https://github.com/eugenioenko/ttt"
-			var cmd *exec.Cmd
-			switch runtime.GOOS {
-			case "darwin":
-				cmd = exec.Command("open", url)
-			case "windows":
-				cmd = exec.Command("cmd", "/c", "start", url)
-			default:
-				cmd = exec.Command("xdg-open", url)
-			}
-			if err := cmd.Start(); err != nil {
-				app.StatusNotify("ttt — Terminal Text Tool")
-			}
-		},
-	})
-
+func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	for i := range menuBarMenus {
 		idx := i
 		reg.Register(command.Command{
@@ -795,10 +817,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	app.splitPanel.OnLeftClick = func() {
 		reg.Execute("sidebar.focus")
 	}
-	app.splitPanel.OnRightClick = func() {
-		// Don't force editor.focus here — let ContentSplit decide
-		// based on whether the click landed in top (editor) or bottom (panel).
-	}
+	app.splitPanel.OnRightClick = func() {}
 	app.splitPanel.OnLeftEdgeClick = func() {
 		reg.Execute("sidebar.toggle")
 	}
@@ -865,7 +884,6 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		openContextMenu(app, reg, tabContextMenu, sx, sy)
 	}
 
-	// Widget callbacks
 	app.explorer.OnOpenFile = func(path string) {
 		app.editorGroup.OpenFile(path)
 		app.root.SetFocus(app.editorGroup)
@@ -941,9 +959,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 
 	app.changes.OnCommit = func(dir string, message string) {
 		if err := git.Commit(dir, message); err != nil {
-			app.StatusError("Commit failed: "+err.Error())
+			app.StatusError("Commit failed: " + err.Error())
 		} else {
-			app.StatusNotify("Committed: "+message)
+			app.StatusNotify("Committed: " + message)
 			app.changes.Refresh()
 		}
 	}
@@ -994,11 +1012,6 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		}
 		openContextMenu(app, reg, items, sx, sy)
 	}
-
-	reg.Register(command.Command{
-		ID: "terminal.closeAll", Title: "Close All Terminals",
-		Handler: app.CloseAllTerminals,
-	})
 }
 
 // Commands that work even when terminal has raw key focus.

@@ -145,5 +145,6 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		settings:     &cfg.Settings,
 		workspace:    ws,
 		palette:      buildTerminalPalettePtr(cfg.Theme),
+		docVersions:  make(map[string]int),
 	}
 }

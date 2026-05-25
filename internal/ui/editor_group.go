@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -45,6 +46,7 @@ type EditorGroupWidget struct {
 	OnFileOpen   func(path, lang, text string)
 	OnFileChange func(path, lang, text string)
 	OnFileClose  func(path, lang string)
+	OnError      func(msg string)
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
@@ -95,6 +97,14 @@ func (g *EditorGroupWidget) activeTab() *editorTab {
 	return &g.tabs[g.active]
 }
 
+func (g *EditorGroupWidget) reportError(msg string) {
+	if g.OnError != nil {
+		g.OnError(msg)
+	} else {
+		slog.Error(msg)
+	}
+}
+
 func (g *EditorGroupWidget) OpenFile(path string) {
 	for i := range g.tabs {
 		if g.tabs[i].FilePath == path {
@@ -108,6 +118,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	}
 	newBuf := &buffer.Buffer{Lines: []string{""}}
 	if err := newBuf.LoadFile(path); err != nil {
+		g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
 		return
 	}
 	tabSize := g.TabSize
@@ -269,7 +280,10 @@ func (g *EditorGroupWidget) Save() bool {
 	if t.FilePath == "untitled" {
 		return false
 	}
-	t.Buf.SaveFile(t.FilePath)
+	if err := t.Buf.SaveFile(t.FilePath); err != nil {
+		g.reportError(fmt.Sprintf("Failed to save %s: %v", t.FilePath, err))
+		return false
+	}
 	return true
 }
 
@@ -278,8 +292,11 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 	if t == nil || t.Content != nil {
 		return
 	}
+	if err := t.Buf.SaveFile(path); err != nil {
+		g.reportError(fmt.Sprintf("Failed to save %s: %v", path, err))
+		return
+	}
 	t.FilePath = path
-	t.Buf.SaveFile(path)
 	t.Highlighter = highlight.New(path)
 	g.syncTabs()
 }

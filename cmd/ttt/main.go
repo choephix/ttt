@@ -57,6 +57,9 @@ func main() {
 	app.renderer = renderer
 	app.lspManager = lspManager
 
+	app.editorGroup.OnError = func(msg string) {
+		app.StatusError(msg)
+	}
 	app.editorGroup.OnFileOpen = func(path, lang, text string) {
 		app.NotifyLSPOpen(path, lang, text)
 	}

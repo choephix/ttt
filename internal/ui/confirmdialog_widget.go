@@ -14,8 +14,7 @@ type ConfirmDialogWidget struct {
 	Borders    *term.BorderSet
 	OnButton   []func()
 	OnDismiss  func()
-	btnSpans   [][2]int
-	btnY       int
+	btnHits []HitRegion
 }
 
 func NewConfirmDialogWidget(message string) *ConfirmDialogWidget {
@@ -83,17 +82,17 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 	totalW += (len(labels) - 1) * 2
 	startX := boxX + (boxW-totalW)/2
 
-	d.btnY = btnY
-	d.btnSpans = make([][2]int, len(labels))
+	d.btnHits = make([]HitRegion, len(labels))
 	bx := startX
 	for i, label := range labels {
 		style := term.StylePaletteItem
 		if d.Selected == i {
 			style = term.StylePaletteSelected
 		}
-		d.btnSpans[i][0] = bx
-		bx = surface.DrawText(bx, btnY, label, 0, style)
-		d.btnSpans[i][1] = bx
+		labelW := len([]rune(label))
+		d.btnHits[i] = HitRegion{X: bx, Y: btnY, W: labelW}
+		surface.DrawText(bx, btnY, label, 0, style)
+		bx += labelW
 		if i < len(labels)-1 {
 			bx += 2
 		}
@@ -104,15 +103,13 @@ func (d *ConfirmDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
 		if mev.Buttons()&tcell.Button1 != 0 {
 			mx, my := mev.Position()
-			if my == d.btnY {
-				for i, span := range d.btnSpans {
-					if mx >= span[0] && mx < span[1] {
-						d.Selected = i
-						if d.OnButton[i] != nil {
-							d.OnButton[i]()
-						}
-						return EventConsumed
+			for i, hit := range d.btnHits {
+				if hit.Contains(mx, my) {
+					d.Selected = i
+					if d.OnButton[i] != nil {
+						d.OnButton[i]()
 					}
+					return EventConsumed
 				}
 			}
 		}
