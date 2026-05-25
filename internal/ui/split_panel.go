@@ -18,7 +18,6 @@ type SplitPanelWidget struct {
 	OnResize          func(width int)
 	OnLeftClick       func()
 	OnRightClick      func()
-	OnLeftEdgeClick   func()
 	dragging          bool
 }
 
@@ -212,9 +211,7 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	} else {
 		if isClick && mx == r.X {
-			if s.OnLeftEdgeClick != nil {
-				s.OnLeftEdgeClick()
-			}
+			s.dragging = true
 			return EventConsumed
 		}
 		if s.Right != nil {

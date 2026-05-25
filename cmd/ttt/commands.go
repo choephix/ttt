@@ -818,9 +818,7 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		reg.Execute("sidebar.focus")
 	}
 	app.splitPanel.OnRightClick = func() {}
-	app.splitPanel.OnLeftEdgeClick = func() {
-		reg.Execute("sidebar.toggle")
-	}
+
 
 	app.sidebar.MoreButton.OnClick = func(sx, sy int) {
 		var items []ui.ContextMenuItem
@@ -972,6 +970,9 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		} else {
 			app.contentSplit.ShowBottom = true
 			app.contentSplit.BottomH = height
+			if len(app.terminals) == 0 {
+				app.SpawnTerminal()
+			}
 		}
 	}
 

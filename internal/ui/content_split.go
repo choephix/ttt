@@ -122,6 +122,12 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return result
 		}
+	} else {
+		bottomEdge := r.Y + r.H - 1
+		if btn&tcell.Button1 != 0 && my == bottomEdge {
+			cs.dragging = true
+			return EventConsumed
+		}
 	}
 
 	if cs.Top != nil {
