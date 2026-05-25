@@ -43,8 +43,9 @@ type App struct {
 	workspace    *workspace.Workspace
 	palette      *ui.TerminalColorPalette
 	terminals    []terminalTab
-	lspManager   *lsp.Manager
-	docVersions  map[string]int
+	lspManager      *lsp.Manager
+	docVersions     map[string]int
+	completionItems []ui.CompletionItem
 }
 
 func (a *App) ShowSidebar() {
@@ -195,7 +196,13 @@ func (a *App) refreshWorkspaceWidgets() {
 }
 
 func (a *App) ShowAutocomplete(items []ui.CompletionItem) {
-	ac := ui.NewAutocompleteWidget(items, 0, 0)
+	a.completionItems = items
+	prefix := a.currentPrefix()
+	filtered := ui.FilterCompletions(items, prefix)
+	if len(filtered) == 0 {
+		return
+	}
+	ac := ui.NewAutocompleteWidget(filtered, 0, 0)
 	ac.OnSelect = func(item ui.CompletionItem) {
 		a.DismissAutocomplete()
 		a.insertCompletion(item)
@@ -206,8 +213,47 @@ func (a *App) ShowAutocomplete(items []ui.CompletionItem) {
 	a.editorGroup.Autocomplete = ac
 }
 
+func (a *App) RefreshAutocomplete() {
+	if a.editorGroup.Autocomplete == nil || len(a.completionItems) == 0 {
+		return
+	}
+	prefix := a.currentPrefix()
+	filtered := ui.FilterCompletions(a.completionItems, prefix)
+	if len(filtered) == 0 {
+		a.DismissAutocomplete()
+		return
+	}
+	a.editorGroup.Autocomplete.SetItems(filtered)
+}
+
+func (a *App) identStart() (line, start, col int) {
+	if !a.editorGroup.IsEditorActive() {
+		return 0, 0, 0
+	}
+	editor := a.editorGroup.Editor
+	line = editor.Cursor.Line
+	col = editor.Cursor.Col
+	runes := []rune(editor.Buf.Lines[line])
+	start = col
+	for start > 0 && isIdentRune(runes[start-1]) {
+		start--
+	}
+	return line, start, col
+}
+
+func (a *App) currentPrefix() string {
+	if !a.editorGroup.IsEditorActive() {
+		return ""
+	}
+	editor := a.editorGroup.Editor
+	line, start, col := a.identStart()
+	runes := []rune(editor.Buf.Lines[line])
+	return string(runes[start:col])
+}
+
 func (a *App) DismissAutocomplete() {
 	a.editorGroup.Autocomplete = nil
+	a.completionItems = nil
 }
 
 func (a *App) IsAutocompleteActive() bool {
@@ -223,13 +269,7 @@ func (a *App) insertCompletion(item ui.CompletionItem) {
 		text = item.Label
 	}
 	editor := a.editorGroup.Editor
-	line := editor.Cursor.Line
-	col := editor.Cursor.Col
-	runes := []rune(editor.Buf.Lines[line])
-	start := col
-	for start > 0 && isIdentRune(runes[start-1]) {
-		start--
-	}
+	line, start, col := a.identStart()
 	if start < col {
 		editor.ExecCommand(&undo.DeleteSelectionCommand{
 			StartLine: line, StartCol: start,

@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -51,7 +54,38 @@ type CompletionItem struct {
 	Label      string
 	Detail     string
 	InsertText string
+	FilterText string
+	SortText   string
 	Kind       CompletionKind
+}
+
+func FilterCompletions(items []CompletionItem, prefix string) []CompletionItem {
+	if prefix == "" {
+		return items
+	}
+	lowerPrefix := strings.ToLower(prefix)
+	var filtered []CompletionItem
+	for _, it := range items {
+		ft := it.FilterText
+		if ft == "" {
+			ft = it.Label
+		}
+		if strings.HasPrefix(strings.ToLower(ft), lowerPrefix) {
+			filtered = append(filtered, it)
+		}
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		si := filtered[i].SortText
+		if si == "" {
+			si = filtered[i].Label
+		}
+		sj := filtered[j].SortText
+		if sj == "" {
+			sj = filtered[j].Label
+		}
+		return si < sj
+	})
+	return filtered
 }
 
 type AutocompleteWidget struct {

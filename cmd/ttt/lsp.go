@@ -20,6 +20,8 @@ func lspToUICompletions(items []lsp.CompletionItem) []ui.CompletionItem {
 			Label:      item.Label,
 			Detail:     item.Detail,
 			InsertText: item.InsertText,
+			FilterText: item.FilterText,
+			SortText:   item.SortText,
 			Kind:       lspKindToUI(item.Kind),
 		}
 		if uiItem.InsertText == "" && item.TextEdit != nil {

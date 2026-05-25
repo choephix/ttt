@@ -116,6 +116,7 @@ func runEventLoop(
 			}
 			slog.Debug("key", "key", tev.Key(), "rune", string(tev.Rune()), "mod", tev.Modifiers())
 			app.root.HandleEvent(tev)
+			app.RefreshAutocomplete()
 			syncStatus()
 			redraw()
 
