@@ -20,6 +20,9 @@ func (b *Buffer) LoadFile(filename string) error {
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
 	b.Lines = lines
 	b.Dirty = false
 	return nil

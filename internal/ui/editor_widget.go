@@ -85,6 +85,9 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	matchLine, matchCol, hasMatch := e.findMatchingBracket()
 
+	if e.Viewport.TopLine < 0 {
+		e.Viewport.TopLine = 0
+	}
 	for y := 0; y < h; y++ {
 		lineIdx := e.Viewport.TopLine + y
 
@@ -661,11 +664,11 @@ var bracketPairs = map[rune]rune{
 var closingBrackets = map[rune]bool{')': true, ']': true, '}': true}
 
 func (e *EditorPaneWidget) findMatchingBracket() (int, int, bool) {
-	if e.Cursor.Line >= len(e.Buf.Lines) {
+	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
 		return 0, 0, false
 	}
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
-	if e.Cursor.Col >= len(runes) {
+	if e.Cursor.Col < 0 || e.Cursor.Col >= len(runes) {
 		return 0, 0, false
 	}
 	ch := runes[e.Cursor.Col]
