@@ -153,6 +153,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+k s", Command: "file.saveAs"},
 		{Key: "ctrl+k ctrl+t", Command: "theme.switch"},
 		{Key: "ctrl+u", Command: "editor.autocomplete"},
+		{Key: "ctrl+backtick", Command: "terminal.toggle"},
 		{Key: "f10", Command: "menu.file"},
 		{Key: "alt+f", Command: "menu.file"},
 		{Key: "alt+e", Command: "menu.edit"},

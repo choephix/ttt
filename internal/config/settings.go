@@ -16,6 +16,14 @@ func DefaultTerminalSettings() TerminalSettings {
 	}
 }
 
+type LSPServerConfig struct {
+	Command []string `json:"command"`
+}
+
+type LSPSettings struct {
+	Servers map[string]LSPServerConfig `json:"servers,omitempty"`
+}
+
 type Settings struct {
 	TabSize        int              `json:"tabSize"`
 	InsertSpaces   bool             `json:"insertSpaces"`
@@ -25,7 +33,8 @@ type Settings struct {
 	SidebarWidth   int              `json:"sidebarWidth"`
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
-	Terminal       TerminalSettings `json:"terminal,omitempty"`
+	Terminal       TerminalSettings `json:"terminal,omitzero"`
+	LSP            LSPSettings      `json:"lsp,omitzero"`
 }
 
 func DefaultSettings() Settings {

@@ -37,6 +37,7 @@ type EditorPaneWidget struct {
 	clickCount    int
 	mouseDown     bool
 	scrollbar     Scrollbar
+	OnChange      func()
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -173,6 +174,9 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	cmd.Apply(e.Buf)
 	if e.Undo != nil {
 		e.Undo.Push(cmd)
+	}
+	if e.OnChange != nil {
+		e.OnChange()
 	}
 }
 

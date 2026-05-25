@@ -9,5 +9,6 @@ type StatusBar struct {
 	Branch   string
 	Blame    string
 	Language string
+	LSP      bool
 	TabSize  int
 }

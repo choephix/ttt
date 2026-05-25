@@ -1,0 +1,208 @@
+package lsp
+
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/exec"
+	"sync"
+)
+
+type Client struct {
+	cmd     *exec.Cmd
+	codec   *Codec
+	nextID  int
+	pending map[int]chan Response
+	mu      sync.Mutex
+	done    chan struct{}
+}
+
+func NewClient(command []string, workDir string) (*Client, error) {
+	if len(command) == 0 {
+		return nil, fmt.Errorf("empty command")
+	}
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Dir = workDir
+	cmd.Stderr = os.Stderr
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("stdin pipe: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("start %s: %w", command[0], err)
+	}
+
+	c := &Client{
+		cmd:     cmd,
+		codec:   NewCodec(stdout, stdin),
+		nextID:  1,
+		pending: make(map[int]chan Response),
+		done:    make(chan struct{}),
+	}
+	go c.readLoop()
+	return c, nil
+}
+
+func (c *Client) readLoop() {
+	defer close(c.done)
+	for {
+		resp, err := c.codec.Receive()
+		if err != nil {
+			slog.Debug("lsp read loop exit", "err", err)
+			c.mu.Lock()
+			for _, ch := range c.pending {
+				close(ch)
+			}
+			c.pending = make(map[int]chan Response)
+			c.mu.Unlock()
+			return
+		}
+		if resp.IsNotification() {
+			slog.Debug("lsp notification", "method", resp.Method)
+			continue
+		}
+		if resp.ID != nil {
+			c.mu.Lock()
+			ch, ok := c.pending[*resp.ID]
+			if ok {
+				delete(c.pending, *resp.ID)
+			}
+			c.mu.Unlock()
+			if ok {
+				ch <- resp
+			}
+		}
+	}
+}
+
+func (c *Client) call(method string, params any) (json.RawMessage, error) {
+	c.mu.Lock()
+	id := c.nextID
+	c.nextID++
+	ch := make(chan Response, 1)
+	c.pending[id] = ch
+	c.mu.Unlock()
+
+	err := c.codec.Send(Request{
+		JSONRPC: "2.0",
+		ID:      &id,
+		Method:  method,
+		Params:  params,
+	})
+	if err != nil {
+		c.mu.Lock()
+		delete(c.pending, id)
+		c.mu.Unlock()
+		return nil, err
+	}
+
+	resp, ok := <-ch
+	if !ok {
+		return nil, fmt.Errorf("connection closed")
+	}
+	if resp.Error != nil {
+		return nil, resp.Error
+	}
+	return resp.Result, nil
+}
+
+func (c *Client) notify(method string, params any) error {
+	return c.codec.Send(Request{
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  params,
+	})
+}
+
+func (c *Client) Initialize(rootURI string) error {
+	result, err := c.call("initialize", InitializeParams{
+		ProcessID: os.Getpid(),
+		RootURI:   rootURI,
+		Capabilities: ClientCapabilities{
+			TextDocument: &TextDocumentClientCapabilities{
+				Completion: &CompletionClientCapabilities{
+					CompletionItem: &CompletionItemClientCapabilities{
+						SnippetSupport: false,
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("initialize: %w", err)
+	}
+	var initResult InitializeResult
+	if err := json.Unmarshal(result, &initResult); err != nil {
+		return fmt.Errorf("parse initialize result: %w", err)
+	}
+	slog.Debug("lsp initialized", "capabilities", initResult.Capabilities)
+
+	return c.notify("initialized", struct{}{})
+}
+
+func (c *Client) DidOpen(uri, languageID, text string) error {
+	return c.notify("textDocument/didOpen", DidOpenTextDocumentParams{
+		TextDocument: TextDocumentItem{
+			URI:        uri,
+			LanguageID: languageID,
+			Version:    1,
+			Text:       text,
+		},
+	})
+}
+
+func (c *Client) DidChange(uri, text string, version int) error {
+	return c.notify("textDocument/didChange", DidChangeTextDocumentParams{
+		TextDocument: VersionedTextDocumentIdentifier{
+			URI:     uri,
+			Version: version,
+		},
+		ContentChanges: []TextDocumentContentChangeEvent{{Text: text}},
+	})
+}
+
+func (c *Client) DidClose(uri string) error {
+	return c.notify("textDocument/didClose", DidCloseTextDocumentParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	})
+}
+
+func (c *Client) Completion(uri string, line, col int) ([]CompletionItem, error) {
+	result, err := c.call("textDocument/completion", CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var list CompletionList
+	if err := json.Unmarshal(result, &list); err != nil {
+		var items []CompletionItem
+		if err2 := json.Unmarshal(result, &items); err2 != nil {
+			return nil, fmt.Errorf("parse completion result: %w", err)
+		}
+		return items, nil
+	}
+	return list.Items, nil
+}
+
+func (c *Client) Shutdown() error {
+	_, err := c.call("shutdown", nil)
+	if err != nil {
+		return err
+	}
+	return c.notify("exit", nil)
+}
+
+func (c *Client) Close() {
+	c.cmd.Process.Kill()
+	c.cmd.Wait()
+}

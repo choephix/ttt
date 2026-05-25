@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/undo"
+	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
@@ -40,6 +42,8 @@ type App struct {
 	workspace    *workspace.Workspace
 	palette      *ui.TerminalColorPalette
 	terminals    []terminalTab
+	lspManager   *lsp.Manager
+	docVersions  map[string]int
 }
 
 func (a *App) ShowSidebar() {
@@ -240,6 +244,101 @@ func (a *App) insertCompletion(item ui.CompletionItem) {
 
 func isIdentRune(r rune) bool {
 	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+}
+
+func (a *App) RequestCompletions(path, lang string, line, col int) {
+	if a.lspManager == nil || lang == "" {
+		return
+	}
+	langKey := strings.ToLower(lang)
+	if !a.lspManager.HasServer(langKey) {
+		return
+	}
+	workDir := a.workspace.Primary()
+	if folder := a.workspace.FolderForFile(path); folder != nil {
+		workDir = folder.Path
+	}
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		items, err := client.Completion(fileURI(path), line, col)
+		if err != nil {
+			slog.Error("lsp completion", "err", err)
+			return
+		}
+		uiItems := lspToUICompletions(items)
+		if len(uiItems) > 0 {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&completionResult{items: uiItems}))
+		}
+	}()
+}
+
+func (a *App) NotifyLSPOpen(path, lang, text string) {
+	if a.lspManager == nil || lang == "" {
+		return
+	}
+	langKey := strings.ToLower(lang)
+	if !a.lspManager.HasServer(langKey) {
+		return
+	}
+	workDir := a.workspace.Primary()
+	if folder := a.workspace.FolderForFile(path); folder != nil {
+		workDir = folder.Path
+	}
+	if a.docVersions == nil {
+		a.docVersions = make(map[string]int)
+	}
+	a.docVersions[path] = 1
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			return
+		}
+		client.DidOpen(fileURI(path), langKey, text)
+	}()
+}
+
+func (a *App) NotifyLSPChange(path, lang, text string) {
+	if a.lspManager == nil || lang == "" {
+		return
+	}
+	langKey := strings.ToLower(lang)
+	if !a.lspManager.HasServer(langKey) {
+		return
+	}
+	if a.docVersions == nil {
+		a.docVersions = make(map[string]int)
+	}
+	a.docVersions[path]++
+	version := a.docVersions[path]
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, "")
+		if err != nil {
+			return
+		}
+		client.DidChange(fileURI(path), text, version)
+	}()
+}
+
+func (a *App) NotifyLSPClose(path, lang string) {
+	if a.lspManager == nil || lang == "" {
+		return
+	}
+	langKey := strings.ToLower(lang)
+	if !a.lspManager.HasServer(langKey) {
+		return
+	}
+	delete(a.docVersions, path)
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, "")
+		if err != nil {
+			return
+		}
+		client.DidClose(fileURI(path))
+	}()
 }
 
 func (a *App) ShowDialog(w ui.Widget) {

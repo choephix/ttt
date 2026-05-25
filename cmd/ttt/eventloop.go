@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -40,9 +41,12 @@ func runEventLoop(
 		app.explorer.ActiveFile = filePath
 
 		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
-			app.status.Language = app.editorGroup.Editor.Highlighter.Language()
+			lang := app.editorGroup.Editor.Highlighter.Language()
+			app.status.Language = lang
+			app.status.LSP = app.lspManager != nil && app.lspManager.HasServer(strings.ToLower(lang))
 		} else {
 			app.status.Language = ""
+			app.status.LSP = false
 		}
 		if app.editorGroup.Editor != nil && app.editorGroup.Editor.TabSize > 0 {
 			app.status.TabSize = app.editorGroup.Editor.TabSize
@@ -138,6 +142,10 @@ func runEventLoop(
 				if v.gen == blameGen && v.info != nil {
 					app.status.Blame = fmt.Sprintf("%s, %s",
 						v.info.Author, git.FormatRelativeTime(v.info.Time))
+				}
+			case *completionResult:
+				if len(v.items) > 0 {
+					app.ShowAutocomplete(v.items)
 				}
 			}
 			redraw()

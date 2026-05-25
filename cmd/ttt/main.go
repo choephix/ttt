@@ -3,9 +3,11 @@ package main
 import (
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 )
@@ -42,6 +44,9 @@ func main() {
 
 	screen.SetStyleMap(buildStyleMap(cfg.Theme))
 
+	lspManager := lsp.NewManager(cfg.Settings.LSP)
+	defer lspManager.Shutdown()
+
 	renderer := &render.Renderer{}
 	cmdRegistry := command.NewRegistry()
 	borders := buildBorderSet(cfg.Theme.Borders)
@@ -49,6 +54,23 @@ func main() {
 	app := buildApp(&cfg, &borders)
 	app.screen = screen
 	app.renderer = renderer
+	app.lspManager = lspManager
+
+	app.editorGroup.OnFileOpen = func(path, lang, text string) {
+		app.NotifyLSPOpen(path, lang, text)
+	}
+	app.editorGroup.OnFileClose = func(path, lang string) {
+		app.NotifyLSPClose(path, lang)
+	}
+	app.editorGroup.Editor.OnChange = func() {
+		path := app.editorGroup.ActiveFilePath()
+		lang := ""
+		if app.editorGroup.Editor.Highlighter != nil {
+			lang = app.editorGroup.Editor.Highlighter.Language()
+		}
+		text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")
+		app.NotifyLSPChange(path, lang, text)
+	}
 
 	quitPending := false
 	running := true

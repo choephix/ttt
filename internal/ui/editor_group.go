@@ -2,6 +2,7 @@ package ui
 
 import (
 	"log/slog"
+	"strings"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
@@ -39,6 +40,9 @@ type EditorGroupWidget struct {
 	TabSize      int
 	LineNumbers  bool
 	Borders      *term.BorderSet
+	OnFileOpen   func(path, lang, text string)
+	OnFileChange func(path, lang, text string)
+	OnFileClose  func(path, lang string)
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
@@ -128,6 +132,9 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		g.tabs = append(g.tabs, newTab)
 		g.SwitchTab(len(g.tabs) - 1)
 	}
+	if g.OnFileOpen != nil && newTab.Highlighter != nil {
+		g.OnFileOpen(path, newTab.Highlighter.Language(), strings.Join(newBuf.Lines, "\n"))
+	}
 }
 
 func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
@@ -207,6 +214,10 @@ func (g *EditorGroupWidget) PrevTab() {
 func (g *EditorGroupWidget) CloseTab() {
 	if len(g.tabs) == 0 {
 		return
+	}
+	closing := g.tabs[g.active]
+	if g.OnFileClose != nil && closing.Highlighter != nil && closing.FilePath != "untitled" {
+		g.OnFileClose(closing.FilePath, closing.Highlighter.Language())
 	}
 	g.tabs = append(g.tabs[:g.active], g.tabs[g.active+1:]...)
 	if len(g.tabs) == 0 {

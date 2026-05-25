@@ -98,9 +98,14 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				app.DismissAutocomplete()
 				return
 			}
-			items := mockCompletions()
-			if len(items) > 0 {
-				app.ShowAutocomplete(items)
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			if lang != "" && app.lspManager != nil && app.lspManager.HasServer(strings.ToLower(lang)) {
+				line, col := app.editorGroup.ActiveCursor()
+				app.RequestCompletions(path, lang, line, col)
 			}
 		},
 	})
@@ -1071,7 +1076,9 @@ func formatKeyBinding(key string) string {
 	for i, part := range parts {
 		tokens := strings.Split(part, "+")
 		for j, t := range tokens {
-			if len(t) > 0 {
+			if t == "backtick" {
+				tokens[j] = "`"
+			} else if len(t) > 0 {
 				tokens[j] = strings.ToUpper(t[:1]) + t[1:]
 			}
 		}

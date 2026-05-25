@@ -61,6 +61,29 @@ The codebase follows a strict layered architecture: **core → view → render �
 - **RawKeyConsumer interface**: when the integrated terminal is focused, all key events are routed directly to the PTY. Only force-keys (Ctrl+`) bypass this to allow toggling the terminal panel.
 - Async PTY output wakes the event loop via `PostEvent`/`EventInterrupt`.
 
+### Keybinding System & tcell Key Mapping
+
+Keybindings are defined in `internal/config/keybindings.go` (`DefaultKeybindings()`) and converted to tcell key constants via `comboToTcell()` in `cmd/ttt/keys.go`. The matching happens in `matchKey()` in `internal/ui/root.go`.
+
+**Critical: tcell control key behavior.** For control keys (`r < ' '`), tcell posts events with **both** the `KeyCtrl*` constant **and** `ModCtrl` set (see `vendor/.../tcell/v2/input.go:452`). When registering control key bindings in `comboToTcell`, do NOT strip `ModCtrl` — the registered modifier must match what tcell delivers, otherwise `matchKey()` will fail silently.
+
+**Ctrl+Backtick (`` ctrl+` ``):** Maps to `KeyCtrlSpace` (value 64) in tcell because Ctrl+` sends NUL (0x00), same as Ctrl+Space. This is a terminal-level constraint, not a bug. Both `ctrl+backtick` and `ctrl+space` produce the same tcell event — they cannot be bound to different commands. Currently `ctrl+backtick` is bound to `terminal.toggle`.
+
+**Force keys:** Bindings in the `forceKeyCommands` map (`cmd/ttt/commands.go`) are registered via `root.AddForceKey()` and are checked even when a `RawKeyConsumer` (like the integrated terminal) has focus. `terminal.toggle` must remain a force key.
+
+### LSP Integration
+
+Language server support lives in `internal/lsp/`. Servers are configured per-language in `~/.config/ttt/extensions.json`. The LSP client uses JSON-RPC 2.0 over stdio with Content-Length framing — no external dependencies.
+
+- `jsonrpc.go` — codec (send/receive with Content-Length framing)
+- `protocol.go` — minimal LSP type definitions (initialize, document sync, completions)
+- `client.go` — LSP client with async read loop and request/response channel matching
+- `manager.go` — one client per language, lazy-started on first use
+- `extensions.go` — config loading from `extensions.json`
+- `cmd/ttt/lsp.go` — bridge converting `lsp.CompletionItem` → `ui.CompletionItem`
+
+Async completions use the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document (not incremental).
+
 ### Dependencies
 
 Key external dependencies beyond the Go standard library:

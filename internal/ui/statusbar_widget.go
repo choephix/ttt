@@ -55,7 +55,11 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 	right = append(right, segment{"UTF-8", "encoding"})
 	right = append(right, segment{"LF", "eol"})
 	if st.Language != "" {
-		right = append(right, segment{st.Language, "lang"})
+		lang := st.Language
+		if st.LSP {
+			lang += " ⊕"
+		}
+		right = append(right, segment{lang, "lang"})
 	}
 
 	rightStr := ""

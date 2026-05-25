@@ -57,7 +57,7 @@ func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
 		}
 		if combo.KeyName == "Backtick" {
 			if combo.Ctrl {
-				return tcell.KeyCtrlSpace, mod &^ tcell.ModCtrl, 0
+				return tcell.KeyCtrlSpace, mod, 0
 			}
 			return tcell.KeyRune, mod, '`'
 		}
