@@ -46,10 +46,11 @@ type App struct {
 	workspace    *workspace.Workspace
 	palette      *ui.TerminalColorPalette
 	terminals    []terminalTab
-	lspManager      *lsp.Manager
-	docVersionsMu   sync.Mutex
-	docVersions     map[string]int
-	completionItems []ui.CompletionItem
+	lspManager         *lsp.Manager
+	docVersionsMu      sync.Mutex
+	docVersions        map[string]int
+	completionItems    []ui.CompletionItem
+	autocompleteTimer  *time.Timer
 }
 
 func (a *App) ShowSidebar() {
@@ -232,6 +233,10 @@ func (a *App) RefreshAutocomplete() {
 		return
 	}
 	prefix := a.currentPrefix()
+	if prefix == "" {
+		a.DismissAutocomplete()
+		return
+	}
 	filtered := ui.FilterCompletions(a.completionItems, prefix)
 	if len(filtered) == 0 {
 		a.DismissAutocomplete()
@@ -295,6 +300,84 @@ func (a *App) insertCompletion(item ui.CompletionItem) {
 	})
 	editor.Cursor.Line = line
 	editor.Cursor.Col = start + len([]rune(text))
+}
+
+func (a *App) ScheduleAutocomplete() {
+	if !a.settings.Autocomplete.Enabled || !a.settings.Autocomplete.AutoSuggest {
+		return
+	}
+	if a.autocompleteTimer != nil {
+		a.autocompleteTimer.Stop()
+	}
+	delay := time.Duration(a.settings.Autocomplete.Debounce) * time.Millisecond
+	a.autocompleteTimer = time.AfterFunc(delay, func() {
+		a.screen.PostEvent(tcell.NewEventInterrupt(&autocompleteTrigger{}))
+	})
+}
+
+func (a *App) CheckSignatureHelpTrigger() {
+	if !a.settings.Autocomplete.Enabled || !a.settings.Autocomplete.SignatureHelp {
+		return
+	}
+	if !a.editorGroup.IsEditorActive() {
+		return
+	}
+	editor := a.editorGroup.Editor
+	line := editor.Cursor.Line
+	col := editor.Cursor.Col
+	if col <= 0 || line >= len(editor.Buf.Lines) {
+		return
+	}
+	runes := []rune(editor.Buf.Lines[line])
+	if col > len(runes) {
+		return
+	}
+	ch := runes[col-1]
+	if ch == '(' || ch == ',' {
+		path := a.editorGroup.ActiveFilePath()
+		lang := ""
+		if editor.Highlighter != nil {
+			lang = editor.Highlighter.Language()
+		}
+		a.RequestSignatureHelp(path, lang, line, col)
+	} else if ch == ')' {
+		a.DismissSignatureHelp()
+	}
+}
+
+func (a *App) RequestSignatureHelp(path, lang string, line, col int) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		sig, err := client.SignatureHelp(fileURI(path), line, col)
+		if err != nil {
+			slog.Error("lsp signatureHelp", "err", err)
+			return
+		}
+		if sig != nil && len(sig.Signatures) > 0 {
+			result := lspToSignatureHelpResult(sig)
+			if result.label != "" {
+				a.screen.PostEvent(tcell.NewEventInterrupt(result))
+			}
+		}
+	}()
+}
+
+func (a *App) ShowSignatureHelp(result *signatureHelpResult) {
+	w := ui.NewSignatureHelpWidget(result.label, result.paramStart, result.paramEnd)
+	a.editorGroup.SignatureHelp = w
+}
+
+func (a *App) DismissSignatureHelp() {
+	a.editorGroup.SignatureHelp = nil
 }
 
 func isIdentRune(r rune) bool {

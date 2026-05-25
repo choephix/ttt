@@ -74,6 +74,8 @@ func main() {
 		}
 		text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")
 		app.NotifyLSPChange(path, lang, text)
+		app.ScheduleAutocomplete()
+		app.CheckSignatureHelpTrigger()
 	}
 
 	quitPending := false

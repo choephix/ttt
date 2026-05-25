@@ -193,6 +193,24 @@ func (c *Client) Completion(uri string, line, col int) ([]CompletionItem, error)
 	return list.Items, nil
 }
 
+func (c *Client) SignatureHelp(uri string, line, col int) (*SignatureHelp, error) {
+	result, err := c.call("textDocument/signatureHelp", SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 || string(result) == "null" {
+		return nil, nil
+	}
+	var sig SignatureHelp
+	if err := json.Unmarshal(result, &sig); err != nil {
+		return nil, fmt.Errorf("parse signatureHelp result: %w", err)
+	}
+	return &sig, nil
+}
+
 func (c *Client) Hover(uri string, line, col int) (*HoverResult, error) {
 	result, err := c.call("textDocument/hover", TextDocumentPositionParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},

@@ -76,13 +76,13 @@ Keybindings are defined in `internal/config/keybindings.go` (`DefaultKeybindings
 Language server support lives in `internal/lsp/`. Servers are configured per-language in `~/.config/ttt/extensions.json`. The LSP client uses JSON-RPC 2.0 over stdio with Content-Length framing — no external dependencies.
 
 - `jsonrpc.go` — codec (send/receive with Content-Length framing)
-- `protocol.go` — minimal LSP type definitions (initialize, document sync, completions)
+- `protocol.go` — minimal LSP type definitions (initialize, document sync, completions, signature help)
 - `client.go` — LSP client with async read loop and request/response channel matching
 - `manager.go` — one client per language, lazy-started on first use
 - `extensions.go` — config loading from `extensions.json`
 - `cmd/ttt/lsp.go` — bridge converting `lsp.CompletionItem` → `ui.CompletionItem`
 
-Async completions use the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document (not incremental).
+Async completions and signature help use the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document (not incremental). Auto-completion triggers on every text change with a configurable debounce timer (`autocomplete.debounce` in settings.json, default 150ms). Signature help triggers on `(` and `,` characters, dismissed on `)`.
 
 ### Dependencies
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/lsp"
@@ -17,6 +18,14 @@ type locationResult struct {
 
 type hoverResult struct {
 	text string
+}
+
+type autocompleteTrigger struct{}
+
+type signatureHelpResult struct {
+	label      string
+	paramStart int
+	paramEnd   int
 }
 
 func fileURI(path string) string {
@@ -69,4 +78,33 @@ func lspKindToUI(kind lsp.CompletionItemKind) ui.CompletionKind {
 	default:
 		return ui.CompletionVariable
 	}
+}
+
+func lspToSignatureHelpResult(sig *lsp.SignatureHelp) *signatureHelpResult {
+	idx := sig.ActiveSignature
+	if idx < 0 || idx >= len(sig.Signatures) {
+		idx = 0
+	}
+	info := sig.Signatures[idx]
+	result := &signatureHelpResult{label: info.Label}
+
+	paramIdx := sig.ActiveParameter
+	if paramIdx >= 0 && paramIdx < len(info.Parameters) {
+		param := info.Parameters[paramIdx]
+		var offsets [2]int
+		if err := json.Unmarshal(param.Label, &offsets); err == nil {
+			result.paramStart = offsets[0]
+			result.paramEnd = offsets[1]
+		} else {
+			var label string
+			if err := json.Unmarshal(param.Label, &label); err == nil {
+				start := strings.Index(info.Label, label)
+				if start >= 0 {
+					result.paramStart = start
+					result.paramEnd = start + len(label)
+				}
+			}
+		}
+	}
+	return result
 }

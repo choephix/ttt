@@ -112,6 +112,13 @@ func runEventLoop(
 				*quitPending = false
 				app.status.DismissNotification()
 			}
+			if app.editorGroup.SignatureHelp != nil {
+				switch tev.Key() {
+				case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,
+					tcell.KeyHome, tcell.KeyEnd, tcell.KeyPgUp, tcell.KeyPgDn:
+					app.DismissSignatureHelp()
+				}
+			}
 			slog.Debug("key", "key", tev.Key(), "rune", string(tev.Rune()), "mod", tev.Modifiers())
 			app.root.HandleEvent(tev)
 			app.RefreshAutocomplete()
@@ -122,6 +129,7 @@ func runEventLoop(
 			mx, my := tev.Position()
 			btn := tev.Buttons()
 			slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
+			app.DismissSignatureHelp()
 			app.root.HandleEvent(tev)
 			syncStatus()
 			redraw()
@@ -143,6 +151,23 @@ func runEventLoop(
 				if v.gen == blameGen && v.info != nil {
 					app.status.Blame = fmt.Sprintf("%s, %s",
 						v.info.Author, git.FormatRelativeTime(v.info.Time))
+				}
+			case *autocompleteTrigger:
+				if !app.IsAutocompleteActive() {
+					prefix := app.currentPrefix()
+					if len(prefix) >= 1 {
+						path := app.editorGroup.ActiveFilePath()
+						lang := ""
+						if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+							lang = app.editorGroup.Editor.Highlighter.Language()
+						}
+						line, col := app.editorGroup.ActiveCursor()
+						app.RequestCompletions(path, lang, line, col)
+					}
+				}
+			case *signatureHelpResult:
+				if v.label != "" {
+					app.ShowSignatureHelp(v)
 				}
 			case *completionResult:
 				if len(v.items) > 0 {

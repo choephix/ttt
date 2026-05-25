@@ -16,6 +16,22 @@ func DefaultTerminalSettings() TerminalSettings {
 	}
 }
 
+type AutocompleteSettings struct {
+	Enabled       bool `json:"enabled"`
+	AutoSuggest   bool `json:"autoSuggest"`
+	Debounce      int  `json:"debounce"`
+	SignatureHelp bool `json:"signatureHelp"`
+}
+
+func DefaultAutocompleteSettings() AutocompleteSettings {
+	return AutocompleteSettings{
+		Enabled:       true,
+		AutoSuggest:   true,
+		Debounce:      150,
+		SignatureHelp: true,
+	}
+}
+
 type LSPServerConfig struct {
 	Command []string `json:"command"`
 }
@@ -34,8 +50,9 @@ type Settings struct {
 	CursorStyle    string           `json:"cursorStyle,omitempty"`
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
-	Terminal       TerminalSettings `json:"terminal,omitzero"`
-	LSP            LSPSettings      `json:"lsp,omitzero"`
+	Terminal       TerminalSettings     `json:"terminal,omitzero"`
+	LSP            LSPSettings          `json:"lsp,omitzero"`
+	Autocomplete   AutocompleteSettings `json:"autocomplete,omitzero"`
 }
 
 func DefaultSettings() Settings {
@@ -47,6 +64,7 @@ func DefaultSettings() Settings {
 		SidebarVisible: true,
 		SidebarWidth:   30,
 		Terminal:       DefaultTerminalSettings(),
+		Autocomplete:   DefaultAutocompleteSettings(),
 	}
 }
 

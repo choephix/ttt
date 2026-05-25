@@ -36,8 +36,9 @@ type EditorGroupWidget struct {
 	BaseWidget
 	TabBar       *TabBarWidget
 	Editor       *EditorPaneWidget
-	Autocomplete *AutocompleteWidget
-	Hover        *HoverWidget
+	Autocomplete  *AutocompleteWidget
+	Hover         *HoverWidget
+	SignatureHelp *SignatureHelpWidget
 	tabs         []editorTab
 	active       int
 	TabSize      int
@@ -571,6 +572,13 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 		g.Editor.Render(contentSurface)
 	}
 
+	if g.SignatureHelp != nil && g.SignatureHelp.Label != "" {
+		g.SignatureHelp.AnchorX = g.Editor.CursorX - r.X
+		g.SignatureHelp.AnchorY = g.Editor.CursorY - r.Y
+		g.SignatureHelp.Borders = g.Borders
+		g.SignatureHelp.Render(surface)
+	}
+
 	if g.Autocomplete != nil && len(g.Autocomplete.Items) > 0 {
 		g.Autocomplete.AnchorX = g.Editor.CursorX - r.X
 		g.Autocomplete.AnchorY = g.Editor.CursorY - r.Y
@@ -591,6 +599,12 @@ func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
 		result := g.Hover.HandleEvent(ev)
 		if result == EventDismissed {
 			g.Hover = nil
+		}
+	}
+	if g.SignatureHelp != nil {
+		if kev, ok := ev.(*tcell.EventKey); ok && kev.Key() == tcell.KeyEscape && g.Autocomplete == nil {
+			g.SignatureHelp = nil
+			return EventConsumed
 		}
 	}
 	if g.Autocomplete != nil {

@@ -176,6 +176,9 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	reg.Register(command.Command{
 		ID: "editor.autocomplete", Title: "Trigger Autocomplete",
 		Handler: func() {
+			if !app.settings.Autocomplete.Enabled {
+				return
+			}
 			if app.IsAutocompleteActive() {
 				app.DismissAutocomplete()
 				return
