@@ -16,6 +16,11 @@ type Manager struct {
 }
 
 func NewManager(cfg config.LSPSettings) *Manager {
+	var langs []string
+	for k := range cfg.Servers {
+		langs = append(langs, k)
+	}
+	slog.Debug("lsp manager created", "configured_languages", langs)
 	return &Manager{
 		servers: make(map[string]*Client),
 		config:  cfg,
@@ -59,7 +64,16 @@ func (m *Manager) ClientForLanguage(lang, workDir string) (*Client, error) {
 func (m *Manager) HasServer(lang string) bool {
 	key := strings.ToLower(lang)
 	_, ok := m.config.Servers[key]
+	slog.Debug("lsp HasServer", "lang", lang, "key", key, "found", ok, "configured", m.configuredLanguages())
 	return ok
+}
+
+func (m *Manager) configuredLanguages() []string {
+	var langs []string
+	for k := range m.config.Servers {
+		langs = append(langs, k)
+	}
+	return langs
 }
 
 func (m *Manager) Shutdown() {

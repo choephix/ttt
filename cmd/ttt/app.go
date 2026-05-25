@@ -248,11 +248,13 @@ func isIdentRune(r rune) bool {
 }
 
 func (a *App) RequestCompletions(path, lang string, line, col int) {
+	slog.Debug("RequestCompletions called", "path", path, "lang", lang, "line", line, "col", col)
 	if a.lspManager == nil || lang == "" {
 		return
 	}
 	langKey := strings.ToLower(lang)
 	if !a.lspManager.HasServer(langKey) {
+		slog.Debug("RequestCompletions no server", "langKey", langKey)
 		return
 	}
 	workDir := a.workspace.Primary()
@@ -278,11 +280,13 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 }
 
 func (a *App) NotifyLSPOpen(path, lang, text string) {
+	slog.Debug("NotifyLSPOpen called", "path", path, "lang", lang, "managerNil", a.lspManager == nil)
 	if a.lspManager == nil || lang == "" {
 		return
 	}
 	langKey := strings.ToLower(lang)
 	if !a.lspManager.HasServer(langKey) {
+		slog.Debug("NotifyLSPOpen no server", "langKey", langKey)
 		return
 	}
 	workDir := a.workspace.Primary()

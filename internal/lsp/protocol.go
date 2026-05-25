@@ -1,5 +1,7 @@
 package lsp
 
+import "encoding/json"
+
 type Position struct {
 	Line      int `json:"line"`
 	Character int `json:"character"`
@@ -64,6 +66,22 @@ type CompletionOptions struct {
 type TextDocumentSyncOptions struct {
 	OpenClose bool `json:"openClose,omitempty"`
 	Change    int  `json:"change,omitempty"`
+}
+
+func (o *TextDocumentSyncOptions) UnmarshalJSON(data []byte) error {
+	var kind int
+	if err := json.Unmarshal(data, &kind); err == nil {
+		o.Change = kind
+		o.OpenClose = true
+		return nil
+	}
+	type alias TextDocumentSyncOptions
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*o = TextDocumentSyncOptions(a)
+	return nil
 }
 
 type DidOpenTextDocumentParams struct {
