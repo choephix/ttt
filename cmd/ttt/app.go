@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/lsp"
@@ -119,7 +120,7 @@ func (a *App) SpawnTerminal() {
 	t, err := terminal.New(a.settings.Terminal.Shell, cols, rows, nil)
 	if err != nil {
 		slog.Error("terminal.New", "err", err)
-		a.status.Message = "Failed to open terminal: " + err.Error()
+		a.StatusError("Failed to open terminal: " + err.Error())
 		return
 	}
 
@@ -339,6 +340,27 @@ func (a *App) NotifyLSPClose(path, lang string) {
 		}
 		client.DidClose(fileURI(path))
 	}()
+}
+
+func (a *App) StatusNotify(msg string) {
+	a.status.Notify(msg, 5*time.Second)
+	time.AfterFunc(5*time.Second, func() {
+		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
+	})
+}
+
+func (a *App) StatusWarn(msg string) {
+	a.status.NotifyWarn(msg, 5*time.Second)
+	time.AfterFunc(5*time.Second, func() {
+		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
+	})
+}
+
+func (a *App) StatusError(msg string) {
+	a.status.NotifyError(msg, 5*time.Second)
+	time.AfterFunc(5*time.Second, func() {
+		a.screen.PostEvent(tcell.NewEventInterrupt(nil))
+	})
 }
 
 func (a *App) ShowDialog(w ui.Widget) {

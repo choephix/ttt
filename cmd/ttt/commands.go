@@ -103,7 +103,11 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
 				lang = app.editorGroup.Editor.Highlighter.Language()
 			}
-			if lang != "" && app.lspManager != nil && app.lspManager.HasServer(strings.ToLower(lang)) {
+			if lang == "" {
+				app.StatusWarn("No language detected for this file")
+			} else if app.lspManager == nil || !app.lspManager.HasServer(strings.ToLower(lang)) {
+				app.StatusWarn(lang + " language server is not configured. Add it to settings.json under lsp.servers")
+			} else {
 				line, col := app.editorGroup.ActiveCursor()
 				app.RequestCompletions(path, lang, line, col)
 			}
@@ -208,7 +212,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				return
 			}
 			*quitPending = true
-			app.status.Message = "Unsaved changes. Press Ctrl+Q again to quit."
+			app.StatusWarn("Unsaved changes. Press Ctrl+Q again to quit.")
 		},
 	})
 
@@ -508,11 +512,11 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		Handler: func() {
 			for _, dir := range app.changes.Dirs {
 				if err := git.Pull(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Pull failed: %v", err)
+					app.StatusError(fmt.Sprintf("Pull failed: %v", err))
 					return
 				}
 			}
-			app.status.Message = "Pulled successfully"
+			app.StatusNotify("Pulled successfully")
 			app.changes.Refresh()
 		},
 	})
@@ -522,11 +526,11 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		Handler: func() {
 			for _, dir := range app.changes.Dirs {
 				if err := git.Push(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Push failed: %v", err)
+					app.StatusError(fmt.Sprintf("Push failed: %v", err))
 					return
 				}
 			}
-			app.status.Message = "Pushed successfully"
+			app.StatusNotify("Pushed successfully")
 			app.changes.Refresh()
 		},
 	})
@@ -536,15 +540,15 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		Handler: func() {
 			for _, dir := range app.changes.Dirs {
 				if err := git.Pull(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Sync failed (pull): %v", err)
+					app.StatusError(fmt.Sprintf("Sync failed (pull): %v", err))
 					return
 				}
 				if err := git.Push(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Sync failed (push): %v", err)
+					app.StatusError(fmt.Sprintf("Sync failed (push): %v", err))
 					return
 				}
 			}
-			app.status.Message = "Synced successfully"
+			app.StatusNotify("Synced successfully")
 			app.changes.Refresh()
 		},
 	})
@@ -595,11 +599,11 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				app.root.PopOverlay()
 				newPath := filepath.Join(parentDir, name)
 				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 					return
 				}
 				if err := os.WriteFile(newPath, []byte{}, 0644); err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 					return
 				}
 				app.explorer.Reload()
@@ -630,7 +634,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				app.root.PopOverlay()
 				newPath := filepath.Join(parentDir, name)
 				if err := os.MkdirAll(newPath, 0755); err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 					return
 				}
 				app.explorer.Reload()
@@ -656,7 +660,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				dir := filepath.Dir(node.Path)
 				newPath := filepath.Join(dir, newName)
 				if err := os.Rename(node.Path, newPath); err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 					return
 				}
 				app.explorer.Reload()
@@ -680,7 +684,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			dialog.OnConfirm = func() {
 				app.root.PopOverlay()
 				if err := os.RemoveAll(node.Path); err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 					return
 				}
 				app.explorer.Reload()
@@ -704,12 +708,12 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				}
 				abs, err := filepath.Abs(path)
 				if err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 					return
 				}
 				info, err := os.Stat(abs)
 				if err != nil || !info.IsDir() {
-					app.status.Message = "Not a directory: " + abs
+					app.StatusError("Not a directory: "+abs)
 					return
 				}
 				app.workspace.AddFolder(abs)
@@ -727,7 +731,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		Handler: func() {
 			paths := app.workspace.Paths()
 			if len(paths) <= 1 {
-				app.status.Message = "Cannot remove the last folder"
+				app.StatusWarn("Cannot remove the last folder")
 				return
 			}
 			var cmds []command.Command
@@ -759,9 +763,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 					return
 				}
 				if err := app.workspace.SaveFile(path); err != nil {
-					app.status.Message = "Error: " + err.Error()
+					app.StatusError("Error: "+err.Error())
 				} else {
-					app.status.Message = "Workspace saved: " + path
+					app.StatusNotify("Workspace saved: "+path)
 				}
 			}
 			dialog.OnDismiss = func() {
@@ -785,7 +789,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 				cmd = exec.Command("xdg-open", url)
 			}
 			if err := cmd.Start(); err != nil {
-				app.status.Message = "ttt — Terminal Text Tool"
+				app.StatusNotify("ttt — Terminal Text Tool")
 			}
 		},
 	})
@@ -939,9 +943,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			ID: "git.pull." + dir, Title: "Pull",
 			Handler: func() {
 				if err := git.Pull(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Pull failed: %v", err)
+					app.StatusError(fmt.Sprintf("Pull failed: %v", err))
 				} else {
-					app.status.Message = "Pulled successfully"
+					app.StatusNotify("Pulled successfully")
 					app.changes.Refresh()
 				}
 			},
@@ -950,9 +954,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			ID: "git.push." + dir, Title: "Push",
 			Handler: func() {
 				if err := git.Push(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Push failed: %v", err)
+					app.StatusError(fmt.Sprintf("Push failed: %v", err))
 				} else {
-					app.status.Message = "Pushed successfully"
+					app.StatusNotify("Pushed successfully")
 					app.changes.Refresh()
 				}
 			},
@@ -961,14 +965,14 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			ID: "git.sync." + dir, Title: "Sync",
 			Handler: func() {
 				if err := git.Pull(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Sync failed (pull): %v", err)
+					app.StatusError(fmt.Sprintf("Sync failed (pull): %v", err))
 					return
 				}
 				if err := git.Push(dir); err != nil {
-					app.status.Message = fmt.Sprintf("Sync failed (push): %v", err)
+					app.StatusError(fmt.Sprintf("Sync failed (push): %v", err))
 					return
 				}
-				app.status.Message = "Synced successfully"
+				app.StatusNotify("Synced successfully")
 				app.changes.Refresh()
 			},
 		})
@@ -977,9 +981,9 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 
 	app.changes.OnCommit = func(dir string, message string) {
 		if err := git.Commit(dir, message); err != nil {
-			app.status.Message = "Commit failed: " + err.Error()
+			app.StatusError("Commit failed: "+err.Error())
 		} else {
-			app.status.Message = "Committed: " + message
+			app.StatusNotify("Committed: "+message)
 			app.changes.Refresh()
 		}
 	}

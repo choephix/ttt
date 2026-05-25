@@ -110,7 +110,7 @@ func runEventLoop(
 		case *tcell.EventKey:
 			if *quitPending && !(tev.Key() == tcell.KeyCtrlQ) {
 				*quitPending = false
-				app.status.Message = ""
+				app.status.DismissNotification()
 			}
 			slog.Debug("key", "key", tev.Key(), "rune", string(tev.Rune()), "mod", tev.Modifiers())
 			app.root.HandleEvent(tev)
