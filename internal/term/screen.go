@@ -74,6 +74,37 @@ type Cell struct {
 	Attrs    CellAttr
 }
 
+// CursorStyle represents the shape of the text cursor.
+type CursorStyle int
+
+const (
+	CursorStyleBlinkingBar       CursorStyle = iota // default
+	CursorStyleSteadyBar
+	CursorStyleBlinkingBlock
+	CursorStyleSteadyBlock
+	CursorStyleBlinkingUnderline
+	CursorStyleSteadyUnderline
+)
+
+func ParseCursorStyle(s string) CursorStyle {
+	switch s {
+	case "bar", "blinkingBar", "":
+		return CursorStyleBlinkingBar
+	case "steadyBar":
+		return CursorStyleSteadyBar
+	case "block", "blinkingBlock":
+		return CursorStyleBlinkingBlock
+	case "steadyBlock":
+		return CursorStyleSteadyBlock
+	case "underline", "blinkingUnderline":
+		return CursorStyleBlinkingUnderline
+	case "steadyUnderline":
+		return CursorStyleSteadyUnderline
+	default:
+		return CursorStyleBlinkingBar
+	}
+}
+
 // Screen abstracts the terminal screen.
 type Screen interface {
 	Size() (w, h int)
@@ -82,6 +113,7 @@ type Screen interface {
 	Clear()
 	ShowCursor(x, y int)
 	HideCursor()
+	SetCursorStyle(style CursorStyle)
 }
 
 // MockScreen is a test/mock implementation of Screen.
@@ -108,5 +140,6 @@ func (m *MockScreen) SetCell(x, y int, c Cell) {
 
 func (m *MockScreen) Show()               {}
 func (m *MockScreen) Clear()              { m.Cells = make(map[[2]int]Cell) }
-func (m *MockScreen) ShowCursor(x, y int) {}
-func (m *MockScreen) HideCursor()         {}
+func (m *MockScreen) ShowCursor(x, y int)         {}
+func (m *MockScreen) HideCursor()                  {}
+func (m *MockScreen) SetCursorStyle(CursorStyle) {}

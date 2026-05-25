@@ -111,6 +111,21 @@ func (t *TcellScreen) HideCursor() {
 	t.scr.HideCursor()
 }
 
+var cursorStyleMap = map[CursorStyle]tcell.CursorStyle{
+	CursorStyleBlinkingBar:       tcell.CursorStyleBlinkingBar,
+	CursorStyleSteadyBar:        tcell.CursorStyleSteadyBar,
+	CursorStyleBlinkingBlock:     tcell.CursorStyleBlinkingBlock,
+	CursorStyleSteadyBlock:       tcell.CursorStyleSteadyBlock,
+	CursorStyleBlinkingUnderline: tcell.CursorStyleBlinkingUnderline,
+	CursorStyleSteadyUnderline:   tcell.CursorStyleSteadyUnderline,
+}
+
+func (t *TcellScreen) SetCursorStyle(style CursorStyle) {
+	if cs, ok := cursorStyleMap[style]; ok {
+		t.scr.SetCursorStyle(cs)
+	}
+}
+
 func (t *TcellScreen) PostEvent(ev tcell.Event) error {
 	return t.scr.PostEvent(ev)
 }

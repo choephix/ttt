@@ -43,6 +43,7 @@ func main() {
 	defer screen.Fini()
 
 	screen.SetStyleMap(buildStyleMap(cfg.Theme))
+	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.CursorStyle))
 
 	lspManager := lsp.NewManager(cfg.Settings.LSP)
 	defer lspManager.Shutdown()

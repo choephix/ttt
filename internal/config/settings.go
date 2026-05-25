@@ -31,6 +31,7 @@ type Settings struct {
 	LineNumbers    bool             `json:"lineNumbers"`
 	SidebarVisible bool             `json:"sidebarVisible"`
 	SidebarWidth   int              `json:"sidebarWidth"`
+	CursorStyle    string           `json:"cursorStyle,omitempty"`
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
 	Terminal       TerminalSettings `json:"terminal,omitzero"`
