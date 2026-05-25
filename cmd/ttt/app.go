@@ -302,6 +302,9 @@ func (a *App) identStart() (line, start, col int) {
 	}
 	runes := []rune(editor.Buf.Lines[line])
 	start = col
+	if start > len(runes) {
+		start = len(runes)
+	}
 	for start > 0 && isIdentRune(runes[start-1]) {
 		start--
 	}
@@ -315,6 +318,12 @@ func (a *App) currentPrefix() string {
 	editor := a.editorGroup.Editor
 	line, start, col := a.identStart()
 	runes := []rune(editor.Buf.Lines[line])
+	if col > len(runes) {
+		col = len(runes)
+	}
+	if start > col {
+		return ""
+	}
 	return string(runes[start:col])
 }
 

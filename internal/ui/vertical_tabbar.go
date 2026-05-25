@@ -7,8 +7,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// VerticalTabBarWidth is border (1) + content (4)
-const VerticalTabBarWidth = 5
+// VerticalTabBarWidth is content (4) + border (1) + padding (1)
+const VerticalTabBarWidth = 6
 
 type VerticalTabBar struct {
 	BaseWidget
@@ -32,10 +32,14 @@ func (v *VerticalTabBar) Render(surface *RenderSurface) {
 		vertical = v.Borders.Vertical
 	}
 
-	// Clear and draw left border
+	// Clear, draw border at x=4, padding at x=5..6
+	borderX := 4
 	for y := 0; y < h; y++ {
-		surface.SetCell(0, y, term.Cell{Ch: vertical, Style: term.StyleBorder})
-		for x := 1; x < VerticalTabBarWidth; x++ {
+		for x := 0; x < borderX; x++ {
+			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StyleDefault})
+		}
+		surface.SetCell(borderX, y, term.Cell{Ch: vertical, Style: term.StyleBorder})
+		for x := borderX + 1; x < VerticalTabBarWidth; x++ {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StyleDefault})
 		}
 	}
@@ -56,8 +60,8 @@ func (v *VerticalTabBar) Render(surface *RenderSurface) {
 			label = fmt.Sprintf("[%d]", n)
 		}
 		for x, ch := range label {
-			if x+1 < VerticalTabBarWidth {
-				surface.SetCell(x+1, i, term.Cell{Ch: ch, Style: style})
+			if x < borderX {
+				surface.SetCell(x, i, term.Cell{Ch: ch, Style: style})
 			}
 		}
 	}

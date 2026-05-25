@@ -122,13 +122,13 @@ func (tp *TerminalPanelWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	active := tp.widgets[tp.active]
-	active.SetRect(Rect{X: r.X, Y: r.Y, W: contentW, H: h})
-	active.Render(surface.Sub(Rect{X: 0, Y: 0, W: contentW, H: h}))
-
 	tp.TabBar.Borders = tp.Borders
-	tp.TabBar.SetRect(Rect{X: r.X + contentW, Y: r.Y, W: stripW, H: h})
-	tp.TabBar.Render(surface.Sub(Rect{X: contentW, Y: 0, W: stripW, H: h}))
+	tp.TabBar.SetRect(Rect{X: r.X, Y: r.Y, W: stripW, H: h})
+	tp.TabBar.Render(surface.Sub(Rect{X: 0, Y: 0, W: stripW, H: h}))
+
+	active := tp.widgets[tp.active]
+	active.SetRect(Rect{X: r.X + stripW, Y: r.Y, W: contentW, H: h})
+	active.Render(surface.Sub(Rect{X: stripW, Y: 0, W: contentW, H: h}))
 }
 
 func (tp *TerminalPanelWidget) HandleEvent(ev tcell.Event) EventResult {
@@ -136,8 +136,7 @@ func (tp *TerminalPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 		if mev.Buttons()&tcell.Button1 != 0 {
 			mx, _ := mev.Position()
 			r := tp.GetRect()
-			contentW := r.W - VerticalTabBarWidth
-			if mx-r.X >= contentW {
+			if mx-r.X < VerticalTabBarWidth {
 				return tp.TabBar.HandleEvent(ev)
 			}
 		}
