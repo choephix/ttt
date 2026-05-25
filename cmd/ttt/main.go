@@ -76,6 +76,12 @@ func main() {
 	app.editorGroup.OnFileClose = func(path, lang string) {
 		app.NotifyLSPClose(path, lang)
 	}
+	app.problems.OnNavigate = func(file string, line, col int) {
+		app.editorGroup.OpenFile(file)
+		app.editorGroup.GoToLine(line + 1)
+		app.root.SetFocus(app.editorGroup)
+	}
+
 	app.editorGroup.Editor.OnChange = func() {
 		path := app.editorGroup.ActiveFilePath()
 		lang := ""

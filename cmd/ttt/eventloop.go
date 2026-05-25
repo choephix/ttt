@@ -148,6 +148,11 @@ func runEventLoop(
 			btn := tev.Buttons()
 			slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
 			app.DismissSignatureHelp()
+			if btn == 0 {
+				app.checkDiagnosticHover(mx, my)
+			} else {
+				app.DismissHover()
+			}
 			app.root.HandleEvent(tev)
 			syncStatus()
 			redraw()
@@ -205,6 +210,12 @@ func runEventLoop(
 				}
 			case *diagnosticsResult:
 				app.editorGroup.SetDiagnostics(v.path, v.diagnostics)
+				if len(v.diagnostics) == 0 {
+					delete(app.allDiagnostics, v.path)
+				} else {
+					app.allDiagnostics[v.path] = v.diagnostics
+				}
+				app.refreshProblems()
 			}
 			redraw()
 		}

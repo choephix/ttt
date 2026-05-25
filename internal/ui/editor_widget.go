@@ -51,7 +51,7 @@ func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewpo
 
 func (e *EditorPaneWidget) Focusable() bool { return true }
 
-func (e *EditorPaneWidget) gutterWidth() int {
+func (e *EditorPaneWidget) GutterWidth() int {
 	if !e.LineNumbers {
 		return 0
 	}
@@ -67,7 +67,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	totalLines := len(e.Buf.Lines)
 	showScrollbar := totalLines > h
-	gutterW := e.gutterWidth()
+	gutterW := e.GutterWidth()
 	editorW := w - gutterW
 	if showScrollbar {
 		editorW--
@@ -609,7 +609,7 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 	if len(e.Buf.Lines) == 0 {
 		return 0, 0
 	}
-	gutterW := e.gutterWidth()
+	gutterW := e.GutterWidth()
 	line = my - r.Y + e.Viewport.TopLine
 	col = mx - r.X - gutterW + e.Viewport.LeftCol
 	if col < 0 {

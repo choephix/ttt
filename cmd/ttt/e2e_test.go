@@ -232,6 +232,7 @@ func TestBottomPanelTabClick(t *testing.T) {
 	h.app.contentSplit.BottomH = 10
 	h.redraw()
 
+	h.app.bottomPanel.SetActivePanel("test-a")
 	if h.app.bottomPanel.ActivePanel != "test-a" {
 		t.Fatalf("expected active panel 'test-a', got %q", h.app.bottomPanel.ActivePanel)
 	}
@@ -240,14 +241,15 @@ func TestBottomPanelTabClick(t *testing.T) {
 	panelY := h.app.bottomPanel.GetRect().Y
 	panelX := h.app.bottomPanel.GetRect().X
 
-	// Click on "Beta" tab: " Alpha " is 7 chars, " Beta " starts at x=7
-	h.click(panelX+9, panelY)
+	// Click on "Beta" tab — offset accounts for PROBLEMS + Alpha tabs
+	// " PROBLEMS " = 12, " Alpha " = 7, " Beta " starts at x=19
+	h.click(panelX+20, panelY)
 	if h.app.bottomPanel.ActivePanel != "test-b" {
 		t.Errorf("expected active panel 'test-b' after click, got %q", h.app.bottomPanel.ActivePanel)
 	}
 
 	// Click back on "Alpha" tab
-	h.click(panelX+3, panelY)
+	h.click(panelX+14, panelY)
 	if h.app.bottomPanel.ActivePanel != "test-a" {
 		t.Errorf("expected active panel 'test-a' after click, got %q", h.app.bottomPanel.ActivePanel)
 	}
@@ -262,14 +264,14 @@ func TestTabbedPanelRemovePanel(t *testing.T) {
 	h.app.bottomPanel.AddPanel("p3", "Three", newEmptyWidget())
 	h.app.bottomPanel.SetActivePanel("p2")
 
-	if h.app.bottomPanel.PanelCount() != 3 {
-		t.Fatalf("expected 3 panels, got %d", h.app.bottomPanel.PanelCount())
+	if h.app.bottomPanel.PanelCount() != 4 {
+		t.Fatalf("expected 4 panels, got %d", h.app.bottomPanel.PanelCount())
 	}
 
 	// Remove active panel, should switch to next
 	h.app.bottomPanel.RemovePanel("p2")
-	if h.app.bottomPanel.PanelCount() != 2 {
-		t.Fatalf("expected 2 panels, got %d", h.app.bottomPanel.PanelCount())
+	if h.app.bottomPanel.PanelCount() != 3 {
+		t.Fatalf("expected 3 panels, got %d", h.app.bottomPanel.PanelCount())
 	}
 	if h.app.bottomPanel.ActivePanel == "p2" {
 		t.Error("active panel should have changed after removing it")
@@ -278,8 +280,8 @@ func TestTabbedPanelRemovePanel(t *testing.T) {
 	// Remove all
 	h.app.bottomPanel.RemovePanel("p1")
 	h.app.bottomPanel.RemovePanel("p3")
-	if h.app.bottomPanel.PanelCount() != 0 {
-		t.Fatalf("expected 0 panels, got %d", h.app.bottomPanel.PanelCount())
+	if h.app.bottomPanel.PanelCount() != 1 {
+		t.Fatalf("expected 1 panel (problems), got %d", h.app.bottomPanel.PanelCount())
 	}
 }
 

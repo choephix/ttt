@@ -614,7 +614,7 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 
 	if g.Hover != nil && len(g.Hover.Lines) > 0 {
 		g.Hover.AnchorX = g.Editor.CursorX - r.X
-		g.Hover.AnchorY = g.Editor.CursorY - r.Y
+		g.Hover.AnchorY = g.Editor.CursorY - r.Y - 1
 		g.Hover.Borders = g.Borders
 		g.Hover.Render(surface)
 	}

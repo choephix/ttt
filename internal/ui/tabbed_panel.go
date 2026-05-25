@@ -6,6 +6,7 @@ type panelEntry struct {
 	ID    string
 	Title string
 	W     Widget
+	Dirty bool
 }
 
 type TabbedPanel struct {
@@ -90,12 +91,23 @@ func (tp *TabbedPanel) PanelIDs() []string {
 	return ids
 }
 
+func (tp *TabbedPanel) SetPanelDirty(id string, dirty bool) {
+	for i := range tp.panels {
+		if tp.panels[i].ID == id {
+			tp.panels[i].Dirty = dirty
+			tp.syncTabs()
+			return
+		}
+	}
+}
+
 func (tp *TabbedPanel) syncTabs() {
 	var tabs []Tab
 	for _, p := range tp.panels {
 		tabs = append(tabs, Tab{
 			Name:   p.Title,
 			Active: p.ID == tp.ActivePanel,
+			Dirty:  p.Dirty,
 		})
 	}
 	tp.TabBar.SetTabs(tabs)

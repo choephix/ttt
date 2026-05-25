@@ -55,6 +55,9 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 	total := 0
 	for i, tab := range p.Tabs {
 		tw := len([]rune(tab.Name)) + 2 // " name "
+		if tab.Dirty {
+			tw += 2 // "● "
+		}
 		tabWidths[i] = tw
 		total += tw
 	}
@@ -79,14 +82,23 @@ func (p *PanelTabBarWidget) Render(surface *RenderSurface) {
 			style = term.StyleActiveTab
 		}
 		startX := x
-		label := " " + tab.Name + " "
-		for _, ch := range label {
+		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+		x++
+		if tab.Dirty {
+			surface.SetCell(x, 0, term.Cell{Ch: '●', Style: term.StyleWarning})
+			x++
+			surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+			x++
+		}
+		for _, ch := range tab.Name {
 			if x >= tabAreaW {
 				break
 			}
 			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
 			x++
 		}
+		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+		x++
 		p.tabSpans = append(p.tabSpans, [2]int{startX, x})
 	}
 

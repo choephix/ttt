@@ -20,6 +20,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+
 type terminalTab struct {
 	id     string
 	term   *terminal.Terminal
@@ -52,6 +53,8 @@ type App struct {
 	completionItems    []ui.CompletionItem
 	lspCompletionItems []lsp.CompletionItem
 	autocompleteTimer  *time.Timer
+	problems           *ui.ProblemsWidget
+	allDiagnostics     map[string][]ui.Diagnostic
 }
 
 func (a *App) ShowSidebar() {
@@ -198,6 +201,47 @@ func (a *App) refreshWorkspaceWidgets() {
 	a.search.SetWorkDirs(paths)
 	a.changes.SetDirs(paths)
 	a.changes.Refresh()
+}
+
+func (a *App) refreshProblems() {
+	var items []ui.ProblemItem
+	for path, diags := range a.allDiagnostics {
+		for _, d := range diags {
+			items = append(items, ui.ProblemItem{
+				File:     path,
+				Line:     d.StartLine,
+				Col:      d.StartCol,
+				Severity: d.Severity,
+				Message:  d.Message,
+				Source:   d.Source,
+			})
+		}
+	}
+	a.problems.SetItems(items)
+}
+
+func (a *App) checkDiagnosticHover(mx, my int) {
+	if a.editorGroup.Editor == nil {
+		return
+	}
+	r := a.editorGroup.Editor.GetRect()
+	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
+		a.DismissHover()
+		return
+	}
+	gw := a.editorGroup.Editor.GutterWidth()
+	line := my - r.Y + a.editorGroup.Editor.Viewport.TopLine
+	col := mx - r.X - gw + a.editorGroup.Editor.Viewport.LeftCol
+	if col < 0 {
+		a.DismissHover()
+		return
+	}
+	d := a.editorGroup.Editor.DiagnosticAt(line, col)
+	if d != nil {
+		a.ShowHover(d.Message)
+	} else {
+		a.DismissHover()
+	}
 }
 
 func (a *App) ShowHover(text string) {

@@ -76,7 +76,9 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		editorGroup.OpenFile(f)
 	}
 
+	problems := ui.NewProblemsWidget()
 	bottomPanel := ui.NewBottomPanelWidget(borders)
+	bottomPanel.AddPanel("problems", "PROBLEMS", problems)
 
 	contentSplit := ui.NewContentSplitWidget()
 	contentSplit.Top = editorGroup
@@ -145,6 +147,8 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		settings:     &cfg.Settings,
 		workspace:    ws,
 		palette:      buildTerminalPalettePtr(cfg.Theme),
-		docVersions:  make(map[string]int),
+		problems:       problems,
+		docVersions:    make(map[string]int),
+		allDiagnostics: make(map[string][]ui.Diagnostic),
 	}
 }
