@@ -15,6 +15,10 @@ type locationResult struct {
 	locations []lsp.Location
 }
 
+type hoverResult struct {
+	text string
+}
+
 func fileURI(path string) string {
 	return "file://" + path
 }

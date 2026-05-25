@@ -195,6 +195,17 @@ func (a *App) refreshWorkspaceWidgets() {
 	a.changes.Refresh()
 }
 
+func (a *App) ShowHover(text string) {
+	if text == "" {
+		return
+	}
+	a.editorGroup.Hover = ui.NewHoverWidget(text, 0, 0)
+}
+
+func (a *App) DismissHover() {
+	a.editorGroup.Hover = nil
+}
+
 func (a *App) ShowAutocomplete(items []ui.CompletionItem) {
 	a.completionItems = items
 	prefix := a.currentPrefix()
@@ -313,6 +324,36 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 		uiItems := lspToUICompletions(items)
 		if len(uiItems) > 0 {
 			a.screen.PostEvent(tcell.NewEventInterrupt(&completionResult{items: uiItems}))
+		}
+	}()
+}
+
+func (a *App) RequestHover(path, lang string, line, col int) {
+	if a.lspManager == nil || lang == "" {
+		return
+	}
+	langKey := strings.ToLower(lang)
+	if !a.lspManager.HasServer(langKey) {
+		a.StatusWarn(lang + " language server is not configured")
+		return
+	}
+	workDir := a.workspace.Primary()
+	if folder := a.workspace.FolderForFile(path); folder != nil {
+		workDir = folder.Path
+	}
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		hover, err := client.Hover(fileURI(path), line, col)
+		if err != nil {
+			slog.Error("lsp hover", "err", err)
+			return
+		}
+		if hover != nil && hover.Contents.Value != "" {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&hoverResult{text: hover.Contents.Value}))
 		}
 	}()
 }

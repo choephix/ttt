@@ -41,6 +41,21 @@ func (s *RenderSurface) Fill(c term.Cell) {
 	}
 }
 
+func (s *RenderSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style) {
+	for bx := x; bx < x+w; bx++ {
+		s.SetCell(bx, y, term.Cell{Ch: b.Horizontal, Style: style})
+		s.SetCell(bx, y+h-1, term.Cell{Ch: b.Horizontal, Style: style})
+	}
+	for by := y; by < y+h; by++ {
+		s.SetCell(x, by, term.Cell{Ch: b.Vertical, Style: style})
+		s.SetCell(x+w-1, by, term.Cell{Ch: b.Vertical, Style: style})
+	}
+	s.SetCell(x, y, term.Cell{Ch: b.TopLeft, Style: style})
+	s.SetCell(x+w-1, y, term.Cell{Ch: b.TopRight, Style: style})
+	s.SetCell(x, y+h-1, term.Cell{Ch: b.BottomLeft, Style: style})
+	s.SetCell(x+w-1, y+h-1, term.Cell{Ch: b.BottomRight, Style: style})
+}
+
 func (s *RenderSurface) Sub(r Rect) *RenderSurface {
 	newX := s.clip.X + r.X
 	newY := s.clip.Y + r.Y

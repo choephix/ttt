@@ -8,8 +8,8 @@ import (
 
 func TestLoadNoFiles(t *testing.T) {
 	cfg := Load()
-	if len(cfg.Keybindings) != 41 {
-		t.Fatalf("expected 41 default keybindings, got %d", len(cfg.Keybindings))
+	if len(cfg.Keybindings) != 42 {
+		t.Fatalf("expected 42 default keybindings, got %d", len(cfg.Keybindings))
 	}
 	if cfg.Settings.TabSize != 4 {
 		t.Fatalf("expected default TabSize 4, got %d", cfg.Settings.TabSize)

@@ -125,6 +125,13 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	}
 
 	reg.Register(command.Command{
+		ID: "editor.hover", Title: "Show Hover",
+		Handler: func() {
+			lspAction(app.RequestHover)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "editor.goToDefinition", Title: "Go to Definition",
 		Handler: func() {
 			lspAction(app.RequestDefinition)

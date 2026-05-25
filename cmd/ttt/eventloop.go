@@ -148,6 +148,10 @@ func runEventLoop(
 				if len(v.items) > 0 {
 					app.ShowAutocomplete(v.items)
 				}
+			case *hoverResult:
+				if v.text != "" {
+					app.ShowHover(v.text)
+				}
 			case *locationResult:
 				if len(v.locations) > 0 {
 					loc := v.locations[0]

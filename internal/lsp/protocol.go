@@ -165,3 +165,29 @@ type Location struct {
 	URI   string `json:"uri"`
 	Range Range  `json:"range"`
 }
+
+type HoverResult struct {
+	Contents MarkupContent `json:"contents"`
+	Range    *Range        `json:"range,omitempty"`
+}
+
+type MarkupContent struct {
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
+}
+
+func (m *MarkupContent) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		m.Kind = "plaintext"
+		m.Value = s
+		return nil
+	}
+	type alias MarkupContent
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*m = MarkupContent(a)
+	return nil
+}
