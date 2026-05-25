@@ -117,16 +117,8 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 			style = term.StylePaletteSelected
 		}
 
-		for bx := x + 1; bx < x+menuW-1; bx++ {
-			surface.SetCell(bx, row, term.Cell{Ch: ' ', Style: style})
-		}
-
-		for j, ch := range []rune(it.Label) {
-			cx := x + 2 + j
-			if cx < x+menuW-1 {
-				surface.SetCell(cx, row, term.Cell{Ch: ch, Style: style})
-			}
-		}
+		surface.ClearRect(x+1, row, menuW-2, 1, style)
+		surface.DrawText(x+2, row, it.Label, x+menuW-1, style)
 
 		if it.Shortcut != "" {
 			shortStyle := term.StyleMuted
@@ -135,9 +127,7 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 			}
 			shortRunes := []rune(it.Shortcut)
 			sx := x + menuW - 2 - len(shortRunes)
-			for j, ch := range shortRunes {
-				surface.SetCell(sx+j, row, term.Cell{Ch: ch, Style: shortStyle})
-			}
+			surface.DrawText(sx, row, it.Shortcut, x+menuW-1, shortStyle)
 		}
 	}
 

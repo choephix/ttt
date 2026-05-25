@@ -57,23 +57,11 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 	}
 	bs := term.StyleBorder
 
-	// Clear interior
-	for y := d.boxY; y < d.boxY+boxH; y++ {
-		for x := d.boxX; x < d.boxX+d.boxW; x++ {
-			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StylePaletteItem})
-		}
-	}
-
+	surface.ClearRect(d.boxX, d.boxY, d.boxW, boxH, term.StylePaletteItem)
 	surface.DrawBorder(d.boxX, d.boxY, d.boxW, boxH, b, bs)
 
 	// Title on top border
-	tx := d.boxX + 2
-	for _, ch := range d.Title {
-		if tx < d.boxX+d.boxW-2 {
-			surface.SetCell(tx, d.boxY, term.Cell{Ch: ch, Style: bs})
-			tx++
-		}
-	}
+	surface.DrawText(d.boxX+2, d.boxY, d.Title, d.boxX+d.boxW-2, bs)
 
 	// Input row
 	inputW := d.boxW - 2
@@ -93,16 +81,10 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 		saveStyle = term.StylePaletteSelected
 	}
 
-	bx := d.boxX + d.boxW - 2 - len([]rune(saveLabel))
-	for _, ch := range saveLabel {
-		surface.SetCell(bx, btnY, term.Cell{Ch: ch, Style: saveStyle})
-		bx++
-	}
-	bx = d.boxX + d.boxW - 2 - len([]rune(saveLabel)) - 1 - len([]rune(cancelLabel))
-	for _, ch := range cancelLabel {
-		surface.SetCell(bx, btnY, term.Cell{Ch: ch, Style: cancelStyle})
-		bx++
-	}
+	saveX := d.boxX + d.boxW - 2 - len([]rune(saveLabel))
+	surface.DrawText(saveX, btnY, saveLabel, 0, saveStyle)
+	cancelX := saveX - 1 - len([]rune(cancelLabel))
+	surface.DrawText(cancelX, btnY, cancelLabel, 0, cancelStyle)
 }
 
 func (d *InputDialogWidget) HandleEvent(ev tcell.Event) EventResult {

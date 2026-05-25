@@ -60,17 +60,11 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	surface.DrawBorder(barX, barY, barW, barH, b, term.StyleBorder)
 
 	row := barY + 1
-	for x := barX + 1; x < barX+barW-1; x++ {
-		surface.SetCell(x, row, term.Cell{Ch: ' ', Style: term.StyleDefault})
-	}
+	surface.ClearRect(barX+1, row, barW-2, 1, term.StyleDefault)
 
 	x := barX + 2
 	queryRunes := []rune(f.Query)
-	for i, ch := range queryRunes {
-		if x+i < barX+barW-2 {
-			surface.SetCell(x+i, row, term.Cell{Ch: ch, Style: term.StyleDefault})
-		}
-	}
+	surface.DrawText(x, row, f.Query, barX+barW-2, term.StyleDefault)
 
 	// Cursor
 	cursorX := x + f.cursorPos
@@ -90,10 +84,8 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	buttons := " ▲ ▼ ✕"
 	suffix := info + buttons
 	sx := barX + barW - 2 - len([]rune(suffix))
-	for i, ch := range suffix {
-		if sx+i > barX && sx+i < barX+barW-1 {
-			surface.SetCell(sx+i, row, term.Cell{Ch: ch, Style: term.StyleMuted})
-		}
+	if sx > barX {
+		surface.DrawText(sx, row, suffix, barX+barW-1, term.StyleMuted)
 	}
 }
 
@@ -189,51 +181,15 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 			f.navigate()
 		}
 		return EventConsumed
-	case tcell.KeyRune:
-		if kev.Modifiers() == 0 {
-			runes := []rune(f.Query)
-			runes = append(runes[:f.cursorPos], append([]rune{kev.Rune()}, runes[f.cursorPos:]...)...)
-			f.Query = string(runes)
-			f.cursorPos++
-			f.Current = 0
-			f.search()
-			return EventConsumed
-		}
-		return EventConsumed
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		if f.cursorPos > 0 {
-			runes := []rune(f.Query)
-			runes = append(runes[:f.cursorPos-1], runes[f.cursorPos:]...)
-			f.Query = string(runes)
-			f.cursorPos--
+	case tcell.KeyRune, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete,
+		tcell.KeyLeft, tcell.KeyRight, tcell.KeyHome, tcell.KeyEnd:
+		r := HandleTextEdit(kev, f.Query, f.cursorPos)
+		f.Query = r.Text
+		f.cursorPos = r.CurPos
+		if r.Changed {
 			f.Current = 0
 			f.search()
 		}
-		return EventConsumed
-	case tcell.KeyDelete:
-		runes := []rune(f.Query)
-		if f.cursorPos < len(runes) {
-			runes = append(runes[:f.cursorPos], runes[f.cursorPos+1:]...)
-			f.Query = string(runes)
-			f.Current = 0
-			f.search()
-		}
-		return EventConsumed
-	case tcell.KeyLeft:
-		if f.cursorPos > 0 {
-			f.cursorPos--
-		}
-		return EventConsumed
-	case tcell.KeyRight:
-		if f.cursorPos < len([]rune(f.Query)) {
-			f.cursorPos++
-		}
-		return EventConsumed
-	case tcell.KeyHome:
-		f.cursorPos = 0
-		return EventConsumed
-	case tcell.KeyEnd:
-		f.cursorPos = len([]rune(f.Query))
 		return EventConsumed
 	case tcell.KeyUp:
 		if len(f.Matches) > 0 {

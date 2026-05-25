@@ -130,11 +130,7 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	}
 	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
 
-	for y := boxY + 1; y < boxY+boxH-1; y++ {
-		for x := boxX + 1; x < boxX+boxW-1; x++ {
-			surface.SetCell(x, y, term.Cell{Ch: ' '})
-		}
-	}
+	surface.ClearRect(boxX+1, boxY+1, boxW-2, boxH-2, term.StyleDefault)
 
 	p.inputX = boxX + 1
 	p.inputY = boxY + 1
@@ -172,16 +168,8 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 			style = term.StylePaletteSelected
 		}
 
-		for x := boxX + 1; x < contentRight; x++ {
-			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
-		}
-
-		for j, ch := range item.Label {
-			x := boxX + 2 + j
-			if x < contentRight-1 {
-				surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
-			}
-		}
+		surface.ClearRect(boxX+1, y, contentRight-boxX-1, 1, style)
+		surface.DrawText(boxX+2, y, item.Label, contentRight-1, style)
 
 		if item.Detail != "" {
 			detailStyle := term.StyleMuted
@@ -190,10 +178,8 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 			}
 			detailRunes := []rune(item.Detail)
 			sx := contentRight - 1 - len(detailRunes)
-			for j, ch := range detailRunes {
-				if sx+j > boxX+1 {
-					surface.SetCell(sx+j, y, term.Cell{Ch: ch, Style: detailStyle})
-				}
+			if sx > boxX+1 {
+				surface.DrawText(sx, y, item.Detail, contentRight-1, detailStyle)
 			}
 		}
 

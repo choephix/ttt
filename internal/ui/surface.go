@@ -41,6 +41,25 @@ func (s *RenderSurface) Fill(c term.Cell) {
 	}
 }
 
+func (s *RenderSurface) DrawText(x, y int, text string, maxW int, style term.Style) int {
+	for _, ch := range text {
+		if maxW > 0 && x >= maxW {
+			break
+		}
+		s.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+		x++
+	}
+	return x
+}
+
+func (s *RenderSurface) ClearRect(x, y, w, h int, style term.Style) {
+	for dy := 0; dy < h; dy++ {
+		for dx := 0; dx < w; dx++ {
+			s.SetCell(x+dx, y+dy, term.Cell{Ch: ' ', Style: style})
+		}
+	}
+}
+
 func (s *RenderSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style) {
 	for bx := x; bx < x+w; bx++ {
 		s.SetCell(bx, y, term.Cell{Ch: b.Horizontal, Style: style})

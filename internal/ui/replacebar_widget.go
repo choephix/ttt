@@ -65,41 +65,22 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	buttons := "▲ ▼ ✕"
 	suffix := info + buttons
 	sx := barX + barW - 2 - len([]rune(suffix))
-	for i, ch := range suffix {
-		if sx+i > barX && sx+i < barX+barW-1 {
-			surface.SetCell(sx+i, findRow, term.Cell{Ch: ch, Style: term.StyleMuted})
-		}
+	if sx > barX {
+		surface.DrawText(sx, findRow, suffix, barX+barW-1, term.StyleMuted)
 	}
 
 	// Replace buttons on replace row
 	replBtns := "⟳ ⟳All"
 	rx := barX + barW - 2 - len([]rune(replBtns))
-	for i, ch := range replBtns {
-		if rx+i > barX && rx+i < barX+barW-1 {
-			surface.SetCell(rx+i, replRow, term.Cell{Ch: ch, Style: term.StyleMuted})
-		}
+	if rx > barX {
+		surface.DrawText(rx, replRow, replBtns, barX+barW-1, term.StyleMuted)
 	}
 }
 
 func (r *ReplaceBarWidget) renderRow(surface *RenderSurface, startX, y, w int, label, text string, curPos int, focused bool) {
-	for x := startX; x < startX+w; x++ {
-		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StyleDefault})
-	}
-
-	x := startX
-	for _, ch := range label {
-		if x < startX+w {
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StyleMuted})
-			x++
-		}
-	}
-
-	for _, ch := range []rune(text) {
-		if x < startX+w {
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: term.StyleDefault})
-			x++
-		}
-	}
+	surface.ClearRect(startX, y, w, 1, term.StyleDefault)
+	x := surface.DrawText(startX, y, label, startX+w, term.StyleMuted)
+	surface.DrawText(x, y, text, startX+w, term.StyleDefault)
 
 	if focused {
 		cx := startX + len([]rune(label)) + curPos
@@ -200,59 +181,12 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 }
 
 func (r *ReplaceBarWidget) handleInput(kev *tcell.EventKey, text *string, curPos *int, doSearch bool) EventResult {
-	switch kev.Key() {
-	case tcell.KeyRune:
-		if kev.Modifiers() != 0 {
-			return EventConsumed
-		}
-		runes := []rune(*text)
-		runes = append(runes[:*curPos], append([]rune{kev.Rune()}, runes[*curPos:]...)...)
-		*text = string(runes)
-		*curPos++
-		if doSearch {
-			r.Current = 0
-			r.search()
-		}
-		return EventConsumed
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		if *curPos > 0 {
-			runes := []rune(*text)
-			runes = append(runes[:*curPos-1], runes[*curPos:]...)
-			*text = string(runes)
-			*curPos--
-			if doSearch {
-				r.Current = 0
-				r.search()
-			}
-		}
-		return EventConsumed
-	case tcell.KeyDelete:
-		runes := []rune(*text)
-		if *curPos < len(runes) {
-			runes = append(runes[:*curPos], runes[*curPos+1:]...)
-			*text = string(runes)
-			if doSearch {
-				r.Current = 0
-				r.search()
-			}
-		}
-		return EventConsumed
-	case tcell.KeyLeft:
-		if *curPos > 0 {
-			*curPos--
-		}
-		return EventConsumed
-	case tcell.KeyRight:
-		if *curPos < len([]rune(*text)) {
-			*curPos++
-		}
-		return EventConsumed
-	case tcell.KeyHome:
-		*curPos = 0
-		return EventConsumed
-	case tcell.KeyEnd:
-		*curPos = len([]rune(*text))
-		return EventConsumed
+	res := HandleTextEdit(kev, *text, *curPos)
+	*text = res.Text
+	*curPos = res.CurPos
+	if res.Changed && doSearch {
+		r.Current = 0
+		r.search()
 	}
 	return EventConsumed
 }

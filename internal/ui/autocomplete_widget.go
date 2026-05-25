@@ -217,19 +217,9 @@ func (a *AutocompleteWidget) Render(surface *RenderSurface) {
 			style = term.StylePaletteSelected
 		}
 
-		for bx := x + 1; bx < x+menuW-1; bx++ {
-			surface.SetCell(bx, row, term.Cell{Ch: ' ', Style: style})
-		}
-
+		surface.ClearRect(x+1, row, menuW-2, 1, style)
 		surface.SetCell(x+2, row, term.Cell{Ch: it.Kind.Symbol(), Style: it.Kind.Style()})
-
-		for j, ch := range []rune(it.Label) {
-			cx := x + 4 + j
-			if cx >= x+1+contentW {
-				break
-			}
-			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: style})
-		}
+		surface.DrawText(x+4, row, it.Label, x+1+contentW, style)
 	}
 
 	if hasScroll {

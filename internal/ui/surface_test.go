@@ -117,3 +117,49 @@ func TestSize(t *testing.T) {
 		t.Fatalf("expected size (6,3), got (%d,%d)", w, h)
 	}
 }
+
+func TestDrawText(t *testing.T) {
+	grid := makeGrid(20, 5)
+	s := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 5})
+
+	endX := s.DrawText(2, 1, "Hello", 0, term.StyleDefault)
+	if endX != 7 {
+		t.Fatalf("expected endX 7, got %d", endX)
+	}
+	expected := "Hello"
+	for i, ch := range expected {
+		if grid[1][2+i].Ch != ch {
+			t.Fatalf("expected '%c' at grid[1][%d], got '%c'", ch, 2+i, grid[1][2+i].Ch)
+		}
+	}
+}
+
+func TestDrawTextMaxW(t *testing.T) {
+	grid := makeGrid(20, 5)
+	s := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 5})
+
+	endX := s.DrawText(2, 1, "Hello World", 5, term.StyleDefault)
+	if endX != 5 {
+		t.Fatalf("expected endX 5, got %d", endX)
+	}
+	if grid[1][5].Ch != '.' {
+		t.Fatal("text should have been clipped at maxW")
+	}
+}
+
+func TestClearRect(t *testing.T) {
+	grid := makeGrid(10, 5)
+	s := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 10, H: 5})
+
+	s.ClearRect(1, 1, 3, 2, term.StyleDefault)
+	for y := 1; y <= 2; y++ {
+		for x := 1; x <= 3; x++ {
+			if grid[y][x].Ch != ' ' {
+				t.Fatalf("expected ' ' at grid[%d][%d], got '%c'", y, x, grid[y][x].Ch)
+			}
+		}
+	}
+	if grid[0][0].Ch != '.' {
+		t.Fatal("ClearRect leaked outside region")
+	}
+}

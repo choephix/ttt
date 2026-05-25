@@ -208,18 +208,11 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		if current != "untitled" {
 			initial = current
 		}
-		dialog := ui.NewInputDialogWidget("Save As", initial)
-		dialog.Borders = app.borders
-		dialog.OnSubmit = func(path string) {
-			app.DismissDialog()
+		app.ShowInputDialog("Save As", initial, func(path string) {
 			if path != "" {
 				app.editorGroup.SaveAs(path)
 			}
-		}
-		dialog.OnDismiss = func() {
-			app.DismissDialog()
-		}
-		app.ShowDialog(dialog)
+		})
 	}
 
 	reg.Register(command.Command{
@@ -491,10 +484,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		}
 		cmds = append(cmds, command.Command{ID: "tabs", Title: "Indent Using Tabs"})
 		cmds = append(cmds, command.Command{ID: "detect", Title: "Detect from Content"})
-		picker := ui.NewCommandPaletteWidget(cmds)
-		picker.Borders = app.borders
-		picker.OnExecute = func(id string) {
-			app.DismissDialog()
+		app.ShowPicker(cmds, func(id string) {
 			if id == "detect" {
 				if app.editorGroup.Editor != nil && app.editorGroup.Editor.Buf != nil {
 					if info := buffer.DetectIndent(app.editorGroup.Editor.Buf.Lines); info.Size > 0 {
@@ -506,11 +496,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			} else if size, err := strconv.Atoi(id); err == nil {
 				app.editorGroup.SetTabSize(size)
 			}
-		}
-		picker.OnDismiss = func() {
-			app.DismissDialog()
-		}
-		app.ShowDialog(picker)
+		})
 	}
 
 	app.statusBar.OnIndentClick = openIndentPicker
@@ -567,51 +553,26 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 		Handler: func() { app.changes.Refresh() },
 	})
 
-	reg.Register(command.Command{
-		ID: "git.pull", Title: "Git Pull",
-		Handler: func() {
-			for _, dir := range app.changes.Dirs {
-				if err := git.Pull(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Pull failed: %v", err))
-					return
+	registerGitCmd := func(id, title string, ops []func(string) error, verb string) {
+		reg.Register(command.Command{
+			ID: id, Title: title,
+			Handler: func() {
+				for _, dir := range app.changes.Dirs {
+					for _, op := range ops {
+						if err := op(dir); err != nil {
+							app.StatusError(fmt.Sprintf("%s failed: %v", verb, err))
+							return
+						}
+					}
 				}
-			}
-			app.StatusNotify("Pulled successfully")
-			app.changes.Refresh()
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "git.push", Title: "Git Push",
-		Handler: func() {
-			for _, dir := range app.changes.Dirs {
-				if err := git.Push(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Push failed: %v", err))
-					return
-				}
-			}
-			app.StatusNotify("Pushed successfully")
-			app.changes.Refresh()
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "git.sync", Title: "Git Sync",
-		Handler: func() {
-			for _, dir := range app.changes.Dirs {
-				if err := git.Pull(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Sync failed (pull): %v", err))
-					return
-				}
-				if err := git.Push(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Sync failed (push): %v", err))
-					return
-				}
-			}
-			app.StatusNotify("Synced successfully")
-			app.changes.Refresh()
-		},
-	})
+				app.StatusNotify(verb + " successfully")
+				app.changes.Refresh()
+			},
+		})
+	}
+	registerGitCmd("git.pull", "Git Pull", []func(string) error{git.Pull}, "Pulled")
+	registerGitCmd("git.push", "Git Push", []func(string) error{git.Push}, "Pushed")
+	registerGitCmd("git.sync", "Git Sync", []func(string) error{git.Pull, git.Push}, "Synced")
 
 	reg.Register(command.Command{
 		ID: "search.clear", Title: "Clear Search Results",
@@ -653,27 +614,20 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			if !node.IsDir {
 				parentDir = filepath.Dir(node.Path)
 			}
-			dialog := ui.NewInputDialogWidget("New File", "")
-			dialog.Borders = app.borders
-			dialog.OnSubmit = func(name string) {
-				app.root.PopOverlay()
+			app.ShowInputDialog("New File", "", func(name string) {
 				newPath := filepath.Join(parentDir, name)
 				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
-					app.StatusError("Error: "+err.Error())
+					app.StatusError("Error: " + err.Error())
 					return
 				}
 				if err := os.WriteFile(newPath, []byte{}, 0644); err != nil {
-					app.StatusError("Error: "+err.Error())
+					app.StatusError("Error: " + err.Error())
 					return
 				}
 				app.explorer.Reload()
 				app.editorGroup.OpenFile(newPath)
 				app.FocusEditor()
-			}
-			dialog.OnDismiss = func() {
-				app.root.PopOverlay()
-			}
-			app.ShowDialog(dialog)
+			})
 		},
 	})
 
@@ -688,21 +642,14 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			if !node.IsDir {
 				parentDir = filepath.Dir(node.Path)
 			}
-			dialog := ui.NewInputDialogWidget("New Folder", "")
-			dialog.Borders = app.borders
-			dialog.OnSubmit = func(name string) {
-				app.root.PopOverlay()
+			app.ShowInputDialog("New Folder", "", func(name string) {
 				newPath := filepath.Join(parentDir, name)
 				if err := os.MkdirAll(newPath, 0755); err != nil {
-					app.StatusError("Error: "+err.Error())
+					app.StatusError("Error: " + err.Error())
 					return
 				}
 				app.explorer.Reload()
-			}
-			dialog.OnDismiss = func() {
-				app.root.PopOverlay()
-			}
-			app.ShowDialog(dialog)
+			})
 		},
 	})
 
@@ -713,22 +660,15 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			if node == nil {
 				return
 			}
-			dialog := ui.NewInputDialogWidget("Rename", node.Name)
-			dialog.Borders = app.borders
-			dialog.OnSubmit = func(newName string) {
-				app.root.PopOverlay()
+			app.ShowInputDialog("Rename", node.Name, func(newName string) {
 				dir := filepath.Dir(node.Path)
 				newPath := filepath.Join(dir, newName)
 				if err := os.Rename(node.Path, newPath); err != nil {
-					app.StatusError("Error: "+err.Error())
+					app.StatusError("Error: " + err.Error())
 					return
 				}
 				app.explorer.Reload()
-			}
-			dialog.OnDismiss = func() {
-				app.root.PopOverlay()
-			}
-			app.ShowDialog(dialog)
+			})
 		},
 	})
 
@@ -739,53 +679,43 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			if node == nil {
 				return
 			}
-			dialog := ui.NewConfirmDialogWidget("Delete " + node.Name + "?")
-			dialog.Borders = app.borders
-			dialog.OnButton[0] = func() {
-				app.root.PopOverlay()
-				if err := os.RemoveAll(node.Path); err != nil {
-					app.StatusError("Error: "+err.Error())
-					return
-				}
-				app.explorer.Reload()
-			}
-			dialog.OnButton[1] = func() {
-				app.root.PopOverlay()
-			}
-			dialog.OnDismiss = func() {
-				app.root.PopOverlay()
-			}
-			app.ShowDialog(dialog)
+			app.ShowConfirmDialog("Delete "+node.Name+"?",
+				[]string{"Yes", "No"},
+				[]func(){
+					func() {
+						app.DismissDialog()
+						if err := os.RemoveAll(node.Path); err != nil {
+							app.StatusError("Error: " + err.Error())
+							return
+						}
+						app.explorer.Reload()
+					},
+					func() { app.DismissDialog() },
+				},
+			)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
 		Handler: func() {
-			dialog := ui.NewInputDialogWidget("Add Folder", "")
-			dialog.Borders = app.borders
-			dialog.OnSubmit = func(path string) {
-				app.DismissDialog()
+			app.ShowInputDialog("Add Folder", "", func(path string) {
 				if path == "" {
 					return
 				}
 				abs, err := filepath.Abs(path)
 				if err != nil {
-					app.StatusError("Error: "+err.Error())
+					app.StatusError("Error: " + err.Error())
 					return
 				}
 				info, err := os.Stat(abs)
 				if err != nil || !info.IsDir() {
-					app.StatusError("Not a directory: "+abs)
+					app.StatusError("Not a directory: " + abs)
 					return
 				}
 				app.workspace.AddFolder(abs)
 				app.refreshWorkspaceWidgets()
-			}
-			dialog.OnDismiss = func() {
-				app.DismissDialog()
-			}
-			app.ShowDialog(dialog)
+			})
 		},
 	})
 
@@ -801,40 +731,26 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			for _, p := range paths {
 				cmds = append(cmds, command.Command{ID: p, Title: filepath.Base(p)})
 			}
-			picker := ui.NewCommandPaletteWidget(cmds)
-			picker.Borders = app.borders
-			picker.OnExecute = func(path string) {
-				app.DismissDialog()
+			app.ShowPicker(cmds, func(path string) {
 				app.workspace.RemoveFolder(path)
 				app.refreshWorkspaceWidgets()
-			}
-			picker.OnDismiss = func() {
-				app.DismissDialog()
-			}
-			app.ShowDialog(picker)
+			})
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "workspace.saveAs", Title: "Save Workspace As...",
 		Handler: func() {
-			dialog := ui.NewInputDialogWidget("Save Workspace", "workspace.ttt")
-			dialog.Borders = app.borders
-			dialog.OnSubmit = func(path string) {
-				app.DismissDialog()
+			app.ShowInputDialog("Save Workspace", "workspace.ttt", func(path string) {
 				if path == "" {
 					return
 				}
 				if err := app.workspace.SaveFile(path); err != nil {
-					app.StatusError("Error: "+err.Error())
+					app.StatusError("Error: " + err.Error())
 				} else {
-					app.StatusNotify("Workspace saved: "+path)
+					app.StatusNotify("Workspace saved: " + path)
 				}
-			}
-			dialog.OnDismiss = func() {
-				app.DismissDialog()
-			}
-			app.ShowDialog(dialog)
+			})
 		},
 	})
 
@@ -1002,43 +918,24 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 			{Label: "Push", Command: "git.push." + dir},
 			{Label: "Sync", Command: "git.sync." + dir},
 		}
-		reg.Register(command.Command{
-			ID: "git.pull." + dir, Title: "Pull",
-			Handler: func() {
-				if err := git.Pull(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Pull failed: %v", err))
-				} else {
-					app.StatusNotify("Pulled successfully")
+		registerDirGitCmd := func(id, title string, ops []func(string) error, verb string) {
+			reg.Register(command.Command{
+				ID: id, Title: title,
+				Handler: func() {
+					for _, op := range ops {
+						if err := op(dir); err != nil {
+							app.StatusError(fmt.Sprintf("%s failed: %v", verb, err))
+							return
+						}
+					}
+					app.StatusNotify(verb + " successfully")
 					app.changes.Refresh()
-				}
-			},
-		})
-		reg.Register(command.Command{
-			ID: "git.push." + dir, Title: "Push",
-			Handler: func() {
-				if err := git.Push(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Push failed: %v", err))
-				} else {
-					app.StatusNotify("Pushed successfully")
-					app.changes.Refresh()
-				}
-			},
-		})
-		reg.Register(command.Command{
-			ID: "git.sync." + dir, Title: "Sync",
-			Handler: func() {
-				if err := git.Pull(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Sync failed (pull): %v", err))
-					return
-				}
-				if err := git.Push(dir); err != nil {
-					app.StatusError(fmt.Sprintf("Sync failed (push): %v", err))
-					return
-				}
-				app.StatusNotify("Synced successfully")
-				app.changes.Refresh()
-			},
-		})
+				},
+			})
+		}
+		registerDirGitCmd("git.pull."+dir, "Pull", []func(string) error{git.Pull}, "Pulled")
+		registerDirGitCmd("git.push."+dir, "Push", []func(string) error{git.Push}, "Pushed")
+		registerDirGitCmd("git.sync."+dir, "Sync", []func(string) error{git.Pull, git.Push}, "Synced")
 		openContextMenu(app, reg, items, sx, sy)
 	}
 

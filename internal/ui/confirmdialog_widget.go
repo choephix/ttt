@@ -66,29 +66,13 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 	}
 	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
 
-	// Message
-	msgY := boxY + 1
-	for x := boxX + 1; x < boxX+boxW-1; x++ {
-		surface.SetCell(x, msgY, term.Cell{Ch: ' ', Style: term.StylePaletteItem})
-	}
-	mx := boxX + 2
-	for _, ch := range d.Message {
-		if mx < boxX+boxW-2 {
-			surface.SetCell(mx, msgY, term.Cell{Ch: ch, Style: term.StylePaletteItem})
-			mx++
-		}
-	}
+	surface.ClearRect(boxX+1, boxY+1, boxW-2, boxH-2, term.StylePaletteItem)
 
-	// Blank row
-	for x := boxX + 1; x < boxX+boxW-1; x++ {
-		surface.SetCell(x, boxY+2, term.Cell{Ch: ' ', Style: term.StylePaletteItem})
-	}
+	// Message
+	surface.DrawText(boxX+2, boxY+1, d.Message, boxX+boxW-2, term.StylePaletteItem)
 
 	// Buttons row
 	btnY := boxY + 3
-	for x := boxX + 1; x < boxX+boxW-1; x++ {
-		surface.SetCell(x, btnY, term.Cell{Ch: ' ', Style: term.StylePaletteItem})
-	}
 
 	labels := make([]string, len(d.Buttons))
 	totalW := 0
@@ -108,10 +92,7 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 			style = term.StylePaletteSelected
 		}
 		d.btnSpans[i][0] = bx
-		for _, ch := range label {
-			surface.SetCell(bx, btnY, term.Cell{Ch: ch, Style: style})
-			bx++
-		}
+		bx = surface.DrawText(bx, btnY, label, 0, style)
 		d.btnSpans[i][1] = bx
 		if i < len(labels)-1 {
 			bx += 2

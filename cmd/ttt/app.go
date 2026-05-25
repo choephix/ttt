@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/lsp"
@@ -503,4 +504,49 @@ func (a *App) ShowDialog(w ui.Widget) {
 func (a *App) DismissDialog() {
 	a.root.PopOverlay()
 	a.FocusEditor()
+}
+
+func (a *App) ShowInputDialog(title, initial string, onSubmit func(string)) {
+	dialog := ui.NewInputDialogWidget(title, initial)
+	dialog.Borders = a.borders
+	dialog.OnSubmit = func(value string) {
+		a.DismissDialog()
+		onSubmit(value)
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
+}
+
+func (a *App) ShowConfirmDialog(message string, buttons []string, callbacks []func()) {
+	var dialog *ui.ConfirmDialogWidget
+	if len(buttons) == 3 {
+		dialog = ui.NewConfirmDialogWidget3(message, buttons[0], buttons[1], buttons[2])
+	} else {
+		dialog = ui.NewConfirmDialogWidget(message)
+	}
+	dialog.Borders = a.borders
+	for i, cb := range callbacks {
+		if i < len(dialog.OnButton) {
+			dialog.OnButton[i] = cb
+		}
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
+}
+
+func (a *App) ShowPicker(items []command.Command, onSelect func(id string)) {
+	picker := ui.NewCommandPaletteWidget(items)
+	picker.Borders = a.borders
+	picker.OnExecute = func(id string) {
+		a.DismissDialog()
+		onSelect(id)
+	}
+	picker.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(picker)
 }
