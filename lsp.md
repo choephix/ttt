@@ -18,11 +18,12 @@
 
 ### High Impact
 
-- [ ] textDocument/publishDiagnostics — error/warning squiggles and inline messages (server already sends these, we ignore them)
-- [ ] textDocument/didSave — some servers need save notifications to re-analyze
+- [x] textDocument/publishDiagnostics — error/warning squiggles, problems panel, hover popup, status bar
+- [x] textDocument/didSave — save notifications to trigger server re-analysis
 - [ ] textDocument/references — find all references to a symbol
 - [ ] textDocument/rename — rename symbol across files
-- [ ] textDocument/formatting — format document on demand or on save
+- [x] textDocument/formatting — format document on demand or on save
+- [x] textDocument/rangeFormatting — format selection
 - [ ] textDocument/codeAction — quick fixes, auto-fix imports, refactorings
 
 ### Medium Impact

@@ -35,6 +35,10 @@ type signatureHelpResult struct {
 	paramEnd   int
 }
 
+type formattingResult struct {
+	edits []lsp.TextEdit
+}
+
 func fileURI(path string) string {
 	return "file://" + path
 }

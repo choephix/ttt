@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -505,6 +506,133 @@ func (a *App) ShowSignatureHelp(result *signatureHelpResult) {
 
 func (a *App) DismissSignatureHelp() {
 	a.editorGroup.SignatureHelp = nil
+}
+
+func (a *App) editorTabSize() (int, bool) {
+	tabSize := a.settings.TabSize
+	insertSpaces := a.settings.InsertSpaces
+	if a.editorGroup.Editor != nil && a.editorGroup.Editor.TabSize > 0 {
+		tabSize = a.editorGroup.Editor.TabSize
+	}
+	return tabSize, insertSpaces
+}
+
+func (a *App) RequestFormatting(path, lang string) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	tabSize, insertSpaces := a.editorTabSize()
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		edits, err := client.Formatting(fileURI(path), tabSize, insertSpaces)
+		if err != nil {
+			slog.Error("lsp formatting", "err", err)
+			return
+		}
+		if len(edits) > 0 {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&formattingResult{edits: edits}))
+		}
+	}()
+}
+
+func (a *App) RequestRangeFormatting(path, lang string, startLine, startCol, endLine, endCol int) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	tabSize, insertSpaces := a.editorTabSize()
+	r := lsp.Range{
+		Start: lsp.Position{Line: startLine, Character: startCol},
+		End:   lsp.Position{Line: endLine, Character: endCol},
+	}
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		edits, err := client.RangeFormatting(fileURI(path), r, tabSize, insertSpaces)
+		if err != nil {
+			slog.Error("lsp rangeFormatting", "err", err)
+			return
+		}
+		if len(edits) > 0 {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&formattingResult{edits: edits}))
+		}
+	}()
+}
+
+func (a *App) FormatOnSave(path, lang string) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	tabSize, insertSpaces := a.editorTabSize()
+	client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+	if err != nil {
+		return
+	}
+	edits, err := client.Formatting(fileURI(path), tabSize, insertSpaces)
+	if err != nil {
+		slog.Error("lsp formatOnSave", "err", err)
+		return
+	}
+	if len(edits) > 0 {
+		a.ApplyTextEdits(edits)
+	}
+}
+
+func (a *App) ApplyTextEdits(edits []lsp.TextEdit) {
+	if !a.editorGroup.IsEditorActive() {
+		return
+	}
+	editor := a.editorGroup.Editor
+
+	sort.Slice(edits, func(i, j int) bool {
+		if edits[i].Range.Start.Line != edits[j].Range.Start.Line {
+			return edits[i].Range.Start.Line > edits[j].Range.Start.Line
+		}
+		return edits[i].Range.Start.Character > edits[j].Range.Start.Character
+	})
+
+	for _, edit := range edits {
+		sl, sc := edit.Range.Start.Line, edit.Range.Start.Character
+		el, ec := edit.Range.End.Line, edit.Range.End.Character
+
+		if sl != el || sc != ec {
+			editor.ExecCommand(&undo.DeleteSelectionCommand{
+				StartLine: sl, StartCol: sc,
+				EndLine: el, EndCol: ec,
+			})
+		}
+		if edit.NewText != "" {
+			suffix := ""
+			if sl < len(editor.Buf.Lines) {
+				runes := []rune(editor.Buf.Lines[sl])
+				if sc < len(runes) {
+					suffix = string(runes[sc:])
+				}
+			}
+			editor.ExecCommand(&undo.PasteCommand{
+				Line: sl, Col: sc,
+				Text: edit.NewText, Suffix: suffix,
+			})
+		}
+	}
 }
 
 func isIdentRune(r rune) bool {

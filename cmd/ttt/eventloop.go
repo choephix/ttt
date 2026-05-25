@@ -208,6 +208,10 @@ func runEventLoop(
 					app.editorGroup.GoToLine(loc.Range.Start.Line + 1)
 					app.root.SetFocus(app.editorGroup)
 				}
+			case *formattingResult:
+				if len(v.edits) > 0 {
+					app.ApplyTextEdits(v.edits)
+				}
 			case *diagnosticsResult:
 				app.editorGroup.SetDiagnostics(v.path, v.diagnostics)
 				if len(v.diagnostics) == 0 {

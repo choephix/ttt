@@ -230,6 +230,39 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	})
 
 	reg.Register(command.Command{
+		ID: "editor.formatDocument", Title: "Format Document",
+		Handler: func() {
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			app.RequestFormatting(path, lang)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.formatSelection", Title: "Format Selection",
+		Handler: func() {
+			if app.editorGroup.Editor == nil {
+				return
+			}
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			sel := app.editorGroup.Editor.Selection
+			if sel == nil || !sel.Active {
+				app.RequestFormatting(path, lang)
+				return
+			}
+			start, end := sel.Range(app.editorGroup.Editor.Cursor.Line, app.editorGroup.Editor.Cursor.Col)
+			app.RequestRangeFormatting(path, lang, start.Line, start.Col, end.Line, end.Col)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "tab.next", Title: "Next Tab",
 		Handler: func() { app.editorGroup.NextTab() },
 	})
@@ -305,11 +338,16 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	reg.Register(command.Command{
 		ID: "file.save", Title: "Save File",
 		Handler: func() {
+			path := app.editorGroup.ActiveFilePath()
+			if app.settings.FormatOnSave && app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang := app.editorGroup.Editor.Highlighter.Language()
+				app.FormatOnSave(path, lang)
+			}
 			if !app.editorGroup.Save() {
 				saveAs()
 				return
 			}
-			path := app.editorGroup.ActiveFilePath()
+			path = app.editorGroup.ActiveFilePath()
 			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
 				lang := app.editorGroup.Editor.Highlighter.Language()
 				text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")

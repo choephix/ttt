@@ -65,8 +65,10 @@ type InitializeResult struct {
 }
 
 type ServerCapabilities struct {
-	CompletionProvider *CompletionOptions      `json:"completionProvider,omitempty"`
-	TextDocumentSync   *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
+	CompletionProvider              *CompletionOptions       `json:"completionProvider,omitempty"`
+	TextDocumentSync                *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
+	DocumentFormattingProvider      bool                     `json:"documentFormattingProvider,omitempty"`
+	DocumentRangeFormattingProvider bool                     `json:"documentRangeFormattingProvider,omitempty"`
 }
 
 type CompletionOptions struct {
@@ -187,6 +189,22 @@ type CompletionItem struct {
 type TextEdit struct {
 	Range   Range  `json:"range"`
 	NewText string `json:"newText"`
+}
+
+type FormattingOptions struct {
+	TabSize      int  `json:"tabSize"`
+	InsertSpaces bool `json:"insertSpaces"`
+}
+
+type DocumentFormattingParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Options      FormattingOptions      `json:"options"`
+}
+
+type DocumentRangeFormattingParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+	Options      FormattingOptions      `json:"options"`
 }
 
 type Range struct {

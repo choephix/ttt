@@ -291,6 +291,43 @@ func (c *Client) locationRequest(method, uri string, line, col int) ([]Location,
 	return locs, nil
 }
 
+func (c *Client) Formatting(uri string, tabSize int, insertSpaces bool) ([]TextEdit, error) {
+	result, err := c.call("textDocument/formatting", DocumentFormattingParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Options:      FormattingOptions{TabSize: tabSize, InsertSpaces: insertSpaces},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 || string(result) == "null" {
+		return nil, nil
+	}
+	var edits []TextEdit
+	if err := json.Unmarshal(result, &edits); err != nil {
+		return nil, fmt.Errorf("parse formatting result: %w", err)
+	}
+	return edits, nil
+}
+
+func (c *Client) RangeFormatting(uri string, r Range, tabSize int, insertSpaces bool) ([]TextEdit, error) {
+	result, err := c.call("textDocument/rangeFormatting", DocumentRangeFormattingParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range:        r,
+		Options:      FormattingOptions{TabSize: tabSize, InsertSpaces: insertSpaces},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 || string(result) == "null" {
+		return nil, nil
+	}
+	var edits []TextEdit
+	if err := json.Unmarshal(result, &edits); err != nil {
+		return nil, fmt.Errorf("parse rangeFormatting result: %w", err)
+	}
+	return edits, nil
+}
+
 func (c *Client) Shutdown() error {
 	_, err := c.call("shutdown", nil)
 	if err != nil {

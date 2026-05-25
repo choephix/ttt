@@ -50,6 +50,7 @@ type Settings struct {
 	CursorStyle    string           `json:"cursorStyle,omitempty"`
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
+	FormatOnSave   bool             `json:"formatOnSave"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`
 	LSP            LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete   AutocompleteSettings `json:"autocomplete,omitzero"`
