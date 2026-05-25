@@ -45,20 +45,7 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	if r.Borders != nil {
 		b = *r.Borders
 	}
-	bs := term.StyleBorder
-
-	for x := barX; x < barX+barW; x++ {
-		surface.SetCell(x, barY, term.Cell{Ch: b.Horizontal, Style: bs})
-		surface.SetCell(x, barY+barH-1, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	for y := barY; y < barY+barH; y++ {
-		surface.SetCell(barX, y, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(barX+barW-1, y, term.Cell{Ch: b.Vertical, Style: bs})
-	}
-	surface.SetCell(barX, barY, term.Cell{Ch: b.TopLeft, Style: bs})
-	surface.SetCell(barX+barW-1, barY, term.Cell{Ch: b.TopRight, Style: bs})
-	surface.SetCell(barX, barY+barH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
-	surface.SetCell(barX+barW-1, barY+barH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+	surface.DrawBorder(barX, barY, barW, barH, b, term.StyleBorder)
 
 	innerW := barW - 2
 

@@ -120,18 +120,7 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	if p.Borders != nil {
 		b = *p.Borders
 	}
-	for x := boxX; x < boxX+boxW; x++ {
-		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
-		surface.SetCell(x, boxY+boxH-1, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
-	}
-	for y := boxY; y < boxY+boxH; y++ {
-		surface.SetCell(boxX, y, term.Cell{Ch: b.Vertical, Style: term.StyleBorder})
-		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: b.Vertical, Style: term.StyleBorder})
-	}
-	surface.SetCell(boxX, boxY, term.Cell{Ch: b.TopLeft, Style: term.StyleBorder})
-	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: b.TopRight, Style: term.StyleBorder})
-	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: term.StyleBorder})
-	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: term.StyleBorder})
+	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
 
 	for y := boxY + 1; y < boxY+boxH-1; y++ {
 		for x := boxX + 1; x < boxX+boxW-1; x++ {

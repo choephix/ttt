@@ -43,20 +43,7 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 	if d.Borders != nil {
 		b = *d.Borders
 	}
-	bs := term.StyleBorder
-
-	for x := boxX; x < boxX+boxW; x++ {
-		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: bs})
-		surface.SetCell(x, boxY+boxH-1, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	for y := boxY; y < boxY+boxH; y++ {
-		surface.SetCell(boxX, y, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: b.Vertical, Style: bs})
-	}
-	surface.SetCell(boxX, boxY, term.Cell{Ch: b.TopLeft, Style: bs})
-	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: b.TopRight, Style: bs})
-	surface.SetCell(boxX, boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
-	surface.SetCell(boxX+boxW-1, boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
 
 	// Message
 	msgY := boxY + 1

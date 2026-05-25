@@ -57,20 +57,7 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	if f.Borders != nil {
 		b = *f.Borders
 	}
-	bs := term.StyleBorder
-
-	for x := barX; x < barX+barW; x++ {
-		surface.SetCell(x, barY, term.Cell{Ch: b.Horizontal, Style: bs})
-		surface.SetCell(x, barY+barH-1, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	for y := barY; y < barY+barH; y++ {
-		surface.SetCell(barX, y, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(barX+barW-1, y, term.Cell{Ch: b.Vertical, Style: bs})
-	}
-	surface.SetCell(barX, barY, term.Cell{Ch: b.TopLeft, Style: bs})
-	surface.SetCell(barX+barW-1, barY, term.Cell{Ch: b.TopRight, Style: bs})
-	surface.SetCell(barX, barY+barH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
-	surface.SetCell(barX+barW-1, barY+barH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+	surface.DrawBorder(barX, barY, barW, barH, b, term.StyleBorder)
 
 	row := barY + 1
 	for x := barX + 1; x < barX+barW-1; x++ {

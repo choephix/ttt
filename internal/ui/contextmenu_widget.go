@@ -101,19 +101,7 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 		b = *c.Borders
 	}
 	bs := term.StyleBorder
-
-	for bx := x; bx < x+menuW; bx++ {
-		surface.SetCell(bx, y, term.Cell{Ch: b.Horizontal, Style: bs})
-		surface.SetCell(bx, y+menuH-1, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	for by := y; by < y+menuH; by++ {
-		surface.SetCell(x, by, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(x+menuW-1, by, term.Cell{Ch: b.Vertical, Style: bs})
-	}
-	surface.SetCell(x, y, term.Cell{Ch: b.TopLeft, Style: bs})
-	surface.SetCell(x+menuW-1, y, term.Cell{Ch: b.TopRight, Style: bs})
-	surface.SetCell(x, y+menuH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
-	surface.SetCell(x+menuW-1, y+menuH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+	surface.DrawBorder(x, y, menuW, menuH, b, bs)
 
 	for i, it := range c.Items {
 		row := y + 1 + i

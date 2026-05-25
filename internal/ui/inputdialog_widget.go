@@ -64,21 +64,7 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 		}
 	}
 
-	// Top/bottom borders
-	for x := d.boxX + 1; x < d.boxX+d.boxW-1; x++ {
-		surface.SetCell(x, d.boxY, term.Cell{Ch: b.Horizontal, Style: bs})
-		surface.SetCell(x, d.boxY+boxH-1, term.Cell{Ch: b.Horizontal, Style: bs})
-	}
-	// Side borders
-	for y := d.boxY + 1; y < d.boxY+boxH-1; y++ {
-		surface.SetCell(d.boxX, y, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(d.boxX+d.boxW-1, y, term.Cell{Ch: b.Vertical, Style: bs})
-	}
-	// Corners
-	surface.SetCell(d.boxX, d.boxY, term.Cell{Ch: b.TopLeft, Style: bs})
-	surface.SetCell(d.boxX+d.boxW-1, d.boxY, term.Cell{Ch: b.TopRight, Style: bs})
-	surface.SetCell(d.boxX, d.boxY+boxH-1, term.Cell{Ch: b.BottomLeft, Style: bs})
-	surface.SetCell(d.boxX+d.boxW-1, d.boxY+boxH-1, term.Cell{Ch: b.BottomRight, Style: bs})
+	surface.DrawBorder(d.boxX, d.boxY, d.boxW, boxH, b, bs)
 
 	// Title on top border
 	tx := d.boxX + 2

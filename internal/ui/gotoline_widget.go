@@ -36,18 +36,7 @@ func (g *GoToLineWidget) Render(surface *RenderSurface) {
 		b = *g.Borders
 	}
 
-	for x := boxX; x < boxX+boxW; x++ {
-		surface.SetCell(x, boxY, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
-		surface.SetCell(x, boxY+2, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
-	}
-	for y := boxY; y <= boxY+2; y++ {
-		surface.SetCell(boxX, y, term.Cell{Ch: b.Vertical, Style: term.StyleBorder})
-		surface.SetCell(boxX+boxW-1, y, term.Cell{Ch: b.Vertical, Style: term.StyleBorder})
-	}
-	surface.SetCell(boxX, boxY, term.Cell{Ch: b.TopLeft, Style: term.StyleBorder})
-	surface.SetCell(boxX+boxW-1, boxY, term.Cell{Ch: b.TopRight, Style: term.StyleBorder})
-	surface.SetCell(boxX, boxY+2, term.Cell{Ch: b.BottomLeft, Style: term.StyleBorder})
-	surface.SetCell(boxX+boxW-1, boxY+2, term.Cell{Ch: b.BottomRight, Style: term.StyleBorder})
+	surface.DrawBorder(boxX, boxY, boxW, 3, b, term.StyleBorder)
 
 	label := "Go to line: "
 	inputY := boxY + 1
