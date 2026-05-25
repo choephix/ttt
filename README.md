@@ -116,6 +116,41 @@ Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
 - Terminal ANSI colors are theme-configurable via the `terminal` field in `theme.json`
 - Close all terminals from the panel actions menu
 
+### LSP (Language Server Protocol)
+
+TTT has built-in LSP support for language-aware editing features. Language servers run as external processes and communicate over JSON-RPC 2.0 via stdio.
+
+#### Configuring Language Servers
+
+Add language servers to `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a language identifier to a command array:
+
+```json
+{
+  "lsp": {
+    "servers": {
+      "go": { "command": ["gopls"] },
+      "typescript": { "command": ["typescript-language-server", "--stdio"] },
+      "javascript": { "command": ["typescript-language-server", "--stdio"] },
+      "python": { "command": ["pyright-langserver", "--stdio"] }
+    }
+  }
+}
+```
+
+The language identifier must match the language ID that TTT assigns to the file (e.g. `go`, `typescript`, `javascript`, `python`, `rust`, `c`, `cpp`). The server is started lazily on first use and shut down when the editor exits.
+
+#### Supported Features
+
+| Feature | Keybinding | Description |
+|---------|-----------|-------------|
+| Autocomplete | Ctrl+U | Trigger completion at cursor position |
+| Go to Definition | F12 | Jump to the definition of the symbol under the cursor |
+| Go to Implementation | Shift+F12 | Jump to the implementation of the symbol under the cursor |
+| Go to Type Definition | *(command palette)* | Jump to the type definition of the symbol under the cursor |
+| Hover | Ctrl+K I | Show type information and documentation for the symbol under the cursor |
+
+Go to Type Definition is available via the command palette (Ctrl+Shift+P, then search for "Go to Type Definition").
+
 ### Tabs
 
 Tabs follow a pin-on-reclick model similar to VS Code:
@@ -202,7 +237,7 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
 | File | Purpose |
 |------|---------|
 | `keybindings.json` | Custom keybindings (VS Code key format) |
-| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, terminal, theme) |
+| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, terminal, theme, lsp) |
 | `theme.json` | Colors and styles (or use `theme.<name>.json` for named themes) |
 
 #### Settings
@@ -219,6 +254,12 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
   "terminal": {
     "shell": "",
     "scrollback": 1000
+  },
+  "lsp": {
+    "servers": {
+      "go": { "command": ["gopls"] },
+      "typescript": { "command": ["typescript-language-server", "--stdio"] }
+    }
   }
 }
 ```
@@ -263,6 +304,11 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | | **Tabs** |
 | Ctrl+PgDn / PgUp | Next / previous tab |
 | Ctrl+W | Close tab |
+| | **LSP** |
+| Ctrl+U | Autocomplete |
+| F12 | Go to definition |
+| Shift+F12 | Go to implementation |
+| Ctrl+K I | Hover info |
 | | **Terminal** |
 | Ctrl+` | Toggle terminal |
 | Ctrl+K T | New terminal tab |
@@ -286,6 +332,7 @@ The codebase follows a strict layered architecture: **core -> view -> render -> 
 - **`internal/terminal/`** — Integrated terminal emulator (vt10x + pty)
 - **`internal/term/`** — Terminal abstraction via `Screen` interface (only package that imports tcell)
 - **`internal/ui/`** — Window manager, pane system, and all widgets
+- **`internal/lsp/`** — Language Server Protocol client (JSON-RPC 2.0 over stdio, per-language server management)
 - **`internal/workspace/`** — Multi-folder workspace management with git detection
 - **`internal/git/`** — Git operations (status, stage, unstage, commit, pull, push, diff, blame)
 - **`internal/config/`** — Configuration loading (settings, themes, keybindings, editorconfig)
