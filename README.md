@@ -2,6 +2,57 @@
 
 A fully-featured code editor that lives in the terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal. Single Go binary, zero config.
 
+## Installation
+
+### Prerequisites
+
+- [Git](https://git-scm.com/) — required for source control features
+- [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) — required for workspace search
+
+### Quick Install (Linux / macOS)
+
+```sh
+curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
+```
+
+This downloads the latest release binary for your OS/architecture and installs it to `/usr/local/bin`. To install to a different directory:
+
+```sh
+INSTALL_DIR=~/.local/bin curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
+```
+
+### Homebrew (macOS / Linux)
+
+*Coming soon* — a Homebrew tap is planned. In the meantime, use the install script or download a binary from Releases.
+
+### Download Binary
+
+Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/eugenioenko/ttt/releases) page. Download the one for your platform, make it executable, and put it in your `PATH`.
+
+### Go Install
+
+Requires [Go](https://go.dev/) 1.18 or newer:
+
+```sh
+go install github.com/eugenioenko/ttt/cmd/ttt@latest
+```
+
+This installs the `ttt` binary to your `$GOPATH/bin` (or `$HOME/go/bin` by default). Make sure that directory is in your `PATH`.
+
+### From Source
+
+```sh
+git clone https://github.com/eugenioenko/ttt.git
+cd ttt
+make build
+```
+
+This produces an optimized binary at `bin/ttt`. Add it to your `PATH` or copy it somewhere convenient:
+
+```sh
+cp bin/ttt ~/.local/bin/
+```
+
 ## Features
 
 ### Editor
@@ -243,39 +294,9 @@ To use your terminal's native colors instead of the theme's, set foreground/back
 
 File, Edit, Selection, View, and Help menus accessible via the menu bar or keyboard shortcuts. Menus display resolved keybindings next to each command. Navigate between menus with left/right arrow keys.
 
-## Installation
+## Configuration
 
-### Prerequisites
-
-- [Go](https://go.dev/) 1.18 or newer
-- [Git](https://git-scm.com/) — required for source control features
-- [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) — required for workspace search
-
-### Go Install
-
-```sh
-go install github.com/eugenioenko/ttt/cmd/ttt@latest
-```
-
-This installs the `ttt` binary to your `$GOPATH/bin` (or `$HOME/go/bin` by default). Make sure that directory is in your `PATH`.
-
-### From Source
-
-```sh
-git clone https://github.com/eugenioenko/ttt.git
-cd ttt
-make build
-```
-
-This produces an optimized binary at `bin/ttt`. Add it to your `PATH` or copy it somewhere convenient:
-
-```sh
-cp bin/ttt ~/.local/bin/
-```
-
-### Configuration
-
-Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.config/ttt/`:
+Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.config/ttt/` (user overrides):
 
 | File | Purpose |
 |------|---------|
@@ -340,7 +361,7 @@ Example `~/.config/ttt/settings.json`:
 
 Settings and keybindings can also be opened from the command palette: **Preferences: Open Settings** and **Preferences: Open Keyboard Shortcuts**.
 
-### Keybindings
+## Keybindings
 
 All keybindings are customizable via `keybindings.json`. Supports chord sequences (e.g. `ctrl+k ctrl+t`). These are the defaults:
 

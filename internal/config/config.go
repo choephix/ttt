@@ -53,10 +53,8 @@ func Load() AppConfig {
 func configPaths() []string {
 	var paths []string
 
-	paths = append(paths, ".config")
-
 	if exe, err := os.Executable(); err == nil {
-		paths = append(paths, filepath.Join(filepath.Dir(exe), ".config"))
+		paths = append(paths, filepath.Join(filepath.Dir(exe), "config"))
 	}
 
 	if home, err := os.UserHomeDir(); err == nil {
