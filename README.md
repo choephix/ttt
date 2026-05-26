@@ -285,6 +285,29 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
 
 #### Settings
 
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `tabSize` | int | `4` | Number of spaces per indentation level |
+| `insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
+| `wordWrap` | bool | `false` | Wrap long lines at the editor width |
+| `lineNumbers` | bool | `true` | Show line numbers in the gutter |
+| `sidebarVisible` | bool | `true` | Show the sidebar on startup |
+| `sidebarWidth` | int | `30` | Width of the sidebar in columns |
+| `cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
+| `theme` | string | `""` | Theme name (from `~/.config/ttt/themes/`) |
+| `debugMode` | bool | `false` | Enable debug logging to `~/.config/ttt/debug.log` |
+| `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `terminal.shell` | string | `""` | Shell command for the integrated terminal (empty = system default) |
+| `terminal.scrollback` | int | `1000` | Number of scrollback lines to retain in the terminal |
+| `lsp.saveOnRename` | bool | `false` | Auto-save all files affected by a rename operation |
+| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...] }` for LSP servers |
+| `autocomplete.enabled` | bool | `true` | Enable LSP-powered autocompletion |
+| `autocomplete.autoSuggest` | bool | `true` | Show completions automatically as you type |
+| `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
+| `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
+
+Example `~/.config/ttt/settings.json`:
+
 ```json
 {
   "tabSize": 4,
@@ -294,17 +317,23 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
   "sidebarVisible": true,
   "sidebarWidth": 30,
   "theme": "default-dark",
-  "editor.formatOnSave": true,
-  "autocomplete.debounce": 150,
+  "formatOnSave": true,
   "terminal": {
-    "shell": "",
+    "shell": "/bin/zsh",
     "scrollback": 1000
   },
   "lsp": {
+    "saveOnRename": true,
     "servers": {
       "go": { "command": ["gopls"] },
       "typescript": { "command": ["typescript-language-server", "--stdio"] }
     }
+  },
+  "autocomplete": {
+    "enabled": true,
+    "autoSuggest": true,
+    "debounce": 150,
+    "signatureHelp": true
   }
 }
 ```
