@@ -1,0 +1,52 @@
+---
+title: Installation
+description: How to install TTT.
+sidebar:
+  order: 2
+---
+
+## Quick Install (Linux / macOS)
+
+Download the latest release binary for your platform:
+
+```sh
+curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
+```
+
+This installs to `/usr/local/bin`. To install to a different directory:
+
+```sh
+INSTALL_DIR=~/.local/bin curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
+```
+
+## Homebrew (macOS / Linux)
+
+*Coming soon.* A Homebrew tap is planned. In the meantime, use the install script or download a binary from Releases.
+
+## Download Binary
+
+Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/eugenioenko/ttt/releases) page. Download the one for your platform, make it executable, and put it in your `PATH`.
+
+## Go Install
+
+Requires [Go](https://go.dev/) 1.18 or newer:
+
+```sh
+go install github.com/eugenioenko/ttt/cmd/ttt@latest
+```
+
+This installs the `ttt` binary to your `$GOPATH/bin` (or `$HOME/go/bin` by default). Make sure that directory is in your `PATH`.
+
+## From Source
+
+```sh
+git clone https://github.com/eugenioenko/ttt.git
+cd ttt
+make build
+```
+
+This produces an optimized binary at `bin/ttt`. Copy it somewhere in your `PATH`:
+
+```sh
+cp bin/ttt ~/.local/bin/
+```

@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+  --sl-font: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --sl-font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* Make hero full-width single column */
+.hero {
+  grid-template-columns: 1fr !important;
+  text-align: center;
+}
+
+.hero > .stack {
+  align-items: center;
+}
+
+.hero .copy > * {
+  max-width: none !important;
+}
+
+.hero h1::after {
+  content: '_';
+  animation: blink 1s step-end infinite;
+  color: var(--sl-color-text);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Dark mode: neutral grays + amber/orange accent */
+:root {
+  --sl-color-white: hsl(0, 0%, 100%);
+  --sl-color-gray-1: hsl(0, 0%, 93%);
+  --sl-color-gray-2: hsl(0, 0%, 74%);
+  --sl-color-gray-3: hsl(0, 0%, 54%);
+  --sl-color-gray-4: hsl(0, 0%, 36%);
+  --sl-color-gray-5: hsl(0, 0%, 22%);
+  --sl-color-gray-6: hsl(0, 0%, 15%);
+  --sl-color-black: hsl(0, 0%, 9%);
+
+  --sl-color-accent-low: hsl(210, 50%, 18%);
+  --sl-color-accent: hsl(210, 65%, 45%);
+  --sl-color-accent-high: hsl(210, 70%, 80%);
+}
+
+/* Light mode: neutral grays + slate blue accent */
+:root[data-theme='light'] {
+  --sl-color-white: hsl(0, 0%, 9%);
+  --sl-color-gray-1: hsl(0, 0%, 15%);
+  --sl-color-gray-2: hsl(0, 0%, 22%);
+  --sl-color-gray-3: hsl(0, 0%, 36%);
+  --sl-color-gray-4: hsl(0, 0%, 54%);
+  --sl-color-gray-5: hsl(0, 0%, 74%);
+  --sl-color-gray-6: hsl(0, 0%, 93%);
+  --sl-color-gray-7: hsl(0, 0%, 97%);
+  --sl-color-black: hsl(0, 0%, 100%);
+
+  --sl-color-accent-high: hsl(210, 60%, 28%);
+  --sl-color-accent: hsl(210, 65%, 45%);
+  --sl-color-accent-low: hsl(210, 60%, 92%);
+}
