@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"log/slog"
+
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
 
@@ -18,9 +20,11 @@ type TerminalColorPalette struct {
 
 type TerminalWidget struct {
 	BaseWidget
-	Term    *terminal.Terminal
-	Palette *TerminalColorPalette
-	focused bool
+	Term         *terminal.Terminal
+	Palette      *TerminalColorPalette
+	focused      bool
+	scrollOffset int
+	scrollbar    Scrollbar
 }
 
 func NewTerminalWidget(t *terminal.Terminal, palette *TerminalColorPalette) *TerminalWidget {
@@ -40,9 +44,20 @@ func (tw *TerminalWidget) CursorPosition() (x, y int, visible bool) {
 	if tw.Term == nil {
 		return 0, 0, false
 	}
+	if tw.scrollOffset > 0 {
+		return 0, 0, false
+	}
 	r := tw.GetRect()
 	cx, cy := tw.Term.CursorPos()
 	return r.X + cx, r.Y + cy, tw.focused
+}
+
+func (tw *TerminalWidget) ScrollToBottom() {
+	tw.scrollOffset = 0
+}
+
+func (tw *TerminalWidget) IsScrolledUp() bool {
+	return tw.scrollOffset > 0
 }
 
 func (tw *TerminalWidget) Render(surface *RenderSurface) {
@@ -50,15 +65,70 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 		return
 	}
 	w, h := surface.Size()
+	r := tw.GetRect()
 
-	tw.Term.Snapshot(func(view vt10x.View) {
+	tw.Term.SnapshotWithScrollback(func(view vt10x.View, scrollback []terminal.ScrollbackLine) {
 		cols, rows := view.Size()
-		for y := 0; y < h && y < rows; y++ {
-			for x := 0; x < w && x < cols; x++ {
-				g := view.Cell(x, y)
-				cell := tw.glyphToCell(g)
-				surface.SetCell(x, y, cell)
+		sbLen := len(scrollback)
+		totalLines := sbLen + rows
+
+		if tw.scrollOffset > sbLen {
+			tw.scrollOffset = sbLen
+		}
+
+		showScrollbar := sbLen > 0
+		contentW := w
+		if showScrollbar {
+			contentW = w - 1
+		}
+
+		if tw.scrollOffset == 0 {
+			for y := 0; y < h && y < rows; y++ {
+				for x := 0; x < contentW && x < cols; x++ {
+					g := view.Cell(x, y)
+					surface.SetCell(x, y, tw.glyphToCell(g))
+				}
 			}
+		} else {
+			startLine := totalLines - tw.scrollOffset - h
+			if startLine < 0 {
+				startLine = 0
+			}
+
+			for screenY := 0; screenY < h; screenY++ {
+				srcLine := startLine + screenY
+				if srcLine < sbLen {
+					sl := scrollback[srcLine]
+					for x := 0; x < contentW; x++ {
+						if x < len(sl.Cells) {
+							surface.SetCell(x, screenY, tw.glyphToCell(sl.Cells[x]))
+						} else {
+							surface.SetCell(x, screenY, term.Cell{Ch: ' ', Direct: true, Bg: tw.Palette.Bg})
+						}
+					}
+				} else {
+					liveRow := srcLine - sbLen
+					if liveRow >= 0 && liveRow < rows {
+						for x := 0; x < contentW && x < cols; x++ {
+							g := view.Cell(x, liveRow)
+							surface.SetCell(x, screenY, tw.glyphToCell(g))
+						}
+					}
+				}
+			}
+		}
+
+		if showScrollbar {
+			topItem := sbLen - tw.scrollOffset
+			if topItem < 0 {
+				topItem = 0
+			}
+			tw.scrollbar.X = r.X + w - 1
+			tw.scrollbar.Y = r.Y
+			tw.scrollbar.Height = h
+			tw.scrollbar.TotalItems = totalLines
+			tw.scrollbar.TopItem = topItem
+			tw.scrollbar.Render(surface, w-1, 0)
 		}
 	})
 }
@@ -122,16 +192,62 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
+		if tev.Modifiers()&tcell.ModShift != 0 {
+			_, h := tw.Term.Size()
+			switch tev.Key() {
+			case tcell.KeyPgUp:
+				tw.scrollUp(h / 2)
+				return EventConsumed
+			case tcell.KeyPgDn:
+				tw.scrollDown(h / 2)
+				return EventConsumed
+			}
+		}
+		tw.scrollOffset = 0
 		data := keyToVT(tev)
 		if data != "" {
 			tw.Term.WriteString(data)
 			return EventConsumed
 		}
 	case *tcell.EventMouse:
+		if newTop, consumed := tw.scrollbar.HandleEvent(ev); consumed {
+			sbLen := tw.Term.ScrollbackLen()
+			tw.scrollOffset = sbLen - newTop
+			if tw.scrollOffset < 0 {
+				tw.scrollOffset = 0
+			}
+			return EventConsumed
+		}
+		btn := tev.Buttons()
+		if btn&tcell.WheelUp != 0 {
+			tw.scrollUp(3)
+			return EventConsumed
+		}
+		if btn&tcell.WheelDown != 0 {
+			tw.scrollDown(3)
+			return EventConsumed
+		}
 		return EventIgnored
 	}
 
 	return EventIgnored
+}
+
+func (tw *TerminalWidget) scrollUp(n int) {
+	maxOffset := tw.Term.ScrollbackLen()
+	tw.scrollOffset += n
+	if tw.scrollOffset > maxOffset {
+		tw.scrollOffset = maxOffset
+	}
+	slog.Debug("terminal scroll up", "scrollOffset", tw.scrollOffset, "maxOffset", maxOffset)
+}
+
+func (tw *TerminalWidget) scrollDown(n int) {
+	tw.scrollOffset -= n
+	if tw.scrollOffset < 0 {
+		tw.scrollOffset = 0
+	}
+	slog.Debug("terminal scroll down", "scrollOffset", tw.scrollOffset)
 }
 
 func keyToVT(ev *tcell.EventKey) string {
