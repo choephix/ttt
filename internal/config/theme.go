@@ -163,7 +163,7 @@ func DefaultTheme() ThemeConfig {
 
 		Tabs: TabStyles{
 			Active:   StyleDef{Fg: "#ffffff", Bold: true},
-			Inactive: StyleDef{Fg: "#888888"},
+			Inactive: StyleDef{Fg: "#999999"},
 		},
 
 		Sidebar: SidebarStyles{
@@ -186,7 +186,7 @@ func DefaultTheme() ThemeConfig {
 			SearchActive: StyleDef{Bg: "#9e6a03"},
 			BracketMatch: StyleDef{Bg: "#3a3a3a"},
 		},
-		Scrollbar: StyleDef{Fg: "#888888", Bg: "#555555"},
+		Scrollbar: StyleDef{Fg: "#999999", Bg: "#555555"},
 
 		Syntax: SyntaxStyles{
 			Comment:     StyleDef{Fg: "#6a9955"},

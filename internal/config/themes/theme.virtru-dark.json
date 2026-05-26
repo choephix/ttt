@@ -23,7 +23,7 @@
       "bold": true
     },
     "inactive": {
-      "fg": "#bababa"
+      "fg": "#999999"
     }
   },
   "sidebar": {
@@ -45,7 +45,7 @@
       "bg": "#444444"
     },
     "muted": {
-      "fg": "#6e6e6e"
+      "fg": "#999999"
     }
   },
   "editor": {
