@@ -208,6 +208,10 @@ func runEventLoop(
 					app.editorGroup.GoToLine(loc.Range.Start.Line + 1)
 					app.root.SetFocus(app.editorGroup)
 				}
+			case *renameResult:
+				if v.edit != nil && len(v.edit.Changes) > 0 {
+					app.ApplyWorkspaceEdit(v.edit)
+				}
 			case *referencesResult:
 				if len(v.locations) > 0 {
 					app.ShowReferences(v.locations)

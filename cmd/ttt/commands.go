@@ -235,6 +235,27 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	})
 
 	reg.Register(command.Command{
+		ID: "editor.rename", Title: "Rename Symbol",
+		Handler: func() {
+			if app.editorGroup.Editor == nil {
+				return
+			}
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			line, col := app.editorGroup.ActiveCursor()
+			word := app.wordAtCursor()
+			app.ShowInputDialog("Rename", word, func(newName string) {
+				if newName != "" && newName != word {
+					app.RequestRename(path, lang, line, col, newName)
+				}
+			})
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "editor.formatDocument", Title: "Format Document",
 		Handler: func() {
 			path := app.editorGroup.ActiveFilePath()

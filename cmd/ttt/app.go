@@ -597,6 +597,55 @@ func (a *App) FormatOnSave(path, lang string) {
 	}
 }
 
+func (a *App) RequestRename(path, lang string, line, col int, newName string) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		edit, err := client.Rename(fileURI(path), line, col, newName)
+		if err != nil {
+			slog.Error("lsp rename", "err", err)
+			return
+		}
+		if edit != nil && len(edit.Changes) > 0 {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&renameResult{edit: edit}))
+		}
+	}()
+}
+
+func (a *App) ApplyWorkspaceEdit(edit *lsp.WorkspaceEdit) {
+	currentPath := a.editorGroup.ActiveFilePath()
+
+	for uri, edits := range edit.Changes {
+		path := uriToPath(uri)
+		a.editorGroup.OpenFile(path)
+		a.ApplyTextEdits(edits)
+
+		if a.settings.LSP.SaveOnRename {
+			a.editorGroup.Save()
+			if a.editorGroup.Editor != nil && a.editorGroup.Editor.Highlighter != nil {
+				lang := a.editorGroup.Editor.Highlighter.Language()
+				text := strings.Join(a.editorGroup.Editor.Buf.Lines, "\n")
+				a.NotifyLSPSave(path, lang, text)
+			}
+		}
+	}
+
+	a.editorGroup.OpenFile(currentPath)
+	fileCount := len(edit.Changes)
+	a.StatusNotify(fmt.Sprintf("Renamed across %d file(s)", fileCount))
+}
+
 func (a *App) RequestReferences(path, lang string, line, col int) {
 	langKey, ok := a.lspReady(lang)
 	if !ok {
@@ -681,6 +730,34 @@ func (a *App) ApplyTextEdits(edits []lsp.TextEdit) {
 			})
 		}
 	}
+}
+
+func (a *App) wordAtCursor() string {
+	if !a.editorGroup.IsEditorActive() {
+		return ""
+	}
+	editor := a.editorGroup.Editor
+	line := editor.Cursor.Line
+	col := editor.Cursor.Col
+	if line >= len(editor.Buf.Lines) {
+		return ""
+	}
+	runes := []rune(editor.Buf.Lines[line])
+	if col > len(runes) {
+		col = len(runes)
+	}
+	start := col
+	for start > 0 && isIdentRune(runes[start-1]) {
+		start--
+	}
+	end := col
+	for end < len(runes) && isIdentRune(runes[end]) {
+		end++
+	}
+	if start == end {
+		return ""
+	}
+	return string(runes[start:end])
 }
 
 func isIdentRune(r rune) bool {

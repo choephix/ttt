@@ -45,6 +45,10 @@ type referencesResult struct {
 	locations []lsp.Location
 }
 
+type renameResult struct {
+	edit *lsp.WorkspaceEdit
+}
+
 func readLineFromFile(path string, line int) string {
 	f, err := os.Open(path)
 	if err != nil {
