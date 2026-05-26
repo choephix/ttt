@@ -99,6 +99,7 @@ func main() {
 		app.CheckSignatureHelpTrigger()
 	}
 
+	app.keybindings = cfg.Keybindings
 	quitPending := false
 	running := true
 	registerCommands(cmdRegistry, app, &running, &quitPending)

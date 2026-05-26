@@ -142,6 +142,26 @@ func registerViewCommands(reg *command.Registry, app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "view.keyboardTester", Title: "Keyboard Tester",
+		Handler: func() {
+			kt := ui.NewKeyTesterWidget()
+			kt.Borders = app.borders
+			kt.LookupBinding = func(combo string) string {
+				for _, kb := range app.keybindings {
+					if kb.Key == combo {
+						return kb.Command
+					}
+				}
+				return ""
+			}
+			kt.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(kt)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
 		Handler: func() {
 			url := "https://github.com/eugenioenko/ttt"

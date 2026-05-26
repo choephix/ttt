@@ -59,6 +59,7 @@ type App struct {
 	problems           *ui.ProblemsWidget
 	references         *ui.ReferencesWidget
 	allDiagnostics     map[string][]ui.Diagnostic
+	keybindings        []config.KeyBinding
 }
 
 func (a *App) ShowSidebar() {

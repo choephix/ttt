@@ -6,6 +6,8 @@
 - [x] textDocument/didOpen
 - [x] textDocument/didChange
 - [x] textDocument/didClose
+- [x] textDocument/didSave — save notifications to trigger server re-analysis
+- [x] textDocument/publishDiagnostics — error/warning squiggles, problems panel, hover popup, status bar
 - [x] textDocument/completion
 - [x] completionItem/resolve (with additionalTextEdits for auto-import)
 - [x] textDocument/signatureHelp
@@ -13,18 +15,13 @@
 - [x] textDocument/definition
 - [x] textDocument/implementation
 - [x] textDocument/typeDefinition
-
-## Not Implemented
-
-### High Impact
-
-- [x] textDocument/publishDiagnostics — error/warning squiggles, problems panel, hover popup, status bar
-- [x] textDocument/didSave — save notifications to trigger server re-analysis
-- [x] textDocument/references — find all references to a symbol
-- [x] textDocument/rename — rename symbol across files
+- [x] textDocument/references — find all references in bottom panel
+- [x] textDocument/rename — rename symbol across files (F2)
 - [x] textDocument/formatting — format document on demand or on save
 - [x] textDocument/rangeFormatting — format selection
 - [x] textDocument/codeAction — source actions (organize imports, fix all) on save and via command palette
+
+## Not Implemented
 
 ### Medium Impact
 
