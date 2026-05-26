@@ -25,6 +25,15 @@ func NewTerminalPanelWidget() *TerminalPanelWidget {
 
 func (tp *TerminalPanelWidget) Focusable() bool { return true }
 
+func (tp *TerminalPanelWidget) CursorPosition() (int, int, bool) {
+	if w := tp.ActiveWidget(); w != nil {
+		if cp, ok := w.(CursorProvider); ok {
+			return cp.CursorPosition()
+		}
+	}
+	return 0, 0, false
+}
+
 func (tp *TerminalPanelWidget) WantsRawKeys() bool {
 	if w := tp.ActiveWidget(); w != nil {
 		if rk, ok := w.(RawKeyConsumer); ok {
