@@ -1,0 +1,83 @@
+---
+title: Settings
+description: Complete settings reference for TTT.
+sidebar:
+  order: 1
+---
+
+Settings are stored in `~/.config/ttt/settings.json`.
+
+## Editor
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `tabSize` | int | `4` | Number of spaces per indentation level |
+| `insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
+| `wordWrap` | bool | `false` | Wrap long lines at the editor width |
+| `lineNumbers` | bool | `true` | Show line numbers in the gutter |
+| `sidebarVisible` | bool | `true` | Show the sidebar on startup |
+| `sidebarWidth` | int | `30` | Width of the sidebar in columns |
+| `cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
+| `theme` | string | `""` | Theme name |
+| `debugMode` | bool | `false` | Enable debug logging |
+| `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+
+## Terminal
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `terminal.shell` | string | `""` | Shell command (empty uses system default) |
+| `terminal.scrollback` | int | `1000` | Number of scrollback lines to retain |
+
+## LSP
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `lsp.saveOnRename` | bool | `false` | Auto-save files affected by a rename operation |
+| `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
+| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...] }` |
+
+## Autocomplete
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `autocomplete.enabled` | bool | `true` | Enable LSP-powered autocompletion |
+| `autocomplete.autoSuggest` | bool | `true` | Show completions automatically as you type |
+| `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
+| `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
+
+## Full Example
+
+```json
+{
+  "tabSize": 4,
+  "insertSpaces": true,
+  "wordWrap": false,
+  "lineNumbers": true,
+  "sidebarVisible": true,
+  "sidebarWidth": 30,
+  "theme": "default-dark",
+  "formatOnSave": true,
+  "terminal": {
+    "shell": "/bin/zsh",
+    "scrollback": 1000
+  },
+  "lsp": {
+    "saveOnRename": true,
+    "codeActionsOnSave": [
+      "source.organizeImports",
+      "source.fixAll"
+    ],
+    "servers": {
+      "go": { "command": ["gopls"] },
+      "typescript": { "command": ["typescript-language-server", "--stdio"] }
+    }
+  },
+  "autocomplete": {
+    "enabled": true,
+    "autoSuggest": true,
+    "debounce": 150,
+    "signatureHelp": true
+  }
+}
+```

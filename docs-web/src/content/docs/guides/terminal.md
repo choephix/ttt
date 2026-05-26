@@ -1,0 +1,46 @@
+---
+title: Integrated Terminal
+description: Built-in terminal emulator in TTT.
+---
+
+TTT includes a built-in terminal emulator. Press **Ctrl+`** to toggle the terminal panel.
+
+## Usage
+
+- **Ctrl+K T** to spawn a new terminal tab
+- Multiple terminal tabs with a vertical inner tab bar on the left edge
+- Close all terminals from the panel actions menu
+
+## Features
+
+- Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
+- 256-color rendering with direct RGB color support
+- When the terminal is focused, all keys go to the PTY except Ctrl+` (to toggle the panel)
+
+## Bottom Panel
+
+The bottom panel (**Ctrl+J** to toggle) contains three tabs:
+
+- **Terminal** for the integrated terminal
+- **Problems** listing all LSP diagnostics grouped by file; click to jump to location
+- **References** showing results from Find All References; click to jump to location
+
+## Configuration
+
+Terminal settings in `settings.json`:
+
+```json
+{
+  "terminal": {
+    "shell": "/bin/zsh",
+    "scrollback": 1000
+  }
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `terminal.shell` | string | `""` | Shell command (empty uses system default) |
+| `terminal.scrollback` | int | `1000` | Number of scrollback lines to retain |
+
+Terminal ANSI colors are configurable via the `terminal` field in your theme file.

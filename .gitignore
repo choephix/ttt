@@ -14,6 +14,10 @@ vendor/
 # Config (user-local, not shipped)
 .config/
 
+# Node / docs
+node_modules/
+docs-web/dist/
+
 # Editor files
 .vscode/
 .idea/
@@ -21,3 +25,4 @@ vendor/
 *.swo
 .DS_Store
 *.log
+docs-web/.astro/
