@@ -208,6 +208,12 @@ func runEventLoop(
 					app.editorGroup.GoToLine(loc.Range.Start.Line + 1)
 					app.root.SetFocus(app.editorGroup)
 				}
+			case *referencesResult:
+				if len(v.locations) > 0 {
+					app.ShowReferences(v.locations)
+				} else {
+					app.StatusNotify("No references found")
+				}
 			case *formattingResult:
 				if len(v.edits) > 0 {
 					app.ApplyTextEdits(v.edits)

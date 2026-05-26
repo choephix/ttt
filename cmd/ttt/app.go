@@ -57,6 +57,7 @@ type App struct {
 	lspCompletionItems []lsp.CompletionItem
 	autocompleteTimer  *time.Timer
 	problems           *ui.ProblemsWidget
+	references         *ui.ReferencesWidget
 	allDiagnostics     map[string][]ui.Diagnostic
 }
 
@@ -593,6 +594,53 @@ func (a *App) FormatOnSave(path, lang string) {
 	}
 	if len(edits) > 0 {
 		a.ApplyTextEdits(edits)
+	}
+}
+
+func (a *App) RequestReferences(path, lang string, line, col int) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		locs, err := client.References(fileURI(path), line, col, true)
+		if err != nil {
+			slog.Error("lsp references", "err", err)
+			return
+		}
+		if len(locs) > 0 {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&referencesResult{locations: locs}))
+		} else {
+			a.screen.PostEvent(tcell.NewEventInterrupt(&referencesResult{}))
+		}
+	}()
+}
+
+func (a *App) ShowReferences(locs []lsp.Location) {
+	items := make([]ui.ReferenceItem, 0, len(locs))
+	for _, loc := range locs {
+		path := uriToPath(loc.URI)
+		text := readLineFromFile(path, loc.Range.Start.Line)
+		items = append(items, ui.ReferenceItem{
+			File: path,
+			Line: loc.Range.Start.Line,
+			Col:  loc.Range.Start.Character,
+			Text: strings.TrimSpace(text),
+		})
+	}
+	a.references.SetItems(items)
+	a.bottomPanel.SetActivePanel("references")
+	if !a.contentSplit.ShowBottom {
+		a.contentSplit.ShowBottom = true
 	}
 }
 

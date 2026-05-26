@@ -291,6 +291,25 @@ func (c *Client) locationRequest(method, uri string, line, col int) ([]Location,
 	return locs, nil
 }
 
+func (c *Client) References(uri string, line, col int, includeDeclaration bool) ([]Location, error) {
+	result, err := c.call("textDocument/references", ReferenceParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+		Context:      ReferenceContext{IncludeDeclaration: includeDeclaration},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 || string(result) == "null" {
+		return nil, nil
+	}
+	var locs []Location
+	if err := json.Unmarshal(result, &locs); err != nil {
+		return nil, fmt.Errorf("parse references result: %w", err)
+	}
+	return locs, nil
+}
+
 func (c *Client) Formatting(uri string, tabSize int, insertSpaces bool) ([]TextEdit, error) {
 	result, err := c.call("textDocument/formatting", DocumentFormattingParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},

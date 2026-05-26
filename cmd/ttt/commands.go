@@ -230,6 +230,11 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	})
 
 	reg.Register(command.Command{
+		ID: "editor.findReferences", Title: "Find All References",
+		Handler: func() { lspAction(app.RequestReferences) },
+	})
+
+	reg.Register(command.Command{
 		ID: "editor.formatDocument", Title: "Format Document",
 		Handler: func() {
 			path := app.editorGroup.ActiveFilePath()

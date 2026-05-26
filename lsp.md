@@ -20,7 +20,7 @@
 
 - [x] textDocument/publishDiagnostics — error/warning squiggles, problems panel, hover popup, status bar
 - [x] textDocument/didSave — save notifications to trigger server re-analysis
-- [ ] textDocument/references — find all references to a symbol
+- [x] textDocument/references — find all references to a symbol
 - [ ] textDocument/rename — rename symbol across files
 - [x] textDocument/formatting — format document on demand or on save
 - [x] textDocument/rangeFormatting — format selection

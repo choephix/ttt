@@ -224,7 +224,7 @@ func TestSidebarTabClick(t *testing.T) {
 }
 
 func TestBottomPanelTabClick(t *testing.T) {
-	h := newTestHarness(t, 80, 24)
+	h := newTestHarness(t, 120, 24)
 	defer h.stop()
 
 	// Add two panels to bottom panel
@@ -243,15 +243,15 @@ func TestBottomPanelTabClick(t *testing.T) {
 	panelY := h.app.bottomPanel.GetRect().Y
 	panelX := h.app.bottomPanel.GetRect().X
 
-	// Click on "Beta" tab — offset accounts for TERMINAL + PROBLEMS + Alpha tabs
-	// " TERMINAL " = 10, " PROBLEMS " = 10, " Alpha " = 7, " Beta " starts at x=27
-	h.click(panelX+28, panelY)
+	// Click on "Beta" tab — offset accounts for TERMINAL + PROBLEMS + REFERENCES + Alpha tabs
+	// " TERMINAL " = 10, " PROBLEMS " = 10, " REFERENCES " = 12, " Alpha " = 7 → Beta starts at 39
+	h.click(panelX+39, panelY)
 	if h.app.bottomPanel.ActivePanel != "test-b" {
 		t.Errorf("expected active panel 'test-b' after click, got %q", h.app.bottomPanel.ActivePanel)
 	}
 
-	// Click back on "Alpha" tab
-	h.click(panelX+22, panelY)
+	// Click back on "Alpha" tab — starts at 32
+	h.click(panelX+32, panelY)
 	if h.app.bottomPanel.ActivePanel != "test-a" {
 		t.Errorf("expected active panel 'test-a' after click, got %q", h.app.bottomPanel.ActivePanel)
 	}
@@ -266,14 +266,14 @@ func TestTabbedPanelRemovePanel(t *testing.T) {
 	h.app.bottomPanel.AddPanel("p3", "Three", newEmptyWidget())
 	h.app.bottomPanel.SetActivePanel("p2")
 
-	if h.app.bottomPanel.PanelCount() != 5 {
-		t.Fatalf("expected 5 panels, got %d", h.app.bottomPanel.PanelCount())
+	if h.app.bottomPanel.PanelCount() != 6 {
+		t.Fatalf("expected 6 panels, got %d", h.app.bottomPanel.PanelCount())
 	}
 
 	// Remove active panel, should switch to next
 	h.app.bottomPanel.RemovePanel("p2")
-	if h.app.bottomPanel.PanelCount() != 4 {
-		t.Fatalf("expected 4 panels, got %d", h.app.bottomPanel.PanelCount())
+	if h.app.bottomPanel.PanelCount() != 5 {
+		t.Fatalf("expected 5 panels, got %d", h.app.bottomPanel.PanelCount())
 	}
 	if h.app.bottomPanel.ActivePanel == "p2" {
 		t.Error("active panel should have changed after removing it")
@@ -282,8 +282,8 @@ func TestTabbedPanelRemovePanel(t *testing.T) {
 	// Remove all added panels
 	h.app.bottomPanel.RemovePanel("p1")
 	h.app.bottomPanel.RemovePanel("p3")
-	if h.app.bottomPanel.PanelCount() != 2 {
-		t.Fatalf("expected 2 panels (terminal+problems), got %d", h.app.bottomPanel.PanelCount())
+	if h.app.bottomPanel.PanelCount() != 3 {
+		t.Fatalf("expected 3 panels (terminal+problems+references), got %d", h.app.bottomPanel.PanelCount())
 	}
 }
 

@@ -81,6 +81,11 @@ func main() {
 		app.editorGroup.GoToLine(line + 1)
 		app.root.SetFocus(app.editorGroup)
 	}
+	app.references.OnNavigate = func(file string, line, col int) {
+		app.editorGroup.OpenFile(file)
+		app.editorGroup.GoToLine(line + 1)
+		app.root.SetFocus(app.editorGroup)
+	}
 
 	app.editorGroup.Editor.OnChange = func() {
 		path := app.editorGroup.ActiveFilePath()

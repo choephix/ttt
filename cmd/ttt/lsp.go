@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"os"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/lsp"
@@ -37,6 +39,25 @@ type signatureHelpResult struct {
 
 type formattingResult struct {
 	edits []lsp.TextEdit
+}
+
+type referencesResult struct {
+	locations []lsp.Location
+}
+
+func readLineFromFile(path string, line int) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for i := 0; scanner.Scan(); i++ {
+		if i == line {
+			return scanner.Text()
+		}
+	}
+	return ""
 }
 
 func fileURI(path string) string {

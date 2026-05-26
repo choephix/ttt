@@ -15,9 +15,14 @@ A fully-featured code editor that lives in the terminal. Not a simplified termin
 - **`.editorconfig` support** — indent size is picked up automatically per file
 - **Indent detection** — auto-detects indentation from file content; manual override via the status bar indent picker
 - **Mouse support** — click to position cursor, click tabs, drag sidebar/panel dividers, right-click context menus
+- **Auto-completion** — LSP-powered completions with live filtering, debounce, and auto-import support
+- **Signature help** — parameter hints shown automatically on `(` and `,`
+- **Diagnostics** — inline curly underline squiggles, problems panel, hover popup, and status bar counts
+- **Document formatting** — format document, format selection, and format-on-save via LSP (command palette)
 - **Git blame** — inline blame info for the current line shown in the status bar (author, relative time, summary)
 - **Line numbers** with current-line highlighting
-- **Integrated terminal emulator** via [vt10x](https://github.com/hinshun/vt10x) — multiple tabs, full VT escape sequence support
+- **Integrated terminal emulator** via [vt10x](https://github.com/hinshun/vt10x) — multiple tabs with vertical inner tab bar, full VT escape sequence support
+- **Bottom panel** — tabbed panel with integrated terminal and problems list
 - **Diff-based renderer** for efficient terminal updates (double-buffered cell grid)
 
 ### Multi-Folder Workspaces
@@ -103,12 +108,19 @@ Changes panel in the sidebar (Ctrl+Shift+G) with full staging workflow.
 - Delete the `>` in command mode to switch to file mode
 - Menu shortcuts resolve dynamically from your keybindings
 
+### Bottom Panel
+
+The bottom panel (Ctrl+J to toggle) contains the **Terminal** and **Problems** tabs.
+
+- **Problems tab** — lists all LSP diagnostics (errors, warnings) grouped by file; click to jump to location
+- **Terminal tab** — integrated terminal emulator (see below)
+
 ### Integrated Terminal
 
 Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
 
-- **Ctrl+Shift+`** to spawn a new terminal tab
-- Multiple terminal tabs with a `+` button and tab labels (`[>_1]`, `[>_2]`, ...)
+- **Ctrl+K T** to spawn a new terminal tab
+- Multiple terminal tabs with a vertical inner tab bar on the left edge
 - Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
 - 256-color rendering with direct RGB color support
 - When the terminal is focused, all keys go to the PTY except Ctrl+` (to toggle the panel)
@@ -144,12 +156,35 @@ The language identifier must match the language ID that TTT assigns to the file 
 | Feature | Keybinding | Description |
 |---------|-----------|-------------|
 | Autocomplete | Ctrl+U | Trigger completion at cursor position |
+| Signature Help | *(automatic)* | Parameter hints shown on `(` and `,` |
 | Go to Definition | F12 | Jump to the definition of the symbol under the cursor |
 | Go to Implementation | Shift+F12 | Jump to the implementation of the symbol under the cursor |
 | Go to Type Definition | *(command palette)* | Jump to the type definition of the symbol under the cursor |
 | Hover | Ctrl+K I | Show type information and documentation for the symbol under the cursor |
+| Format Document | *(command palette)* | Format the entire document using the language server |
+| Format Selection | *(command palette)* | Format the selected range |
+| Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
 
 Go to Type Definition is available via the command palette (Ctrl+Shift+P, then search for "Go to Type Definition").
+
+#### Auto-Completion
+
+Completions trigger automatically as you type with a configurable debounce (default 150ms, set `autocomplete.debounce` in `settings.json`). The completion list filters live as you continue typing, and supports `completionItem/resolve` for additional details and auto-imports.
+
+#### Diagnostics
+
+The LSP server publishes diagnostics (errors, warnings, hints) which are displayed as:
+
+- **Inline squiggles** — curly underlines on the affected range, colored by severity
+- **Problems panel** — a tab in the bottom panel listing all diagnostics grouped by file
+- **Hover popup** — hover over a squiggle to see the diagnostic message
+- **Status bar** — error/warning counts shown in the status bar
+
+#### Formatting
+
+- **Format Document** — formats the entire file via the language server (available from the command palette)
+- **Format Selection** — formats only the selected range (available from the command palette)
+- **Format on Save** — enable `editor.formatOnSave` in `settings.json` to auto-format when saving
 
 ### Tabs
 
@@ -237,7 +272,7 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
 | File | Purpose |
 |------|---------|
 | `keybindings.json` | Custom keybindings (VS Code key format) |
-| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, terminal, theme, lsp) |
+| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, terminal, theme, lsp, formatOnSave, autocomplete) |
 | `theme.json` | Colors and styles (or use `theme.<name>.json` for named themes) |
 
 #### Settings
@@ -251,6 +286,8 @@ Config files are loaded from `.config/` (cwd), `<exe-dir>/config/`, or `~/.confi
   "sidebarVisible": true,
   "sidebarWidth": 30,
   "theme": "default-dark",
+  "editor.formatOnSave": true,
+  "autocomplete.debounce": 150,
   "terminal": {
     "shell": "",
     "scrollback": 1000
@@ -309,8 +346,9 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | F12 | Go to definition |
 | Shift+F12 | Go to implementation |
 | Ctrl+K I | Hover info |
-| | **Terminal** |
+| | **Terminal / Bottom Panel** |
 | Ctrl+` | Toggle terminal |
+| Ctrl+J | Toggle bottom panel |
 | Ctrl+K T | New terminal tab |
 | | **Changes Panel** |
 | Space | Toggle stage/unstage file |
