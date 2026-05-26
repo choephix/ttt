@@ -833,6 +833,58 @@ func registerGitCommands(reg *command.Registry, app *App) {
 		Handler: func() { app.changes.Refresh() },
 	})
 
+	reg.Register(command.Command{
+		ID: "changes.stage", Title: "Stage File",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && !status.Staged {
+				git.Stage(dir, status.Path)
+				app.changes.Refresh()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.unstage", Title: "Unstage File",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && status.Staged {
+				git.Unstage(dir, status.Path)
+				app.changes.Refresh()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.discard", Title: "Discard Changes",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && !status.Staged {
+				msg := fmt.Sprintf("Discard changes to %s? This is irreversible.", status.Path)
+				if status.Status == "?" {
+					msg = fmt.Sprintf("Delete untracked file %s? This is irreversible.", status.Path)
+				}
+				app.ShowConfirmDialog(msg,
+					[]string{"Cancel", "Discard"},
+					[]func(){
+						func() {
+							app.DismissDialog()
+						},
+						func() {
+							app.DismissDialog()
+							if status.Status == "?" {
+								git.DiscardUntracked(dir, status.Path)
+							} else {
+								git.Discard(dir, status.Path)
+							}
+							app.changes.Refresh()
+						},
+					},
+				)
+			}
+		},
+	})
+
 	registerGitCmd := func(id, title string, ops []func(string) error, verb string) {
 		reg.Register(command.Command{
 			ID: id, Title: title,
@@ -1028,7 +1080,11 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	}
 
 	app.changes.OnRightClick = func(dir string, status git.FileStatus, sx, sy int) {
-		openContextMenu(app, reg, changesContextMenu, sx, sy)
+		if status.Staged {
+			openContextMenu(app, reg, changesContextMenuStaged, sx, sy)
+		} else {
+			openContextMenu(app, reg, changesContextMenuUnstaged, sx, sy)
+		}
 	}
 
 	app.changes.OnOpenDiff = func(dir string, status git.FileStatus) {
@@ -1083,6 +1139,21 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 			app.StatusNotify("Committed: " + message)
 			app.changes.Refresh()
 		}
+	}
+
+	app.changes.OnConfirmDiscard = func(message string, onConfirm func()) {
+		app.ShowConfirmDialog(message,
+			[]string{"Cancel", "Discard"},
+			[]func(){
+				func() {
+					app.DismissDialog()
+				},
+				func() {
+					app.DismissDialog()
+					onConfirm()
+				},
+			},
+		)
 	}
 
 	app.contentSplit.OnResize = func(height int) {

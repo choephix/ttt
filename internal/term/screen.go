@@ -66,10 +66,11 @@ const (
 
 // Cell represents a single character cell on the screen.
 type Cell struct {
-	Ch      rune
-	Style   Style
-	BgStyle Style // when non-zero, background comes from this style instead of Style
-	UlStyle Style // when non-zero, underline style+color comes from this style
+	Ch        rune
+	Style     Style
+	BgStyle   Style // when non-zero, background comes from this style instead of Style
+	UlStyle   Style // when non-zero, underline style+color comes from this style
+	Underline bool  // when true, applies underline to styled (non-Direct) cells
 
 	// Direct-style fields for terminal emulator cells.
 	// When Direct is true, Fg/Bg/Attrs are used instead of Style.

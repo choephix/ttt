@@ -46,10 +46,11 @@ type ChangesWidget struct {
 	items        []changesItem
 	multiRoot    bool
 	inputFocused bool
-	OnOpenDiff   func(dir string, status git.FileStatus)
-	OnRightClick func(dir string, status git.FileStatus, screenX, screenY int)
-	OnCommit     func(dir string, message string)
-	OnGroupMenu  func(dir string, screenX, screenY int)
+	OnOpenDiff       func(dir string, status git.FileStatus)
+	OnRightClick     func(dir string, status git.FileStatus, screenX, screenY int)
+	OnCommit         func(dir string, message string)
+	OnGroupMenu      func(dir string, screenX, screenY int)
+	OnConfirmDiscard func(message string, onConfirm func())
 }
 
 func NewChangesWidget(dirs ...string) *ChangesWidget {
@@ -312,14 +313,13 @@ func (c *ChangesWidget) renderSectionHeader(surface *RenderSurface, y, w int, st
 		x++
 	}
 
-	var actionCh rune
-	if item.staged {
-		actionCh = '−'
-	} else {
-		actionCh = '+'
-	}
-	if w >= 3 {
-		surface.SetCell(w-2, y, term.Cell{Ch: actionCh, Style: labelStyle})
+	if w >= 5 {
+		if item.staged {
+			surface.SetCell(w-2, y, term.Cell{Ch: '−', Style: labelStyle})
+		} else {
+			surface.SetCell(w-4, y, term.Cell{Ch: '+', Style: labelStyle})
+			surface.SetCell(w-2, y, term.Cell{Ch: '✕', Style: labelStyle})
+		}
 	}
 }
 
@@ -350,12 +350,23 @@ func (c *ChangesWidget) renderFile(surface *RenderSurface, y, w int, style term.
 		x++
 	}
 
+	maxPathX := w - 4
 	for _, ch := range f.Path {
-		if x >= w {
+		if x >= maxPathX {
 			break
 		}
 		surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
 		x++
+	}
+
+	if item.staged {
+		if w >= 3 {
+			surface.SetCell(w-2, y, term.Cell{Ch: '−', Style: style})
+		}
+	} else {
+		if w >= 3 {
+			surface.SetCell(w-2, y, term.Cell{Ch: '✕', Style: style})
+		}
 	}
 }
 
@@ -449,19 +460,21 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 					}
 					return EventConsumed
 				}
-				if item.kind == itemSection && mx >= r.X+r.W-3 {
-					c.Selected = idx
-					g := &c.Groups[item.groupIndex]
-					if item.staged {
-						for _, f := range g.Staged {
-							git.Unstage(g.Dir, f.Path)
-						}
-					} else {
-						for _, f := range g.Unstaged {
-							git.Stage(g.Dir, f.Path)
-						}
+				if item.kind == itemSection {
+					if !item.staged && mx >= r.X+r.W-5 && mx < r.X+r.W-3 {
+						c.Selected = idx
+						c.handleSectionStageAll(item)
+						return EventConsumed
 					}
-					c.Refresh()
+					if mx >= r.X+r.W-3 {
+						c.Selected = idx
+						c.handleSectionAction(item)
+						return EventConsumed
+					}
+				}
+				if item.kind == itemFile && mx >= r.X+r.W-3 {
+					c.Selected = idx
+					c.handleFileAction(item)
 					return EventConsumed
 				}
 			}
@@ -496,6 +509,12 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'u' || tev.Rune() == 'U'):
 			c.unstageAll()
 			return EventConsumed
+		case tev.Key() == tcell.KeyRune && tev.Rune() == 'd':
+			c.discardSelected()
+			return EventConsumed
+		case tev.Key() == tcell.KeyRune && tev.Rune() == 'D':
+			c.discardAllInGroup()
+			return EventConsumed
 		}
 	}
 	return EventIgnored
@@ -521,6 +540,31 @@ func (c *ChangesWidget) unstageAll() {
 		}
 	}
 	c.Refresh()
+}
+
+func (c *ChangesWidget) discardSelected() {
+	if c.Selected < 0 || c.Selected >= len(c.items) {
+		return
+	}
+	item := c.items[c.Selected]
+	if item.kind != itemFile || item.staged {
+		return
+	}
+	g := c.Groups[item.groupIndex]
+	f := g.Unstaged[item.fileIndex]
+	c.confirmDiscard(g.Dir, f)
+}
+
+func (c *ChangesWidget) discardAllInGroup() {
+	if c.Selected < 0 || c.Selected >= len(c.items) {
+		return
+	}
+	item := c.items[c.Selected]
+	gi := item.groupIndex
+	if len(c.Groups[gi].Unstaged) == 0 {
+		return
+	}
+	c.confirmDiscardAll(gi)
 }
 
 func (c *ChangesWidget) stageAll() {
@@ -557,4 +601,72 @@ func (c *ChangesWidget) activateSelected() {
 			c.OnOpenDiff(dir, status)
 		}
 	}
+}
+
+func (c *ChangesWidget) handleSectionAction(item changesItem) {
+	g := &c.Groups[item.groupIndex]
+	if item.staged {
+		for _, f := range g.Staged {
+			git.Unstage(g.Dir, f.Path)
+		}
+		c.Refresh()
+	} else {
+		c.confirmDiscardAll(item.groupIndex)
+	}
+}
+
+func (c *ChangesWidget) handleSectionStageAll(item changesItem) {
+	g := &c.Groups[item.groupIndex]
+	for _, f := range g.Unstaged {
+		git.Stage(g.Dir, f.Path)
+	}
+	c.Refresh()
+}
+
+func (c *ChangesWidget) handleFileAction(item changesItem) {
+	g := c.Groups[item.groupIndex]
+	if item.staged {
+		f := g.Staged[item.fileIndex]
+		git.Unstage(g.Dir, f.Path)
+		c.Refresh()
+	} else {
+		f := g.Unstaged[item.fileIndex]
+		c.confirmDiscard(g.Dir, f)
+	}
+}
+
+func (c *ChangesWidget) confirmDiscard(dir string, f git.FileStatus) {
+	if c.OnConfirmDiscard == nil {
+		return
+	}
+	msg := fmt.Sprintf("Discard changes to %s? This is irreversible.", f.Path)
+	if f.Status == "?" {
+		msg = fmt.Sprintf("Delete untracked file %s? This is irreversible.", f.Path)
+	}
+	c.OnConfirmDiscard(msg, func() {
+		if f.Status == "?" {
+			git.DiscardUntracked(dir, f.Path)
+		} else {
+			git.Discard(dir, f.Path)
+		}
+		c.Refresh()
+	})
+}
+
+func (c *ChangesWidget) confirmDiscardAll(gi int) {
+	if c.OnConfirmDiscard == nil {
+		return
+	}
+	g := c.Groups[gi]
+	msg := fmt.Sprintf("Discard all %d changes? This is irreversible.", len(g.Unstaged))
+	c.OnConfirmDiscard(msg, func() {
+		for _, f := range g.Unstaged {
+			if f.Status == "?" {
+				git.DiscardUntracked(g.Dir, f.Path)
+			} else {
+				git.Discard(g.Dir, f.Path)
+			}
+		}
+		c.Refresh()
+	})
 }

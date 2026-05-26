@@ -1063,6 +1063,8 @@ func (a *App) ShowConfirmDialog(message string, buttons []string, callbacks []fu
 	var dialog *ui.ConfirmDialogWidget
 	if len(buttons) == 3 {
 		dialog = ui.NewConfirmDialogWidget3(message, buttons[0], buttons[1], buttons[2])
+	} else if len(buttons) == 2 {
+		dialog = ui.NewConfirmDialogWidget2(message, buttons[0], buttons[1])
 	} else {
 		dialog = ui.NewConfirmDialogWidget(message)
 	}

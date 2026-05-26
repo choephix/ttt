@@ -75,6 +75,23 @@ func Unstage(dir, path string) error {
 	return nil
 }
 
+func Discard(dir, path string) error {
+	cmd := exec.Command("git", "-C", dir, "checkout", "--", path)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func DiscardUntracked(dir, path string) error {
+	absPath := filepath.Join(dir, path)
+	cmd := exec.Command("rm", "-f", absPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func Commit(dir, message string) error {
 	cmd := exec.Command("git", "-C", dir, "commit", "-m", message)
 	if out, err := cmd.CombinedOutput(); err != nil {

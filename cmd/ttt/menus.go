@@ -89,9 +89,19 @@ var editorContextMenu = []ui.ContextMenuItem{
 	{Label: "Go to Line", Command: "editor.goToLine"},
 }
 
-var changesContextMenu = []ui.ContextMenuItem{
+var changesContextMenuStaged = []ui.ContextMenuItem{
 	{Label: "Open Diff", Command: "changes.openDiff"},
 	{Label: "Open File", Command: "changes.openFile"},
+	ui.MenuSep(),
+	{Label: "Unstage", Command: "changes.unstage"},
+}
+
+var changesContextMenuUnstaged = []ui.ContextMenuItem{
+	{Label: "Open Diff", Command: "changes.openDiff"},
+	{Label: "Open File", Command: "changes.openFile"},
+	ui.MenuSep(),
+	{Label: "Stage", Command: "changes.stage"},
+	{Label: "Discard Changes", Command: "changes.discard"},
 }
 
 func resolveShortcuts(reg *command.Registry, items []ui.ContextMenuItem) []ui.ContextMenuItem {

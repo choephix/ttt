@@ -88,6 +88,9 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 		us := t.styleMap[c.UlStyle]
 		s = s.Underline(us.GetUnderlineStyle(), us.GetUnderlineColor())
 	}
+	if c.Underline {
+		s = s.Underline(true)
+	}
 	t.scr.SetContent(x, y, c.Ch, nil, s)
 }
 

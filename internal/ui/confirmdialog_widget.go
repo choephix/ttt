@@ -26,6 +26,15 @@ func NewConfirmDialogWidget(message string) *ConfirmDialogWidget {
 	}
 }
 
+func NewConfirmDialogWidget2(message, btn0, btn1 string) *ConfirmDialogWidget {
+	return &ConfirmDialogWidget{
+		Message:  message,
+		Buttons:  []string{btn0, btn1},
+		OnButton: make([]func(), 2),
+		Selected: 0,
+	}
+}
+
 func NewConfirmDialogWidget3(message, btn0, btn1, btn2 string) *ConfirmDialogWidget {
 	return &ConfirmDialogWidget{
 		Message:  message,
@@ -89,10 +98,16 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 		if d.Selected == i {
 			style = term.StylePaletteSelected
 		}
-		labelW := len([]rune(label))
-		d.btnHits[i] = HitRegion{X: bx, Y: btnY, W: labelW}
-		surface.DrawText(bx, btnY, label, 0, style)
-		bx += labelW
+		labelRunes := []rune(label)
+		d.btnHits[i] = HitRegion{X: bx, Y: btnY, W: len(labelRunes)}
+		for j, ch := range labelRunes {
+			cell := term.Cell{Ch: ch, Style: style}
+			if j == 1 {
+				cell.Underline = true
+			}
+			surface.SetCell(bx+j, btnY, cell)
+		}
+		bx += len(labelRunes)
 		if i < len(labels)-1 {
 			bx += 2
 		}
