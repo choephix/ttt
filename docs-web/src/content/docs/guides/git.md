@@ -5,13 +5,22 @@ description: Source control features built into TTT.
 
 The changes panel in the sidebar (**Ctrl+K C**) provides a full staging workflow.
 
-## Staging
+## Staging & Unstaging
 
 - **Spacebar** toggles stage/unstage on the selected file
 - **`a`** stages all unstaged files
 - **`u`** unstages all staged files
-- **`+` button** on the "Changes" section header stages all files in that section
-- **`-` button** on the "Staged" section header unstages all files in that section
+- **`+` button** on each unstaged file stages that file
+- **`−` button** on each staged file unstages that file
+- **`+` button** on the "Changes" section header stages all files
+- **`−` button** on the "Staged" section header unstages all files
+
+## Discarding Changes
+
+- **`d`** discards changes to the selected unstaged file (with confirmation)
+- **`D`** discards all unstaged changes in the current group (with confirmation)
+- **`✕` button** on the "Changes" section header discards all unstaged changes
+- Untracked files are deleted; modified files are restored to HEAD
 
 ## Committing
 

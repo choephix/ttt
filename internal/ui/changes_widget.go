@@ -77,6 +77,9 @@ func (c *ChangesWidget) Refresh() {
 	}
 	c.Groups = nil
 	for _, dir := range c.Dirs {
+		if root := git.RepoRoot(dir); root != "" {
+			dir = root
+		}
 		files, err := git.StatusFiles(dir)
 		if err != nil {
 			files = nil
@@ -317,8 +320,8 @@ func (c *ChangesWidget) renderSectionHeader(surface *RenderSurface, y, w int, st
 		if item.staged {
 			surface.SetCell(w-2, y, term.Cell{Ch: '−', Style: labelStyle})
 		} else {
-			surface.SetCell(w-4, y, term.Cell{Ch: '+', Style: labelStyle})
-			surface.SetCell(w-2, y, term.Cell{Ch: '✕', Style: labelStyle})
+			surface.SetCell(w-4, y, term.Cell{Ch: '✕', Style: labelStyle})
+			surface.SetCell(w-2, y, term.Cell{Ch: '+', Style: labelStyle})
 		}
 	}
 }
@@ -365,7 +368,7 @@ func (c *ChangesWidget) renderFile(surface *RenderSurface, y, w int, style term.
 		}
 	} else {
 		if w >= 3 {
-			surface.SetCell(w-2, y, term.Cell{Ch: '✕', Style: style})
+			surface.SetCell(w-2, y, term.Cell{Ch: '+', Style: style})
 		}
 	}
 }
@@ -463,12 +466,16 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 				if item.kind == itemSection {
 					if !item.staged && mx >= r.X+r.W-5 && mx < r.X+r.W-3 {
 						c.Selected = idx
-						c.handleSectionStageAll(item)
+						c.handleSectionAction(item)
 						return EventConsumed
 					}
 					if mx >= r.X+r.W-3 {
 						c.Selected = idx
-						c.handleSectionAction(item)
+						if item.staged {
+							c.handleSectionAction(item)
+						} else {
+							c.handleSectionStageAll(item)
+						}
 						return EventConsumed
 					}
 				}
@@ -628,11 +635,11 @@ func (c *ChangesWidget) handleFileAction(item changesItem) {
 	if item.staged {
 		f := g.Staged[item.fileIndex]
 		git.Unstage(g.Dir, f.Path)
-		c.Refresh()
 	} else {
 		f := g.Unstaged[item.fileIndex]
-		c.confirmDiscard(g.Dir, f)
+		git.Stage(g.Dir, f.Path)
 	}
+	c.Refresh()
 }
 
 func (c *ChangesWidget) confirmDiscard(dir string, f git.FileStatus) {
