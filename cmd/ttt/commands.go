@@ -256,7 +256,31 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.formatDocument", Title: "Format Document",
+		ID: "editor.organizeImports", Title: "Source Action: Organize Imports",
+		Handler: func() {
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			app.RequestCodeAction(path, lang, "source.organizeImports")
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.fixAll", Title: "Source Action: Fix All",
+		Handler: func() {
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			app.RequestCodeAction(path, lang, "source.fixAll")
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.formatDocument", Title: "Source Action: Format Document",
 		Handler: func() {
 			path := app.editorGroup.ActiveFilePath()
 			lang := ""
@@ -268,7 +292,7 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.formatSelection", Title: "Format Selection",
+		ID: "editor.formatSelection", Title: "Source Action: Format Selection",
 		Handler: func() {
 			if app.editorGroup.Editor == nil {
 				return
@@ -365,9 +389,12 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 		ID: "file.save", Title: "Save File",
 		Handler: func() {
 			path := app.editorGroup.ActiveFilePath()
-			if app.settings.FormatOnSave && app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
 				lang := app.editorGroup.Editor.Highlighter.Language()
-				app.FormatOnSave(path, lang)
+				app.RunCodeActionsOnSave(path, lang)
+				if app.settings.FormatOnSave {
+					app.FormatOnSave(path, lang)
+				}
 			}
 			if !app.editorGroup.Save() {
 				saveAs()

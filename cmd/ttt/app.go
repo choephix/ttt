@@ -576,6 +576,80 @@ func (a *App) RequestRangeFormatting(path, lang string, startLine, startCol, end
 	}()
 }
 
+func (a *App) RunCodeActionsOnSave(path, lang string) {
+	if len(a.settings.LSP.CodeActionsOnSave) == 0 {
+		return
+	}
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+	if err != nil {
+		return
+	}
+	lineCount := 0
+	if a.editorGroup.Editor != nil {
+		lineCount = len(a.editorGroup.Editor.Buf.Lines)
+	}
+	fullRange := lsp.Range{
+		Start: lsp.Position{Line: 0, Character: 0},
+		End:   lsp.Position{Line: lineCount, Character: 0},
+	}
+	actions, err := client.CodeAction(fileURI(path), fullRange, a.settings.LSP.CodeActionsOnSave)
+	if err != nil {
+		slog.Error("lsp codeActionsOnSave", "err", err)
+		return
+	}
+	for _, action := range actions {
+		if action.Edit != nil && len(action.Edit.Changes) > 0 {
+			for uri, edits := range action.Edit.Changes {
+				if uriToPath(uri) == path {
+					a.ApplyTextEdits(edits)
+				}
+			}
+		}
+	}
+}
+
+func (a *App) RequestCodeAction(path, lang, kind string) {
+	langKey, ok := a.lspReady(lang)
+	if !ok {
+		if lang != "" {
+			a.StatusWarn(lang + " language server is not configured")
+		}
+		return
+	}
+	workDir := a.lspWorkDir(path)
+	go func() {
+		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			return
+		}
+		lineCount := 0
+		if a.editorGroup.Editor != nil {
+			lineCount = len(a.editorGroup.Editor.Buf.Lines)
+		}
+		fullRange := lsp.Range{
+			Start: lsp.Position{Line: 0, Character: 0},
+			End:   lsp.Position{Line: lineCount, Character: 0},
+		}
+		actions, err := client.CodeAction(fileURI(path), fullRange, []string{kind})
+		if err != nil {
+			slog.Error("lsp codeAction", "err", err)
+			return
+		}
+		for _, action := range actions {
+			if action.Edit != nil && len(action.Edit.Changes) > 0 {
+				a.screen.PostEvent(tcell.NewEventInterrupt(&formattingResult{edits: action.Edit.Changes[fileURI(path)]}))
+				return
+			}
+		}
+	}()
+}
+
 func (a *App) FormatOnSave(path, lang string) {
 	langKey, ok := a.lspReady(lang)
 	if !ok {

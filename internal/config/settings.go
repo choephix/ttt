@@ -37,8 +37,9 @@ type LSPServerConfig struct {
 }
 
 type LSPSettings struct {
-	Servers      map[string]LSPServerConfig `json:"servers,omitempty"`
-	SaveOnRename bool                       `json:"saveOnRename"`
+	Servers          map[string]LSPServerConfig `json:"servers,omitempty"`
+	SaveOnRename     bool                       `json:"saveOnRename"`
+	CodeActionsOnSave []string                  `json:"codeActionsOnSave,omitempty"`
 }
 
 type Settings struct {

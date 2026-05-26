@@ -24,7 +24,7 @@
 - [x] textDocument/rename — rename symbol across files
 - [x] textDocument/formatting — format document on demand or on save
 - [x] textDocument/rangeFormatting — format selection
-- [ ] textDocument/codeAction — quick fixes, auto-fix imports, refactorings
+- [x] textDocument/codeAction — source actions (organize imports, fix all) on save and via command palette
 
 ### Medium Impact
 

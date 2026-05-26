@@ -159,6 +159,24 @@ type WorkspaceEdit struct {
 	Changes map[string][]TextEdit `json:"changes,omitempty"`
 }
 
+type CodeActionContext struct {
+	Diagnostics []Diagnostic `json:"diagnostics"`
+	Only        []string     `json:"only,omitempty"`
+}
+
+type CodeActionParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+	Context      CodeActionContext      `json:"context"`
+}
+
+type CodeAction struct {
+	Title       string         `json:"title"`
+	Kind        string         `json:"kind,omitempty"`
+	Edit        *WorkspaceEdit `json:"edit,omitempty"`
+	Diagnostics []Diagnostic   `json:"diagnostics,omitempty"`
+}
+
 type CompletionParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
 	Position     Position               `json:"position"`

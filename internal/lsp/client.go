@@ -291,6 +291,25 @@ func (c *Client) locationRequest(method, uri string, line, col int) ([]Location,
 	return locs, nil
 }
 
+func (c *Client) CodeAction(uri string, r Range, kinds []string) ([]CodeAction, error) {
+	result, err := c.call("textDocument/codeAction", CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range:        r,
+		Context:      CodeActionContext{Only: kinds},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 || string(result) == "null" {
+		return nil, nil
+	}
+	var actions []CodeAction
+	if err := json.Unmarshal(result, &actions); err != nil {
+		return nil, fmt.Errorf("parse codeAction result: %w", err)
+	}
+	return actions, nil
+}
+
 func (c *Client) Rename(uri string, line, col int, newName string) (*WorkspaceEdit, error) {
 	result, err := c.call("textDocument/rename", RenameParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},

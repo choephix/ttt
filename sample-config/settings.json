@@ -11,7 +11,8 @@
     "scrollback": 1000
   },
   "lsp": {
-    "saveOnRename": false
+    "saveOnRename": false,
+    "codeActionsOnSave": ["source.organizeImports"]
   },
   "autocomplete": {
     "enabled": true,
