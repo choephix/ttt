@@ -227,6 +227,9 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			tw.scrollDown(3)
 			return EventConsumed
 		}
+		if btn&tcell.Button1 != 0 {
+			return EventConsumed
+		}
 		return EventIgnored
 	}
 
