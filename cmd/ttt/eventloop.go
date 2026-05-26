@@ -15,7 +15,7 @@ import (
 
 type blameResult struct {
 	gen  int
-	info *git.BlameInfo
+ info *git.BlameInfo
 }
 
 func runEventLoop(

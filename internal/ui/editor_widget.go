@@ -561,12 +561,12 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventIgnored
 		}
 	case tcell.KeyBacktab:
+		tabSize := e.TabSize
+		if tabSize <= 0 {
+			tabSize = 4
+		}
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-			tabSize := e.TabSize
-			if tabSize <= 0 {
-				tabSize = 4
-			}
 			for line := start.Line; line <= end.Line; line++ {
 				runes := []rune(e.Buf.Lines[line])
 				remove := 0
@@ -578,6 +578,22 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 						StartLine: line, StartCol: 0,
 						EndLine: line, EndCol: remove,
 					})
+				}
+			}
+		} else {
+			runes := []rune(e.Buf.Lines[e.Cursor.Line])
+			remove := 0
+			for remove < tabSize && remove < len(runes) && runes[remove] == ' ' {
+				remove++
+			}
+			if remove > 0 {
+				e.exec(&undo.DeleteSelectionCommand{
+					StartLine: e.Cursor.Line, StartCol: 0,
+					EndLine: e.Cursor.Line, EndCol: remove,
+				})
+				e.Cursor.Col -= remove
+				if e.Cursor.Col < 0 {
+					e.Cursor.Col = 0
 				}
 			}
 		}
