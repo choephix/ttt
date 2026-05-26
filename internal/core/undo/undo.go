@@ -183,6 +183,40 @@ func (c *InsertLineCommand) Undo(b *buffer.Buffer) {
 	b.DeleteLine(c.Idx)
 }
 
+type DeleteLineCommand struct {
+	Idx  int
+	Text string
+}
+
+func (c *DeleteLineCommand) Apply(b *buffer.Buffer) {
+	if c.Idx < 0 || c.Idx >= len(b.Lines) {
+		return
+	}
+	c.Text = b.Lines[c.Idx]
+	b.DeleteLine(c.Idx)
+	b.Dirty = true
+}
+
+func (c *DeleteLineCommand) Undo(b *buffer.Buffer) {
+	b.InsertLine(c.Idx, c.Text)
+}
+
+type SwapLineCommand struct {
+	Line1, Line2 int
+}
+
+func (c *SwapLineCommand) Apply(b *buffer.Buffer) {
+	if c.Line1 < 0 || c.Line2 < 0 || c.Line1 >= len(b.Lines) || c.Line2 >= len(b.Lines) {
+		return
+	}
+	b.Lines[c.Line1], b.Lines[c.Line2] = b.Lines[c.Line2], b.Lines[c.Line1]
+	b.Dirty = true
+}
+
+func (c *SwapLineCommand) Undo(b *buffer.Buffer) {
+	c.Apply(b)
+}
+
 // InsertStringCommand implements EditCommand for inserting multiple runes (e.g. tab spaces).
 type InsertStringCommand struct {
 	Line, Col int

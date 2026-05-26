@@ -413,7 +413,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case tcell.KeyHome:
 		e.startOrExtendSelection(shift)
-		e.Cursor.Col = 0
+		e.SmartHome()
 	case tcell.KeyEnd:
 		e.startOrExtendSelection(shift)
 		e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
@@ -806,4 +806,212 @@ func (e *EditorPaneWidget) scrollViewport() {
 	if e.Cursor.Col >= e.Viewport.LeftCol+e.Viewport.Width {
 		e.Viewport.LeftCol = e.Cursor.Col - e.Viewport.Width + 1
 	}
+}
+
+func isEditorIdentRune(r rune) bool {
+	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+}
+
+func (e *EditorPaneWidget) MoveLineUp() {
+	hasSel := e.Selection != nil && e.Selection.Active
+	if hasSel {
+		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+		if start.Line <= 0 {
+			return
+		}
+		for line := start.Line; line <= end.Line; line++ {
+			e.exec(&undo.SwapLineCommand{Line1: line, Line2: line - 1})
+		}
+		e.Cursor.Line--
+		e.Selection.Anchor.Line--
+	} else {
+		if e.Cursor.Line <= 0 {
+			return
+		}
+		e.exec(&undo.SwapLineCommand{Line1: e.Cursor.Line, Line2: e.Cursor.Line - 1})
+		e.Cursor.Line--
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) MoveLineDown() {
+	hasSel := e.Selection != nil && e.Selection.Active
+	if hasSel {
+		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+		if end.Line >= len(e.Buf.Lines)-1 {
+			return
+		}
+		for line := end.Line; line >= start.Line; line-- {
+			e.exec(&undo.SwapLineCommand{Line1: line, Line2: line + 1})
+		}
+		e.Cursor.Line++
+		e.Selection.Anchor.Line++
+	} else {
+		if e.Cursor.Line >= len(e.Buf.Lines)-1 {
+			return
+		}
+		e.exec(&undo.SwapLineCommand{Line1: e.Cursor.Line, Line2: e.Cursor.Line + 1})
+		e.Cursor.Line++
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) DuplicateLine() {
+	text := e.Buf.Lines[e.Cursor.Line]
+	e.exec(&undo.InsertLineCommand{Idx: e.Cursor.Line + 1, Text: text})
+	e.Cursor.Line++
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) DeleteLine() {
+	if len(e.Buf.Lines) <= 1 {
+		e.exec(&undo.DeleteSelectionCommand{
+			StartLine: 0, StartCol: 0,
+			EndLine: 0, EndCol: len([]rune(e.Buf.Lines[0])),
+		})
+		e.Cursor.Col = 0
+	} else {
+		e.exec(&undo.DeleteLineCommand{Idx: e.Cursor.Line})
+		if e.Cursor.Line >= len(e.Buf.Lines) {
+			e.Cursor.Line = len(e.Buf.Lines) - 1
+		}
+	}
+	lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+	if e.Cursor.Col > lineLen {
+		e.Cursor.Col = lineLen
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) InsertLineBelow() {
+	e.exec(&undo.InsertLineCommand{Idx: e.Cursor.Line + 1, Text: ""})
+	e.Cursor.Line++
+	e.Cursor.Col = 0
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) InsertLineAbove() {
+	e.exec(&undo.InsertLineCommand{Idx: e.Cursor.Line, Text: ""})
+	e.Cursor.Col = 0
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) ToggleLineComment() {
+	prefix := "//"
+	if e.Highlighter != nil {
+		lang := strings.ToLower(e.Highlighter.Language())
+		switch lang {
+		case "python", "ruby", "bash", "shell", "yaml", "toml":
+			prefix = "#"
+		case "lua", "sql":
+			prefix = "--"
+		case "html", "xml":
+			prefix = "<!--"
+		}
+	}
+	line := e.Cursor.Line
+	runes := []rune(e.Buf.Lines[line])
+	trimmed := strings.TrimLeft(string(runes), " \t")
+	if strings.HasPrefix(trimmed, prefix) {
+		indent := len(runes) - len([]rune(trimmed))
+		removeLen := len([]rune(prefix))
+		if indent+removeLen < len(runes) && runes[indent+removeLen] == ' ' {
+			removeLen++
+		}
+		e.exec(&undo.DeleteSelectionCommand{
+			StartLine: line, StartCol: indent,
+			EndLine: line, EndCol: indent + removeLen,
+		})
+		e.Cursor.Col -= removeLen
+		if e.Cursor.Col < 0 {
+			e.Cursor.Col = 0
+		}
+	} else {
+		indent := len(runes) - len([]rune(trimmed))
+		e.exec(&undo.InsertStringCommand{Line: line, Col: indent, Text: prefix + " "})
+		e.Cursor.Col += len([]rune(prefix)) + 1
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) DeleteWordLeft() {
+	if e.Cursor.Col == 0 {
+		return
+	}
+	runes := []rune(e.Buf.Lines[e.Cursor.Line])
+	end := e.Cursor.Col
+	start := end - 1
+	if start >= len(runes) {
+		start = len(runes) - 1
+	}
+	if unicode.IsSpace(runes[start]) {
+		for start > 0 && unicode.IsSpace(runes[start-1]) {
+			start--
+		}
+	} else if isEditorIdentRune(runes[start]) {
+		for start > 0 && isEditorIdentRune(runes[start-1]) {
+			start--
+		}
+	} else {
+		for start > 0 && !isEditorIdentRune(runes[start-1]) && !unicode.IsSpace(runes[start-1]) {
+			start--
+		}
+	}
+	e.exec(&undo.DeleteSelectionCommand{
+		StartLine: e.Cursor.Line, StartCol: start,
+		EndLine: e.Cursor.Line, EndCol: end,
+	})
+	e.Cursor.Col = start
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) DeleteWordRight() {
+	runes := []rune(e.Buf.Lines[e.Cursor.Line])
+	if e.Cursor.Col >= len(runes) {
+		return
+	}
+	start := e.Cursor.Col
+	end := start
+	if unicode.IsSpace(runes[end]) {
+		for end < len(runes) && unicode.IsSpace(runes[end]) {
+			end++
+		}
+	} else if isEditorIdentRune(runes[end]) {
+		for end < len(runes) && isEditorIdentRune(runes[end]) {
+			end++
+		}
+	} else {
+		for end < len(runes) && !isEditorIdentRune(runes[end]) && !unicode.IsSpace(runes[end]) {
+			end++
+		}
+	}
+	e.exec(&undo.DeleteSelectionCommand{
+		StartLine: e.Cursor.Line, StartCol: start,
+		EndLine: e.Cursor.Line, EndCol: end,
+	})
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) SmartHome() {
+	runes := []rune(e.Buf.Lines[e.Cursor.Line])
+	firstNonSpace := 0
+	for firstNonSpace < len(runes) && (runes[firstNonSpace] == ' ' || runes[firstNonSpace] == '\t') {
+		firstNonSpace++
+	}
+	if e.Cursor.Col == firstNonSpace {
+		e.Cursor.Col = 0
+	} else {
+		e.Cursor.Col = firstNonSpace
+	}
+	e.clampCursor()
+	e.scrollViewport()
 }

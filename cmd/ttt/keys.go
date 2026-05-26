@@ -70,5 +70,9 @@ func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
 		return key, mod, 0
 	}
 
+	if combo.Ctrl && combo.Rune == '/' {
+		return tcell.KeyCtrlUnderscore, mod, 0
+	}
+
 	return tcell.KeyRune, mod, combo.Rune
 }

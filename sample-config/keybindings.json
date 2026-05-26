@@ -36,5 +36,14 @@
   { "key": "alt+e", "command": "menu.edit" },
   { "key": "alt+s", "command": "menu.selection" },
   { "key": "alt+v", "command": "menu.view" },
-  { "key": "alt+h", "command": "menu.help" }
+  { "key": "alt+h", "command": "menu.help" },
+  { "key": "alt+up", "command": "editor.moveLineUp" },
+  { "key": "alt+down", "command": "editor.moveLineDown" },
+  { "key": "alt+shift+up", "command": "editor.duplicateLine" },
+  { "key": "alt+shift+down", "command": "editor.duplicateLine" },
+  { "key": "ctrl+k k", "command": "editor.deleteLine" },
+  { "key": "ctrl+enter", "command": "editor.insertLineBelow" },
+  { "key": "alt+backspace", "command": "editor.deleteWordLeft" },
+  { "key": "alt+delete", "command": "editor.deleteWordRight" },
+  { "key": "ctrl+delete", "command": "editor.deleteWordRight" }
 ]

@@ -501,6 +501,60 @@ func (g *EditorGroupWidget) FindPrev() {
 	g.Editor.scrollViewport()
 }
 
+func (g *EditorGroupWidget) MoveLineUp() {
+	if g.IsEditorActive() {
+		g.Editor.MoveLineUp()
+	}
+}
+
+func (g *EditorGroupWidget) MoveLineDown() {
+	if g.IsEditorActive() {
+		g.Editor.MoveLineDown()
+	}
+}
+
+func (g *EditorGroupWidget) DuplicateLine() {
+	if g.IsEditorActive() {
+		g.Editor.DuplicateLine()
+	}
+}
+
+func (g *EditorGroupWidget) DeleteLine() {
+	if g.IsEditorActive() {
+		g.Editor.DeleteLine()
+	}
+}
+
+func (g *EditorGroupWidget) InsertLineBelow() {
+	if g.IsEditorActive() {
+		g.Editor.InsertLineBelow()
+	}
+}
+
+func (g *EditorGroupWidget) InsertLineAbove() {
+	if g.IsEditorActive() {
+		g.Editor.InsertLineAbove()
+	}
+}
+
+func (g *EditorGroupWidget) ToggleLineComment() {
+	if g.IsEditorActive() {
+		g.Editor.ToggleLineComment()
+	}
+}
+
+func (g *EditorGroupWidget) DeleteWordLeft() {
+	if g.IsEditorActive() {
+		g.Editor.DeleteWordLeft()
+	}
+}
+
+func (g *EditorGroupWidget) DeleteWordRight() {
+	if g.IsEditorActive() {
+		g.Editor.DeleteWordRight()
+	}
+}
+
 func (g *EditorGroupWidget) Copy() {
 	t := g.activeTab()
 	if t == nil || t.Content != nil || t.Sel == nil || !t.Sel.Active {

@@ -35,6 +35,15 @@ All keybindings can be customized in `~/.config/ttt/keybindings.json`.
 | Ctrl+X | `editor.cut` | Cut |
 | Ctrl+V | `editor.paste` | Paste |
 | Ctrl+G | `editor.goToLine` | Go to line |
+| Alt+Up | `editor.moveLineUp` | Move line up |
+| Alt+Down | `editor.moveLineDown` | Move line down |
+| Alt+Shift+Up | `editor.duplicateLine` | Duplicate line |
+| Alt+Shift+Down | `editor.duplicateLine` | Duplicate line |
+| Ctrl+K K | `editor.deleteLine` | Delete line |
+| Ctrl+Enter | `editor.insertLineBelow` | Insert line below |
+| Alt+Backspace | `editor.deleteWordLeft` | Delete word left |
+| Alt+Delete | `editor.deleteWordRight` | Delete word right |
+| Ctrl+Delete | `editor.deleteWordRight` | Delete word right |
 
 ## Search
 

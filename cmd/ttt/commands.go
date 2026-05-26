@@ -465,6 +465,43 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	})
 
 	reg.Register(command.Command{
+		ID: "editor.moveLineUp", Title: "Move Line Up",
+		Handler: func() { app.editorGroup.MoveLineUp() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.moveLineDown", Title: "Move Line Down",
+		Handler: func() { app.editorGroup.MoveLineDown() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.duplicateLine", Title: "Duplicate Line",
+		Handler: func() { app.editorGroup.DuplicateLine() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.deleteLine", Title: "Delete Line",
+		Handler: func() { app.editorGroup.DeleteLine() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.insertLineBelow", Title: "Insert Line Below",
+		Handler: func() { app.editorGroup.InsertLineBelow() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.insertLineAbove", Title: "Insert Line Above",
+		Handler: func() { app.editorGroup.InsertLineAbove() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.toggleComment", Title: "Toggle Line Comment",
+		Handler: func() { app.editorGroup.ToggleLineComment() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.deleteWordLeft", Title: "Delete Word Left",
+		Handler: func() { app.editorGroup.DeleteWordLeft() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.deleteWordRight", Title: "Delete Word Right",
+		Handler: func() { app.editorGroup.DeleteWordRight() },
+	})
+
+	reg.Register(command.Command{
 		ID: "editor.quit", Title: "Quit",
 		Handler: func() {
 			if !app.editorGroup.AnyDirty() || *quitPending {
