@@ -5,5 +5,18 @@
   "lineNumbers": true,
   "sidebarVisible": true,
   "sidebarWidth": 30,
-  "theme": "default"
+  "theme": "default",
+  "formatOnSave": false,
+  "terminal": {
+    "scrollback": 1000
+  },
+  "lsp": {
+    "saveOnRename": false
+  },
+  "autocomplete": {
+    "enabled": true,
+    "autoSuggest": true,
+    "debounce": 150,
+    "signatureHelp": true
+  }
 }

@@ -110,9 +110,10 @@ Changes panel in the sidebar (Ctrl+Shift+G) with full staging workflow.
 
 ### Bottom Panel
 
-The bottom panel (Ctrl+J to toggle) contains the **Terminal** and **Problems** tabs.
+The bottom panel (Ctrl+J to toggle) contains the **Terminal**, **Problems**, and **References** tabs.
 
 - **Problems tab** — lists all LSP diagnostics (errors, warnings) grouped by file; click to jump to location
+- **References tab** — shows results from Find All References; click to jump to location
 - **Terminal tab** — integrated terminal emulator (see below)
 
 ### Integrated Terminal
@@ -160,6 +161,8 @@ The language identifier must match the language ID that TTT assigns to the file 
 | Go to Definition | F12 | Jump to the definition of the symbol under the cursor |
 | Go to Implementation | Shift+F12 | Jump to the implementation of the symbol under the cursor |
 | Go to Type Definition | *(command palette)* | Jump to the type definition of the symbol under the cursor |
+| Find References | *(command palette)* | Find all references to the symbol under the cursor (results in bottom panel REFERENCES tab) |
+| Rename Symbol | F2 | Rename the symbol under the cursor across all files in the workspace |
 | Hover | Ctrl+K I | Show type information and documentation for the symbol under the cursor |
 | Format Document | *(command palette)* | Format the entire document using the language server |
 | Format Selection | *(command palette)* | Format the selected range |
@@ -185,6 +188,11 @@ The LSP server publishes diagnostics (errors, warnings, hints) which are display
 - **Format Document** — formats the entire file via the language server (available from the command palette)
 - **Format Selection** — formats only the selected range (available from the command palette)
 - **Format on Save** — enable `editor.formatOnSave` in `settings.json` to auto-format when saving
+
+#### References & Rename
+
+- **Find All References** — search for all usages of the symbol under the cursor; results appear in the bottom panel REFERENCES tab (available from the command palette)
+- **Rename Symbol** (F2) — rename the symbol under the cursor across all files in the workspace. Applies multi-file workspace edits automatically. Enable `editor.saveOnRename` in `settings.json` to auto-save affected files after renaming.
 
 ### Tabs
 
@@ -345,6 +353,7 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | Ctrl+U | Autocomplete |
 | F12 | Go to definition |
 | Shift+F12 | Go to implementation |
+| F2 | Rename symbol |
 | Ctrl+K I | Hover info |
 | | **Terminal / Bottom Panel** |
 | Ctrl+` | Toggle terminal |
