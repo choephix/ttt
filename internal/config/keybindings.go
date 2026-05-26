@@ -23,6 +23,17 @@ func (kb *KeyBinding) IsChord() bool {
 	return len(kb.Steps) > 1
 }
 
+// ForceKeyCommands are checked even when a raw key consumer (e.g. terminal) has focus.
+var ForceKeyCommands = map[string]bool{
+	"panel.toggle":    true,
+	"terminal.toggle": true,
+	"editor.quit":     true,
+	"command.palette": true,
+	"file.quickOpen":  true,
+	"sidebar.focus":   true,
+	"terminal.new":    true,
+}
+
 func ParseKeyBindings(bindings []KeyBinding) error {
 	var firstErr error
 	for i := range bindings {

@@ -1136,12 +1136,6 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	}
 }
 
-// Commands that work even when terminal has raw key focus.
-var forceKeyCommands = map[string]bool{
-	"panel.toggle":    true,
-	"terminal.toggle": true,
-	"quit":            true,
-}
 
 func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBinding) {
 	for _, kb := range keybindings {
@@ -1163,7 +1157,7 @@ func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBind
 			key, mod, rn := comboToTcell(kb.Steps[0])
 			handler := func() { reg.Execute(cmdID) }
 			root.AddGlobalKey(key, mod, rn, handler)
-			if forceKeyCommands[cmdID] {
+			if config.ForceKeyCommands[cmdID] {
 				root.AddForceKey(key, mod, rn, handler)
 			}
 		}
