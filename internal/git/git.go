@@ -185,6 +185,23 @@ func FormatRelativeTime(t time.Time) string {
 	}
 }
 
+func IgnoredFiles(dir string, paths []string) map[string]bool {
+	if len(paths) == 0 {
+		return nil
+	}
+	args := append([]string{"-C", dir, "check-ignore"}, paths...)
+	cmd := exec.Command("git", args...)
+	out, _ := cmd.Output()
+	result := make(map[string]bool)
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			result[line] = true
+		}
+	}
+	return result
+}
+
 func DiffFile(dir, path string) (string, error) {
 	absPath := filepath.Join(dir, path)
 	cmd := exec.Command("git", "-C", dir, "diff", "--", absPath)

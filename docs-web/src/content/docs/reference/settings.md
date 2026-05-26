@@ -22,6 +22,13 @@ Settings are stored in `~/.config/ttt/settings.json`.
 | `debugMode` | bool | `false` | Enable debug logging |
 | `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
 
+## Explorer
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `explorer.showHidden` | bool | `true` | Show hidden files (dot-prefixed) in the file explorer |
+| `explorer.showGitIgnored` | bool | `true` | Show gitignored files in the file explorer |
+
 ## Terminal
 
 | Key | Type | Default | Description |
@@ -58,6 +65,10 @@ Settings are stored in `~/.config/ttt/settings.json`.
   "sidebarWidth": 30,
   "theme": "default-dark",
   "formatOnSave": true,
+  "explorer": {
+    "showHidden": true,
+    "showGitIgnored": true
+  },
   "terminal": {
     "shell": "/bin/zsh",
     "scrollback": 1000

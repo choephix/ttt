@@ -303,7 +303,7 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 | File | Purpose |
 |------|---------|
 | `keybindings.json` | Custom keybindings (VS Code key format) |
-| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, terminal, theme, lsp, formatOnSave, autocomplete) |
+| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, explorer, terminal, theme, lsp, formatOnSave, autocomplete) |
 | `theme.json` | Colors and styles (or use `theme.<name>.json` for named themes) |
 
 #### Settings
@@ -320,6 +320,8 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 | `theme` | string | `""` | Theme name (from `~/.config/ttt/themes/`) |
 | `debugMode` | bool | `false` | Enable debug logging to `~/.config/ttt/debug.log` |
 | `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `explorer.showHidden` | bool | `true` | Show hidden files (dot-prefixed) in the file explorer |
+| `explorer.showGitIgnored` | bool | `true` | Show gitignored files in the file explorer |
 | `terminal.shell` | string | `""` | Shell command for the integrated terminal (empty = system default) |
 | `terminal.scrollback` | int | `1000` | Number of scrollback lines to retain in the terminal |
 | `lsp.saveOnRename` | bool | `false` | Auto-save all files affected by a rename operation |
@@ -341,6 +343,10 @@ Example `~/.config/ttt/settings.json`:
   "sidebarWidth": 30,
   "theme": "default-dark",
   "formatOnSave": true,
+  "explorer": {
+    "showHidden": true,
+    "showGitIgnored": true
+  },
   "terminal": {
     "shell": "/bin/zsh",
     "scrollback": 1000

@@ -42,6 +42,18 @@ type LSPSettings struct {
 	CodeActionsOnSave []string                  `json:"codeActionsOnSave,omitempty"`
 }
 
+type ExplorerSettings struct {
+	ShowHidden     bool `json:"showHidden"`
+	ShowGitIgnored bool `json:"showGitIgnored"`
+}
+
+func DefaultExplorerSettings() ExplorerSettings {
+	return ExplorerSettings{
+		ShowHidden:     true,
+		ShowGitIgnored: true,
+	}
+}
+
 type Settings struct {
 	TabSize        int              `json:"tabSize"`
 	InsertSpaces   bool             `json:"insertSpaces"`
@@ -53,6 +65,7 @@ type Settings struct {
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
 	FormatOnSave   bool             `json:"formatOnSave"`
+	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`
 	LSP            LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete   AutocompleteSettings `json:"autocomplete,omitzero"`
@@ -66,6 +79,7 @@ func DefaultSettings() Settings {
 		LineNumbers:    true,
 		SidebarVisible: true,
 		SidebarWidth:   30,
+		Explorer:       DefaultExplorerSettings(),
 		Terminal:       DefaultTerminalSettings(),
 		Autocomplete:   DefaultAutocompleteSettings(),
 	}

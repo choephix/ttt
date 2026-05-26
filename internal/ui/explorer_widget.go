@@ -1,22 +1,26 @@
 package ui
 
 import (
-	"github.com/eugenioenko/ttt/internal/term"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/term"
+
 	"github.com/gdamore/tcell/v2"
 )
 
 type TreeNode struct {
-	Name     string
-	Path     string
-	IsDir    bool
-	Expanded bool
-	Children []*TreeNode
-	Depth    int
+	Name       string
+	Path       string
+	IsDir      bool
+	Expanded   bool
+	Children   []*TreeNode
+	Depth      int
+	GitIgnored bool
 }
 
 type ExplorerWidget struct {
@@ -25,12 +29,13 @@ type ExplorerWidget struct {
 	Roots      []*TreeNode
 	FlatList   []*TreeNode
 	ActiveFile string
+	Settings   config.ExplorerSettings
 	OnOpenFile   func(path string)
 	OnRightClick func(node *TreeNode, screenX, screenY int)
 }
 
-func NewExplorerWidget(rootPaths ...string) *ExplorerWidget {
-	e := &ExplorerWidget{}
+func NewExplorerWidget(settings config.ExplorerSettings, rootPaths ...string) *ExplorerWidget {
+	e := &ExplorerWidget{Settings: settings}
 	multiRoot := len(rootPaths) > 1
 	for _, p := range rootPaths {
 		root := &TreeNode{
@@ -104,19 +109,36 @@ func (e *ExplorerWidget) loadChildren(node *TreeNode) {
 		return
 	}
 
+	// Batch check gitignore for all children at once
+	var ignored map[string]bool
+	gitRoot := git.RepoRoot(node.Path)
+	if gitRoot != "" {
+		var paths []string
+		for _, entry := range entries {
+			paths = append(paths, filepath.Join(node.Path, entry.Name()))
+		}
+		ignored = git.IgnoredFiles(gitRoot, paths)
+	}
+
 	node.Children = nil
 	dirs := []*TreeNode{}
 	files := []*TreeNode{}
 
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".") {
+		if !e.Settings.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		childPath := filepath.Join(node.Path, entry.Name())
+		isIgnored := ignored[childPath]
+		if !e.Settings.ShowGitIgnored && isIgnored {
 			continue
 		}
 		child := &TreeNode{
-			Name:  entry.Name(),
-			Path:  filepath.Join(node.Path, entry.Name()),
-			IsDir: entry.IsDir(),
-			Depth: node.Depth + 1,
+			Name:       entry.Name(),
+			Path:       childPath,
+			IsDir:      entry.IsDir(),
+			Depth:      node.Depth + 1,
+			GitIgnored: isIgnored,
 		}
 		if entry.IsDir() {
 			dirs = append(dirs, child)
@@ -200,11 +222,15 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 		}
 
 		// Name
+		nameStyle := style
+		if idx != e.Selected && (strings.HasPrefix(node.Name, ".") || node.GitIgnored) {
+			nameStyle = term.StyleMuted
+		}
 		for _, ch := range node.Name {
 			if x >= w {
 				break
 			}
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: nameStyle})
 			x++
 		}
 	}

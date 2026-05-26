@@ -101,7 +101,7 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		{Name: "Help"},
 	})
 
-	explorer := ui.NewExplorerWidget(ws.Paths()...)
+	explorer := ui.NewExplorerWidget(cfg.Settings.Explorer, ws.Paths()...)
 	search := ui.NewSearchWidget()
 	search.SetWorkDirs(ws.Paths())
 	changes := ui.NewChangesWidget(ws.Paths()...)

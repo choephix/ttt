@@ -15,7 +15,9 @@ TTT includes a built-in terminal emulator. Press **Ctrl+`** to toggle the termin
 
 - Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
 - 256-color rendering with direct RGB color support
-- When the terminal is focused, all keys go to the PTY except Ctrl+` (to toggle the panel)
+- When the terminal is focused, all keys go to the PTY except force keys (Ctrl+`, Ctrl+Q, Ctrl+P, etc.)
+- Scrollback buffer with mouse wheel scrolling (3 lines), Shift+PgUp/PgDn (half page), and a draggable scrollbar
+- Click the terminal content area to focus it; any keypress snaps back to the live view when scrolled up
 
 ## Bottom Panel
 
