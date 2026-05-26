@@ -2,6 +2,8 @@
 
 A fully-featured code editor that lives in the terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal. Single Go binary, zero config.
 
+![TTT Screenshot](screenshot.png)
+
 ## Installation
 
 ### Prerequisites
