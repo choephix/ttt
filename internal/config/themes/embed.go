@@ -2,5 +2,5 @@ package themes
 
 import "embed"
 
-//go:embed theme.*.json
+//go:embed *.json
 var FS embed.FS

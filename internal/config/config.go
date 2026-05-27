@@ -37,8 +37,8 @@ func Load() AppConfig {
 	}
 
 	if cfg.Settings.Theme != "" {
-		themeFile := "theme." + cfg.Settings.Theme + ".json"
-		if data, err := readFirst(paths, themeFile); err == nil {
+		themeFile := cfg.Settings.Theme + ".json"
+		if data, err := readFirstTheme(paths, themeFile); err == nil {
 			json.Unmarshal(data, &cfg.Theme)
 		} else if data, err := themes.FS.ReadFile(themeFile); err == nil {
 			json.Unmarshal(data, &cfg.Theme)
@@ -69,13 +69,13 @@ func ListThemes() []string {
 	var names []string
 
 	for _, dir := range configPaths() {
-		entries, err := os.ReadDir(dir)
+		themesDir := filepath.Join(dir, "themes")
+		entries, err := os.ReadDir(themesDir)
 		if err != nil {
 			continue
 		}
 		for _, e := range entries {
-			name := themeNameFromFile(e.Name())
-			if name != "" && !seen[name] {
+			if name := themeNameFromFile(e.Name()); name != "" && !seen[name] {
 				seen[name] = true
 				names = append(names, name)
 			}
@@ -85,8 +85,7 @@ func ListThemes() []string {
 	entries, err := themes.FS.ReadDir(".")
 	if err == nil {
 		for _, e := range entries {
-			name := themeNameFromFile(e.Name())
-			if name != "" && !seen[name] {
+			if name := themeNameFromFile(e.Name()); name != "" && !seen[name] {
 				seen[name] = true
 				names = append(names, name)
 			}
@@ -99,9 +98,9 @@ func ListThemes() []string {
 
 func LoadTheme(name string) (ThemeConfig, error) {
 	theme := DefaultTheme()
-	themeFile := "theme." + name + ".json"
+	themeFile := name + ".json"
 
-	if data, err := readFirst(configPaths(), themeFile); err == nil {
+	if data, err := readFirstTheme(configPaths(), themeFile); err == nil {
 		if err := json.Unmarshal(data, &theme); err != nil {
 			return theme, err
 		}
@@ -121,9 +120,8 @@ func LoadTheme(name string) (ThemeConfig, error) {
 }
 
 func themeNameFromFile(filename string) string {
-	if strings.HasPrefix(filename, "theme.") && strings.HasSuffix(filename, ".json") {
-		name := strings.TrimPrefix(filename, "theme.")
-		return strings.TrimSuffix(name, ".json")
+	if strings.HasSuffix(filename, ".json") {
+		return strings.TrimSuffix(filename, ".json")
 	}
 	return ""
 }
@@ -146,6 +144,16 @@ func ConfigFilePath(filename string) string {
 func readFirst(dirs []string, filename string) ([]byte, error) {
 	for _, dir := range dirs {
 		data, err := os.ReadFile(filepath.Join(dir, filename))
+		if err == nil {
+			return data, nil
+		}
+	}
+	return nil, os.ErrNotExist
+}
+
+func readFirstTheme(dirs []string, filename string) ([]byte, error) {
+	for _, dir := range dirs {
+		data, err := os.ReadFile(filepath.Join(dir, "themes", filename))
 		if err == nil {
 			return data, nil
 		}

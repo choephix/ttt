@@ -49,6 +49,6 @@ Config files live in `~/.config/ttt/`:
 |------|---------|
 | `settings.json` | Editor settings |
 | `keybindings.json` | Custom keybindings |
-| `theme.json` | Custom theme |
+| `themes/*.json` | Custom themes |
 
 You can also open these from the command palette: **Preferences: Open Settings** and **Preferences: Open Keyboard Shortcuts**.
