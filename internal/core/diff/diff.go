@@ -112,7 +112,7 @@ func Parse(unified string) FileDiff {
 			oldNum, newNum = parseHunkHeader(line)
 			continue
 		}
-		if strings.HasPrefix(line, "diff ") || strings.HasPrefix(line, "index ") {
+		if strings.HasPrefix(line, "diff ") || strings.HasPrefix(line, "index ") || strings.HasPrefix(line, "\\ ") {
 			continue
 		}
 		if curHunk == nil {
