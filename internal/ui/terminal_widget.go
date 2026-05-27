@@ -67,9 +67,9 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	r := tw.GetRect()
 
-	tw.Term.SnapshotWithScrollback(func(view vt10x.View, scrollback []terminal.ScrollbackLine) {
+	tw.Term.Snapshot(func(view vt10x.View) {
 		cols, rows := view.Size()
-		sbLen := len(scrollback)
+		sbLen := view.ScrollbackLen()
 		totalLines := sbLen + rows
 
 		if tw.scrollOffset > sbLen {
@@ -98,10 +98,10 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 			for screenY := 0; screenY < h; screenY++ {
 				srcLine := startLine + screenY
 				if srcLine < sbLen {
-					sl := scrollback[srcLine]
+					sl := view.ScrollbackLine(srcLine)
 					for x := 0; x < contentW; x++ {
-						if x < len(sl.Cells) {
-							surface.SetCell(x, screenY, tw.glyphToCell(sl.Cells[x]))
+						if sl != nil && x < len(sl) {
+							surface.SetCell(x, screenY, tw.glyphToCell(sl[x]))
 						} else {
 							surface.SetCell(x, screenY, term.Cell{Ch: ' ', Direct: true, Bg: tw.Palette.Bg})
 						}

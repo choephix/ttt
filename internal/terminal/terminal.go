@@ -2,7 +2,6 @@ package terminal
 
 import (
 	"io"
-	"log/slog"
 	"os"
 	"os/exec"
 	"sync"
@@ -19,10 +18,6 @@ const (
 	AttrBlink     int16 = 32
 )
 
-type ScrollbackLine struct {
-	Cells []vt10x.Glyph
-}
-
 type Terminal struct {
 	mu         sync.Mutex
 	vt         vt10x.Terminal
@@ -34,8 +29,6 @@ type Terminal struct {
 	exited     bool
 	OnUpdate   func()
 	OnExit     func()
-	scrollback    []ScrollbackLine
-	scrollbackMax int
 }
 
 func New(shell string, cols, rows, scrollbackMax int, env []string) (*Terminal, error) {
@@ -50,23 +43,12 @@ func New(shell string, cols, rows, scrollbackMax int, env []string) (*Terminal, 
 	}
 
 	t := &Terminal{
-		cols:          cols,
-		rows:          rows,
-		done:          make(chan struct{}),
-		scrollbackMax: scrollbackMax,
+		cols: cols,
+		rows: rows,
+		done: make(chan struct{}),
 	}
 
-	t.vt = vt10x.New(vt10x.WithSize(cols, rows))
-	t.vt.SetOnScrollOut(func(line []vt10x.Glyph) {
-		sl := ScrollbackLine{Cells: line}
-		if len(t.scrollback) < t.scrollbackMax {
-			t.scrollback = append(t.scrollback, sl)
-		} else {
-			copy(t.scrollback, t.scrollback[1:])
-			t.scrollback[len(t.scrollback)-1] = sl
-		}
-		slog.Debug("scrollback captured", "total", len(t.scrollback), "lineLen", len(line))
-	})
+	t.vt = vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithScrollback(scrollbackMax))
 
 	cmd := exec.Command(shell)
 	cmd.Env = append(os.Environ(), env...)
@@ -195,20 +177,5 @@ func (t *Terminal) Done() <-chan struct{} {
 func (t *Terminal) ScrollbackLen() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return len(t.scrollback)
-}
-
-func (t *Terminal) ScrollbackLine(i int) ScrollbackLine {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if i < 0 || i >= len(t.scrollback) {
-		return ScrollbackLine{}
-	}
-	return t.scrollback[i]
-}
-
-func (t *Terminal) SnapshotWithScrollback(fn func(view vt10x.View, scrollback []ScrollbackLine)) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	fn(t.vt, t.scrollback)
+	return t.vt.ScrollbackLen()
 }

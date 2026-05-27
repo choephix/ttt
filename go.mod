@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/alecthomas/chroma/v2 v2.24.1
 	github.com/creack/pty v1.1.24
-	github.com/eugenioenko/vt10x v0.0.0-20260527230634-0c20c22b85dc
+	github.com/eugenioenko/vt10x v0.0.0-20260527232601-d49d2c8355db
 	github.com/gdamore/tcell/v2 v2.13.7
 )
 
