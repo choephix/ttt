@@ -98,7 +98,8 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 
 | Shortcut | Command | Description |
 |----------|---------|-------------|
-| Ctrl+` | `terminal.toggle` | Toggle terminal |
+| Ctrl+T | `terminal.toggle` | Toggle terminal (half screen) |
+| Alt+T | `terminal.fullscreen` | Toggle terminal fullscreen |
 | Ctrl+K T | `terminal.new` | New terminal tab |
 
 ## Menu Bar

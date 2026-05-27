@@ -131,6 +131,16 @@ func (a *App) ShowBottomPanel() {
 	a.contentSplit.ShowBottom = true
 }
 
+func (a *App) showTerminalPanel() {
+	a.contentSplit.ShowBottom = true
+	if len(a.terminals) == 0 {
+		a.SpawnTerminal()
+	} else {
+		a.bottomPanel.SetActivePanel("terminal")
+		a.root.SetFocus(a.terminalPanel)
+	}
+}
+
 func (a *App) HideBottomPanel() {
 	a.contentSplit.ShowBottom = false
 	a.FocusEditor()

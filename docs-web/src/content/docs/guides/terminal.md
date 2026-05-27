@@ -3,10 +3,12 @@ title: Integrated Terminal
 description: Built-in terminal emulator in TTT.
 ---
 
-TTT includes a built-in terminal emulator. Press **Ctrl+`** to toggle the terminal panel.
+TTT includes a built-in terminal emulator. Press **Ctrl+T** to toggle the terminal panel.
 
 ## Usage
 
+- **Ctrl+T** to toggle the terminal (half screen)
+- **Alt+T** to toggle the terminal fullscreen
 - **Ctrl+K T** to spawn a new terminal tab
 - Multiple terminal tabs with a vertical inner tab bar on the left edge
 - Close all terminals from the panel actions menu
@@ -15,13 +17,13 @@ TTT includes a built-in terminal emulator. Press **Ctrl+`** to toggle the termin
 
 - Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
 - 256-color rendering with direct RGB color support
-- When the terminal is focused, all keys go to the PTY except force keys (Ctrl+`, Ctrl+Q, Ctrl+P, etc.)
+- When the terminal is focused, all keys go to the PTY except force keys (Ctrl+T, Alt+T, Ctrl+Q, Ctrl+P, etc.)
 - Scrollback buffer with mouse wheel scrolling (3 lines), Shift+PgUp/PgDn (half page), and a draggable scrollbar
 - Click the terminal content area to focus it; any keypress snaps back to the live view when scrolled up
 
 ## Bottom Panel
 
-The bottom panel (**Ctrl+J** to toggle) contains three tabs:
+The bottom panel contains three tabs:
 
 - **Terminal** for the integrated terminal
 - **Problems** listing all LSP diagnostics grouped by file; click to jump to location

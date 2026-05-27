@@ -53,8 +53,6 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Toggle Terminal", Command: "terminal.toggle"},
 		{Label: "New Terminal", Command: "terminal.new"},
 		ui.MenuSep(),
-		{Label: "Toggle Panel", Command: "panel.toggle"},
-		ui.MenuSep(),
 		{Label: "Switch Theme", Command: "theme.switch"},
 		ui.MenuSep(),
 		{Label: "Keyboard Tester", Command: "view.keyboardTester"},

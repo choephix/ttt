@@ -20,7 +20,8 @@ ttt --workspace project.ttt     # loads a saved workspace file
 - **Ctrl+P** opens the command palette
 - **Alt+P** opens quick file open
 - **Ctrl+B** toggles the sidebar
-- **Ctrl+J** toggles the bottom panel
+- **Ctrl+T** toggles the terminal (half screen)
+- **Alt+T** toggles the terminal fullscreen
 - **Ctrl+G** opens Go to Line
 
 ## Editing
