@@ -72,11 +72,20 @@ func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 }
 
 func (r *Root) HandleEvent(ev tcell.Event) EventResult {
+	kev, isKey := ev.(*tcell.EventKey)
+	if isKey {
+		for _, gk := range r.ForceKeys {
+			if matchKey(kev, gk) {
+				gk.Handler()
+				return EventConsumed
+			}
+		}
+	}
+
 	if res := r.handleOverlay(ev); res == EventConsumed {
 		return EventConsumed
 	}
 
-	kev, isKey := ev.(*tcell.EventKey)
 	if !isKey {
 		return r.handleMouse(ev)
 	}

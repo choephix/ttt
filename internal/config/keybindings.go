@@ -30,8 +30,7 @@ var ForceKeyCommands = map[string]bool{
 	"editor.quit":     true,
 	"command.palette": true,
 	"file.quickOpen":  true,
-	"sidebar.focus":   true,
-	"terminal.new":    true,
+	"sidebar.toggle":  true,
 }
 
 func ParseKeyBindings(bindings []KeyBinding) error {
