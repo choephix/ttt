@@ -139,7 +139,7 @@ func (s *SearchWidget) SetWorkDirs(dirs []string) {
 func (s *SearchWidget) Focusable() bool { return true }
 
 func (s *SearchWidget) resultsStartY() int {
-	base := 3
+	base := 2
 	if s.showReplace {
 		base += 2
 	}
@@ -163,7 +163,7 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 	if inp == s.ReplaceInput && s.showReplace {
 		return 2
 	}
-	base := 3
+	base := 2
 	if s.showReplace {
 		base += 2
 	}
@@ -343,19 +343,16 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		y++
 	}
 
-	for x := 0; x < w; x++ {
-		surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
-	}
-	y++
-
-	toggleRow := y
 	filterToggle := " ▼ "
 	if s.showFilters {
 		filterToggle = " ◀ "
 	}
 	ftx := w - len([]rune(filterToggle))
+	for x := 0; x < ftx; x++ {
+		surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
+	}
 	for i, ch := range filterToggle {
-		surface.SetCell(ftx+i, toggleRow, term.Cell{Ch: ch, Style: term.StyleMuted})
+		surface.SetCell(ftx+i, y, term.Cell{Ch: ch, Style: term.StyleMuted})
 	}
 	y++
 
@@ -535,7 +532,6 @@ func (s *SearchWidget) toggleRow() int {
 	if s.showReplace {
 		y += 2
 	}
-	y++ // separator
 	return y
 }
 
