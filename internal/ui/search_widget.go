@@ -408,6 +408,10 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 			}
 		}
 		startY++
+		for x := 0; x < w; x++ {
+			surface.SetCell(x, startY, term.Cell{Ch: '─', Style: term.StyleBorder})
+		}
+		startY++
 	}
 
 	visibleH := h - startY
