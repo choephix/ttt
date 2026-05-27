@@ -139,15 +139,23 @@ func registerViewCommands(reg *command.Registry, app *App) {
 					half = r.H - 4
 				}
 				app.contentSplit.BottomH = half
-				app.contentSplit.ShowBottom = true
-				if len(app.terminals) == 0 {
-					app.SpawnTerminal()
-				} else {
-					app.bottomPanel.SetActivePanel("terminal")
-					app.root.SetFocus(app.terminalPanel)
-				}
+				app.showTerminalPanel()
 			} else {
 				app.HideBottomPanel()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "terminal.fullscreen", Title: "Toggle Terminal Fullscreen",
+		Handler: func() {
+			r := app.contentSplit.GetRect()
+			fullH := r.H - 1
+			if app.contentSplit.ShowBottom && app.contentSplit.BottomH >= fullH {
+				app.HideBottomPanel()
+			} else {
+				app.contentSplit.BottomH = fullH
+				app.showTerminalPanel()
 			}
 		},
 	})
@@ -552,6 +560,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 				app.editorGroup.SetSearchActive(findBar.Current)
 				app.editorGroup.Editor.Cursor.Line = match.Line
 				app.editorGroup.Editor.Cursor.Col = match.Col
+				app.editorGroup.ScrollToCursor()
 			}
 			findBar.OnDismiss = func() {
 				app.DismissDialog()
@@ -594,6 +603,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 				app.editorGroup.SetSearchActive(bar.Current)
 				app.editorGroup.Editor.Cursor.Line = match.Line
 				app.editorGroup.Editor.Cursor.Col = match.Col
+				app.editorGroup.ScrollToCursor()
 			}
 			bar.OnReplace = func(match ui.FindMatch, replacement string) {
 				app.editorGroup.ReplaceMatch(match, replacement)

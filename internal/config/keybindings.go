@@ -25,13 +25,12 @@ func (kb *KeyBinding) IsChord() bool {
 
 // ForceKeyCommands are checked even when a raw key consumer (e.g. terminal) has focus.
 var ForceKeyCommands = map[string]bool{
-	"panel.toggle":    true,
-	"terminal.toggle": true,
+	"terminal.toggle":     true,
+	"terminal.fullscreen": true,
 	"editor.quit":     true,
 	"command.palette": true,
 	"file.quickOpen":  true,
-	"sidebar.focus":   true,
-	"terminal.new":    true,
+	"sidebar.toggle":  true,
 }
 
 func ParseKeyBindings(bindings []KeyBinding) error {
@@ -154,7 +153,6 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "escape", Command: "editor.focus"},
 		{Key: "f3", Command: "search.findNext"},
 		{Key: "shift+f3", Command: "search.findPrev"},
-		{Key: "ctrl+j", Command: "panel.toggle"},
 		{Key: "ctrl+k e", Command: "sidebar.explorer"},
 		{Key: "ctrl+k f", Command: "sidebar.search"},
 		{Key: "ctrl+k r", Command: "sidebar.searchReplace"},
@@ -185,7 +183,8 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "alt+backspace", Command: "editor.deleteWordLeft"},
 		{Key: "alt+delete", Command: "editor.deleteWordRight"},
 		{Key: "ctrl+delete", Command: "editor.deleteWordRight"},
-		{Key: "ctrl+backtick", Command: "terminal.toggle"},
+		{Key: "ctrl+t", Command: "terminal.toggle"},
+		{Key: "alt+t", Command: "terminal.fullscreen"},
 		{Key: "f10", Command: "menu.file"},
 		{Key: "alt+f", Command: "menu.file"},
 		{Key: "alt+e", Command: "menu.edit"},

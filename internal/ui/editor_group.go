@@ -439,6 +439,12 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.scrollViewport()
 }
 
+func (g *EditorGroupWidget) ScrollToCursor() {
+	if g.IsEditorActive() {
+		g.Editor.scrollViewport()
+	}
+}
+
 func (g *EditorGroupWidget) ClearSearch() {
 	if !g.IsEditorActive() {
 		return

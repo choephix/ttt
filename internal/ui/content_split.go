@@ -8,16 +8,17 @@ import (
 
 type ContentSplitWidget struct {
 	BaseWidget
-	Top            Widget
-	Bottom         Widget
-	ShowBottom     bool
-	BottomH        int
-	Borders        *term.BorderSet
-	OnResize       func(height int)
-	OnBottomClick  func()
-	OnTopClick     func()
-	dragging       bool
-	wasPressed     bool
+	Top                Widget
+	Bottom             Widget
+	ShowBottom         bool
+	BottomH            int
+	Borders            *term.BorderSet
+	OnResize           func(height int)
+	OnBottomClick      func()
+	OnTopClick         func()
+	RightBorderStartY  *int
+	dragging           bool
+	wasPressed         bool
 }
 
 func NewContentSplitWidget() *ContentSplitWidget {
@@ -34,6 +35,9 @@ func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
 	r := cs.GetRect()
 
 	if !cs.ShowBottom || cs.Bottom == nil {
+		if cs.RightBorderStartY != nil {
+			*cs.RightBorderStartY = 2
+		}
 		if cs.Top != nil && w > 0 && h > 0 {
 			cs.Top.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
 			cs.Top.Render(surface)
@@ -57,6 +61,10 @@ func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
 		divY = 0
 	}
 	topH := divY
+
+	if cs.RightBorderStartY != nil {
+		*cs.RightBorderStartY = min(topH, 2)
+	}
 
 	// Top content
 	if cs.Top != nil && topH > 0 {
@@ -141,8 +149,7 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			return result
 		}
 	} else {
-		bottomEdge := r.Y + r.H - 1
-		if pressed && my == bottomEdge {
+		if freshClick && my == r.Y+r.H {
 			cs.dragging = true
 			return EventConsumed
 		}

@@ -1,0 +1,13 @@
+{
+  "name": "ttt-functional-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:stress": "for i in $(seq 1 10); do echo \"--- Run $i/10 ---\" && vitest run || exit 1; done"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.1"
+  }
+}

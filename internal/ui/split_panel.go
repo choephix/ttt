@@ -82,7 +82,10 @@ func (s *SplitPanelWidget) Render(surface *RenderSurface) {
 
 	// Right border — starts at RightBorderStartY to skip tab bar area
 	rbStart := s.RightBorderStartY
-	if rbStart > 0 && rbStart < h-1 {
+	if rbStart == 0 {
+		surface.SetCell(w-1, 0, term.Cell{Ch: b.TopRight, Style: bs})
+		rbStart = 1
+	} else if rbStart > 0 && rbStart < h-1 {
 		surface.SetCell(w-1, rbStart, term.Cell{Ch: b.TopRight, Style: bs})
 		rbStart++
 	}
@@ -127,7 +130,10 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 
 	// Left border — starts at RightBorderStartY
 	lbStart := s.RightBorderStartY
-	if lbStart > 0 && lbStart < h-1 {
+	if lbStart == 0 {
+		surface.SetCell(0, 0, term.Cell{Ch: b.TopLeft, Style: bs})
+		lbStart = 1
+	} else if lbStart > 0 && lbStart < h-1 {
 		surface.SetCell(0, lbStart, term.Cell{Ch: b.TopLeft, Style: bs})
 		lbStart++
 	}
@@ -137,7 +143,10 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 
 	// Right border — starts at RightBorderStartY
 	rbStart := s.RightBorderStartY
-	if rbStart > 0 && rbStart < h-1 {
+	if rbStart == 0 {
+		surface.SetCell(w-1, 0, term.Cell{Ch: b.TopRight, Style: bs})
+		rbStart = 1
+	} else if rbStart > 0 && rbStart < h-1 {
 		surface.SetCell(w-1, rbStart, term.Cell{Ch: b.TopRight, Style: bs})
 		rbStart++
 	}
