@@ -552,6 +552,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 				app.editorGroup.SetSearchActive(findBar.Current)
 				app.editorGroup.Editor.Cursor.Line = match.Line
 				app.editorGroup.Editor.Cursor.Col = match.Col
+				app.editorGroup.ScrollToCursor()
 			}
 			findBar.OnDismiss = func() {
 				app.DismissDialog()
@@ -594,6 +595,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 				app.editorGroup.SetSearchActive(bar.Current)
 				app.editorGroup.Editor.Cursor.Line = match.Line
 				app.editorGroup.Editor.Cursor.Col = match.Col
+				app.editorGroup.ScrollToCursor()
 			}
 			bar.OnReplace = func(match ui.FindMatch, replacement string) {
 				app.editorGroup.ReplaceMatch(match, replacement)
