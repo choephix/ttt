@@ -34,7 +34,7 @@ export function waitFor(text) {
   run(["wait", "--text", text]);
 }
 
-export function waitStable(ms = 300) {
+export function waitStable(ms = 100) {
   run(["wait", "--debounce", String(ms)]);
 }
 
@@ -44,7 +44,7 @@ export function find(pattern) {
 
 export function pressChord(first, second) {
   press(first);
-  waitStable(100);
+  waitStable();
   if (second.length === 1) {
     type(second);
   } else {
@@ -54,9 +54,9 @@ export function pressChord(first, second) {
 
 export function exec(command) {
   press("ctrl+p");
-  waitStable(100);
+  waitStable();
   type(command);
-  waitStable(200);
+  waitStable();
   press("enter");
 }
 
