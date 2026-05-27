@@ -283,7 +283,7 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 			}
 			line, col := app.editorGroup.ActiveCursor()
 			word := app.wordAtCursor()
-			app.ShowInputDialog("Rename", word, func(newName string) {
+			app.ShowInputDialog("Rename", "New name", word, func(newName string) {
 				if newName != "" && newName != word {
 					app.RequestRename(path, lang, line, col, newName)
 				}
@@ -414,7 +414,7 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 		if current != "untitled" {
 			initial = current
 		}
-		app.ShowInputDialog("Save As", initial, func(path string) {
+		app.ShowInputDialog("Save As", "Filename", initial, func(path string) {
 			if path != "" {
 				app.editorGroup.SaveAs(path)
 			}
@@ -784,7 +784,7 @@ func registerExplorerCommands(reg *command.Registry, app *App) {
 			if !node.IsDir {
 				parentDir = filepath.Dir(node.Path)
 			}
-			app.ShowInputDialog("New File", "", func(name string) {
+			app.ShowInputDialog("New File", "Filename", "", func(name string) {
 				newPath := filepath.Join(parentDir, name)
 				if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
 					app.StatusError("Error: " + err.Error())
@@ -812,7 +812,7 @@ func registerExplorerCommands(reg *command.Registry, app *App) {
 			if !node.IsDir {
 				parentDir = filepath.Dir(node.Path)
 			}
-			app.ShowInputDialog("New Folder", "", func(name string) {
+			app.ShowInputDialog("New Folder", "Folder name", "", func(name string) {
 				newPath := filepath.Join(parentDir, name)
 				if err := os.MkdirAll(newPath, 0755); err != nil {
 					app.StatusError("Error: " + err.Error())
@@ -830,7 +830,7 @@ func registerExplorerCommands(reg *command.Registry, app *App) {
 			if node == nil {
 				return
 			}
-			app.ShowInputDialog("Rename", node.Name, func(newName string) {
+			app.ShowInputDialog("Rename", "New name", node.Name, func(newName string) {
 				dir := filepath.Dir(node.Path)
 				newPath := filepath.Join(dir, newName)
 				if err := os.Rename(node.Path, newPath); err != nil {
@@ -972,7 +972,7 @@ func registerWorkspaceCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
 		Handler: func() {
-			app.ShowInputDialog("Add Folder", "", func(path string) {
+			app.ShowInputDialog("Add Folder", "Folder path", "", func(path string) {
 				if path == "" {
 					return
 				}
@@ -1014,7 +1014,7 @@ func registerWorkspaceCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "workspace.saveAs", Title: "Save Workspace As...",
 		Handler: func() {
-			app.ShowInputDialog("Save Workspace", "workspace.ttt", func(path string) {
+			app.ShowInputDialog("Save Workspace", "Filename", "workspace.ttt", func(path string) {
 				if path == "" {
 					return
 				}

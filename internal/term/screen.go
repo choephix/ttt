@@ -44,6 +44,9 @@ const (
 	StyleDiagWarning
 	StyleDiagInfo
 	StyleDiagHint
+	StyleInput
+	StyleInputPlaceholder
+	StyleInputAction
 )
 
 // DirectColor holds an RGBA color for terminal emulator output.

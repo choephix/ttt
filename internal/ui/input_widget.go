@@ -15,6 +15,7 @@ type InputAction struct {
 type InputWidget struct {
 	Text         string
 	Prefix       string
+	Placeholder  string
 	CursorPos    int
 	scrollOffset int
 	Style        term.Style
@@ -26,7 +27,7 @@ type InputWidget struct {
 func NewInputWidget(prefix string) *InputWidget {
 	return &InputWidget{
 		Prefix: prefix,
-		Style:  term.StyleDefault,
+		Style:  term.StyleInput,
 	}
 }
 
@@ -42,6 +43,7 @@ func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 
 	if textW > 0 {
 		textRunes := []rune(inp.Text)
+		showPlaceholder := len(textRunes) == 0 && inp.Placeholder != ""
 
 		if inp.CursorPos < inp.scrollOffset {
 			inp.scrollOffset = inp.CursorPos
@@ -50,20 +52,31 @@ func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 			inp.scrollOffset = inp.CursorPos - textW + 1
 		}
 
-		for i := 0; i < textW; i++ {
-			ch := ' '
-			ri := inp.scrollOffset + i
-			if ri < len(textRunes) {
-				ch = textRunes[ri]
+		if showPlaceholder {
+			phRunes := []rune(inp.Placeholder)
+			for i := 0; i < textW; i++ {
+				ch := ' '
+				if i < len(phRunes) {
+					ch = phRunes[i]
+				}
+				surface.SetCell(x+prefixW+i, y, term.Cell{Ch: ch, Style: term.StyleInputPlaceholder})
 			}
-			surface.SetCell(x+prefixW+i, y, term.Cell{Ch: ch, Style: inp.Style})
+		} else {
+			for i := 0; i < textW; i++ {
+				ch := ' '
+				ri := inp.scrollOffset + i
+				if ri < len(textRunes) {
+					ch = textRunes[ri]
+				}
+				surface.SetCell(x+prefixW+i, y, term.Cell{Ch: ch, Style: inp.Style})
+			}
 		}
 	}
 
 	ax := x + prefixW + textW
 	inp.ActionHits = inp.ActionHits[:0]
 	for _, action := range inp.Actions {
-		style := term.StyleMuted
+		style := term.StyleInputAction
 		if action.Active {
 			style = term.StyleDefault
 		}

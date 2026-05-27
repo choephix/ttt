@@ -134,7 +134,7 @@ func DefaultKeybindings() []KeyBinding {
 	return []KeyBinding{
 		{Key: "ctrl+b", Command: "sidebar.toggle"},
 		{Key: "ctrl+f", Command: "search.find"},
-		{Key: "ctrl+h", Command: "search.replace"},
+		{Key: "ctrl+r", Command: "search.replace"},
 		{Key: "ctrl+g", Command: "editor.goToLine"},
 		{Key: "ctrl+p", Command: "command.palette"},
 		{Key: "alt+p", Command: "file.quickOpen"},
@@ -157,7 +157,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+j", Command: "panel.toggle"},
 		{Key: "ctrl+k e", Command: "sidebar.explorer"},
 		{Key: "ctrl+k f", Command: "sidebar.search"},
-		{Key: "ctrl+k h", Command: "sidebar.searchReplace"},
+		{Key: "ctrl+k r", Command: "sidebar.searchReplace"},
 		{Key: "ctrl+k c", Command: "sidebar.changes"},
 		{Key: "ctrl+k t", Command: "terminal.new"},
 		{Key: "ctrl+k p", Command: "command.palette"},

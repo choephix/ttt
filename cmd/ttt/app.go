@@ -1069,8 +1069,8 @@ func (a *App) DismissDialog() {
 	a.FocusEditor()
 }
 
-func (a *App) ShowInputDialog(title, initial string, onSubmit func(string)) {
-	dialog := ui.NewInputDialogWidget(title, initial)
+func (a *App) ShowInputDialog(title, placeholder, initial string, onSubmit func(string)) {
+	dialog := ui.NewInputDialogWidget(title, placeholder, initial)
 	dialog.Borders = a.borders
 	dialog.OnSubmit = func(value string) {
 		a.DismissDialog()

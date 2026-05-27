@@ -9,29 +9,101 @@ import (
 
 type ReplaceBarWidget struct {
 	BaseWidget
-	Query      string
-	Replace    string
-	Matches    []FindMatch
-	Current    int
-	Options    SearchOptions
-	Borders    *term.BorderSet
-	OnSearch   func(query string, opts SearchOptions) []FindMatch
-	OnNavigate func(match FindMatch)
-	OnReplace  func(match FindMatch, replacement string)
+	SearchInput  *InputWidget
+	ReplaceInput *InputWidget
+	Matches      []FindMatch
+	Current      int
+	Options      SearchOptions
+	Borders      *term.BorderSet
+	OnSearch     func(query string, opts SearchOptions) []FindMatch
+	OnNavigate   func(match FindMatch)
+	OnReplace    func(match FindMatch, replacement string)
 	OnReplaceAll func(query, replacement string)
-	OnDismiss  func()
-	focusRow   int
-	searchCur  int
-	replaceCur int
-	btnCase    HitRegion
-	btnRegex   HitRegion
+	OnDismiss    func()
+	focusRow     int
+	btnPrev      HitRegion
+	btnNext      HitRegion
+	btnClose     HitRegion
 }
 
 func NewReplaceBarWidget() *ReplaceBarWidget {
-	return &ReplaceBarWidget{}
+	r := &ReplaceBarWidget{}
+	r.SearchInput = NewInputWidget(" > ")
+	r.SearchInput.Placeholder = "Search"
+	r.SearchInput.OnChange = func(string) {
+		r.Current = 0
+		r.search()
+	}
+	r.SearchInput.Actions = []InputAction{
+		{Label: "Aa", OnClick: func() {
+			r.Options.CaseSensitive = !r.Options.CaseSensitive
+			r.syncActions()
+			r.Current = 0
+			r.search()
+		}},
+		{Label: ".*", OnClick: func() {
+			r.Options.UseRegex = !r.Options.UseRegex
+			r.syncActions()
+			r.Current = 0
+			r.search()
+		}},
+	}
+
+	r.ReplaceInput = NewInputWidget(" > ")
+	r.ReplaceInput.Placeholder = "Replace"
+	r.ReplaceInput.Actions = []InputAction{
+		{Label: "⟳", OnClick: func() {
+			if len(r.Matches) > 0 && r.OnReplace != nil {
+				r.OnReplace(r.Matches[r.Current], r.ReplaceInput.Text)
+				r.search()
+			}
+		}},
+		{Label: "All", OnClick: func() {
+			if r.OnReplaceAll != nil {
+				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text)
+				r.search()
+			}
+		}},
+	}
+
+	return r
+}
+
+func (r *ReplaceBarWidget) syncActions() {
+	if len(r.SearchInput.Actions) >= 2 {
+		r.SearchInput.Actions[0].Active = r.Options.CaseSensitive
+		r.SearchInput.Actions[1].Active = r.Options.UseRegex
+	}
+}
+
+func (r *ReplaceBarWidget) barLayout() (barX, barY, barW, barH int) {
+	rect := r.GetRect()
+	barW = 40
+	if barW > rect.W-4 {
+		barW = rect.W - 4
+	}
+	barX = rect.W - barW - 1
+	barY = 4
+	barH = 4
+	return
 }
 
 func (r *ReplaceBarWidget) Focusable() bool { return true }
+
+func (r *ReplaceBarWidget) CursorPosition() (int, int, bool) {
+	rect := r.GetRect()
+	barX, barY, barW, _ := r.barLayout()
+	row := barY + 1 + r.focusRow
+	inp := r.SearchInput
+	if r.focusRow == 1 {
+		inp = r.ReplaceInput
+	}
+	cx := inp.CursorX(barX + 1)
+	if cx >= barX+barW-1 {
+		cx = barX + barW - 2
+	}
+	return rect.X + cx, rect.Y + row, true
+}
 
 func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
@@ -50,62 +122,23 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	}
 	surface.DrawBorder(barX, barY, barW, barH, b, term.StyleBorder)
 
-	innerW := barW - 2
-
-	// Find row
 	findRow := barY + 1
-	r.renderRow(surface, barX+1, findRow, innerW, "Find: ", r.Query, r.searchCur, r.focusRow == 0)
-
-	// Replace row
 	replRow := barY + 2
-	r.renderRow(surface, barX+1, replRow, innerW, "Repl: ", r.Replace, r.replaceCur, r.focusRow == 1)
-
-	// Toggle buttons + info + nav on find row
-	type toggle struct {
-		label  string
-		active bool
-	}
-	toggles := []toggle{
-		{"Aa", r.Options.CaseSensitive},
-		{".*", r.Options.UseRegex},
-	}
 
 	info := ""
-	if len(r.Query) > 0 {
-		info = fmt.Sprintf("%d/%d ", r.currentDisplay(), len(r.Matches))
+	if r.SearchInput.Text != "" {
+		info = fmt.Sprintf(" %d/%d", r.currentDisplay(), len(r.Matches))
 	}
+	navButtons := " ▲ ▼ ✕"
+	suffixW := len([]rune(info)) + len([]rune(navButtons))
 
-	toggleW := 0
-	for _, tg := range toggles {
-		toggleW += len([]rune(tg.label)) + 1
+	searchInputW := barW - 2 - suffixW
+	if searchInputW < 4 {
+		searchInputW = 4
 	}
-	navButtons := "▲ ▼ ✕"
-	totalW := toggleW + len([]rune(info)) + len([]rune(navButtons))
-	sx := barX + barW - 2 - totalW
-	if sx <= barX {
-		sx = barX + 1
-	}
+	r.SearchInput.Render(surface, barX+1, findRow, searchInputW)
 
-	cx := sx
-	toggleHits := []*HitRegion{&r.btnCase, &r.btnRegex}
-	for i, tg := range toggles {
-		style := term.StyleMuted
-		if tg.active {
-			style = term.StyleDefault
-		}
-		*toggleHits[i] = HitRegion{X: cx, Y: findRow, W: len([]rune(tg.label))}
-		for _, ch := range tg.label {
-			if cx < barX+barW-1 {
-				surface.SetCell(cx, findRow, term.Cell{Ch: ch, Style: style})
-				cx++
-			}
-		}
-		if cx < barX+barW-1 {
-			surface.SetCell(cx, findRow, term.Cell{Ch: ' ', Style: term.StyleMuted})
-			cx++
-		}
-	}
-
+	cx := barX + 1 + searchInputW
 	for _, ch := range info {
 		if cx < barX+barW-1 {
 			surface.SetCell(cx, findRow, term.Cell{Ch: ch, Style: term.StyleMuted})
@@ -113,37 +146,19 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 		}
 	}
 
+	navStart := cx
 	for _, ch := range navButtons {
 		if cx < barX+barW-1 {
 			surface.SetCell(cx, findRow, term.Cell{Ch: ch, Style: term.StyleMuted})
 			cx++
 		}
 	}
+	r.btnPrev = HitRegion{X: navStart + 1, Y: findRow, W: 1}
+	r.btnNext = HitRegion{X: navStart + 3, Y: findRow, W: 1}
+	r.btnClose = HitRegion{X: navStart + 5, Y: findRow, W: 1}
 
-	// Replace buttons on replace row
-	replBtns := "⟳ ⟳All"
-	rx := barX + barW - 2 - len([]rune(replBtns))
-	if rx > barX {
-		surface.DrawText(rx, replRow, replBtns, barX+barW-1, term.StyleMuted)
-	}
-}
-
-func (r *ReplaceBarWidget) renderRow(surface *RenderSurface, startX, y, w int, label, text string, curPos int, focused bool) {
-	surface.ClearRect(startX, y, w, 1, term.StyleDefault)
-	x := surface.DrawText(startX, y, label, startX+w, term.StyleMuted)
-	surface.DrawText(x, y, text, startX+w, term.StyleDefault)
-
-	if focused {
-		cx := startX + len([]rune(label)) + curPos
-		if cx < startX+w {
-			ch := ' '
-			runes := []rune(text)
-			if curPos < len(runes) {
-				ch = runes[curPos]
-			}
-			surface.SetCell(cx, y, term.Cell{Ch: ch, Style: term.StylePaletteSelected})
-		}
-	}
+	replInputW := barW - 2
+	r.ReplaceInput.Render(surface, barX+1, replRow, replInputW)
 }
 
 func (r *ReplaceBarWidget) currentDisplay() int {
@@ -155,7 +170,7 @@ func (r *ReplaceBarWidget) currentDisplay() int {
 
 func (r *ReplaceBarWidget) search() {
 	if r.OnSearch != nil {
-		r.Matches = r.OnSearch(r.Query, r.Options)
+		r.Matches = r.OnSearch(r.SearchInput.Text, r.Options)
 		if len(r.Matches) > 0 {
 			if r.Current >= len(r.Matches) {
 				r.Current = 0
@@ -172,30 +187,62 @@ func (r *ReplaceBarWidget) navigate() {
 }
 
 func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
-	if mev, ok := ev.(*tcell.EventMouse); ok {
-		if mev.Buttons()&tcell.Button1 != 0 {
-			mx, my := mev.Position()
-			if r.btnCase.Contains(mx, my) {
-				r.Options.CaseSensitive = !r.Options.CaseSensitive
-				r.Current = 0
-				r.search()
+	switch tev := ev.(type) {
+	case *tcell.EventMouse:
+		if tev.Buttons()&tcell.Button1 != 0 {
+			mx, my := tev.Position()
+			barX, barY, barW, _ := r.barLayout()
+			rect := r.GetRect()
+			localX := mx - rect.X
+			localY := my - rect.Y
+
+			findRow := barY + 1
+			replRow := barY + 2
+
+			if localY == findRow && localX >= barX+1 && localX < barX+1+barW-2 {
+				if r.SearchInput.HandleMouseClick(localX, localY) {
+					return EventConsumed
+				}
+				r.focusRow = 0
 				return EventConsumed
 			}
-			if r.btnRegex.Contains(mx, my) {
-				r.Options.UseRegex = !r.Options.UseRegex
-				r.Current = 0
-				r.search()
+			if localY == replRow && localX >= barX+1 && localX < barX+1+barW-2 {
+				if r.ReplaceInput.HandleMouseClick(localX, localY) {
+					return EventConsumed
+				}
+				r.focusRow = 1
+				return EventConsumed
+			}
+
+			if r.btnPrev.Contains(mx, my) {
+				if len(r.Matches) > 0 {
+					r.Current = (r.Current - 1 + len(r.Matches)) % len(r.Matches)
+					r.navigate()
+				}
+				return EventConsumed
+			}
+			if r.btnNext.Contains(mx, my) {
+				if len(r.Matches) > 0 {
+					r.Current = (r.Current + 1) % len(r.Matches)
+					r.navigate()
+				}
+				return EventConsumed
+			}
+			if r.btnClose.Contains(mx, my) {
+				if r.OnDismiss != nil {
+					r.OnDismiss()
+				}
 				return EventConsumed
 			}
 		}
 		return EventConsumed
+	case *tcell.EventKey:
+		return r.handleKey(tev)
 	}
+	return EventConsumed
+}
 
-	kev, ok := ev.(*tcell.EventKey)
-	if !ok {
-		return EventConsumed
-	}
-
+func (r *ReplaceBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	switch kev.Key() {
 	case tcell.KeyEscape:
 		if r.OnDismiss != nil {
@@ -217,7 +264,7 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		} else {
 			if len(r.Matches) > 0 && r.OnReplace != nil {
-				r.OnReplace(r.Matches[r.Current], r.Replace)
+				r.OnReplace(r.Matches[r.Current], r.ReplaceInput.Text)
 				r.search()
 			}
 		}
@@ -240,36 +287,32 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		switch kev.Rune() {
 		case 'r':
 			if r.OnReplaceAll != nil {
-				r.OnReplaceAll(r.Query, r.Replace)
+				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text)
 				r.search()
 			}
 			return EventConsumed
 		case 'c':
 			r.Options.CaseSensitive = !r.Options.CaseSensitive
+			r.syncActions()
 			r.Current = 0
 			r.search()
 			return EventConsumed
 		case 'x':
 			r.Options.UseRegex = !r.Options.UseRegex
+			r.syncActions()
 			r.Current = 0
 			r.search()
 			return EventConsumed
 		}
 	}
 
-	if r.focusRow == 0 {
-		return r.handleInput(kev, &r.Query, &r.searchCur, true)
+	inp := r.SearchInput
+	if r.focusRow == 1 {
+		inp = r.ReplaceInput
 	}
-	return r.handleInput(kev, &r.Replace, &r.replaceCur, false)
-}
+	if inp.HandleEvent(tcell.NewEventKey(kev.Key(), kev.Rune(), kev.Modifiers())) == EventConsumed {
+		return EventConsumed
+	}
 
-func (r *ReplaceBarWidget) handleInput(kev *tcell.EventKey, text *string, curPos *int, doSearch bool) EventResult {
-	res := HandleTextEdit(kev, *text, *curPos)
-	*text = res.Text
-	*curPos = res.CurPos
-	if res.Changed && doSearch {
-		r.Current = 0
-		r.search()
-	}
 	return EventConsumed
 }

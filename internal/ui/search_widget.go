@@ -59,9 +59,13 @@ type searchItem struct {
 func NewSearchWidget() *SearchWidget {
 	s := &SearchWidget{}
 	s.Input = NewInputWidget(" > ")
+	s.Input.Placeholder = "Search"
 	s.Include = NewInputWidget(" > ")
+	s.Include.Placeholder = "files to include"
 	s.Exclude = NewInputWidget(" > ")
+	s.Exclude.Placeholder = "files to exclude"
 	s.ReplaceInput = NewInputWidget(" > ")
+	s.ReplaceInput.Placeholder = "Replace"
 	onChange := func(string) { s.runSearch() }
 	s.Input.OnChange = onChange
 	s.Include.OnChange = onChange
@@ -140,7 +144,7 @@ func (s *SearchWidget) resultsStartY() int {
 		base += 2
 	}
 	if s.showFilters {
-		base += 6
+		base += 4
 	}
 	return base
 }
@@ -164,10 +168,10 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 		base += 2
 	}
 	if inp == s.Include && s.showFilters {
-		return base + 1
+		return base
 	}
 	if inp == s.Exclude && s.showFilters {
-		return base + 4
+		return base + 2
 	}
 	return 0
 }
@@ -356,13 +360,6 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 	y++
 
 	if s.showFilters {
-		includeLabel := "files to include"
-		for i, ch := range includeLabel {
-			if i+1 < w {
-				surface.SetCell(i+1, y, term.Cell{Ch: ch, Style: term.StyleMuted})
-			}
-		}
-		y++
 		s.Include.Render(surface, 0, y, w)
 		y++
 		for x := 0; x < w; x++ {
@@ -370,13 +367,6 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		}
 		y++
 
-		excludeLabel := "files to exclude"
-		for i, ch := range excludeLabel {
-			if i+1 < w {
-				surface.SetCell(i+1, y, term.Cell{Ch: ch, Style: term.StyleMuted})
-			}
-		}
-		y++
 		s.Exclude.Render(surface, 0, y, w)
 		y++
 		for x := 0; x < w; x++ {

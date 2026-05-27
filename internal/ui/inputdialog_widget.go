@@ -19,10 +19,10 @@ type InputDialogWidget struct {
 	boxW       int
 }
 
-func NewInputDialogWidget(title, initial string) *InputDialogWidget {
+func NewInputDialogWidget(title, placeholder, initial string) *InputDialogWidget {
 	d := &InputDialogWidget{
 		Title: title,
-		Input: InputWidget{Prefix: " > ", Style: term.StylePaletteItem},
+		Input: InputWidget{Prefix: " > ", Style: term.StylePaletteItem, Placeholder: placeholder},
 	}
 	d.Input.SetText(initial)
 	return d

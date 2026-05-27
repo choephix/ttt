@@ -37,6 +37,12 @@ type DialogStyles struct {
 	Muted    StyleDef `json:"muted"`
 }
 
+type InputStyles struct {
+	Item        StyleDef `json:"item"`
+	Placeholder StyleDef `json:"placeholder"`
+	Action      StyleDef `json:"action"`
+}
+
 type MenuStyles struct {
 	Item   StyleDef `json:"item"`
 	Active StyleDef `json:"active"`
@@ -134,6 +140,7 @@ func (tc TerminalColors) ANSIPalette() [16]string {
 
 type ThemeConfig struct {
 	Default StyleDef `json:"default"`
+	Muted   StyleDef `json:"muted"`
 	Success StyleDef `json:"success"`
 	Danger  StyleDef `json:"danger"`
 	Warning StyleDef `json:"warning"`
@@ -143,6 +150,7 @@ type ThemeConfig struct {
 	Dialog          DialogStyles  `json:"dialog"`
 	Editor          EditorStyles `json:"editor"`
 	Menu            MenuStyles  `json:"menu"`
+	Input           InputStyles `json:"input"`
 	Border          StyleDef    `json:"border"`
 	Diff            DiffStyles  `json:"diff"`
 	Scrollbar       StyleDef    `json:"scrollbar"`
@@ -155,6 +163,7 @@ func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
 		Terminal: DefaultTerminalColors(),
 		Default: StyleDef{Fg: "#fafafa", Bg: "#1f1f1f"},
+		Muted:   StyleDef{Fg: "#888888"},
 
 		Menu: MenuStyles{
 			Active: StyleDef{Fg: "#ffffff", Bg: "#505050", Bold: true},
@@ -173,7 +182,6 @@ func DefaultTheme() ThemeConfig {
 
 		Dialog: DialogStyles{
 			Selected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
-			Muted:    StyleDef{Fg: "#888888"},
 		},
 
 		Border: StyleDef{Fg: "#555555"},
@@ -220,6 +228,11 @@ func DefaultTheme() ThemeConfig {
 }
 
 func (t *ThemeConfig) ResolveColors() {
+	fillFg(&t.Dialog.Muted, t.Muted.Fg)
+	fillBg(&t.Input.Item, t.Default.Bg)
+	fillFg(&t.Input.Item, t.Default.Fg)
+	fillFg(&t.Input.Placeholder, t.Muted.Fg)
+	fillFg(&t.Input.Action, t.Muted.Fg)
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")
 	fillBg(&t.Diff.Modified, "#2e2e1e")

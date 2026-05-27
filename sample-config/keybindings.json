@@ -1,7 +1,7 @@
 [
   { "key": "ctrl+b", "command": "sidebar.toggle" },
   { "key": "ctrl+f", "command": "search.find" },
-  { "key": "ctrl+h", "command": "search.replace" },
+  { "key": "ctrl+r", "command": "search.replace" },
   { "key": "ctrl+g", "command": "editor.goToLine" },
   { "key": "ctrl+p", "command": "command.palette" },
   { "key": "alt+p", "command": "file.quickOpen" },
@@ -25,7 +25,7 @@
   { "key": "ctrl+j", "command": "panel.toggle" },
   { "key": "ctrl+k e", "command": "sidebar.explorer" },
   { "key": "ctrl+k f", "command": "sidebar.search" },
-  { "key": "ctrl+k h", "command": "sidebar.searchReplace" },
+  { "key": "ctrl+k r", "command": "sidebar.searchReplace" },
   { "key": "ctrl+k c", "command": "sidebar.changes" },
   { "key": "ctrl+k t", "command": "terminal.new" },
   { "key": "ctrl+k p", "command": "command.palette" },
