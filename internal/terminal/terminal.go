@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/creack/pty"
-	"github.com/hinshun/vt10x"
+	"github.com/eugenioenko/vt10x"
 )
 
 const (

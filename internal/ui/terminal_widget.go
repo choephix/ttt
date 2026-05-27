@@ -8,7 +8,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/terminal"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/hinshun/vt10x"
+	"github.com/eugenioenko/vt10x"
 )
 
 type TerminalColorPalette struct {
