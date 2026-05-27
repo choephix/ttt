@@ -10,9 +10,10 @@ import (
 )
 
 type FileStatus struct {
-	Status string
-	Path   string
-	Staged bool
+	Status  string
+	Path    string
+	OldPath string
+	Staged  bool
 }
 
 func RepoRoot(dir string) string {
@@ -45,15 +46,21 @@ func StatusFiles(dir string) ([]FileStatus, error) {
 		y := line[1] // worktree (unstaged) status
 		path := strings.TrimSpace(line[3:])
 
+		var oldPath string
+		if parts := strings.SplitN(path, " -> ", 2); len(parts) == 2 {
+			oldPath = parts[0]
+			path = parts[1]
+		}
+
 		if x != ' ' && x != '?' {
-			files = append(files, FileStatus{Status: string(x), Path: path, Staged: true})
+			files = append(files, FileStatus{Status: string(x), Path: path, OldPath: oldPath, Staged: true})
 		}
 		if y != ' ' {
 			st := string(y)
 			if x == '?' && y == '?' {
 				st = "?"
 			}
-			files = append(files, FileStatus{Status: st, Path: path, Staged: false})
+			files = append(files, FileStatus{Status: st, Path: path, OldPath: oldPath, Staged: false})
 		}
 	}
 	return files, nil
@@ -238,6 +245,25 @@ func DiffFile(dir, path string) (string, error) {
 	}
 	if len(out) == 0 {
 		cmd = exec.Command("git", "-C", dir, "diff", "HEAD", "--", absPath)
+		out, err = cmd.Output()
+		if err != nil {
+			return "", err
+		}
+	}
+	return string(out), nil
+}
+
+func DiffRename(dir, oldPath, newPath string) (string, error) {
+	cmd := exec.Command("git", "-C", dir, "diff", "HEAD", "--", filepath.Join(dir, oldPath), filepath.Join(dir, newPath))
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) == 0 {
+			return string(out), nil
+		}
+		return "", err
+	}
+	if len(out) == 0 {
+		cmd = exec.Command("git", "-C", dir, "diff", "--cached", "--", filepath.Join(dir, oldPath), filepath.Join(dir, newPath))
 		out, err = cmd.Output()
 		if err != nil {
 			return "", err

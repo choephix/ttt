@@ -1228,13 +1228,24 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 			app.root.SetFocus(app.editorGroup)
 			return
 		}
-		diffText, err := git.DiffFile(dir, status.Path)
+		var diffText string
+		var err error
+		if status.Status == "R" && status.OldPath != "" {
+			diffText, err = git.DiffRename(dir, status.OldPath, status.Path)
+		} else {
+			diffText, err = git.DiffFile(dir, status.Path)
+		}
 		if err != nil || diffText == "" {
 			app.editorGroup.OpenFile(fullPath)
 			app.root.SetFocus(app.editorGroup)
 			return
 		}
 		parsed := diff.Parse(diffText)
+		if len(parsed.Hunks) == 0 {
+			app.editorGroup.OpenFile(fullPath)
+			app.root.SetFocus(app.editorGroup)
+			return
+		}
 		app.editorGroup.OpenDiff(status.Path, parsed)
 		app.root.SetFocus(app.editorGroup)
 	}
