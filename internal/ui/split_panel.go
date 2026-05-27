@@ -190,12 +190,12 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 	if s.ShowLeft {
 		divX := s.DividerScreenX()
 		slog.Debug("splitPanel", "action", "route", "mx", mx, "divX", divX, "showLeft", true)
-		// divX±1: extend grab zone 1 column on each side for easier targeting
-		if freshClick && mx >= divX-1 && mx <= divX+1 && s.OnResize != nil {
+		// divX to divX+1: grab zone extends right only to avoid overlapping the scrollbar
+		if freshClick && mx >= divX && mx <= divX+1 && s.OnResize != nil {
 			s.dragging = true
 			return EventConsumed
 		}
-		if mx < divX-1 {
+		if mx < divX {
 			if s.Left != nil {
 				result := s.Left.HandleEvent(ev)
 				slog.Debug("splitPanel", "action", "leftChild", "result", result)

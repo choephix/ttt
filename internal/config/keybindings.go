@@ -157,6 +157,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+j", Command: "panel.toggle"},
 		{Key: "ctrl+k e", Command: "sidebar.explorer"},
 		{Key: "ctrl+k f", Command: "sidebar.search"},
+		{Key: "ctrl+k h", Command: "sidebar.searchReplace"},
 		{Key: "ctrl+k c", Command: "sidebar.changes"},
 		{Key: "ctrl+k t", Command: "terminal.new"},
 		{Key: "ctrl+k p", Command: "command.palette"},

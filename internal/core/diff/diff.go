@@ -1,6 +1,9 @@
 package diff
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type LineKind int
 
@@ -143,6 +146,143 @@ func Parse(unified string) FileDiff {
 	}
 
 	return fd
+}
+
+func Generate(oldLines, newLines []string, fileName string) string {
+	lcs := computeLCS(oldLines, newLines)
+
+	var hunks []string
+	oi, ni, li := 0, 0, 0
+	contextLines := 3
+
+	for oi < len(oldLines) || ni < len(newLines) {
+		if li < len(lcs) && oi < len(oldLines) && ni < len(newLines) && oldLines[oi] == lcs[li] && newLines[ni] == lcs[li] {
+			oi++
+			ni++
+			li++
+			continue
+		}
+
+		hunkOldStart := oi
+		hunkNewStart := ni
+		ctxStart := hunkOldStart - contextLines
+		if ctxStart < 0 {
+			ctxStart = 0
+		}
+		ctxNewStart := hunkNewStart - (hunkOldStart - ctxStart)
+
+		var hunkLines []string
+		for i := ctxStart; i < hunkOldStart; i++ {
+			hunkLines = append(hunkLines, " "+oldLines[i])
+		}
+
+		for oi < len(oldLines) || ni < len(newLines) {
+			if li < len(lcs) && oi < len(oldLines) && ni < len(newLines) && oldLines[oi] == lcs[li] && newLines[ni] == lcs[li] {
+				peekEnd := 0
+				for peekEnd < contextLines*2 && oi+peekEnd < len(oldLines) && li+peekEnd < len(lcs) && oldLines[oi+peekEnd] == lcs[li+peekEnd] {
+					peekEnd++
+				}
+				if peekEnd >= contextLines*2 || (oi+peekEnd >= len(oldLines) && li+peekEnd >= len(lcs)) {
+					trail := contextLines
+					if peekEnd < trail {
+						trail = peekEnd
+					}
+					for i := 0; i < trail; i++ {
+						hunkLines = append(hunkLines, " "+oldLines[oi])
+						oi++
+						ni++
+						li++
+					}
+					break
+				}
+				hunkLines = append(hunkLines, " "+oldLines[oi])
+				oi++
+				ni++
+				li++
+				continue
+			}
+			if oi < len(oldLines) && (li >= len(lcs) || oldLines[oi] != lcs[li]) {
+				hunkLines = append(hunkLines, "-"+oldLines[oi])
+				oi++
+				continue
+			}
+			if ni < len(newLines) && (li >= len(lcs) || newLines[ni] != lcs[li]) {
+				hunkLines = append(hunkLines, "+"+newLines[ni])
+				ni++
+				continue
+			}
+			break
+		}
+
+		oldCount := 0
+		newCount := 0
+		for _, l := range hunkLines {
+			if len(l) > 0 {
+				switch l[0] {
+				case '-':
+					oldCount++
+				case '+':
+					newCount++
+				case ' ':
+					oldCount++
+					newCount++
+				}
+			}
+		}
+
+		header := fmt.Sprintf("@@ -%d,%d +%d,%d @@", ctxStart+1, oldCount, ctxNewStart+1, newCount)
+		hunks = append(hunks, header)
+		hunks = append(hunks, hunkLines...)
+	}
+
+	if len(hunks) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("--- a/" + fileName + "\n")
+	sb.WriteString("+++ b/" + fileName + "\n")
+	for _, line := range hunks {
+		sb.WriteString(line + "\n")
+	}
+	return sb.String()
+}
+
+func computeLCS(a, b []string) []string {
+	m, n := len(a), len(b)
+	dp := make([][]int, m+1)
+	for i := range dp {
+		dp[i] = make([]int, n+1)
+	}
+	for i := 1; i <= m; i++ {
+		for j := 1; j <= n; j++ {
+			if a[i-1] == b[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else if dp[i-1][j] > dp[i][j-1] {
+				dp[i][j] = dp[i-1][j]
+			} else {
+				dp[i][j] = dp[i][j-1]
+			}
+		}
+	}
+
+	lcs := make([]string, 0, dp[m][n])
+	i, j := m, n
+	for i > 0 && j > 0 {
+		if a[i-1] == b[j-1] {
+			lcs = append(lcs, a[i-1])
+			i--
+			j--
+		} else if dp[i-1][j] > dp[i][j-1] {
+			i--
+		} else {
+			j--
+		}
+	}
+	for l, r := 0, len(lcs)-1; l < r; l, r = l+1, r-1 {
+		lcs[l], lcs[r] = lcs[r], lcs[l]
+	}
+	return lcs
 }
 
 func parseHunkHeader(header string) (oldStart, newStart int) {

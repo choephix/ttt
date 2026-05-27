@@ -25,6 +25,7 @@
   { "key": "ctrl+j", "command": "panel.toggle" },
   { "key": "ctrl+k e", "command": "sidebar.explorer" },
   { "key": "ctrl+k f", "command": "sidebar.search" },
+  { "key": "ctrl+k h", "command": "sidebar.searchReplace" },
   { "key": "ctrl+k c", "command": "sidebar.changes" },
   { "key": "ctrl+k t", "command": "terminal.new" },
   { "key": "ctrl+k p", "command": "command.palette" },

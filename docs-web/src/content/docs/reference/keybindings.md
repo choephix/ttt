@@ -54,6 +54,8 @@ All keybindings can be customized in `~/.config/ttt/keybindings.json`.
 | F3 | `search.findNext` | Find next |
 | Shift+F3 | `search.findPrev` | Find previous |
 
+In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+X in replace) for regex.
+
 ## View
 
 | Shortcut | Command | Description |
@@ -62,6 +64,7 @@ All keybindings can be customized in `~/.config/ttt/keybindings.json`.
 | Ctrl+J | `panel.toggle` | Toggle bottom panel |
 | Ctrl+K E | `sidebar.explorer` | Show file explorer |
 | Ctrl+K F | `sidebar.search` | Search across files |
+| Ctrl+K H | `sidebar.searchReplace` | Search and replace in files |
 | Ctrl+K C | `sidebar.changes` | Show changes |
 | Ctrl+0 | `sidebar.focus` | Focus sidebar |
 | Ctrl+K Ctrl+T | `theme.switch` | Switch theme |

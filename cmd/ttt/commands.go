@@ -57,6 +57,22 @@ func registerViewCommands(reg *command.Registry, app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "sidebar.searchReplace", Title: "Search and Replace in Files",
+		Handler: func() {
+			if app.sidebar.Visible && app.sidebar.ActivePanel == "search" {
+				app.search.ToggleReplaceMode()
+			} else {
+				app.search.SetReplaceMode(true)
+				app.sidebar.SetActivePanel("search")
+				if !app.sidebar.Visible {
+					app.ShowSidebar()
+				}
+			}
+			app.root.SetFocus(app.search)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "sidebar.changes", Title: "Show Changes",
 		Handler: func() {
 			app.changes.Refresh()
@@ -523,8 +539,12 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 		Handler: func() {
 			findBar := ui.NewFindBarWidget()
 			findBar.Borders = app.borders
-			findBar.OnSearch = func(query string) []ui.FindMatch {
-				matches := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
+			findBar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
+				matches, err := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query, opts)
+				if err != nil {
+					app.StatusWarn("Invalid regex: " + err.Error())
+					return nil
+				}
 				app.editorGroup.SetSearch(query, matches)
 				return matches
 			}
@@ -561,8 +581,12 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 		Handler: func() {
 			bar := ui.NewReplaceBarWidget()
 			bar.Borders = app.borders
-			bar.OnSearch = func(query string) []ui.FindMatch {
-				matches := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query)
+			bar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
+				matches, err := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query, opts)
+				if err != nil {
+					app.StatusWarn("Invalid regex: " + err.Error())
+					return nil
+				}
 				app.editorGroup.SetSearch(query, matches)
 				return matches
 			}
@@ -1039,7 +1063,13 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 				{Label: "Refresh", Command: "explorer.refresh"},
 			}
 		case "search":
+			replaceLabel := "Replace"
+			if app.search.IsReplaceMode() {
+				replaceLabel = "Search"
+			}
 			items = []ui.ContextMenuItem{
+				{Label: replaceLabel, Shortcut: app.KeyFor("sidebar.searchReplace"), Command: "sidebar.searchReplace"},
+				ui.MenuSep(),
 				{Label: "Clear Results", Command: "search.clear"},
 			}
 		case "changes":
@@ -1085,7 +1115,7 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	app.editorGroup.TabBar.OnTabRightClick = func(index, sx, sy int) {
 		app.editorGroup.SwitchTab(index)
 		tabContextMenu := []ui.ContextMenuItem{
-			{Label: "Close", Shortcut: "Ctrl+W", Command: "tab.close"},
+			{Label: "Close", Shortcut: app.KeyFor("tab.close"), Command: "tab.close"},
 			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
 		}
@@ -1101,6 +1131,73 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		app.editorGroup.OpenFile(path)
 		app.editorGroup.GoToLine(line)
 		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.search.OnPreview = func(filePath string, matches []ui.SearchMatch, replacement string, opts ui.SearchOptions) {
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			app.StatusWarn("Cannot read file: " + err.Error())
+			return
+		}
+		lines := strings.Split(string(data), "\n")
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		fd := ui.BuildReplaceDiff(filepath.Base(filePath), lines, matches, replacement, opts)
+		app.editorGroup.OpenDiff(filePath, fd)
+		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.search.OnReplace = func(filePath string, matches []ui.SearchMatch, replacement string, opts ui.SearchOptions) {
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			app.StatusWarn("Cannot read file: " + err.Error())
+			return
+		}
+		lines := strings.Split(string(data), "\n")
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		newLines := ui.ApplyReplacements(lines, matches, replacement, opts)
+		if err := os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
+			app.StatusWarn("Cannot write file: " + err.Error())
+			return
+		}
+		app.editorGroup.ReloadFile(filePath)
+		app.search.Refresh()
+		app.StatusNotify(fmt.Sprintf("Replaced %d matches in %s", len(matches), filepath.Base(filePath)))
+	}
+
+	app.search.OnReplaceAll = func(allMatches map[string][]ui.SearchMatch, replacement string, opts ui.SearchOptions) {
+		totalFiles := len(allMatches)
+		totalMatches := 0
+		for _, m := range allMatches {
+			totalMatches += len(m)
+		}
+		msg := fmt.Sprintf("Replace %d matches across %d files? This cannot be undone.", totalMatches, totalFiles)
+		app.ShowConfirmDialog(msg, []string{"Cancel", "Replace All"}, []func(){
+			func() { app.DismissDialog() },
+			func() {
+				app.DismissDialog()
+				for filePath, matches := range allMatches {
+					data, err := os.ReadFile(filePath)
+					if err != nil {
+						continue
+					}
+					lines := strings.Split(string(data), "\n")
+					if len(lines) > 0 && lines[len(lines)-1] == "" {
+						lines = lines[:len(lines)-1]
+					}
+					newLines := ui.ApplyReplacements(lines, matches, replacement, opts)
+					if err := os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
+						continue
+					}
+					app.editorGroup.ReloadFile(filePath)
+				}
+				app.search.Refresh()
+				app.StatusNotify(fmt.Sprintf("Replaced %d matches across %d files", totalMatches, totalFiles))
+			},
+		})
 	}
 
 	app.explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {

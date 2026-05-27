@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -17,11 +16,14 @@ type FindBarWidget struct {
 	Query      string
 	Matches    []FindMatch
 	Current    int
+	Options    SearchOptions
 	Borders    *term.BorderSet
-	OnSearch   func(query string) []FindMatch
+	OnSearch   func(query string, opts SearchOptions) []FindMatch
 	OnNavigate func(match FindMatch)
 	OnDismiss  func()
 	cursorPos  int
+	btnCase    HitRegion
+	btnRegex   HitRegion
 	btnPrev    HitRegion
 	btnNext    HitRegion
 	btnClose   HitRegion
@@ -79,21 +81,69 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 		surface.SetCell(cursorX, row, term.Cell{Ch: ch, Style: term.StylePaletteSelected})
 	}
 
-	// Buttons and info on the right
+	// Toggle buttons + info + nav on the right
+	type toggle struct {
+		label  string
+		active bool
+	}
+	toggles := []toggle{
+		{"Aa", f.Options.CaseSensitive},
+		{".*", f.Options.UseRegex},
+	}
+
 	info := ""
 	if len(f.Query) > 0 {
 		info = fmt.Sprintf("%d/%d", f.currentDisplay(), len(f.Matches))
 	}
-	buttons := " ▲ ▼ ✕"
-	suffix := info + buttons
-	sx := barX + barW - 2 - len([]rune(suffix))
-	if sx > barX {
-		surface.DrawText(sx, row, suffix, barX+barW-1, term.StyleMuted)
+
+	toggleW := 0
+	for _, tg := range toggles {
+		toggleW += len([]rune(tg.label)) + 1
 	}
-	btnStart := sx + len([]rune(info))
-	f.btnPrev = HitRegion{X: btnStart + 1, Y: row, W: 1}
-	f.btnNext = HitRegion{X: btnStart + 3, Y: row, W: 1}
-	f.btnClose = HitRegion{X: btnStart + 5, Y: row, W: 1}
+	navButtons := " ▲ ▼ ✕"
+	totalW := toggleW + len([]rune(info)) + len([]rune(navButtons))
+	sx := barX + barW - 2 - totalW
+	if sx <= barX {
+		sx = barX + 1
+	}
+
+	cx := sx
+	toggleHits := []*HitRegion{&f.btnCase, &f.btnRegex}
+	for i, tg := range toggles {
+		style := term.StyleMuted
+		if tg.active {
+			style = term.StyleDefault
+		}
+		*toggleHits[i] = HitRegion{X: cx, Y: row, W: len([]rune(tg.label))}
+		for _, ch := range tg.label {
+			if cx < barX+barW-1 {
+				surface.SetCell(cx, row, term.Cell{Ch: ch, Style: style})
+				cx++
+			}
+		}
+		if cx < barX+barW-1 {
+			surface.SetCell(cx, row, term.Cell{Ch: ' ', Style: term.StyleMuted})
+			cx++
+		}
+	}
+
+	for _, ch := range info {
+		if cx < barX+barW-1 {
+			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: term.StyleMuted})
+			cx++
+		}
+	}
+
+	navStart := cx
+	for _, ch := range navButtons {
+		if cx < barX+barW-1 {
+			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: term.StyleMuted})
+			cx++
+		}
+	}
+	f.btnPrev = HitRegion{X: navStart + 1, Y: row, W: 1}
+	f.btnNext = HitRegion{X: navStart + 3, Y: row, W: 1}
+	f.btnClose = HitRegion{X: navStart + 5, Y: row, W: 1}
 }
 
 func (f *FindBarWidget) currentDisplay() int {
@@ -105,7 +155,7 @@ func (f *FindBarWidget) currentDisplay() int {
 
 func (f *FindBarWidget) search() {
 	if f.OnSearch != nil {
-		f.Matches = f.OnSearch(f.Query)
+		f.Matches = f.OnSearch(f.Query, f.Options)
 		if len(f.Matches) > 0 {
 			if f.Current >= len(f.Matches) {
 				f.Current = 0
@@ -126,6 +176,18 @@ func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	case *tcell.EventMouse:
 		if tev.Buttons()&tcell.Button1 != 0 {
 			mx, my := tev.Position()
+			if f.btnCase.Contains(mx, my) {
+				f.Options.CaseSensitive = !f.Options.CaseSensitive
+				f.Current = 0
+				f.search()
+				return EventConsumed
+			}
+			if f.btnRegex.Contains(mx, my) {
+				f.Options.UseRegex = !f.Options.UseRegex
+				f.Current = 0
+				f.search()
+				return EventConsumed
+			}
 			if f.btnPrev.Contains(mx, my) {
 				if len(f.Matches) > 0 {
 					f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
@@ -171,7 +233,30 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 			f.navigate()
 		}
 		return EventConsumed
-	case tcell.KeyRune, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete,
+	case tcell.KeyRune:
+		if kev.Modifiers()&tcell.ModAlt != 0 {
+			switch kev.Rune() {
+			case 'c':
+				f.Options.CaseSensitive = !f.Options.CaseSensitive
+				f.Current = 0
+				f.search()
+				return EventConsumed
+			case 'r':
+				f.Options.UseRegex = !f.Options.UseRegex
+				f.Current = 0
+				f.search()
+				return EventConsumed
+			}
+		}
+		r := HandleTextEdit(kev, f.Query, f.cursorPos)
+		f.Query = r.Text
+		f.cursorPos = r.CurPos
+		if r.Changed {
+			f.Current = 0
+			f.search()
+		}
+		return EventConsumed
+	case tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete,
 		tcell.KeyLeft, tcell.KeyRight, tcell.KeyHome, tcell.KeyEnd:
 		r := HandleTextEdit(kev, f.Query, f.cursorPos)
 		f.Query = r.Text
@@ -198,25 +283,3 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	return EventConsumed
 }
 
-func FindInLines(lines []string, query string) []FindMatch {
-	if query == "" {
-		return nil
-	}
-	lowerQuery := strings.ToLower(query)
-	queryLen := len([]rune(lowerQuery))
-	var matches []FindMatch
-	for lineIdx, line := range lines {
-		lowerLine := strings.ToLower(line)
-		offset := 0
-		for {
-			idx := strings.Index(lowerLine[offset:], lowerQuery)
-			if idx < 0 {
-				break
-			}
-			col := len([]rune(lowerLine[:offset+idx]))
-			matches = append(matches, FindMatch{Line: lineIdx, Col: col, Len: queryLen})
-			offset += idx + len(lowerQuery)
-		}
-	}
-	return matches
-}

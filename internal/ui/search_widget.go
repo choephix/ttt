@@ -28,19 +28,26 @@ type SearchFileGroup struct {
 
 type SearchWidget struct {
 	BaseWidget
-	Input       *InputWidget
-	Include     *InputWidget
-	Exclude     *InputWidget
-	focusIdx    int
-	showFilters bool
-	Groups      []SearchFileGroup
-	FlatList    []searchItem
-	Selected    int
-	ScrollTop   int
-	WorkDirs    []string
-	Searching   bool
-	Error       string
-	OnOpenMatch func(path string, line, col int)
+	Input        *InputWidget
+	Include      *InputWidget
+	Exclude      *InputWidget
+	ReplaceInput *InputWidget
+	Options      SearchOptions
+	focusIdx     int
+	showFilters  bool
+	showReplace  bool
+	Groups       []SearchFileGroup
+	FlatList     []searchItem
+	Selected     int
+	ScrollTop    int
+	scrollbar    Scrollbar
+	WorkDirs     []string
+	Searching    bool
+	Error        string
+	OnOpenMatch  func(path string, line, col int)
+	OnReplace    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
+	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
+	OnPreview    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 }
 
 type searchItem struct {
@@ -54,22 +61,71 @@ func NewSearchWidget() *SearchWidget {
 	s.Input = NewInputWidget(" > ")
 	s.Include = NewInputWidget(" > ")
 	s.Exclude = NewInputWidget(" > ")
+	s.ReplaceInput = NewInputWidget(" > ")
 	onChange := func(string) { s.runSearch() }
 	s.Input.OnChange = onChange
 	s.Include.OnChange = onChange
 	s.Exclude.OnChange = onChange
+	s.Input.Actions = []InputAction{
+		{Label: "Aa", OnClick: func() {
+			s.Options.CaseSensitive = !s.Options.CaseSensitive
+			s.syncOptionActions()
+			s.runSearch()
+		}},
+		{Label: ".*", OnClick: func() {
+			s.Options.UseRegex = !s.Options.UseRegex
+			s.syncOptionActions()
+			s.runSearch()
+		}},
+	}
+	s.ReplaceInput.Actions = []InputAction{
+		{Label: "⟳All", OnClick: func() {
+			s.ReplaceAllFiles()
+		}},
+	}
 	return s
 }
 
-func (s *SearchWidget) focusedInput() *InputWidget {
-	switch s.focusIdx {
-	case 1:
-		return s.Include
-	case 2:
-		return s.Exclude
-	default:
-		return s.Input
+func (s *SearchWidget) syncOptionActions() {
+	if len(s.Input.Actions) >= 2 {
+		s.Input.Actions[0].Active = s.Options.CaseSensitive
+		s.Input.Actions[1].Active = s.Options.UseRegex
 	}
+}
+
+func (s *SearchWidget) SetReplaceMode(on bool) {
+	s.showReplace = on
+}
+
+func (s *SearchWidget) IsReplaceMode() bool {
+	return s.showReplace
+}
+
+func (s *SearchWidget) ToggleReplaceMode() {
+	s.showReplace = !s.showReplace
+}
+
+func (s *SearchWidget) Refresh() {
+	s.runSearch()
+}
+
+func (s *SearchWidget) visibleInputs() []*InputWidget {
+	inputs := []*InputWidget{s.Input}
+	if s.showReplace {
+		inputs = append(inputs, s.ReplaceInput)
+	}
+	if s.showFilters {
+		inputs = append(inputs, s.Include, s.Exclude)
+	}
+	return inputs
+}
+
+func (s *SearchWidget) focusedInput() *InputWidget {
+	inputs := s.visibleInputs()
+	if s.focusIdx >= 0 && s.focusIdx < len(inputs) {
+		return inputs[s.focusIdx]
+	}
+	return s.Input
 }
 
 func (s *SearchWidget) SetWorkDirs(dirs []string) {
@@ -79,21 +135,41 @@ func (s *SearchWidget) SetWorkDirs(dirs []string) {
 func (s *SearchWidget) Focusable() bool { return true }
 
 func (s *SearchWidget) resultsStartY() int {
-	if s.showFilters {
-		return 9
+	base := 3
+	if s.showReplace {
+		base += 2
 	}
-	return 3
+	if s.showFilters {
+		base += 6
+	}
+	return base
 }
 
 func (s *SearchWidget) CursorPosition() (int, int, bool) {
 	r := s.GetRect()
-	if !s.showFilters || s.focusIdx == 0 {
-		return s.Input.CursorX(r.X), r.Y, true
+	inp := s.focusedInput()
+	y := s.inputY(inp)
+	return inp.CursorX(r.X), r.Y + y, true
+}
+
+func (s *SearchWidget) inputY(inp *InputWidget) int {
+	if inp == s.Input {
+		return 0
 	}
-	if s.focusIdx == 1 {
-		return s.Include.CursorX(r.X), r.Y + 4, true
+	if inp == s.ReplaceInput && s.showReplace {
+		return 2
 	}
-	return s.Exclude.CursorX(r.X), r.Y + 7, true
+	base := 3
+	if s.showReplace {
+		base += 2
+	}
+	if inp == s.Include && s.showFilters {
+		return base + 1
+	}
+	if inp == s.Exclude && s.showFilters {
+		return base + 4
+	}
+	return 0
 }
 
 func (s *SearchWidget) runSearch() {
@@ -118,7 +194,15 @@ func (s *SearchWidget) runSearch() {
 		dirs = []string{"."}
 	}
 
-	args := []string{"--json", "--smart-case", "--max-count=100"}
+	args := []string{"--json", "--max-count=100"}
+	if s.Options.CaseSensitive {
+		args = append(args, "--case-sensitive")
+	} else {
+		args = append(args, "--smart-case")
+	}
+	if !s.Options.UseRegex {
+		args = append(args, "--fixed-strings")
+	}
 	for _, g := range strings.Split(s.Include.Text, ",") {
 		g = strings.TrimSpace(g)
 		if g != "" {
@@ -244,45 +328,64 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 	}
 
 	s.Input.Render(surface, 0, 0, w)
+	y := 1
+
+	if s.showReplace {
+		for x := 0; x < w; x++ {
+			surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
+		}
+		y++
+		s.ReplaceInput.Render(surface, 0, y, w)
+		y++
+	}
 
 	for x := 0; x < w; x++ {
-		surface.SetCell(x, 1, term.Cell{Ch: '─', Style: term.StyleBorder})
+		surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
 	}
+	y++
 
-	toggle := " ▼ "
+	toggleRow := y
+	filterToggle := " ▼ "
 	if s.showFilters {
-		toggle = " ◀ "
+		filterToggle = " ◀ "
 	}
-	tx := w - len([]rune(toggle))
-	for i, ch := range toggle {
-		surface.SetCell(tx+i, 2, term.Cell{Ch: ch, Style: term.StyleMuted})
+	ftx := w - len([]rune(filterToggle))
+	for i, ch := range filterToggle {
+		surface.SetCell(ftx+i, toggleRow, term.Cell{Ch: ch, Style: term.StyleMuted})
 	}
-
-	startY := s.resultsStartY()
+	y++
 
 	if s.showFilters {
 		includeLabel := "files to include"
 		for i, ch := range includeLabel {
 			if i+1 < w {
-				surface.SetCell(i+1, 3, term.Cell{Ch: ch, Style: term.StyleMuted})
+				surface.SetCell(i+1, y, term.Cell{Ch: ch, Style: term.StyleMuted})
 			}
 		}
-		s.Include.Render(surface, 0, 4, w)
+		y++
+		s.Include.Render(surface, 0, y, w)
+		y++
 		for x := 0; x < w; x++ {
-			surface.SetCell(x, 5, term.Cell{Ch: '─', Style: term.StyleBorder})
+			surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
 		}
+		y++
 
 		excludeLabel := "files to exclude"
 		for i, ch := range excludeLabel {
 			if i+1 < w {
-				surface.SetCell(i+1, 6, term.Cell{Ch: ch, Style: term.StyleMuted})
+				surface.SetCell(i+1, y, term.Cell{Ch: ch, Style: term.StyleMuted})
 			}
 		}
-		s.Exclude.Render(surface, 0, 7, w)
+		y++
+		s.Exclude.Render(surface, 0, y, w)
+		y++
 		for x := 0; x < w; x++ {
-			surface.SetCell(x, 8, term.Cell{Ch: '─', Style: term.StyleBorder})
+			surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
 		}
+		y++
 	}
+
+	startY := y
 
 	if s.Error != "" {
 		for i, ch := range s.Error {
@@ -322,12 +425,21 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	if s.Selected < s.ScrollTop {
-		s.ScrollTop = s.Selected
+	if !s.scrollbar.IsDragging() {
+		if s.Selected < s.ScrollTop {
+			s.ScrollTop = s.Selected
+		}
+		if s.Selected >= s.ScrollTop+visibleH {
+			s.ScrollTop = s.Selected - visibleH + 1
+		}
 	}
-	if s.Selected >= s.ScrollTop+visibleH {
-		s.ScrollTop = s.Selected - visibleH + 1
-	}
+
+	r := s.GetRect()
+	s.scrollbar.X = r.X + w - 1
+	s.scrollbar.Y = r.Y + startY
+	s.scrollbar.Height = visibleH
+	s.scrollbar.TotalItems = len(s.FlatList)
+	s.scrollbar.TopItem = s.ScrollTop
 
 	for i := 0; i < visibleH; i++ {
 		idx := s.ScrollTop + i
@@ -376,6 +488,17 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 				surface.SetCell(x, y, term.Cell{Ch: ch, Style: mutedStyle})
 				x++
 			}
+
+			if s.showReplace && s.ReplaceInput.Text != "" {
+				bx := w - 2
+				if bx > x {
+					surface.SetCell(bx, y, term.Cell{Ch: '⟳', Style: mutedStyle})
+				}
+				px := w - 4
+				if px > x {
+					surface.SetCell(px, y, term.Cell{Ch: '⊙', Style: mutedStyle})
+				}
+			}
 		} else {
 			m := s.Groups[item.Group].Matches[item.Match]
 			x := 2
@@ -409,38 +532,75 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 			}
 		}
 	}
+
+	s.scrollbar.Render(surface, w-1, startY)
+}
+
+func (s *SearchWidget) toggleRow() int {
+	y := 1
+	if s.showReplace {
+		y += 2
+	}
+	y++ // separator
+	return y
 }
 
 func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
+	if newTop, consumed := s.scrollbar.HandleEvent(ev); consumed {
+		s.ScrollTop = newTop
+		return EventConsumed
+	}
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
 		btn := tev.Buttons()
 		if btn&tcell.Button1 != 0 {
 			mx, my := tev.Position()
 			r := s.GetRect()
+			localX := mx - r.X
 			localY := my - r.Y
 
 			if localY == 0 {
+				if s.Input.HandleMouseClick(localX, localY) {
+					return EventConsumed
+				}
 				s.focusIdx = 0
 				return EventConsumed
 			}
 
-			if localY == 2 && mx >= r.X+r.W-3 {
-				s.showFilters = !s.showFilters
-				if !s.showFilters && s.focusIdx > 0 {
-					s.focusIdx = 0
+			if s.showReplace && localY == 2 {
+				if s.ReplaceInput.HandleMouseClick(localX, localY) {
+					return EventConsumed
+				}
+				inputs := s.visibleInputs()
+				for i, inp := range inputs {
+					if inp == s.ReplaceInput {
+						s.focusIdx = i
+						break
+					}
 				}
 				return EventConsumed
 			}
 
-			if s.showFilters {
-				if localY == 4 {
-					s.focusIdx = 1
+			tRow := s.toggleRow()
+			if localY == tRow {
+				if localX >= r.W-3 {
+					s.showFilters = !s.showFilters
+					inputs := s.visibleInputs()
+					if s.focusIdx >= len(inputs) {
+						s.focusIdx = 0
+					}
 					return EventConsumed
 				}
-				if localY == 7 {
-					s.focusIdx = 2
-					return EventConsumed
+			}
+
+			if s.showFilters {
+				inputs := s.visibleInputs()
+				for i, inp := range inputs {
+					iy := s.inputY(inp)
+					if localY == iy {
+						s.focusIdx = i
+						return EventConsumed
+					}
 				}
 			}
 
@@ -451,6 +611,17 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 
 			idx := s.ScrollTop + (localY - startY)
 			if idx >= 0 && idx < len(s.FlatList) {
+				item := s.FlatList[idx]
+				if s.showReplace && s.ReplaceInput.Text != "" && item.IsFile {
+					if localX >= r.W-3 && localX <= r.W-2 {
+						s.replaceInFile(item.Group)
+						return EventConsumed
+					}
+					if localX >= r.W-5 && localX <= r.W-4 {
+						s.previewFile(item.Group)
+						return EventConsumed
+					}
+				}
 				s.Selected = idx
 				s.activateSelected()
 			}
@@ -475,19 +646,35 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 	case *tcell.EventKey:
+		if tev.Modifiers()&tcell.ModAlt != 0 && tev.Key() == tcell.KeyRune {
+			switch tev.Rune() {
+			case 'c':
+				s.Options.CaseSensitive = !s.Options.CaseSensitive
+				s.syncOptionActions()
+				s.runSearch()
+				return EventConsumed
+			case 'r':
+				s.Options.UseRegex = !s.Options.UseRegex
+				s.syncOptionActions()
+				s.runSearch()
+				return EventConsumed
+			}
+		}
 		switch tev.Key() {
 		case tcell.KeyTab:
-			if s.showFilters {
-				s.focusIdx = (s.focusIdx + 1) % 3
+			inputs := s.visibleInputs()
+			if len(inputs) > 1 {
+				s.focusIdx = (s.focusIdx + 1) % len(inputs)
 			}
 			return EventConsumed
 		case tcell.KeyBacktab:
-			if s.showFilters {
-				s.focusIdx = (s.focusIdx + 2) % 3
+			inputs := s.visibleInputs()
+			if len(inputs) > 1 {
+				s.focusIdx = (s.focusIdx + len(inputs) - 1) % len(inputs)
 			}
 			return EventConsumed
 		case tcell.KeyEnter:
-			if len(s.FlatList) == 0 {
+			if s.focusIdx == 0 && len(s.FlatList) == 0 {
 				s.runSearch()
 			} else {
 				s.activateSelected()
@@ -519,19 +706,58 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
+func (s *SearchWidget) replaceInFile(groupIdx int) {
+	if groupIdx < 0 || groupIdx >= len(s.Groups) {
+		return
+	}
+	g := s.Groups[groupIdx]
+	if s.OnReplace != nil {
+		s.OnReplace(g.FilePath, g.Matches, s.ReplaceInput.Text, s.Options)
+	}
+}
+
+func (s *SearchWidget) previewFile(groupIdx int) {
+	if groupIdx < 0 || groupIdx >= len(s.Groups) {
+		return
+	}
+	g := s.Groups[groupIdx]
+	if s.OnPreview != nil {
+		s.OnPreview(g.FilePath, g.Matches, s.ReplaceInput.Text, s.Options)
+	}
+}
+
+func (s *SearchWidget) ReplaceAllFiles() {
+	if s.OnReplaceAll == nil {
+		return
+	}
+	allMatches := make(map[string][]SearchMatch)
+	for _, g := range s.Groups {
+		allMatches[g.FilePath] = g.Matches
+	}
+	s.OnReplaceAll(allMatches, s.ReplaceInput.Text, s.Options)
+}
+
 func (s *SearchWidget) activateSelected() {
 	if s.Selected < 0 || s.Selected >= len(s.FlatList) {
 		return
 	}
 	item := s.FlatList[s.Selected]
 	if item.IsFile {
-		g := &s.Groups[item.Group]
-		g.Expanded = !g.Expanded
-		s.flatten()
+		if s.showReplace && s.ReplaceInput.Text != "" {
+			s.previewFile(item.Group)
+		} else {
+			g := &s.Groups[item.Group]
+			g.Expanded = !g.Expanded
+			s.flatten()
+		}
 	} else {
-		m := s.Groups[item.Group].Matches[item.Match]
-		if s.OnOpenMatch != nil {
-			s.OnOpenMatch(m.FilePath, m.LineNum, m.ColStart)
+		if s.showReplace && s.ReplaceInput.Text != "" {
+			s.previewFile(item.Group)
+		} else {
+			m := s.Groups[item.Group].Matches[item.Match]
+			if s.OnOpenMatch != nil {
+				s.OnOpenMatch(m.FilePath, m.LineNum, m.ColStart)
+			}
 		}
 	}
 }

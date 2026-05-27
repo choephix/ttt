@@ -19,6 +19,7 @@ type InputWidget struct {
 	scrollOffset int
 	Style        term.Style
 	Actions      []InputAction
+	ActionHits   []HitRegion
 	OnChange     func(text string)
 }
 
@@ -60,11 +61,14 @@ func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 	}
 
 	ax := x + prefixW + textW
+	inp.ActionHits = inp.ActionHits[:0]
 	for _, action := range inp.Actions {
 		style := term.StyleMuted
 		if action.Active {
 			style = term.StyleDefault
 		}
+		labelW := len([]rune(action.Label))
+		inp.ActionHits = append(inp.ActionHits, HitRegion{X: ax, Y: y, W: labelW})
 		for _, ch := range action.Label {
 			if ax < x+w {
 				surface.SetCell(ax, y, term.Cell{Ch: ch, Style: style})
@@ -157,6 +161,18 @@ func (inp *InputWidget) Clear() {
 	inp.Text = ""
 	inp.CursorPos = 0
 	inp.notify()
+}
+
+func (inp *InputWidget) HandleMouseClick(localX, localY int) bool {
+	for i, hit := range inp.ActionHits {
+		if localX >= hit.X && localX < hit.X+hit.W && localY == hit.Y {
+			if i < len(inp.Actions) && inp.Actions[i].OnClick != nil {
+				inp.Actions[i].OnClick()
+			}
+			return true
+		}
+	}
+	return false
 }
 
 func (inp *InputWidget) notify() {

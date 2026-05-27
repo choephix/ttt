@@ -206,6 +206,19 @@ func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff) {
 	g.SwitchTab(len(g.tabs) - 1)
 }
 
+func (g *EditorGroupWidget) ReloadFile(path string) {
+	for i := range g.tabs {
+		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
+			g.tabs[i].Buf.LoadFile(path)
+			g.tabs[i].Buf.Dirty = false
+			if i == g.active {
+				g.syncTabs()
+			}
+			return
+		}
+	}
+}
+
 func (g *EditorGroupWidget) IsEditorActive() bool {
 	t := g.activeTab()
 	return t != nil && t.Content == nil
@@ -482,7 +495,7 @@ func (g *EditorGroupWidget) ReplaceAll(query, replacement string) {
 	if !g.IsEditorActive() || query == "" {
 		return
 	}
-	matches := FindInLines(g.Editor.Buf.Lines, query)
+	matches, _ := FindInLines(g.Editor.Buf.Lines, query, SearchOptions{})
 	for i := len(matches) - 1; i >= 0; i-- {
 		g.ReplaceMatch(matches[i], replacement)
 	}

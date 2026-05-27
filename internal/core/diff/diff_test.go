@@ -103,3 +103,66 @@ func TestParseEmpty(t *testing.T) {
 		t.Errorf("expected 0 hunks for empty input, got %d", len(fd.Hunks))
 	}
 }
+
+func TestGenerate(t *testing.T) {
+	old := []string{"a", "b", "c", "d"}
+	new := []string{"a", "x", "c", "d"}
+	result := Generate(old, new, "test.txt")
+	if result == "" {
+		t.Fatal("expected non-empty diff")
+	}
+
+	fd := Parse(result)
+	if fd.OldName != "test.txt" || fd.NewName != "test.txt" {
+		t.Errorf("wrong names: %q %q", fd.OldName, fd.NewName)
+	}
+	if len(fd.Hunks) == 0 {
+		t.Fatal("expected at least 1 hunk")
+	}
+
+	foundDel := false
+	foundAdd := false
+	for _, h := range fd.Hunks {
+		for _, dl := range h.Lines {
+			if dl.Left.Kind == Deleted && dl.Left.Text == "b" {
+				foundDel = true
+			}
+			if dl.Right.Kind == Added && dl.Right.Text == "x" {
+				foundAdd = true
+			}
+		}
+	}
+	if !foundDel {
+		t.Error("expected deleted line 'b'")
+	}
+	if !foundAdd {
+		t.Error("expected added line 'x'")
+	}
+}
+
+func TestGenerateIdentical(t *testing.T) {
+	lines := []string{"a", "b", "c"}
+	result := Generate(lines, lines, "test.txt")
+	if result != "" {
+		t.Errorf("expected empty diff for identical files, got: %s", result)
+	}
+}
+
+func TestGenerateAddition(t *testing.T) {
+	old := []string{"a", "c"}
+	new := []string{"a", "b", "c"}
+	result := Generate(old, new, "test.txt")
+	fd := Parse(result)
+
+	foundAdd := false
+	for _, h := range fd.Hunks {
+		for _, dl := range h.Lines {
+			if dl.Right.Kind == Added && dl.Right.Text == "b" {
+				foundAdd = true
+			}
+		}
+	}
+	if !foundAdd {
+		t.Error("expected added line 'b'")
+	}
+}
