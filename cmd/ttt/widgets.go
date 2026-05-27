@@ -125,6 +125,7 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	splitPanel.DividerPos = sidebarWidth
 	splitPanel.ShowLeft = sidebar.Visible
 	splitPanel.RightBorderStartY = 2
+	contentSplit.RightBorderStartY = &splitPanel.RightBorderStartY
 
 	rootBox := &ui.VBox{}
 	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
