@@ -141,8 +141,7 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			return result
 		}
 	} else {
-		bottomEdge := r.Y + r.H - 1
-		if pressed && my == bottomEdge {
+		if freshClick && my == r.Y+r.H {
 			cs.dragging = true
 			return EventConsumed
 		}
