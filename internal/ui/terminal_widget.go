@@ -172,6 +172,10 @@ func (tw *TerminalWidget) resolveColor(c vt10x.Color, isFg bool) term.DirectColo
 	if c == vt10x.DefaultBG {
 		return tw.Palette.Bg
 	}
+	if c.TrueColor() {
+		r, g, b := c.RGB()
+		return term.DirectColor{R: r, G: g, B: b, Set: true}
+	}
 	idx := int(c)
 	if idx >= 0 && idx < 16 {
 		return tw.Palette.ANSI[idx]
