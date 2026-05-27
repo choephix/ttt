@@ -176,7 +176,7 @@ Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
 - **Ctrl+K T** to spawn a new terminal tab
 - Multiple terminal tabs with a vertical inner tab bar on the left edge
 - Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
-- 256-color rendering with direct RGB color support
+- True color (24-bit) and 256-color rendering
 - When the terminal is focused, all keys go to the PTY except Ctrl+` (to toggle the panel)
 - Terminal shell and scrollback are configurable in `settings.json`
 - Terminal ANSI colors are theme-configurable via the `terminal` field in `theme.json`
