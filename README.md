@@ -427,6 +427,43 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | F10 / Alt+F | File menu |
 | Alt+E / S / V / H | Edit / Selection / View / Help |
 
+## Testing
+
+TTT is tested at two levels to catch bugs across the entire stack — from core data structures to end-to-end user workflows.
+
+### Unit Tests (Go)
+
+The core editor engine (`internal/core/`) is fully unit-testable in isolation with zero terminal dependencies. Buffer operations, cursor math, undo/redo commands, and syntax highlighting all have dedicated Go tests.
+
+```sh
+make test                            # run all unit tests
+go test ./internal/core/buffer/      # test a single package
+```
+
+### Functional Tests (vitest + tui-use)
+
+Black-box tests that launch the real `ttt` binary in a real terminal, type keys, and assert on screen output and file contents. These catch integration issues that unit tests can't — keybinding wiring, rendering, file I/O round-trips, and cross-component interactions.
+
+Built with [vitest](https://vitest.dev/) and [tui-use](https://github.com/onesuper/tui-use) (terminal automation for TUI apps). 44 tests across 16 files covering:
+
+- **File operations** — open, edit, save, Save As, new file, dirty indicator
+- **Editing** — undo/redo, select all + overwrite, line delete/move/duplicate, word delete
+- **Unicode** — accented characters, CJK, emoji
+- **Find & Replace** — search, match navigation, replace, save verification
+- **Navigation** — go to line, tab switching
+- **UI panels** — sidebar toggle, panel switching, terminal toggle, command palette
+- **Tab management** — multi-tab, close, unsaved changes dialog
+
+```sh
+cd tests/functional
+pnpm install
+pnpm test              # run all functional tests
+pnpm test:watch        # watch mode
+pnpm test:stress       # run 10 times to catch flaky tests
+```
+
+Functional tests run in CI on every push and pull request.
+
 ## Architecture
 
 The codebase follows a strict layered architecture: **core -> view -> render -> term -> ui**.
