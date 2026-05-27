@@ -1086,6 +1086,12 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		}
 	}
 
+	app.sidebar.OnPanelChange = func(id string) {
+		if id == "changes" {
+			app.changes.Refresh()
+		}
+	}
+
 	app.sidebar.OnTabOverflow = func(ids []string, titles []string, sx, sy int) {
 		var items []ui.ContextMenuItem
 		for i, id := range ids {

@@ -93,6 +93,7 @@ func (c *ChangesWidget) Refresh() {
 			}
 		}
 		input := NewInputWidget(" > ")
+		input.Placeholder = "Message"
 		expanded := !c.multiRoot
 		stagedExpanded := true
 		changesExpanded := true

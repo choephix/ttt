@@ -10,10 +10,11 @@ type panelEntry struct {
 }
 
 type TabbedPanel struct {
-	panels      []panelEntry
-	ActivePanel string
-	TabBar      *PanelTabBarWidget
-	Borders     *term.BorderSet
+	panels        []panelEntry
+	ActivePanel   string
+	TabBar        *PanelTabBarWidget
+	Borders       *term.BorderSet
+	OnPanelChange func(id string)
 }
 
 func NewTabbedPanel() TabbedPanel {
@@ -27,6 +28,9 @@ func (tp *TabbedPanel) InitTabClick() {
 		if index >= 0 && index < len(tp.panels) {
 			tp.ActivePanel = tp.panels[index].ID
 			tp.syncTabs()
+			if tp.OnPanelChange != nil {
+				tp.OnPanelChange(tp.ActivePanel)
+			}
 		}
 	}
 }
@@ -65,6 +69,9 @@ func (tp *TabbedPanel) SetActivePanel(id string) {
 		if p.ID == id {
 			tp.ActivePanel = id
 			tp.syncTabs()
+			if tp.OnPanelChange != nil {
+				tp.OnPanelChange(id)
+			}
 			return
 		}
 	}
