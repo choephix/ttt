@@ -10,5 +10,9 @@
     "type": "\nprin",
     "log": "lsp completion response.*count=[1-9]"
   },
-  "signatureHelp": null
+  "signatureHelp": {
+    "goto": "6:0",
+    "type": "\n    printf(",
+    "log": "lsp signature help response.*label=.*"
+  }
 }
