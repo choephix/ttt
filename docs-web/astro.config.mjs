@@ -2,8 +2,7 @@ import { defineConfig, passthroughImageService } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://eugenioenko.github.io',
-  base: '/ttt',
+  site: 'https://tttedit.dev',
   image: { service: passthroughImageService() },
   integrations: [
     starlight({

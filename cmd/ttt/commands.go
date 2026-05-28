@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"github.com/eugenioenko/ttt/internal/command"
@@ -188,19 +186,7 @@ func registerViewCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
 		Handler: func() {
-			url := "https://github.com/eugenioenko/ttt"
-			var cmd *exec.Cmd
-			switch runtime.GOOS {
-			case "darwin":
-				cmd = exec.Command("open", url)
-			case "windows":
-				cmd = exec.Command("cmd", "/c", "start", url)
-			default:
-				cmd = exec.Command("xdg-open", url)
-			}
-			if err := cmd.Start(); err != nil {
-				app.StatusNotify("ttt — Terminal Text Tool")
-			}
+			openURL("https://github.com/eugenioenko/ttt")
 		},
 	})
 }

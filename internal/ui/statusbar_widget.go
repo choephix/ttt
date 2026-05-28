@@ -18,6 +18,7 @@ type StatusBarWidget struct {
 	OnIndentClick  func()
 	indentSpan     statusBarSpan
 	okSpan         statusBarSpan
+	actionSpan     statusBarSpan
 }
 
 func NewStatusBarWidget(status *view.StatusBar) *StatusBarWidget {
@@ -110,9 +111,26 @@ func (s *StatusBarWidget) renderNotification(surface *RenderSurface, w int) {
 	x += s.drawText(surface, x, " ", style)
 	x += s.drawText(surface, x, s.Status.Notification, style)
 
+	s.actionSpan = statusBarSpan{}
+	rightX := w - 1
+
 	okLabel := " [OK] "
-	okX := w - len([]rune(okLabel)) - 1
-	if okX > x+2 {
+	okX := rightX - len([]rune(okLabel))
+	rightX = okX
+
+	if s.Status.ActionLabel != "" && s.Status.NotifyAction != nil {
+		actionLabel := " [" + s.Status.ActionLabel + "] "
+		actionX := rightX - len([]rune(actionLabel))
+		if actionX > x+2 {
+			s.actionSpan = statusBarSpan{r.X + actionX, r.X + actionX + len([]rune(actionLabel))}
+			for i, ch := range actionLabel {
+				surface.SetCell(actionX+i, 0, term.Cell{Ch: ch, Style: style})
+			}
+			rightX = actionX
+		}
+	}
+
+	if okX > x+2 && okX > rightX-1 {
 		s.okSpan = statusBarSpan{r.X + okX, r.X + okX + len([]rune(okLabel))}
 		for i, ch := range okLabel {
 			surface.SetCell(okX+i, 0, term.Cell{Ch: ch, Style: style})
@@ -133,9 +151,18 @@ func (s *StatusBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	if my != r.Y {
 		return EventIgnored
 	}
-	if s.Status.IsNotificationActive() && mx >= s.okSpan.start && mx < s.okSpan.end {
-		s.Status.DismissNotification()
-		return EventConsumed
+	if s.Status.IsNotificationActive() {
+		if mx >= s.okSpan.start && mx < s.okSpan.end {
+			s.Status.DismissNotification()
+			return EventConsumed
+		}
+		if s.actionSpan.start != s.actionSpan.end && mx >= s.actionSpan.start && mx < s.actionSpan.end {
+			if s.Status.NotifyAction != nil {
+				s.Status.NotifyAction()
+			}
+			s.Status.DismissNotification()
+			return EventConsumed
+		}
 	}
 	if mx >= s.indentSpan.start && mx < s.indentSpan.end && s.OnIndentClick != nil {
 		s.OnIndentClick()

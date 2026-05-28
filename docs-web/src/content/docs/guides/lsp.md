@@ -5,15 +5,106 @@ description: Language Server Protocol support in TTT.
 
 TTT has built-in LSP support for language-aware editing features. Language servers run as external processes and communicate over JSON-RPC 2.0 via stdio.
 
-## Configuring Language Servers
+## Built-in Language Support
 
-Add language servers to `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a server key to a config object with a `command` array:
+TTT ships with built-in configurations for popular language servers. You just need to install the server binary — TTT will detect and use it automatically. If a server isn't installed, TTT shows a brief notification when you open a file of that language.
+
+To disable LSP entirely, set `lsp.enabled` to `false` in your settings:
+
+```json
+{
+  "lsp": {
+    "enabled": false
+  }
+}
+```
+
+### Go {#go}
+
+```sh
+go install golang.org/x/tools/gopls@latest
+```
+
+### TypeScript / JavaScript {#typescript}
+
+```sh
+npm install -g typescript typescript-language-server
+```
+
+Handles `.ts`, `.tsx`, `.js`, and `.jsx` files.
+
+### Python {#python}
+
+```sh
+pip install pyright
+# or
+npm install -g pyright
+```
+
+### C / C++ {#c}
+
+```sh
+# Ubuntu/Debian
+sudo apt install clangd
+
+# macOS
+brew install llvm
+
+# Arch
+sudo pacman -S clang
+```
+
+Handles `.c`, `.h`, `.cpp`, `.hpp`, `.cc`, and `.cxx` files.
+
+### Rust {#rust}
+
+```sh
+rustup component add rust-analyzer
+```
+
+### Lua {#lua}
+
+Install from [LuaLS releases](https://github.com/LuaLS/lua-language-server/releases) or via your package manager:
+
+```sh
+# macOS
+brew install lua-language-server
+
+# Arch
+sudo pacman -S lua-language-server
+```
+
+### Zig {#zig}
+
+```sh
+# From zigtools releases or package manager
+# See https://github.com/zigtools/zls
+```
+
+## Custom Language Servers
+
+Add or override language servers in `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a server key to a config object with a `command` array:
 
 ```json
 {
   "lsp": {
     "servers": {
-      "go": { "command": ["gopls"] },
+      "ruby": { "command": ["solargraph", "stdio"] }
+    }
+  }
+}
+```
+
+For simple cases, the server key is used as the language ID and files are matched via the syntax highlighter name. No extra configuration is needed.
+
+### The `languages` field
+
+The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs:
+
+```json
+{
+  "lsp": {
+    "servers": {
       "typescript": {
         "command": ["typescript-language-server", "--stdio"],
         "languages": {
@@ -22,18 +113,13 @@ Add language servers to `~/.config/ttt/settings.json` under the `lsp.servers` ke
           ".js": "javascript",
           ".jsx": "javascriptreact"
         }
-      },
-      "python": { "command": ["pyright-langserver", "--stdio"] }
+      }
     }
   }
 }
 ```
 
-For simple cases (Go, Python, Rust, etc.), the server key is used as the language ID and files are matched via the syntax highlighter name. No extra configuration is needed.
-
-### The `languages` field
-
-The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs. In the example above, the TypeScript language server handles `.ts`, `.tsx`, `.js`, and `.jsx` files, each with the correct `languageId` sent to the server. Without the `languages` field, you would need to register the same server command multiple times under different keys.
+Without the `languages` field, you would need to register the same server command multiple times under different keys.
 
 The server is started lazily on first use and shut down when the editor exits.
 

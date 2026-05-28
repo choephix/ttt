@@ -38,17 +38,31 @@ type StatusBar struct {
 	Notification string
 	NotifyLevel  NotifyLevel
 	NotifyExpiry time.Time
+	NotifyAction func()
+	ActionLabel  string
 }
 
 func (s *StatusBar) SetNotification(msg string, level NotifyLevel, duration time.Duration) {
 	s.Notification = msg
 	s.NotifyLevel = level
 	s.NotifyExpiry = time.Now().Add(duration)
+	s.NotifyAction = nil
+	s.ActionLabel = ""
+}
+
+func (s *StatusBar) SetNotificationWithAction(msg string, level NotifyLevel, duration time.Duration, label string, action func()) {
+	s.Notification = msg
+	s.NotifyLevel = level
+	s.NotifyExpiry = time.Now().Add(duration)
+	s.ActionLabel = label
+	s.NotifyAction = action
 }
 
 func (s *StatusBar) DismissNotification() {
 	s.Notification = ""
 	s.NotifyExpiry = time.Time{}
+	s.NotifyAction = nil
+	s.ActionLabel = ""
 }
 
 func (s *StatusBar) IsNotificationActive() bool {

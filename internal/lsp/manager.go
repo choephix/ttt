@@ -25,6 +25,13 @@ func NewManager(cfg config.LSPSettings) *Manager {
 	}
 }
 
+func (m *Manager) ServerConfig(key string) config.LSPServerConfig {
+	if cfg, ok := m.config.Servers[strings.ToLower(key)]; ok {
+		return cfg
+	}
+	return config.LSPServerConfig{}
+}
+
 func (m *Manager) ClientForLanguage(lang, workDir string) (*Client, error) {
 	key := strings.ToLower(lang)
 
