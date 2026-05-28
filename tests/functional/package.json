@@ -8,6 +8,6 @@
     "test:stress": "for i in $(seq 1 10); do echo \"--- Run $i/10 ---\" && vitest run || exit 1; done"
   },
   "devDependencies": {
-    "vitest": "^3.2.1"
+    "vitest": "^4.1.7"
   }
 }
