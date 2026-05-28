@@ -9,5 +9,10 @@
     "goto": "3:0",
     "type": "\nconsol",
     "log": "lsp completion response.*count=[1-9]"
+  },
+  "signatureHelp": {
+    "goto": "3:0",
+    "type": "\nconsole.log(",
+    "log": "lsp signature help response.*label=.*"
   }
 }

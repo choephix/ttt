@@ -1,6 +1,8 @@
 package main
 
+import "fmt"
+
 func main() {
 	var x int = "hello"
-	_ = x
+	fmt.Println(x)
 }

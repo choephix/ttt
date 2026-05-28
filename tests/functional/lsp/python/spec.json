@@ -9,5 +9,10 @@
     "goto": "5:0",
     "type": "\nprin",
     "log": "lsp completion response.*count=[1-9]"
+  },
+  "signatureHelp": {
+    "goto": "5:0",
+    "type": "\ngreet(",
+    "log": "lsp signature help response.*label=.*"
   }
 }

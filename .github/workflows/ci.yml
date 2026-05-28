@@ -79,7 +79,6 @@ jobs:
           npm install -g vscode-langservers-extracted
           npm install -g yaml-language-server
           npm install -g bash-language-server
-          npm install -g @vue/language-server
           npm install -g svelte-language-server
           pip install pyright
           sudo apt-get install -y clangd
