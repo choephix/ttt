@@ -61,6 +61,10 @@ func DefaultLSPSettings() LSPSettings {
 					".tsx": "typescriptreact",
 					".js":  "javascript",
 					".jsx": "javascriptreact",
+					".mjs": "javascript",
+					".mts": "typescript",
+					".cjs": "javascript",
+					".cts": "typescript",
 				},
 			},
 			"python": {Command: []string{"pyright-langserver", "--stdio"}},
@@ -73,6 +77,12 @@ func DefaultLSPSettings() LSPSettings {
 					".hpp": "cpp",
 					".cc":  "cpp",
 					".cxx": "cpp",
+				},
+			},
+			"vue": {
+				Command: []string{"vue-language-server", "--stdio"},
+				Languages: map[string]string{
+					".vue": "vue",
 				},
 			},
 			"rust": {Command: []string{"rust-analyzer"}},

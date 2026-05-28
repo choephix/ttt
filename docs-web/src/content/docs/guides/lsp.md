@@ -56,6 +56,14 @@ sudo pacman -S clang
 
 Handles `.c`, `.h`, `.cpp`, `.hpp`, `.cc`, and `.cxx` files.
 
+### Vue {#vue}
+
+```sh
+npm install -g @vue/language-server
+```
+
+Handles `.vue` files.
+
 ### Rust {#rust}
 
 ```sh
@@ -97,16 +105,16 @@ Add or override language servers in `~/.config/ttt/settings.json` under the `lsp
 
 For simple cases, the server key is used as the language ID and files are matched via the syntax highlighter name. No extra configuration is needed.
 
-### The `languages` field
+### Overriding built-in configs
 
-The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs:
+To override a built-in server, use the same key. For example, to use `tsserver` instead of the default `typescript-language-server`:
 
 ```json
 {
   "lsp": {
     "servers": {
       "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
+        "command": ["tsserver", "--stdio"],
         "languages": {
           ".ts": "typescript",
           ".tsx": "typescriptreact",
@@ -119,7 +127,31 @@ The optional `languages` field is for servers that handle multiple file types re
 }
 ```
 
-Without the `languages` field, you would need to register the same server command multiple times under different keys.
+To add file extensions to an existing server, override the full entry with the additional extensions included. For example, to add `.svelte` support to the TypeScript server:
+
+```json
+{
+  "lsp": {
+    "servers": {
+      "typescript": {
+        "command": ["typescript-language-server", "--stdio"],
+        "languages": {
+          ".ts": "typescript",
+          ".tsx": "typescriptreact",
+          ".js": "javascript",
+          ".jsx": "javascriptreact",
+          ".mjs": "javascript",
+          ".svelte": "typescript"
+        }
+      }
+    }
+  }
+}
+```
+
+### The `languages` field
+
+The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs. Without the `languages` field, the server key is used as the language ID and files are matched by their syntax highlighter name.
 
 The server is started lazily on first use and shut down when the editor exits.
 
