@@ -57,6 +57,7 @@ type App struct {
 	lspCompletionItems []lsp.CompletionItem
 	autocompleteTimer  *time.Timer
 	hoverTimer         *time.Timer
+	hoverGen           uint64
 	lastHoverLine      int
 	lastHoverCol       int
 	problems           *ui.ProblemsWidget
@@ -313,6 +314,8 @@ func (a *App) ShowHover(text string, anchorX, anchorY int) {
 
 func (a *App) DismissHover() {
 	a.editorGroup.Hover = nil
+	a.cancelHoverTimer()
+	a.hoverGen++
 }
 
 func (a *App) ShowAutocomplete(items []ui.CompletionItem, lspItems []lsp.CompletionItem) {
@@ -938,8 +941,9 @@ func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
 		}
 	}
 
+	gen := a.hoverGen
 	post := func(text string) {
-		a.screen.PostEvent(tcell.NewEventInterrupt(&hoverResult{text: text, anchorX: anchorX, anchorY: anchorY}))
+		a.screen.PostEvent(tcell.NewEventInterrupt(&hoverResult{text: text, anchorX: anchorX, anchorY: anchorY, gen: gen}))
 	}
 
 	serverKey, _, ok := a.lspResolve(path, lang)
@@ -970,6 +974,7 @@ func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
 		text := ""
 		if hover != nil {
 			text = hover.Contents.Value
+			slog.Debug("lsp hover response", "length", len(text))
 		}
 		if diagText != "" {
 			if text != "" {
@@ -1048,6 +1053,7 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 	a.docVersionsMu.Lock()
 	a.docVersions[path] = 1
 	a.docVersionsMu.Unlock()
+	slog.Debug("lsp didOpen", "path", path, "language", langID)
 	go func() {
 		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {

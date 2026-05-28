@@ -16,7 +16,7 @@ type AppConfig struct {
 	Theme       ThemeConfig
 }
 
-func Load() AppConfig {
+func Load(settingsFile string) AppConfig {
 	cfg := AppConfig{
 		Keybindings: DefaultKeybindings(),
 		Settings:    DefaultSettings(),
@@ -32,7 +32,11 @@ func Load() AppConfig {
 		}
 	}
 
-	if data, err := readFirst(paths, "settings.json"); err == nil {
+	if settingsFile != "" {
+		if data, err := os.ReadFile(settingsFile); err == nil {
+			json.Unmarshal(data, &cfg.Settings)
+		}
+	} else if data, err := readFirst(paths, "settings.json"); err == nil {
 		json.Unmarshal(data, &cfg.Settings)
 	}
 

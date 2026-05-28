@@ -28,8 +28,18 @@ func initLogger(debug bool) *os.File {
 	return f
 }
 
+func findConfigFlag() string {
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--config" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
 func main() {
-	cfg := config.Load()
+	cfg := config.Load(findConfigFlag())
 	config.ParseKeyBindings(cfg.Keybindings)
 
 	logFile := initLogger(cfg.Settings.DebugMode)
@@ -76,6 +86,13 @@ func main() {
 	}
 	app.editorGroup.OnFileClose = func(path, lang string) {
 		app.NotifyLSPClose(path, lang)
+	}
+	if path := app.editorGroup.ActiveFilePath(); path != "" {
+		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+			lang := app.editorGroup.Editor.Highlighter.Language()
+			text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")
+			app.NotifyLSPOpen(path, lang, text)
+		}
 	}
 	app.problems.OnNavigate = func(file string, line, col int) {
 		app.editorGroup.OpenFile(file)

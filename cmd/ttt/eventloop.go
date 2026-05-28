@@ -179,7 +179,7 @@ func runEventLoop(
 					app.ShowAutocomplete(v.items, v.lspItems)
 				}
 			case *hoverResult:
-				if v.text != "" {
+				if v.text != "" && v.gen == app.hoverGen {
 					app.ShowHover(v.text, v.anchorX, v.anchorY)
 				}
 			case *locationResult:

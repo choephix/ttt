@@ -72,6 +72,13 @@ jobs:
       - name: Install tui-use
         run: npm install -g tui-use
 
+      - name: Install LSP servers
+        run: |
+          go install golang.org/x/tools/gopls@latest
+          npm install -g typescript typescript-language-server
+          pip install pyright
+          sudo apt-get install -y clangd
+
       - name: Install test dependencies
         working-directory: tests/functional
         run: pnpm install
