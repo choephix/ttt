@@ -9,7 +9,6 @@ import (
 )
 
 const hoverMaxVisibleLines = 12
-const hoverMaxWidth = 60
 
 type HoverWidget struct {
 	BaseWidget
@@ -93,7 +92,7 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 	y := localY - menuH
 	if y < 0 {
 		if spaceAbove < menuH {
-			y = h.AnchorY + 1
+			y = localY + 1
 			if y+menuH > sh {
 				menuH = sh - y
 				visLines = menuH - 2

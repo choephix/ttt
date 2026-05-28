@@ -131,7 +131,7 @@ func runEventLoop(
 			slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
 			app.DismissSignatureHelp()
 			if btn == 0 {
-				app.checkDiagnosticHover(mx, my)
+				app.checkMouseHover(mx, my)
 			} else {
 				app.DismissHover()
 			}

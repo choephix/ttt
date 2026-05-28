@@ -258,7 +258,7 @@ func (a *App) refreshProblems() {
 	a.problems.SetItems(items)
 }
 
-func (a *App) checkDiagnosticHover(mx, my int) {
+func (a *App) checkMouseHover(mx, my int) {
 	if a.editorGroup.Editor == nil {
 		return
 	}

@@ -60,11 +60,6 @@ func (m *Manager) ClientForLanguage(lang, workDir string) (*Client, error) {
 	return client, nil
 }
 
-func (m *Manager) HasServer(lang string) bool {
-	key := strings.ToLower(lang)
-	_, ok := m.config.Servers[key]
-	return ok
-}
 
 func (m *Manager) ResolveLanguage(filePath, chromaLang string) (serverKey, languageID string, ok bool) {
 	ext := strings.ToLower(filepath.Ext(filePath))
