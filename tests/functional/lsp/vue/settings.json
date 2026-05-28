@@ -1,0 +1,13 @@
+{
+  "debugMode": true,
+  "lsp": {
+    "servers": {
+      "vue": {
+        "command": ["vue-language-server", "--stdio"],
+        "languages": {
+          ".vue": "vue"
+        }
+      }
+    }
+  }
+}

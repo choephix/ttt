@@ -1,0 +1,13 @@
+{
+  "waitFor": "greet",
+  "diagnostic": "lsp diagnostics.*count=[0-9]",
+  "hover": {
+    "goto": "3:1",
+    "log": "lsp hover response.*length=[1-9]"
+  },
+  "completion": {
+    "goto": "8:0",
+    "type": "\nech",
+    "log": "lsp completion response.*count=[1-9]"
+  }
+}
