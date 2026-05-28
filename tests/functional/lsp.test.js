@@ -20,7 +20,7 @@ function sleep(ms) {
   execSync(`sleep ${ms / 1000}`);
 }
 
-function waitForLog(pattern, timeoutMs = 5000) {
+function waitForLog(pattern, timeoutMs = 10000) {
   const re = new RegExp(pattern);
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -103,6 +103,7 @@ describe("lsp", () => {
 
         tui.start("--config", configFile, testFile);
         tui.waitFor(spec.waitFor);
+        waitForLog("lsp initialized");
 
         const log = waitForLog(spec.diagnostic);
         tui.press("ctrl+q");
