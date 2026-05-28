@@ -20,7 +20,9 @@ type locationResult struct {
 }
 
 type hoverResult struct {
-	text string
+	text    string
+	anchorX int
+	anchorY int
 }
 
 type autocompleteTrigger struct{}

@@ -15,6 +15,8 @@ type HoverWidget struct {
 	Lines     []string
 	AnchorX   int
 	AnchorY   int
+	OffsetX   int
+	OffsetY   int
 	Borders   *term.BorderSet
 	scrollTop  int
 	scrollLeft int
@@ -75,7 +77,10 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		menuH++
 	}
 
-	x := h.AnchorX
+	localX := h.AnchorX - h.OffsetX
+	localY := h.AnchorY - h.OffsetY
+
+	x := localX
 	if x+menuW > sw {
 		x = sw - menuW
 	}
@@ -83,11 +88,11 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		x = 0
 	}
 
-	spaceAbove := h.AnchorY
-	y := h.AnchorY - menuH
+	spaceAbove := localY
+	y := localY - menuH
 	if y < 0 {
 		if spaceAbove < menuH {
-			y = h.AnchorY + 1
+			y = localY + 1
 			if y+menuH > sh {
 				menuH = sh - y
 				visLines = menuH - 2
@@ -116,6 +121,14 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		innerW := menuW - 2
 		if hasVScroll {
 			innerW--
+		}
+		if h.Lines[lineIdx] == "---" {
+			surface.SetCell(x, row, term.Cell{Ch: b.LeftTee, Style: term.StyleBorder})
+			for bx := x + 1; bx < x+1+innerW; bx++ {
+				surface.SetCell(bx, row, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
+			}
+			surface.SetCell(x+menuW-1, row, term.Cell{Ch: b.RightTee, Style: term.StyleBorder})
+			continue
 		}
 		for bx := x + 1; bx < x+1+innerW; bx++ {
 			surface.SetCell(bx, row, term.Cell{Ch: ' ', Style: st})

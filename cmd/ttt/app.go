@@ -56,6 +56,9 @@ type App struct {
 	completionItems    []ui.CompletionItem
 	lspCompletionItems []lsp.CompletionItem
 	autocompleteTimer  *time.Timer
+	hoverTimer         *time.Timer
+	lastHoverLine      int
+	lastHoverCol       int
 	problems           *ui.ProblemsWidget
 	references         *ui.ReferencesWidget
 	allDiagnostics     map[string][]ui.Diagnostic
@@ -255,13 +258,14 @@ func (a *App) refreshProblems() {
 	a.problems.SetItems(items)
 }
 
-func (a *App) checkDiagnosticHover(mx, my int) {
+func (a *App) checkMouseHover(mx, my int) {
 	if a.editorGroup.Editor == nil {
 		return
 	}
 	r := a.editorGroup.Editor.GetRect()
 	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
 		a.DismissHover()
+		a.cancelHoverTimer()
 		return
 	}
 	gw := a.editorGroup.Editor.GutterWidth()
@@ -269,21 +273,42 @@ func (a *App) checkDiagnosticHover(mx, my int) {
 	col := mx - r.X - gw + a.editorGroup.Editor.Viewport.LeftCol
 	if col < 0 {
 		a.DismissHover()
+		a.cancelHoverTimer()
 		return
 	}
-	d := a.editorGroup.Editor.DiagnosticAt(line, col)
-	if d != nil {
-		a.ShowHover(d.Message)
-	} else {
-		a.DismissHover()
+	if line == a.lastHoverLine && col == a.lastHoverCol {
+		return
+	}
+	a.lastHoverLine = line
+	a.lastHoverCol = col
+	a.DismissHover()
+	a.cancelHoverTimer()
+	delay := a.settings.LSP.HoverDelay
+	if delay <= 0 {
+		delay = 400
+	}
+	path := a.editorGroup.ActiveFilePath()
+	lang := ""
+	if a.editorGroup.Editor.Highlighter != nil {
+		lang = a.editorGroup.Editor.Highlighter.Language()
+	}
+	a.hoverTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+		a.RequestHover(path, lang, line, col, mx, my)
+	})
+}
+
+func (a *App) cancelHoverTimer() {
+	if a.hoverTimer != nil {
+		a.hoverTimer.Stop()
+		a.hoverTimer = nil
 	}
 }
 
-func (a *App) ShowHover(text string) {
+func (a *App) ShowHover(text string, anchorX, anchorY int) {
 	if text == "" {
 		return
 	}
-	a.editorGroup.Hover = ui.NewHoverWidget(text, 0, 0)
+	a.editorGroup.Hover = ui.NewHoverWidget(text, anchorX, anchorY)
 }
 
 func (a *App) DismissHover() {
@@ -388,10 +413,10 @@ func (a *App) resolveAndInsert(item ui.CompletionItem) {
 		if a.editorGroup.Editor != nil && a.editorGroup.Editor.Highlighter != nil {
 			lang = a.editorGroup.Editor.Highlighter.Language()
 		}
-		langKey, ok := a.lspReady(lang)
+		serverKey, _, ok := a.lspResolve(path, lang)
 		if ok {
 			workDir := a.lspWorkDir(path)
-			client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+			client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 			if err == nil {
 				resolved, err := client.ResolveCompletion(*lspItem)
 				if err == nil && resolved != nil {
@@ -509,13 +534,13 @@ func (a *App) CheckSignatureHelpTrigger() {
 }
 
 func (a *App) RequestSignatureHelp(path, lang string, line, col int) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -553,7 +578,7 @@ func (a *App) editorTabSize() (int, bool) {
 }
 
 func (a *App) RequestFormatting(path, lang string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		if lang != "" {
 			a.StatusWarn(lang + " language server is not configured")
@@ -563,7 +588,7 @@ func (a *App) RequestFormatting(path, lang string) {
 	workDir := a.lspWorkDir(path)
 	tabSize, insertSpaces := a.editorTabSize()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -580,7 +605,7 @@ func (a *App) RequestFormatting(path, lang string) {
 }
 
 func (a *App) RequestRangeFormatting(path, lang string, startLine, startCol, endLine, endCol int) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		if lang != "" {
 			a.StatusWarn(lang + " language server is not configured")
@@ -594,7 +619,7 @@ func (a *App) RequestRangeFormatting(path, lang string, startLine, startCol, end
 		End:   lsp.Position{Line: endLine, Character: endCol},
 	}
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -614,12 +639,12 @@ func (a *App) RunCodeActionsOnSave(path, lang string) {
 	if len(a.settings.LSP.CodeActionsOnSave) == 0 {
 		return
 	}
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
 	workDir := a.lspWorkDir(path)
-	client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+	client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 	if err != nil {
 		return
 	}
@@ -648,7 +673,7 @@ func (a *App) RunCodeActionsOnSave(path, lang string) {
 }
 
 func (a *App) RequestCodeAction(path, lang, kind string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		if lang != "" {
 			a.StatusWarn(lang + " language server is not configured")
@@ -657,7 +682,7 @@ func (a *App) RequestCodeAction(path, lang, kind string) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -685,13 +710,13 @@ func (a *App) RequestCodeAction(path, lang, kind string) {
 }
 
 func (a *App) FormatOnSave(path, lang string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
 	workDir := a.lspWorkDir(path)
 	tabSize, insertSpaces := a.editorTabSize()
-	client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+	client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 	if err != nil {
 		return
 	}
@@ -706,7 +731,7 @@ func (a *App) FormatOnSave(path, lang string) {
 }
 
 func (a *App) RequestRename(path, lang string, line, col int, newName string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		if lang != "" {
 			a.StatusWarn(lang + " language server is not configured")
@@ -715,7 +740,7 @@ func (a *App) RequestRename(path, lang string, line, col int, newName string) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -755,7 +780,7 @@ func (a *App) ApplyWorkspaceEdit(edit *lsp.WorkspaceEdit) {
 }
 
 func (a *App) RequestReferences(path, lang string, line, col int) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		if lang != "" {
 			a.StatusWarn(lang + " language server is not configured")
@@ -764,7 +789,7 @@ func (a *App) RequestReferences(path, lang string, line, col int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -872,34 +897,32 @@ func isIdentRune(r rune) bool {
 	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
 
-func (a *App) lspReady(lang string) (string, bool) {
-	if a.lspManager == nil || lang == "" {
-		return "", false
+func (a *App) lspResolve(path, lang string) (serverKey, languageID string, ok bool) {
+	if a.lspManager == nil {
+		return "", "", false
 	}
-	langKey := strings.ToLower(lang)
-	if !a.lspManager.HasServer(langKey) {
-		return "", false
-	}
-	return langKey, true
+	return a.lspManager.ResolveLanguage(path, lang)
 }
 
 func (a *App) RequestCompletions(path, lang string, line, col int) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
+		slog.Debug("lsp completion request", "path", path, "line", line, "col", col)
 		items, err := client.Completion(fileURI(path), line, col)
 		if err != nil {
 			slog.Error("lsp completion", "err", err)
 			return
 		}
+		slog.Debug("lsp completion response", "count", len(items))
 		uiItems := lspToUICompletions(items)
 		if len(uiItems) > 0 {
 			a.screen.PostEvent(tcell.NewEventInterrupt(&completionResult{items: uiItems, lspItems: items}))
@@ -907,28 +930,56 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 	}()
 }
 
-func (a *App) RequestHover(path, lang string, line, col int) {
-	langKey, ok := a.lspReady(lang)
+func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
+	diagText := ""
+	if a.editorGroup.Editor != nil {
+		if d := a.editorGroup.Editor.DiagnosticAt(line, col); d != nil {
+			diagText = d.Message
+		}
+	}
+
+	post := func(text string) {
+		a.screen.PostEvent(tcell.NewEventInterrupt(&hoverResult{text: text, anchorX: anchorX, anchorY: anchorY}))
+	}
+
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
-		if lang != "" {
-			a.StatusWarn(lang + " language server is not configured")
+		if diagText != "" {
+			post(diagText)
 		}
 		return
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
+			if diagText != "" {
+				post(diagText)
+			}
 			return
 		}
 		hover, err := client.Hover(fileURI(path), line, col)
 		if err != nil {
 			slog.Error("lsp hover", "err", err)
+			if diagText != "" {
+				post(diagText)
+			}
 			return
 		}
-		if hover != nil && hover.Contents.Value != "" {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&hoverResult{text: hover.Contents.Value}))
+		text := ""
+		if hover != nil {
+			text = hover.Contents.Value
+		}
+		if diagText != "" {
+			if text != "" {
+				text = diagText + "\n---\n" + text
+			} else {
+				text = diagText
+			}
+		}
+		if text != "" {
+			post(text)
 		}
 	}()
 }
@@ -946,7 +997,7 @@ func (a *App) RequestTypeDefinition(path, lang string, line, col int) {
 }
 
 func (a *App) requestLocation(method, path, lang string, line, col int) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		if lang != "" {
 			a.StatusWarn(lang + " language server is not configured")
@@ -955,7 +1006,7 @@ func (a *App) requestLocation(method, path, lang string, line, col int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -989,7 +1040,7 @@ func (a *App) lspWorkDir(path string) string {
 }
 
 func (a *App) NotifyLSPOpen(path, lang, text string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, langID, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
@@ -998,16 +1049,16 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 	a.docVersions[path] = 1
 	a.docVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
-		client.DidOpen(fileURI(path), langKey, text)
+		client.DidOpen(fileURI(path), langID, text)
 	}()
 }
 
 func (a *App) NotifyLSPChange(path, lang, text string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
@@ -1017,7 +1068,7 @@ func (a *App) NotifyLSPChange(path, lang, text string) {
 	version := a.docVersions[path]
 	a.docVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
@@ -1026,13 +1077,13 @@ func (a *App) NotifyLSPChange(path, lang, text string) {
 }
 
 func (a *App) NotifyLSPSave(path, lang, text string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
@@ -1041,7 +1092,7 @@ func (a *App) NotifyLSPSave(path, lang, text string) {
 }
 
 func (a *App) NotifyLSPClose(path, lang string) {
-	langKey, ok := a.lspReady(lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
 	}
@@ -1050,7 +1101,7 @@ func (a *App) NotifyLSPClose(path, lang string) {
 	delete(a.docVersions, path)
 	a.docVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(langKey, workDir)
+		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}

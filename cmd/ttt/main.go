@@ -52,6 +52,7 @@ func main() {
 	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {
 		path := uriToPath(params.URI)
 		diags := lspToUIDiagnostics(params.Diagnostics)
+		slog.Debug("lsp diagnostics", "path", path, "count", len(diags))
 		screen.PostEvent(tcell.NewEventInterrupt(&diagnosticsResult{
 			path:        path,
 			diagnostics: diags,

@@ -3,6 +3,7 @@ package lsp
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -59,10 +60,19 @@ func (m *Manager) ClientForLanguage(lang, workDir string) (*Client, error) {
 	return client, nil
 }
 
-func (m *Manager) HasServer(lang string) bool {
-	key := strings.ToLower(lang)
-	_, ok := m.config.Servers[key]
-	return ok
+
+func (m *Manager) ResolveLanguage(filePath, chromaLang string) (serverKey, languageID string, ok bool) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	for name, cfg := range m.config.Servers {
+		if langID, found := cfg.Languages[ext]; found {
+			return name, langID, true
+		}
+	}
+	key := strings.ToLower(chromaLang)
+	if _, found := m.config.Servers[key]; found {
+		return key, key, true
+	}
+	return "", "", false
 }
 
 func (m *Manager) Shutdown() {
