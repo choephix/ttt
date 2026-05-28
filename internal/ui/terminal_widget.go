@@ -3,7 +3,9 @@ package ui
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
 
@@ -18,6 +20,10 @@ type TerminalColorPalette struct {
 	Color256 [256]term.DirectColor
 }
 
+type termSelPos struct {
+	Line, Col int // Line = unified index (0 = oldest scrollback)
+}
+
 type TerminalWidget struct {
 	BaseWidget
 	Term         *terminal.Terminal
@@ -25,6 +31,10 @@ type TerminalWidget struct {
 	focused      bool
 	scrollOffset int
 	scrollbar    Scrollbar
+	selecting    bool
+	hasSelection bool
+	selAnchor    termSelPos
+	selCurrent   termSelPos
 }
 
 func NewTerminalWidget(t *terminal.Terminal, palette *TerminalColorPalette) *TerminalWidget {
@@ -44,7 +54,7 @@ func (tw *TerminalWidget) CursorPosition() (x, y int, visible bool) {
 	if tw.Term == nil {
 		return 0, 0, false
 	}
-	if tw.scrollOffset > 0 {
+	if tw.scrollOffset > 0 || tw.hasSelection {
 		return 0, 0, false
 	}
 	r := tw.GetRect()
@@ -84,9 +94,19 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 
 		if tw.scrollOffset == 0 {
 			for y := 0; y < h && y < rows; y++ {
+				unifiedLine := sbLen + y
 				for x := 0; x < contentW && x < cols; x++ {
-					g := view.Cell(x, y)
-					surface.SetCell(x, y, tw.glyphToCell(g))
+					c := tw.glyphToCell(view.Cell(x, y))
+					if tw.isCellSelected(unifiedLine, x) {
+						c.Fg, c.Bg = c.Bg, c.Fg
+						if !c.Fg.Set {
+							c.Fg = tw.Palette.Bg
+						}
+						if !c.Bg.Set {
+							c.Bg = tw.Palette.Fg
+						}
+					}
+					surface.SetCell(x, y, c)
 				}
 			}
 		} else {
@@ -100,18 +120,38 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 				if srcLine < sbLen {
 					sl := view.ScrollbackLine(srcLine)
 					for x := 0; x < contentW; x++ {
+						var c term.Cell
 						if sl != nil && x < len(sl) {
-							surface.SetCell(x, screenY, tw.glyphToCell(sl[x]))
+							c = tw.glyphToCell(sl[x])
 						} else {
-							surface.SetCell(x, screenY, term.Cell{Ch: ' ', Direct: true, Bg: tw.Palette.Bg})
+							c = term.Cell{Ch: ' ', Direct: true, Bg: tw.Palette.Bg}
 						}
+						if tw.isCellSelected(srcLine, x) {
+							c.Fg, c.Bg = c.Bg, c.Fg
+							if !c.Fg.Set {
+								c.Fg = tw.Palette.Bg
+							}
+							if !c.Bg.Set {
+								c.Bg = tw.Palette.Fg
+							}
+						}
+						surface.SetCell(x, screenY, c)
 					}
 				} else {
 					liveRow := srcLine - sbLen
 					if liveRow >= 0 && liveRow < rows {
 						for x := 0; x < contentW && x < cols; x++ {
-							g := view.Cell(x, liveRow)
-							surface.SetCell(x, screenY, tw.glyphToCell(g))
+							c := tw.glyphToCell(view.Cell(x, liveRow))
+							if tw.isCellSelected(srcLine, x) {
+								c.Fg, c.Bg = c.Bg, c.Fg
+								if !c.Fg.Set {
+									c.Fg = tw.Palette.Bg
+								}
+								if !c.Bg.Set {
+									c.Bg = tw.Palette.Fg
+								}
+							}
+							surface.SetCell(x, screenY, c)
 						}
 					}
 				}
@@ -207,6 +247,32 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 				return EventConsumed
 			}
 		}
+
+		if tev.Key() == tcell.KeyCtrlC && tw.hasSelection {
+			text := tw.selectedText()
+			if text != "" {
+				clipboard.Set(text)
+			}
+			tw.ClearSelection()
+			return EventConsumed
+		}
+
+		if tev.Key() == tcell.KeyCtrlV {
+			text := clipboard.Get()
+			if text != "" {
+				if tw.Term.Mode()&vt10x.ModeBracketedPaste != 0 {
+					tw.Term.WriteString("\x1b[200~")
+					tw.Term.WriteString(text)
+					tw.Term.WriteString("\x1b[201~")
+				} else {
+					tw.Term.WriteString(text)
+				}
+			}
+			tw.ClearSelection()
+			return EventConsumed
+		}
+
+		tw.ClearSelection()
 		tw.scrollOffset = 0
 		data := keyToVT(tev)
 		if data != "" {
@@ -223,6 +289,7 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		btn := tev.Buttons()
+		mx, my := tev.Position()
 		if btn&tcell.WheelUp != 0 {
 			tw.scrollUp(3)
 			return EventConsumed
@@ -232,12 +299,139 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		if btn&tcell.Button1 != 0 {
+			pos := tw.screenToLine(mx, my)
+			if !tw.selecting {
+				tw.selecting = true
+				tw.hasSelection = true
+				tw.selAnchor = pos
+				tw.selCurrent = pos
+			} else {
+				tw.selCurrent = pos
+			}
 			return EventConsumed
+		}
+		if tw.selecting {
+			tw.selecting = false
+			start, end := tw.selectionRange()
+			if start.Line == end.Line && start.Col == end.Col {
+				tw.hasSelection = false
+			}
 		}
 		return EventIgnored
 	}
 
 	return EventIgnored
+}
+
+func (tw *TerminalWidget) ClearSelection() {
+	tw.hasSelection = false
+	tw.selecting = false
+}
+
+func (tw *TerminalWidget) selectionRange() (start, end termSelPos) {
+	a, b := tw.selAnchor, tw.selCurrent
+	if a.Line < b.Line || (a.Line == b.Line && a.Col <= b.Col) {
+		return a, b
+	}
+	return b, a
+}
+
+func (tw *TerminalWidget) screenToLine(mx, my int) termSelPos {
+	r := tw.GetRect()
+	col := mx - r.X
+	screenY := my - r.Y
+	unifiedLine := 0
+
+	tw.Term.Snapshot(func(view vt10x.View) {
+		_, rows := view.Size()
+		sbLen := view.ScrollbackLen()
+		totalLines := sbLen + rows
+
+		if tw.scrollOffset == 0 {
+			unifiedLine = sbLen + screenY
+		} else {
+			startLine := totalLines - tw.scrollOffset - r.H
+			if startLine < 0 {
+				startLine = 0
+			}
+			unifiedLine = startLine + screenY
+		}
+	})
+	return termSelPos{Line: unifiedLine, Col: col}
+}
+
+func (tw *TerminalWidget) isCellSelected(unifiedLine, col int) bool {
+	if !tw.hasSelection {
+		return false
+	}
+	start, end := tw.selectionRange()
+	if unifiedLine < start.Line || unifiedLine > end.Line {
+		return false
+	}
+	if start.Line == end.Line {
+		return col >= start.Col && col < end.Col
+	}
+	if unifiedLine == start.Line {
+		return col >= start.Col
+	}
+	if unifiedLine == end.Line {
+		return col < end.Col
+	}
+	return true
+}
+
+func (tw *TerminalWidget) selectedText() string {
+	if !tw.hasSelection {
+		return ""
+	}
+	start, end := tw.selectionRange()
+	var lines []string
+
+	tw.Term.Snapshot(func(view vt10x.View) {
+		cols, rows := view.Size()
+		sbLen := view.ScrollbackLen()
+
+		for line := start.Line; line <= end.Line; line++ {
+			startCol := 0
+			endCol := cols
+			if line == start.Line {
+				startCol = start.Col
+			}
+			if line == end.Line {
+				endCol = end.Col
+			}
+
+			var sb strings.Builder
+			if line < sbLen {
+				sl := view.ScrollbackLine(line)
+				for x := startCol; x < endCol; x++ {
+					if sl != nil && x < len(sl) {
+						ch := sl[x].Char
+						if ch == 0 {
+							ch = ' '
+						}
+						sb.WriteRune(ch)
+					} else {
+						sb.WriteByte(' ')
+					}
+				}
+			} else {
+				liveRow := line - sbLen
+				if liveRow >= 0 && liveRow < rows {
+					for x := startCol; x < endCol && x < cols; x++ {
+						ch := view.Cell(x, liveRow).Char
+						if ch == 0 {
+							ch = ' '
+						}
+						sb.WriteRune(ch)
+					}
+				}
+			}
+			lines = append(lines, strings.TrimRight(sb.String(), " "))
+		}
+	})
+
+	return strings.Join(lines, "\n")
 }
 
 func (tw *TerminalWidget) scrollUp(n int) {

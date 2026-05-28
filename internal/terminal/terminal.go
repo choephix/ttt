@@ -179,3 +179,9 @@ func (t *Terminal) ScrollbackLen() int {
 	defer t.mu.Unlock()
 	return t.vt.ScrollbackLen()
 }
+
+func (t *Terminal) Mode() vt10x.ModeFlag {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.vt.Mode()
+}
