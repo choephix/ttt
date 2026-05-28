@@ -28,7 +28,7 @@ function waitForLog(pattern, timeoutMs = 5000) {
       const log = readFileSync(LOG_FILE, "utf8");
       if (re.test(log)) return log;
     }
-    sleep(500);
+    sleep(200);
   }
   return existsSync(LOG_FILE) ? readFileSync(LOG_FILE, "utf8") : "";
 }
