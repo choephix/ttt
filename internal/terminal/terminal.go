@@ -31,7 +31,7 @@ type Terminal struct {
 	OnExit     func()
 }
 
-func New(shell string, cols, rows, scrollbackMax int, env []string) (*Terminal, error) {
+func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) (*Terminal, error) {
 	if shell == "" {
 		shell = os.Getenv("SHELL")
 		if shell == "" {
@@ -51,6 +51,7 @@ func New(shell string, cols, rows, scrollbackMax int, env []string) (*Terminal, 
 	t.vt = vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithScrollback(scrollbackMax))
 
 	cmd := exec.Command(shell)
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 

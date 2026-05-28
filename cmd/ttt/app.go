@@ -165,7 +165,7 @@ func (a *App) SpawnTerminal() {
 		rows = 24
 	}
 
-	t, err := terminal.New(a.settings.Terminal.Shell, cols, rows, a.settings.Terminal.Scrollback, nil)
+	t, err := terminal.New(a.settings.Terminal.Shell, cols, rows, a.settings.Terminal.Scrollback, nil, a.workspace.Primary())
 	if err != nil {
 		slog.Error("terminal.New", "err", err)
 		a.StatusError("Failed to open terminal: " + err.Error())
