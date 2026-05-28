@@ -11,7 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
-func resolveArgs() (ws *workspace.Workspace, openFiles []string) {
+func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile string) {
 	var folders []string
 	var wsFile string
 
@@ -19,6 +19,11 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string) {
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--workspace" && i+1 < len(args) {
 			wsFile = args[i+1]
+			i++
+			continue
+		}
+		if args[i] == "--config" && i+1 < len(args) {
+			configFile = args[i+1]
 			i++
 			continue
 		}
@@ -65,7 +70,7 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string) {
 }
 
 func buildApp(cfg *config.AppConfig, borders *term.BorderSet) *App {
-	ws, openFiles := resolveArgs()
+	ws, openFiles, _ := resolveArgs()
 	return buildAppFromConfig(cfg, borders, ws, openFiles)
 }
 

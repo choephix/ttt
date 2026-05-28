@@ -23,6 +23,7 @@ type hoverResult struct {
 	text    string
 	anchorX int
 	anchorY int
+	gen     uint64
 }
 
 type autocompleteTrigger struct{}

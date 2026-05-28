@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadNoFiles(t *testing.T) {
-	cfg := Load()
+	cfg := Load("")
 	if len(cfg.Keybindings) == 0 {
 		t.Fatal("expected default keybindings")
 	}

@@ -46,6 +46,7 @@ type editorTab struct {
 	Undo        *undo.UndoStack
 	Sel         *selection.Selection
 	Highlighter *highlight.Highlighter
+	Diagnostics []Diagnostic
 	TabSize     int
 	Content     Widget
 	Pinned      bool
@@ -455,9 +456,14 @@ func (g *EditorGroupWidget) ClearSearch() {
 }
 
 func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
-	t := g.activeTab()
-	if t != nil && t.FilePath == path {
-		g.Editor.Diagnostics = diags
+	for i := range g.tabs {
+		if g.tabs[i].FilePath == path {
+			g.tabs[i].Diagnostics = diags
+			if i == g.active {
+				g.Editor.Diagnostics = diags
+			}
+			return
+		}
 	}
 }
 
@@ -617,6 +623,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Undo = t.Undo
 		g.Editor.Selection = t.Sel
 		g.Editor.Highlighter = t.Highlighter
+		g.Editor.Diagnostics = t.Diagnostics
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
 		}

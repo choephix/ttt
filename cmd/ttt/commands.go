@@ -209,11 +209,11 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
 		Handler: func() {
+			app.DismissHover()
 			if app.IsAutocompleteActive() {
 				app.DismissAutocomplete()
 				return
 			}
-			app.DismissHover()
 			app.FocusEditor()
 		},
 	})
