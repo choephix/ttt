@@ -1058,7 +1058,7 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
 			if !a.lspNotified[serverKey] {
 				a.lspNotified[serverKey] = true
-				msg := fmt.Sprintf("Language server %q not found. Click [Docs] for install instructions.", serverCfg.Command[0])
+				msg := fmt.Sprintf("Language server %q not found. Click Docs for install instructions.", serverCfg.Command[0])
 				anchor := serverKey
 				a.status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
 					openURL("https://tttedit.dev/guides/lsp/#" + anchor)

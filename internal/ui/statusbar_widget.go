@@ -112,11 +112,8 @@ func (s *StatusBarWidget) renderNotification(surface *RenderSurface, w int) {
 	x += s.drawText(surface, x, s.Status.Notification, style)
 
 	s.actionSpan = statusBarSpan{}
+	s.okSpan = statusBarSpan{}
 	rightX := w - 1
-
-	okLabel := " [OK] "
-	okX := rightX - len([]rune(okLabel))
-	rightX = okX
 
 	if s.Status.ActionLabel != "" && s.Status.NotifyAction != nil {
 		actionLabel := " [" + s.Status.ActionLabel + "] "
@@ -126,14 +123,15 @@ func (s *StatusBarWidget) renderNotification(surface *RenderSurface, w int) {
 			for i, ch := range actionLabel {
 				surface.SetCell(actionX+i, 0, term.Cell{Ch: ch, Style: style})
 			}
-			rightX = actionX
 		}
-	}
-
-	if okX > x+2 && okX > rightX-1 {
-		s.okSpan = statusBarSpan{r.X + okX, r.X + okX + len([]rune(okLabel))}
-		for i, ch := range okLabel {
-			surface.SetCell(okX+i, 0, term.Cell{Ch: ch, Style: style})
+	} else {
+		okLabel := " [OK] "
+		okX := rightX - len([]rune(okLabel))
+		if okX > x+2 {
+			s.okSpan = statusBarSpan{r.X + okX, r.X + okX + len([]rune(okLabel))}
+			for i, ch := range okLabel {
+				surface.SetCell(okX+i, 0, term.Cell{Ch: ch, Style: style})
+			}
 		}
 	}
 }
