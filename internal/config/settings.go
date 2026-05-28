@@ -38,15 +38,57 @@ type LSPServerConfig struct {
 }
 
 type LSPSettings struct {
+	Enabled          *bool                      `json:"enabled,omitempty"`
 	Servers          map[string]LSPServerConfig `json:"servers,omitempty"`
 	SaveOnRename     bool                       `json:"saveOnRename"`
 	CodeActionsOnSave []string                  `json:"codeActionsOnSave,omitempty"`
 	HoverDelay       int                        `json:"hoverDelay,omitempty"`
 }
 
+func (l LSPSettings) IsEnabled() bool {
+	return l.Enabled == nil || *l.Enabled
+}
+
 func DefaultLSPSettings() LSPSettings {
 	return LSPSettings{
 		HoverDelay: 400,
+		Servers: map[string]LSPServerConfig{
+			"go": {Command: []string{"gopls"}},
+			"typescript": {
+				Command: []string{"typescript-language-server", "--stdio"},
+				Languages: map[string]string{
+					".ts":  "typescript",
+					".tsx": "typescriptreact",
+					".js":  "javascript",
+					".jsx": "javascriptreact",
+					".mjs": "javascript",
+					".mts": "typescript",
+					".cjs": "javascript",
+					".cts": "typescript",
+				},
+			},
+			"python": {Command: []string{"pyright-langserver", "--stdio"}},
+			"c": {
+				Command: []string{"clangd"},
+				Languages: map[string]string{
+					".c":   "c",
+					".h":   "c",
+					".cpp": "cpp",
+					".hpp": "cpp",
+					".cc":  "cpp",
+					".cxx": "cpp",
+				},
+			},
+			"vue": {
+				Command: []string{"vue-language-server", "--stdio"},
+				Languages: map[string]string{
+					".vue": "vue",
+				},
+			},
+			"rust": {Command: []string{"rust-analyzer"}},
+			"lua":  {Command: []string{"lua-language-server"}},
+			"zig":  {Command: []string{"zls"}},
+		},
 	}
 }
 

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -64,6 +66,7 @@ type App struct {
 	references         *ui.ReferencesWidget
 	allDiagnostics     map[string][]ui.Diagnostic
 	keybindings        []config.KeyBinding
+	lspNotified        map[string]bool
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -901,7 +904,7 @@ func isIdentRune(r rune) bool {
 }
 
 func (a *App) lspResolve(path, lang string) (serverKey, languageID string, ok bool) {
-	if a.lspManager == nil {
+	if a.lspManager == nil || !a.settings.LSP.IsEnabled() {
 		return "", "", false
 	}
 	return a.lspManager.ResolveLanguage(path, lang)
@@ -1049,6 +1052,25 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 	if !ok {
 		return
 	}
+
+	serverCfg := a.lspManager.ServerConfig(serverKey)
+	if len(serverCfg.Command) > 0 {
+		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
+			if !a.lspNotified[serverKey] {
+				a.lspNotified[serverKey] = true
+				msg := fmt.Sprintf("%s autocomplete support is available. Click Docs for installation instructions.", lang)
+				anchor := serverKey
+				a.status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
+					openURL("https://tttedit.dev/guides/lsp/#" + anchor)
+				})
+				time.AfterFunc(10*time.Second, func() {
+					a.screen.PostEvent(tcell.NewEventInterrupt(nil))
+				})
+			}
+			return
+		}
+	}
+
 	workDir := a.lspWorkDir(path)
 	a.docVersionsMu.Lock()
 	a.docVersions[path] = 1
@@ -1125,6 +1147,19 @@ func (a *App) statusMessage(msg string, level view.NotifyLevel) {
 func (a *App) StatusNotify(msg string) { a.statusMessage(msg, view.NotifyInfo) }
 func (a *App) StatusWarn(msg string)   { a.statusMessage(msg, view.NotifyWarning) }
 func (a *App) StatusError(msg string)  { a.statusMessage(msg, view.NotifyError) }
+
+func openURL(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	cmd.Start()
+}
 
 func (a *App) ShowDialog(w ui.Widget) {
 	a.root.PushOverlay(ui.Overlay{Widget: w, Modal: true})

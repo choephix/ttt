@@ -162,5 +162,6 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		references:     references,
 		docVersions:    make(map[string]int),
 		allDiagnostics: make(map[string][]ui.Diagnostic),
+		lspNotified:    make(map[string]bool),
 	}
 }
