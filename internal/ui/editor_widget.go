@@ -485,6 +485,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.deleteSelection()
 		} else if e.Cursor.Col > 0 {
 			runes := []rune(e.Buf.Lines[e.Cursor.Line])
+			if e.Cursor.Col > len(runes) {
+				e.Cursor.Col = len(runes)
+			}
 			inLeadingWhitespace := true
 			for i := 0; i < e.Cursor.Col && i < len(runes); i++ {
 				if runes[i] != ' ' && runes[i] != '\t' {

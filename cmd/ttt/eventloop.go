@@ -3,12 +3,9 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"strings"
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/eugenioenko/ttt/internal/ui"
-	"github.com/eugenioenko/ttt/internal/view"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -45,7 +42,8 @@ func runEventLoop(
 		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
 			lang := app.editorGroup.Editor.Highlighter.Language()
 			app.status.Language = lang
-			app.status.LSP = app.lspManager != nil && app.lspManager.HasServer(strings.ToLower(lang))
+			_, _, lspOk := app.lspResolve(filePath, lang)
+			app.status.LSP = lspOk
 		} else {
 			app.status.Language = ""
 			app.status.LSP = false
@@ -69,22 +67,6 @@ func runEventLoop(
 				app.status.Branch = git.BranchName(repoDir)
 			} else {
 				app.status.Branch = ""
-			}
-		}
-
-		app.status.DiagMessage = ""
-		if app.editorGroup.Editor != nil {
-			d := app.editorGroup.Editor.DiagnosticAt(line, col)
-			if d != nil {
-				app.status.DiagMessage = d.Message
-				switch d.Severity {
-				case ui.DiagError:
-					app.status.DiagLevel = view.NotifyError
-				case ui.DiagWarning:
-					app.status.DiagLevel = view.NotifyWarning
-				default:
-					app.status.DiagLevel = view.NotifyInfo
-				}
 			}
 		}
 
@@ -198,7 +180,7 @@ func runEventLoop(
 				}
 			case *hoverResult:
 				if v.text != "" {
-					app.ShowHover(v.text)
+					app.ShowHover(v.text, v.anchorX, v.anchorY)
 				}
 			case *locationResult:
 				if len(v.locations) > 0 {

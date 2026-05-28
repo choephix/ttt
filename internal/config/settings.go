@@ -33,13 +33,21 @@ func DefaultAutocompleteSettings() AutocompleteSettings {
 }
 
 type LSPServerConfig struct {
-	Command []string `json:"command"`
+	Command   []string          `json:"command"`
+	Languages map[string]string `json:"languages,omitempty"`
 }
 
 type LSPSettings struct {
 	Servers          map[string]LSPServerConfig `json:"servers,omitempty"`
 	SaveOnRename     bool                       `json:"saveOnRename"`
 	CodeActionsOnSave []string                  `json:"codeActionsOnSave,omitempty"`
+	HoverDelay       int                        `json:"hoverDelay,omitempty"`
+}
+
+func DefaultLSPSettings() LSPSettings {
+	return LSPSettings{
+		HoverDelay: 400,
+	}
 }
 
 type ExplorerSettings struct {
@@ -81,6 +89,7 @@ func DefaultSettings() Settings {
 		SidebarWidth:   30,
 		Explorer:       DefaultExplorerSettings(),
 		Terminal:       DefaultTerminalSettings(),
+		LSP:            DefaultLSPSettings(),
 		Autocomplete:   DefaultAutocompleteSettings(),
 	}
 }

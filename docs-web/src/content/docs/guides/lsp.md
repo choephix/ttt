@@ -7,22 +7,35 @@ TTT has built-in LSP support for language-aware editing features. Language serve
 
 ## Configuring Language Servers
 
-Add language servers to `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a language identifier to a command array:
+Add language servers to `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a server key to a config object with a `command` array:
 
 ```json
 {
   "lsp": {
     "servers": {
       "go": { "command": ["gopls"] },
-      "typescript": { "command": ["typescript-language-server", "--stdio"] },
-      "javascript": { "command": ["typescript-language-server", "--stdio"] },
+      "typescript": {
+        "command": ["typescript-language-server", "--stdio"],
+        "languages": {
+          ".ts": "typescript",
+          ".tsx": "typescriptreact",
+          ".js": "javascript",
+          ".jsx": "javascriptreact"
+        }
+      },
       "python": { "command": ["pyright-langserver", "--stdio"] }
     }
   }
 }
 ```
 
-The language identifier must match the language ID that TTT assigns to the file (e.g. `go`, `typescript`, `javascript`, `python`, `rust`, `c`, `cpp`). The server is started lazily on first use and shut down when the editor exits.
+For simple cases (Go, Python, Rust, etc.), the server key is used as the language ID and files are matched via the syntax highlighter name. No extra configuration is needed.
+
+### The `languages` field
+
+The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs. In the example above, the TypeScript language server handles `.ts`, `.tsx`, `.js`, and `.jsx` files, each with the correct `languageId` sent to the server. Without the `languages` field, you would need to register the same server command multiple times under different keys.
+
+The server is started lazily on first use and shut down when the editor exits.
 
 ## Supported Features
 

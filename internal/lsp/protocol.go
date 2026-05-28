@@ -177,9 +177,14 @@ type CodeAction struct {
 	Diagnostics []Diagnostic   `json:"diagnostics,omitempty"`
 }
 
+type CompletionContext struct {
+	TriggerKind int `json:"triggerKind"`
+}
+
 type CompletionParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
 	Position     Position               `json:"position"`
+	Context      *CompletionContext     `json:"context,omitempty"`
 }
 
 type CompletionItemKind int

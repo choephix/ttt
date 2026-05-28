@@ -42,7 +42,7 @@ Settings are stored in `~/.config/ttt/settings.json`.
 |-----|------|---------|-------------|
 | `lsp.saveOnRename` | bool | `false` | Auto-save files affected by a rename operation |
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
-| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...] }` |
+| `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
 
 ## Autocomplete
 
@@ -81,7 +81,15 @@ Settings are stored in `~/.config/ttt/settings.json`.
     ],
     "servers": {
       "go": { "command": ["gopls"] },
-      "typescript": { "command": ["typescript-language-server", "--stdio"] }
+      "typescript": {
+        "command": ["typescript-language-server", "--stdio"],
+        "languages": {
+          ".ts": "typescript",
+          ".tsx": "typescriptreact",
+          ".js": "javascript",
+          ".jsx": "javascriptreact"
+        }
+      }
     }
   },
   "autocomplete": {

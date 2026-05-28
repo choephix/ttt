@@ -213,6 +213,7 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 				app.DismissAutocomplete()
 				return
 			}
+			app.DismissHover()
 			app.FocusEditor()
 		},
 	})
@@ -234,7 +235,7 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 			}
 			if lang == "" {
 				app.StatusWarn("No language detected for this file")
-			} else if app.lspManager == nil || !app.lspManager.HasServer(strings.ToLower(lang)) {
+			} else if _, _, ok := app.lspResolve(path, lang); !ok {
 				app.StatusWarn(lang + " language server is not configured. Add it to settings.json under lsp.servers")
 			} else {
 				line, col := app.editorGroup.ActiveCursor()
@@ -255,7 +256,16 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 
 	reg.Register(command.Command{
 		ID: "editor.hover", Title: "Show Hover",
-		Handler: func() { lspAction(app.RequestHover) },
+		Handler: func() {
+			path := app.editorGroup.ActiveFilePath()
+			lang := ""
+			if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
+				lang = app.editorGroup.Editor.Highlighter.Language()
+			}
+			line, col := app.editorGroup.ActiveCursor()
+			ax, ay, _ := app.editorGroup.CursorPosition()
+			app.RequestHover(path, lang, line, col, ax, ay)
+		},
 	})
 
 	reg.Register(command.Command{
