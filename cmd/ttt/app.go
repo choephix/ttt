@@ -559,6 +559,7 @@ func (a *App) RequestSignatureHelp(path, lang string, line, col int) {
 		if sig != nil && len(sig.Signatures) > 0 {
 			result := lspToSignatureHelpResult(sig)
 			if result.label != "" {
+				slog.Debug("lsp signature help response", "label", result.label)
 				a.screen.PostEvent(tcell.NewEventInterrupt(result))
 			}
 		}

@@ -1,0 +1,14 @@
+{
+  "debugMode": true,
+  "lsp": {
+    "servers": {
+      "bash": {
+        "command": ["bash-language-server", "start"],
+        "languages": {
+          ".sh": "sh",
+          ".bash": "bash"
+        }
+      }
+    }
+  }
+}

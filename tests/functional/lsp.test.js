@@ -28,7 +28,7 @@ function waitForLog(pattern, timeoutMs = 5000) {
       const log = readFileSync(LOG_FILE, "utf8");
       if (re.test(log)) return log;
     }
-    sleep(500);
+    sleep(200);
   }
   return existsSync(LOG_FILE) ? readFileSync(LOG_FILE, "utf8") : "";
 }
@@ -169,6 +169,38 @@ describe("lsp", () => {
         tui.press("enter");
 
         expect(log).toMatch(new RegExp(spec.completion.log));
+      });
+
+      testFn("signature help", () => {
+        if (!spec.signatureHelp) return;
+        dir = createTempDir();
+        cpSync(fixtureDir, dir, { recursive: true });
+
+        const files = readdirSync(dir).filter(
+          (f) => !["spec.json", "settings.json", "install.sh"].includes(f)
+        );
+        const testFile = resolve(
+          dir,
+          files.find((f) => f.startsWith("test."))
+        );
+        const configFile = resolve(fixtureDir, "settings.json");
+
+        tui.start("--config", configFile, testFile);
+        tui.waitFor(spec.waitFor);
+        waitForLog("lsp initialized");
+
+        navigateTo(spec.signatureHelp.goto);
+        tui.waitStable();
+        tui.type(spec.signatureHelp.type);
+
+        const log = waitForLog(spec.signatureHelp.log);
+        tui.press("escape");
+        tui.press("ctrl+q");
+        sleep(200);
+        tui.press("arrow_right");
+        tui.press("enter");
+
+        expect(log).toMatch(new RegExp(spec.signatureHelp.log));
       });
     });
   }

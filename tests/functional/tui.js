@@ -44,7 +44,6 @@ export function find(pattern) {
 
 export function pressChord(first, second) {
   press(first);
-  waitStable();
   if (second.length === 1) {
     type(second);
   } else {

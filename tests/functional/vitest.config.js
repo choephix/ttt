@@ -6,5 +6,7 @@ export default defineConfig({
     setupFiles: ["./setup.js"],
     testTimeout: 30000,
     hookTimeout: 15000,
+    teardownTimeout: 30000,
+    pool: "forks",
   },
 });

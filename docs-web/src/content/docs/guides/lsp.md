@@ -82,10 +82,103 @@ brew install lua-language-server
 sudo pacman -S lua-language-server
 ```
 
+### Svelte {#svelte}
+
+```sh
+npm install -g svelte-language-server
+```
+
+### CSS / SCSS / Less {#css}
+
+```sh
+npm install -g vscode-langservers-extracted
+```
+
+Handles `.css`, `.scss`, and `.less` files.
+
+### HTML {#html}
+
+```sh
+npm install -g vscode-langservers-extracted
+```
+
+### JSON {#json}
+
+```sh
+npm install -g vscode-langservers-extracted
+```
+
+### YAML {#yaml}
+
+```sh
+npm install -g yaml-language-server
+```
+
+### Bash {#bash}
+
+```sh
+npm install -g bash-language-server
+```
+
+### Docker {#docker}
+
+```sh
+npm install -g dockerfile-language-server-nodejs
+```
+
+### Tailwind CSS {#tailwindcss}
+
+```sh
+npm install -g @tailwindcss/language-server
+```
+
+### Kotlin {#kotlin}
+
+See [kotlin-language-server releases](https://github.com/fwcd/kotlin-language-server/releases).
+
+### Java {#java}
+
+See [Eclipse JDT Language Server](https://github.com/eclipse-jdtls/eclipse.jdt.ls).
+
+### Ruby {#ruby}
+
+```sh
+gem install ruby-lsp
+```
+
+### Dart {#dart}
+
+Included with the [Dart SDK](https://dart.dev/get-dart):
+
+```sh
+dart language-server --protocol=lsp
+```
+
+### Elixir {#elixir}
+
+See [elixir-ls releases](https://github.com/elixir-lsp/elixir-ls/releases).
+
+### PHP {#php}
+
+```sh
+composer global require phpactor/phpactor
+```
+
+### Terraform {#terraform}
+
+```sh
+# See https://github.com/hashicorp/terraform-ls
+```
+
+### Markdown {#markdown}
+
+```sh
+# See https://github.com/artempyanykh/marksman/releases
+```
+
 ### Zig {#zig}
 
 ```sh
-# From zigtools releases or package manager
 # See https://github.com/zigtools/zls
 ```
 
@@ -97,7 +190,7 @@ Add or override language servers in `~/.config/ttt/settings.json` under the `lsp
 {
   "lsp": {
     "servers": {
-      "ruby": { "command": ["solargraph", "stdio"] }
+      "ocaml": { "command": ["ocamllsp"] }
     }
   }
 }

@@ -1,14 +1,13 @@
 {
-  "waitFor": "def greet",
+  "waitFor": "font-size",
   "diagnostic": "lsp diagnostics.*count=[1-9]",
   "hover": {
-    "goto": "1:4",
+    "goto": "2:2",
     "log": "lsp hover response.*length=[1-9]"
   },
   "completion": {
-    "goto": "5:0",
-    "type": "\nprin",
+    "goto": "9:0",
+    "type": "\n  back",
     "log": "lsp completion response.*count=[1-9]"
-  },
-  "signatureHelp": null
+  }
 }

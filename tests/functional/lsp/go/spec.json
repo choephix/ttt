@@ -2,12 +2,17 @@
   "waitFor": "var x int",
   "diagnostic": "lsp diagnostics.*count=[1-9]",
   "hover": {
-    "goto": "4:5",
+    "goto": "6:5",
     "log": "lsp hover response.*length=[1-9]"
   },
   "completion": {
-    "goto": "5:0",
+    "goto": "7:0",
     "type": "\n\tx",
     "log": "lsp completion response.*count=[1-9]"
+  },
+  "signatureHelp": {
+    "goto": "7:0",
+    "type": "\n\tfmt.Println(",
+    "log": "lsp signature help response.*label=.*"
   }
 }
