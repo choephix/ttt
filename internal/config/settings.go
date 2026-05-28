@@ -1,9 +1,13 @@
 package config
 
 import (
+	_ "embed"
 	"encoding/json"
 	"os"
 )
+
+//go:embed lsp_servers.json
+var lspServersJSON []byte
 
 type TerminalSettings struct {
 	Shell      string `json:"shell,omitempty"`
@@ -50,45 +54,11 @@ func (l LSPSettings) IsEnabled() bool {
 }
 
 func DefaultLSPSettings() LSPSettings {
+	var servers map[string]LSPServerConfig
+	json.Unmarshal(lspServersJSON, &servers)
 	return LSPSettings{
 		HoverDelay: 400,
-		Servers: map[string]LSPServerConfig{
-			"go": {Command: []string{"gopls"}},
-			"typescript": {
-				Command: []string{"typescript-language-server", "--stdio"},
-				Languages: map[string]string{
-					".ts":  "typescript",
-					".tsx": "typescriptreact",
-					".js":  "javascript",
-					".jsx": "javascriptreact",
-					".mjs": "javascript",
-					".mts": "typescript",
-					".cjs": "javascript",
-					".cts": "typescript",
-				},
-			},
-			"python": {Command: []string{"pyright-langserver", "--stdio"}},
-			"c": {
-				Command: []string{"clangd"},
-				Languages: map[string]string{
-					".c":   "c",
-					".h":   "c",
-					".cpp": "cpp",
-					".hpp": "cpp",
-					".cc":  "cpp",
-					".cxx": "cpp",
-				},
-			},
-			"vue": {
-				Command: []string{"vue-language-server", "--stdio"},
-				Languages: map[string]string{
-					".vue": "vue",
-				},
-			},
-			"rust": {Command: []string{"rust-analyzer"}},
-			"lua":  {Command: []string{"lua-language-server"}},
-			"zig":  {Command: []string{"zls"}},
-		},
+		Servers:    servers,
 	}
 }
 
