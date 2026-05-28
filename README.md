@@ -184,37 +184,40 @@ Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
 
 ### LSP (Language Server Protocol)
 
-TTT has built-in LSP support for language-aware editing features. Language servers run as external processes and communicate over JSON-RPC 2.0 via stdio.
+TTT has built-in LSP support for language-aware editing features. Install a language server and TTT detects it automatically — zero configuration needed. If a server isn't installed, TTT shows a brief notification with a link to install instructions.
 
-#### Configuring Language Servers
+#### Built-in Language Support
 
-Add language servers to `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a server key to a config object with a `command` array:
+| Language | Server | Install |
+|----------|--------|---------|
+| Go | gopls | `go install golang.org/x/tools/gopls@latest` |
+| TypeScript / JavaScript | typescript-language-server | `npm i -g typescript typescript-language-server` |
+| Python | pyright | `pip install pyright` |
+| C / C++ | clangd | `sudo apt install clangd` |
+| Rust | rust-analyzer | `rustup component add rust-analyzer` |
+| Vue | vue-language-server | `npm i -g @vue/language-server` |
+| Svelte | svelteserver | `npm i -g svelte-language-server` |
+| CSS / SCSS / Less | vscode-css-language-server | `npm i -g vscode-langservers-extracted` |
+| HTML | vscode-html-language-server | `npm i -g vscode-langservers-extracted` |
+| JSON | vscode-json-language-server | `npm i -g vscode-langservers-extracted` |
+| YAML | yaml-language-server | `npm i -g yaml-language-server` |
+| Bash | bash-language-server | `npm i -g bash-language-server` |
+| Lua | lua-language-server | [LuaLS releases](https://github.com/LuaLS/lua-language-server/releases) |
+| Zig | zls | [ZLS releases](https://github.com/zigtools/zls) |
+| Kotlin | kotlin-language-server | [Releases](https://github.com/fwcd/kotlin-language-server/releases) |
+| Java | jdtls | [Eclipse JDT.LS](https://github.com/eclipse-jdtls/eclipse.jdt.ls) |
+| Ruby | ruby-lsp | `gem install ruby-lsp` |
+| Dart | dart language-server | Included with [Dart SDK](https://dart.dev/get-dart) |
+| Elixir | elixir-ls | [Releases](https://github.com/elixir-lsp/elixir-ls/releases) |
+| PHP | phpactor | `composer global require phpactor/phpactor` |
+| Terraform | terraform-ls | [Releases](https://github.com/hashicorp/terraform-ls) |
+| Markdown | marksman | [Releases](https://github.com/artempyanykh/marksman/releases) |
+| Tailwind CSS | tailwindcss-language-server | `npm i -g @tailwindcss/language-server` |
+| Docker | docker-langserver | `npm i -g dockerfile-language-server-nodejs` |
 
-```json
-{
-  "lsp": {
-    "servers": {
-      "go": { "command": ["gopls"] },
-      "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
-        "languages": {
-          ".ts": "typescript",
-          ".tsx": "typescriptreact",
-          ".js": "javascript",
-          ".jsx": "javascriptreact"
-        }
-      },
-      "python": { "command": ["pyright-langserver", "--stdio"] }
-    }
-  }
-}
-```
+You can also add custom servers or override built-in ones in `~/.config/ttt/settings.json`. See the [LSP docs](https://tttedit.dev/guides/lsp/) for details.
 
-For simple cases (Go, Python, Rust, etc.), the server key is used as the language ID and files are matched via the syntax highlighter name. No extra configuration is needed.
-
-The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs. In the example above, the TypeScript language server handles `.ts`, `.tsx`, `.js`, and `.jsx` files, each with the correct `languageId` sent to the server. Without the `languages` field, you would need to register the same server command multiple times under different keys.
-
-The server is started lazily on first use and shut down when the editor exits.
+To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 
 #### Supported Features
 
@@ -231,8 +234,6 @@ The server is started lazily on first use and shut down when the editor exits.
 | Format Document | *(command palette)* | Format the entire document using the language server |
 | Format Selection | *(command palette)* | Format the selected range |
 | Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
-
-Go to Type Definition is available via the command palette (Ctrl+Shift+P, then search for "Go to Type Definition").
 
 #### Auto-Completion
 
@@ -251,12 +252,12 @@ The LSP server publishes diagnostics (errors, warnings, hints) which are display
 
 - **Format Document** — formats the entire file via the language server (available from the command palette)
 - **Format Selection** — formats only the selected range (available from the command palette)
-- **Format on Save** — enable `editor.formatOnSave` in `settings.json` to auto-format when saving
+- **Format on Save** — enable `formatOnSave` in `settings.json` to auto-format when saving
 
 #### References & Rename
 
 - **Find All References** — search for all usages of the symbol under the cursor; results appear in the bottom panel REFERENCES tab (available from the command palette)
-- **Rename Symbol** (F2) — rename the symbol under the cursor across all files in the workspace. Applies multi-file workspace edits automatically. Enable `editor.saveOnRename` in `settings.json` to auto-save affected files after renaming.
+- **Rename Symbol** (F2) — rename the symbol under the cursor across all files in the workspace. Applies multi-file workspace edits automatically. Enable `lsp.saveOnRename` in `settings.json` to auto-save affected files after renaming.
 
 ### Tabs
 
