@@ -183,10 +183,11 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					(lineIdx == matchLine && colIdx == matchCol)) {
 					bgStyle = term.StyleBracketMatch
 				}
-				if multiActive && !inAnySel {
+				if multiActive {
 					for _, mc := range allCursors {
 						if mc.Line == lineIdx && mc.Col == colIdx {
-							bgStyle = term.StyleSelection
+							style = term.StyleSelection
+							bgStyle = 0
 							break
 						}
 					}

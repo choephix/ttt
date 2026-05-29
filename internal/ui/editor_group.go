@@ -233,6 +233,9 @@ func (g *EditorGroupWidget) IsEditorActive() bool {
 
 func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
 	if g.IsEditorActive() {
+		if g.Editor.isMultiActive() {
+			return 0, 0, false
+		}
 		return g.Editor.CursorX, g.Editor.CursorY, true
 	}
 	return 0, 0, false
