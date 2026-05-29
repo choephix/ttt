@@ -21,7 +21,10 @@ INSTALL_DIR=~/.local/bin curl -sSfL https://raw.githubusercontent.com/eugenioenk
 
 ## Homebrew (macOS / Linux)
 
-*Coming soon.* A Homebrew tap is planned. In the meantime, use the install script or download a binary from Releases.
+```sh
+brew tap eugenioenko/ttt
+brew install ttt
+```
 
 ## Download Binary
 
