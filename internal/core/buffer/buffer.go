@@ -68,8 +68,9 @@ func DetectIndent(lines []string) IndentInfo {
 
 // Buffer represents a text buffer with line-based storage.
 type Buffer struct {
-	Lines []string
-	Dirty bool
+	Lines              []string
+	Dirty              bool
+	InsertFinalNewline bool
 }
 
 // InsertRune inserts a rune at the given line and column.

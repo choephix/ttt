@@ -23,6 +23,9 @@ func (b *Buffer) LoadFile(filename string) error {
 	if len(lines) == 0 {
 		lines = []string{""}
 	}
+	if b.InsertFinalNewline && (len(lines) == 0 || lines[len(lines)-1] != "") {
+		lines = append(lines, "")
+	}
 	b.Lines = lines
 	b.Dirty = false
 	return nil
@@ -30,6 +33,9 @@ func (b *Buffer) LoadFile(filename string) error {
 
 // SaveFile writes the buffer contents to a file.
 func (b *Buffer) SaveFile(filename string) error {
+	if b.InsertFinalNewline && (len(b.Lines) == 0 || b.Lines[len(b.Lines)-1] != "") {
+		b.Lines = append(b.Lines, "")
+	}
 	f, err := os.Create(filename)
 	if err != nil {
 		return err

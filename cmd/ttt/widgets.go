@@ -77,6 +77,7 @@ func buildApp(cfg *config.AppConfig, borders *term.BorderSet) *App {
 func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
 
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
+	editorGroup.InsertFinalNewline = cfg.Settings.InsertFinalNewline
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f)
 	}

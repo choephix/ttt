@@ -84,7 +84,8 @@ type Settings struct {
 	CursorStyle    string           `json:"cursorStyle,omitempty"`
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
-	FormatOnSave   bool             `json:"formatOnSave"`
+	FormatOnSave       bool             `json:"formatOnSave"`
+	InsertFinalNewline bool             `json:"insertFinalNewline"`
 	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`
 	LSP            LSPSettings          `json:"lsp,omitzero"`
@@ -99,6 +100,7 @@ func DefaultSettings() Settings {
 		LineNumbers:    true,
 		SidebarVisible: true,
 		SidebarWidth:   30,
+		InsertFinalNewline: true,
 		Explorer:       DefaultExplorerSettings(),
 		Terminal:       DefaultTerminalSettings(),
 		LSP:            DefaultLSPSettings(),

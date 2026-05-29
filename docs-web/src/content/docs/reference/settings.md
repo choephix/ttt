@@ -21,6 +21,7 @@ Settings are stored in `~/.config/ttt/settings.json`.
 | `theme` | string | `""` | Theme name |
 | `debugMode` | bool | `false` | Enable debug logging |
 | `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `insertFinalNewline` | bool | `true` | Ensure files end with a newline on load and save |
 
 ## Explorer
 
@@ -65,6 +66,7 @@ Settings are stored in `~/.config/ttt/settings.json`.
   "sidebarWidth": 30,
   "theme": "default-dark",
   "formatOnSave": true,
+  "insertFinalNewline": true,
   "explorer": {
     "showHidden": true,
     "showGitIgnored": true

@@ -61,8 +61,9 @@ type EditorGroupWidget struct {
 	SignatureHelp *SignatureHelpWidget
 	tabs         []editorTab
 	active       int
-	TabSize      int
-	LineNumbers  bool
+	TabSize            int
+	LineNumbers        bool
+	InsertFinalNewline bool
 	Borders      *term.BorderSet
 	OnFileOpen   func(path, lang, text string)
 	OnFileChange func(path, lang, text string)
@@ -137,13 +138,16 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 			return
 		}
 	}
-	newBuf := &buffer.Buffer{Lines: []string{""}}
+	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline}
+	ec := config.LoadEditorConfig(path)
+	if ec.InsertFinalNLSet {
+		newBuf.InsertFinalNewline = ec.InsertFinalNewline
+	}
 	if err := newBuf.LoadFile(path); err != nil {
 		g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
 		return
 	}
 	tabSize := g.TabSize
-	ec := config.LoadEditorConfig(path)
 	if ec.IndentSize > 0 {
 		tabSize = ec.IndentSize
 	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 {
