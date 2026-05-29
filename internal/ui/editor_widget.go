@@ -7,6 +7,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/core/cursor"
 	"github.com/eugenioenko/ttt/internal/core/highlight"
+	"github.com/eugenioenko/ttt/internal/core/multicursor"
 	"github.com/eugenioenko/ttt/internal/core/selection"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -36,9 +37,11 @@ type EditorPaneWidget struct {
 	lastClickCol  int
 	clickCount    int
 	mouseDown     bool
-	scrollbar     Scrollbar
-	Diagnostics   []Diagnostic
-	OnChange      func()
+	scrollbar       Scrollbar
+	Diagnostics     []Diagnostic
+	OnChange        func()
+	Multi           *multicursor.MultiCursor
+	multiSearchWord string
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -81,6 +84,13 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	sel := e.Selection
 	hasSel := sel != nil && sel.Active
+
+	multiActive := e.isMultiActive()
+	var allCursors []multicursor.CursorState
+	if multiActive {
+		e.syncToMulti()
+		allCursors = e.Multi.Cursors
+	}
 
 	hasSearch := len(e.SearchMatches) > 0
 
@@ -140,14 +150,46 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				}
 				isSearchHighlight := style == term.StyleSearchActive || style == term.StyleSearchMatch
 				bgStyle := term.Style(0)
-				if hasSel && sel.Contains(lineIdx, colIdx, e.Cursor.Line, e.Cursor.Col) {
+				inAnySel := false
+				if multiActive {
+					for _, mc := range allCursors {
+						if mc.Sel.Active && mc.Sel.Contains(lineIdx, colIdx, mc.Line, mc.Col) {
+							bgStyle = term.StyleSelection
+							inAnySel = true
+							break
+						}
+					}
+				} else if hasSel && sel.Contains(lineIdx, colIdx, e.Cursor.Line, e.Cursor.Col) {
 					bgStyle = term.StyleSelection
-				} else if lineIdx == e.Cursor.Line && !hasSel && !isSearchHighlight {
-					bgStyle = term.StyleActiveLine
+					inAnySel = true
+				}
+				if !inAnySel {
+					isCursorLine := false
+					if multiActive {
+						for _, mc := range allCursors {
+							if mc.Line == lineIdx {
+								isCursorLine = true
+								break
+							}
+						}
+					} else {
+						isCursorLine = lineIdx == e.Cursor.Line && !hasSel
+					}
+					if isCursorLine && !isSearchHighlight {
+						bgStyle = term.StyleActiveLine
+					}
 				}
 				if hasMatch && ((lineIdx == e.Cursor.Line && colIdx == e.Cursor.Col) ||
 					(lineIdx == matchLine && colIdx == matchCol)) {
 					bgStyle = term.StyleBracketMatch
+				}
+				if multiActive && !inAnySel {
+					for _, mc := range allCursors {
+						if mc.Line == lineIdx && mc.Col == colIdx {
+							bgStyle = term.StyleSelection
+							break
+						}
+					}
 				}
 				ulStyle := e.diagStyleAt(lineIdx, colIdx)
 				surface.SetCell(gutterW+x, y, term.Cell{Ch: ch, Style: style, BgStyle: bgStyle, UlStyle: ulStyle})
@@ -322,8 +364,22 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			mx, my := mev.Position()
 			line, col := e.mouseToPos(r, mx, my)
 
+			isAlt := mev.Modifiers()&tcell.ModAlt != 0
+			if isAlt && !e.mouseDown {
+				e.ensureMulti()
+				e.syncToMulti()
+				e.Multi.Add(line, col)
+				e.syncFromMulti()
+				e.scrollViewport()
+				return EventConsumed
+			}
+
 			if !e.mouseDown {
 				e.mouseDown = true
+
+				if e.isMultiActive() {
+					e.collapseMulti()
+				}
 
 				now := time.Now().UnixMilli()
 				if now-e.lastClickTime < 400 && line == e.lastClickLine && col == e.lastClickCol {
@@ -375,48 +431,118 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	shift := kev.Modifiers()&tcell.ModShift != 0
 	hasSel := e.Selection != nil && e.Selection.Active
 
+	multi := e.isMultiActive()
+
 	switch kev.Key() {
 	case tcell.KeyUp:
-		e.startOrExtendSelection(shift)
-		if e.Cursor.Line > 0 {
-			e.Cursor.Line--
-			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-			if e.Cursor.Col > lineLen {
-				e.Cursor.Col = lineLen
+		if multi {
+			e.multiMoveAll(func(cs *multicursor.CursorState) {
+				if cs.Line > 0 {
+					cs.Line--
+					lineLen := len([]rune(e.Buf.Lines[cs.Line]))
+					if cs.Col > lineLen {
+						cs.Col = lineLen
+					}
+				}
+			})
+		} else {
+			e.startOrExtendSelection(shift)
+			if e.Cursor.Line > 0 {
+				e.Cursor.Line--
+				lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+				if e.Cursor.Col > lineLen {
+					e.Cursor.Col = lineLen
+				}
 			}
 		}
 	case tcell.KeyDown:
-		e.startOrExtendSelection(shift)
-		if e.Cursor.Line < len(e.Buf.Lines)-1 {
-			e.Cursor.Line++
-			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-			if e.Cursor.Col > lineLen {
-				e.Cursor.Col = lineLen
+		if multi {
+			e.multiMoveAll(func(cs *multicursor.CursorState) {
+				if cs.Line < len(e.Buf.Lines)-1 {
+					cs.Line++
+					lineLen := len([]rune(e.Buf.Lines[cs.Line]))
+					if cs.Col > lineLen {
+						cs.Col = lineLen
+					}
+				}
+			})
+		} else {
+			e.startOrExtendSelection(shift)
+			if e.Cursor.Line < len(e.Buf.Lines)-1 {
+				e.Cursor.Line++
+				lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+				if e.Cursor.Col > lineLen {
+					e.Cursor.Col = lineLen
+				}
 			}
 		}
 	case tcell.KeyLeft:
-		e.startOrExtendSelection(shift)
-		if e.Cursor.Col > 0 {
-			e.Cursor.Col--
-		} else if e.Cursor.Line > 0 {
-			e.Cursor.Line--
-			e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		if multi {
+			e.multiMoveAll(func(cs *multicursor.CursorState) {
+				if cs.Col > 0 {
+					cs.Col--
+				} else if cs.Line > 0 {
+					cs.Line--
+					cs.Col = len([]rune(e.Buf.Lines[cs.Line]))
+				}
+			})
+		} else {
+			e.startOrExtendSelection(shift)
+			if e.Cursor.Col > 0 {
+				e.Cursor.Col--
+			} else if e.Cursor.Line > 0 {
+				e.Cursor.Line--
+				e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
+			}
 		}
 	case tcell.KeyRight:
-		e.startOrExtendSelection(shift)
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if e.Cursor.Col < lineLen {
-			e.Cursor.Col++
-		} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
-			e.Cursor.Line++
-			e.Cursor.Col = 0
+		if multi {
+			e.multiMoveAll(func(cs *multicursor.CursorState) {
+				lineLen := len([]rune(e.Buf.Lines[cs.Line]))
+				if cs.Col < lineLen {
+					cs.Col++
+				} else if cs.Line < len(e.Buf.Lines)-1 {
+					cs.Line++
+					cs.Col = 0
+				}
+			})
+		} else {
+			e.startOrExtendSelection(shift)
+			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+			if e.Cursor.Col < lineLen {
+				e.Cursor.Col++
+			} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
+				e.Cursor.Line++
+				e.Cursor.Col = 0
+			}
 		}
 	case tcell.KeyHome:
-		e.startOrExtendSelection(shift)
-		e.SmartHome()
+		if multi {
+			e.multiMoveAll(func(cs *multicursor.CursorState) {
+				runes := []rune(e.Buf.Lines[cs.Line])
+				firstNonSpace := 0
+				for firstNonSpace < len(runes) && (runes[firstNonSpace] == ' ' || runes[firstNonSpace] == '\t') {
+					firstNonSpace++
+				}
+				if cs.Col == firstNonSpace {
+					cs.Col = 0
+				} else {
+					cs.Col = firstNonSpace
+				}
+			})
+		} else {
+			e.startOrExtendSelection(shift)
+			e.SmartHome()
+		}
 	case tcell.KeyEnd:
-		e.startOrExtendSelection(shift)
-		e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		if multi {
+			e.multiMoveAll(func(cs *multicursor.CursorState) {
+				cs.Col = len([]rune(e.Buf.Lines[cs.Line]))
+			})
+		} else {
+			e.startOrExtendSelection(shift)
+			e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		}
 	case tcell.KeyPgUp:
 		e.startOrExtendSelection(shift)
 		e.Cursor.Line -= e.Viewport.Height
@@ -438,106 +564,120 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.Cursor.Col = lineLen
 		}
 	case tcell.KeyEnter:
-		if hasSel {
-			e.deleteSelection()
-		}
-		col := e.Cursor.Col
-		if col < 0 {
-			col = 0
-		}
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if col > lineLen {
-			col = lineLen
-		}
-		line := e.Buf.Lines[e.Cursor.Line]
-		indent := leadingWhitespace(line)
-		runes := []rune(line)
-		charBefore := ' '
-		if col > 0 && col <= len(runes) {
-			charBefore = runes[col-1]
-		}
-		charAfter := ' '
-		if col < len(runes) {
-			charAfter = runes[col]
-		}
-		extraIndent := charBefore == '{' || charBefore == '(' || charBefore == '[' || charBefore == ':'
-		e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
-		e.Cursor.Line++
-		e.Cursor.Col = 0
-		tabSize := e.TabSize
-		if tabSize <= 0 {
-			tabSize = 4
-		}
-		newIndent := indent
-		if extraIndent {
-			newIndent += strings.Repeat(" ", tabSize)
-		}
-		if len(newIndent) > 0 {
-			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
-			e.Cursor.Col = len([]rune(newIndent))
-		}
-		if extraIndent && (charAfter == '}' || charAfter == ')' || charAfter == ']') {
-			e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
-			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
-		}
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		if hasSel {
-			e.deleteSelection()
-		} else if e.Cursor.Col > 0 {
-			runes := []rune(e.Buf.Lines[e.Cursor.Line])
-			if e.Cursor.Col > len(runes) {
-				e.Cursor.Col = len(runes)
+		if multi {
+			e.multiExecEnter()
+		} else {
+			if hasSel {
+				e.deleteSelection()
 			}
-			inLeadingWhitespace := true
-			for i := 0; i < e.Cursor.Col && i < len(runes); i++ {
-				if runes[i] != ' ' && runes[i] != '\t' {
-					inLeadingWhitespace = false
-					break
-				}
+			col := e.Cursor.Col
+			if col < 0 {
+				col = 0
 			}
+			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+			if col > lineLen {
+				col = lineLen
+			}
+			line := e.Buf.Lines[e.Cursor.Line]
+			indent := leadingWhitespace(line)
+			runes := []rune(line)
+			charBefore := ' '
+			if col > 0 && col <= len(runes) {
+				charBefore = runes[col-1]
+			}
+			charAfter := ' '
+			if col < len(runes) {
+				charAfter = runes[col]
+			}
+			extraIndent := charBefore == '{' || charBefore == '(' || charBefore == '[' || charBefore == ':'
+			e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
+			e.Cursor.Line++
+			e.Cursor.Col = 0
 			tabSize := e.TabSize
 			if tabSize <= 0 {
 				tabSize = 4
 			}
-			if inLeadingWhitespace && e.Cursor.Col > 1 && runes[e.Cursor.Col-1] == ' ' {
-				target := ((e.Cursor.Col - 1) / tabSize) * tabSize
-				if target == e.Cursor.Col {
-					target -= tabSize
-				}
-				if target < 0 {
-					target = 0
-				}
-				e.exec(&undo.DeleteSelectionCommand{
-					StartLine: e.Cursor.Line, StartCol: target,
-					EndLine: e.Cursor.Line, EndCol: e.Cursor.Col,
-				})
-				e.Cursor.Col = target
-			} else {
-				e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col - 1})
-				e.Cursor.Col--
+			newIndent := indent
+			if extraIndent {
+				newIndent += strings.Repeat(" ", tabSize)
 			}
-		} else if e.Cursor.Line > 0 {
-			cmd := &undo.JoinLineCommand{Line: e.Cursor.Line}
-			e.exec(cmd)
-			e.Cursor.Line--
-			e.Cursor.Col = cmd.PrevLen
+			if len(newIndent) > 0 {
+				e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
+				e.Cursor.Col = len([]rune(newIndent))
+			}
+			if extraIndent && (charAfter == '}' || charAfter == ')' || charAfter == ']') {
+				e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+				e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
+			}
+		}
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		if multi {
+			e.multiExecBackspace()
+		} else {
+			if hasSel {
+				e.deleteSelection()
+			} else if e.Cursor.Col > 0 {
+				runes := []rune(e.Buf.Lines[e.Cursor.Line])
+				if e.Cursor.Col > len(runes) {
+					e.Cursor.Col = len(runes)
+				}
+				inLeadingWhitespace := true
+				for i := 0; i < e.Cursor.Col && i < len(runes); i++ {
+					if runes[i] != ' ' && runes[i] != '\t' {
+						inLeadingWhitespace = false
+						break
+					}
+				}
+				tabSize := e.TabSize
+				if tabSize <= 0 {
+					tabSize = 4
+				}
+				if inLeadingWhitespace && e.Cursor.Col > 1 && runes[e.Cursor.Col-1] == ' ' {
+					target := ((e.Cursor.Col - 1) / tabSize) * tabSize
+					if target == e.Cursor.Col {
+						target -= tabSize
+					}
+					if target < 0 {
+						target = 0
+					}
+					e.exec(&undo.DeleteSelectionCommand{
+						StartLine: e.Cursor.Line, StartCol: target,
+						EndLine: e.Cursor.Line, EndCol: e.Cursor.Col,
+					})
+					e.Cursor.Col = target
+				} else {
+					e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col - 1})
+					e.Cursor.Col--
+				}
+			} else if e.Cursor.Line > 0 {
+				cmd := &undo.JoinLineCommand{Line: e.Cursor.Line}
+				e.exec(cmd)
+				e.Cursor.Line--
+				e.Cursor.Col = cmd.PrevLen
+			}
 		}
 	case tcell.KeyDelete:
-		if hasSel {
-			e.deleteSelection()
+		if multi {
+			e.multiExecDelete()
 		} else {
-			lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-			if e.Cursor.Col < lineLen {
-				e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
-			} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
-				e.exec(&undo.JoinLineCommand{Line: e.Cursor.Line + 1})
+			if hasSel {
+				e.deleteSelection()
+			} else {
+				lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
+				if e.Cursor.Col < lineLen {
+					e.exec(&undo.DeleteRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+				} else if e.Cursor.Line < len(e.Buf.Lines)-1 {
+					e.exec(&undo.JoinLineCommand{Line: e.Cursor.Line + 1})
+				}
 			}
 		}
 	case tcell.KeyRune:
 		if kev.Modifiers() == 0 {
 			r := kev.Rune()
 			if r != 0 {
-				if hasSel {
+				if multi {
+					e.multiExecRune(r)
+				} else if hasSel {
 					if closing, ok := autoPairs[r]; ok {
 						e.deleteSelection()
 						e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
@@ -1016,5 +1156,369 @@ func (e *EditorPaneWidget) SmartHome() {
 		e.Cursor.Col = firstNonSpace
 	}
 	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) ensureMulti() {
+	if e.Multi == nil {
+		e.Multi = multicursor.New(e.Cursor.Line, e.Cursor.Col)
+		if e.Selection != nil && e.Selection.Active {
+			e.Multi.Cursors[0].Sel = *e.Selection
+		}
+	}
+}
+
+func (e *EditorPaneWidget) syncFromMulti() {
+	if e.Multi == nil || len(e.Multi.Cursors) == 0 {
+		return
+	}
+	p := e.Multi.PrimaryCursor()
+	e.Cursor.Line = p.Line
+	e.Cursor.Col = p.Col
+	if e.Selection != nil {
+		*e.Selection = p.Sel
+	}
+}
+
+func (e *EditorPaneWidget) syncToMulti() {
+	if e.Multi == nil || len(e.Multi.Cursors) == 0 {
+		return
+	}
+	c := &e.Multi.Cursors[e.Multi.Primary]
+	c.Line = e.Cursor.Line
+	c.Col = e.Cursor.Col
+	if e.Selection != nil {
+		c.Sel = *e.Selection
+	}
+}
+
+func (e *EditorPaneWidget) isMultiActive() bool {
+	return e.Multi != nil && e.Multi.IsMulti()
+}
+
+func (e *EditorPaneWidget) collapseMulti() {
+	if e.Multi == nil {
+		return
+	}
+	e.Multi.CollapseToSingle()
+	e.syncFromMulti()
+	e.Multi = nil
+	e.multiSearchWord = ""
+}
+
+func (e *EditorPaneWidget) multiExecRune(r rune) {
+	e.syncToMulti()
+	var cmds []undo.EditCommand
+	for i := len(e.Multi.Cursors) - 1; i >= 0; i-- {
+		cs := &e.Multi.Cursors[i]
+		if cs.Sel.Active {
+			start, end := cs.Sel.Range(cs.Line, cs.Col)
+			delCmd := &undo.DeleteSelectionCommand{
+				StartLine: start.Line, StartCol: start.Col,
+				EndLine: end.Line, EndCol: end.Col,
+			}
+			delCmd.Apply(e.Buf)
+			cmds = append(cmds, delCmd)
+			cs.Line = start.Line
+			cs.Col = start.Col
+			cs.Sel.Clear()
+			e.adjustCursorsAfterDelete(i, start, end)
+		}
+		cmd := &undo.InsertRuneCommand{Line: cs.Line, Col: cs.Col, Rune: r}
+		cmd.Apply(e.Buf)
+		cmds = append(cmds, cmd)
+		cs.Col++
+		e.adjustCursorsAfterInsert(i, cs.Line, 1)
+	}
+	if e.Undo != nil {
+		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+	}
+	e.syncFromMulti()
+	if e.OnChange != nil {
+		e.OnChange()
+	}
+}
+
+func (e *EditorPaneWidget) multiExecBackspace() {
+	e.syncToMulti()
+	var cmds []undo.EditCommand
+	for i := len(e.Multi.Cursors) - 1; i >= 0; i-- {
+		cs := &e.Multi.Cursors[i]
+		if cs.Sel.Active {
+			start, end := cs.Sel.Range(cs.Line, cs.Col)
+			delCmd := &undo.DeleteSelectionCommand{
+				StartLine: start.Line, StartCol: start.Col,
+				EndLine: end.Line, EndCol: end.Col,
+			}
+			delCmd.Apply(e.Buf)
+			cmds = append(cmds, delCmd)
+			cs.Line = start.Line
+			cs.Col = start.Col
+			cs.Sel.Clear()
+			e.adjustCursorsAfterDelete(i, start, end)
+			continue
+		}
+		if cs.Col > 0 {
+			cmd := &undo.DeleteRuneCommand{Line: cs.Line, Col: cs.Col - 1}
+			cmd.Apply(e.Buf)
+			cmds = append(cmds, cmd)
+			cs.Col--
+			e.adjustCursorsAfterInsert(i, cs.Line, -1)
+		} else if cs.Line > 0 {
+			prevLen := len([]rune(e.Buf.Lines[cs.Line-1]))
+			cmd := &undo.JoinLineCommand{Line: cs.Line}
+			cmd.Apply(e.Buf)
+			cmds = append(cmds, cmd)
+			cs.Line--
+			cs.Col = prevLen
+			e.adjustCursorsAfterJoinLine(i, cs.Line+1)
+		}
+	}
+	if len(cmds) > 0 {
+		if e.Undo != nil {
+			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+		}
+		if e.OnChange != nil {
+			e.OnChange()
+		}
+	}
+	e.Multi.Deduplicate()
+	e.syncFromMulti()
+}
+
+func (e *EditorPaneWidget) multiExecDelete() {
+	e.syncToMulti()
+	var cmds []undo.EditCommand
+	for i := len(e.Multi.Cursors) - 1; i >= 0; i-- {
+		cs := &e.Multi.Cursors[i]
+		if cs.Sel.Active {
+			start, end := cs.Sel.Range(cs.Line, cs.Col)
+			delCmd := &undo.DeleteSelectionCommand{
+				StartLine: start.Line, StartCol: start.Col,
+				EndLine: end.Line, EndCol: end.Col,
+			}
+			delCmd.Apply(e.Buf)
+			cmds = append(cmds, delCmd)
+			cs.Line = start.Line
+			cs.Col = start.Col
+			cs.Sel.Clear()
+			e.adjustCursorsAfterDelete(i, start, end)
+			continue
+		}
+		lineLen := len([]rune(e.Buf.Lines[cs.Line]))
+		if cs.Col < lineLen {
+			cmd := &undo.DeleteRuneCommand{Line: cs.Line, Col: cs.Col}
+			cmd.Apply(e.Buf)
+			cmds = append(cmds, cmd)
+			e.adjustCursorsAfterInsert(i, cs.Line, -1)
+		} else if cs.Line < len(e.Buf.Lines)-1 {
+			cmd := &undo.JoinLineCommand{Line: cs.Line + 1}
+			cmd.Apply(e.Buf)
+			cmds = append(cmds, cmd)
+			e.adjustCursorsAfterJoinLine(i, cs.Line+1)
+		}
+	}
+	if len(cmds) > 0 {
+		if e.Undo != nil {
+			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+		}
+		if e.OnChange != nil {
+			e.OnChange()
+		}
+	}
+	e.Multi.Deduplicate()
+	e.syncFromMulti()
+}
+
+func (e *EditorPaneWidget) multiExecEnter() {
+	e.syncToMulti()
+	var cmds []undo.EditCommand
+	for i := len(e.Multi.Cursors) - 1; i >= 0; i-- {
+		cs := &e.Multi.Cursors[i]
+		if cs.Sel.Active {
+			start, end := cs.Sel.Range(cs.Line, cs.Col)
+			delCmd := &undo.DeleteSelectionCommand{
+				StartLine: start.Line, StartCol: start.Col,
+				EndLine: end.Line, EndCol: end.Col,
+			}
+			delCmd.Apply(e.Buf)
+			cmds = append(cmds, delCmd)
+			cs.Line = start.Line
+			cs.Col = start.Col
+			cs.Sel.Clear()
+			e.adjustCursorsAfterDelete(i, start, end)
+		}
+		cmd := &undo.SplitLineCommand{Line: cs.Line, Col: cs.Col}
+		cmd.Apply(e.Buf)
+		cmds = append(cmds, cmd)
+		cs.Line++
+		cs.Col = 0
+		e.adjustCursorsAfterSplitLine(i, cs.Line-1)
+	}
+	if e.Undo != nil {
+		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+	}
+	e.syncFromMulti()
+	if e.OnChange != nil {
+		e.OnChange()
+	}
+}
+
+func (e *EditorPaneWidget) multiMoveAll(moveFn func(cs *multicursor.CursorState)) {
+	e.syncToMulti()
+	for i := range e.Multi.Cursors {
+		e.Multi.Cursors[i].Sel.Clear()
+		moveFn(&e.Multi.Cursors[i])
+	}
+	e.Multi.Deduplicate()
+	e.syncFromMulti()
+}
+
+func (e *EditorPaneWidget) adjustCursorsAfterInsert(editedIdx, editedLine, colDelta int) {
+	for j := editedIdx - 1; j >= 0; j-- {
+		if e.Multi.Cursors[j].Line == editedLine {
+			e.Multi.Cursors[j].Col += colDelta
+			if e.Multi.Cursors[j].Col < 0 {
+				e.Multi.Cursors[j].Col = 0
+			}
+		}
+	}
+}
+
+func (e *EditorPaneWidget) adjustCursorsAfterDelete(editedIdx int, start, end selection.Position) {
+	for j := editedIdx - 1; j >= 0; j-- {
+		cs := &e.Multi.Cursors[j]
+		if cs.Line > end.Line {
+			cs.Line -= end.Line - start.Line
+		} else if cs.Line == end.Line && cs.Col >= end.Col {
+			cs.Col = start.Col + (cs.Col - end.Col)
+			cs.Line = start.Line
+		} else if cs.Line == start.Line && cs.Col > start.Col {
+			cs.Col = start.Col
+		}
+	}
+}
+
+func (e *EditorPaneWidget) adjustCursorsAfterJoinLine(editedIdx, joinedLine int) {
+	for j := editedIdx - 1; j >= 0; j-- {
+		if e.Multi.Cursors[j].Line >= joinedLine {
+			e.Multi.Cursors[j].Line--
+		}
+	}
+}
+
+func (e *EditorPaneWidget) adjustCursorsAfterSplitLine(editedIdx, splitLine int) {
+	for j := editedIdx - 1; j >= 0; j-- {
+		if e.Multi.Cursors[j].Line > splitLine {
+			e.Multi.Cursors[j].Line++
+		}
+	}
+}
+
+func (e *EditorPaneWidget) SelectNextOccurrence() {
+	if e.Selection == nil {
+		return
+	}
+	word := ""
+	if e.Selection.Active {
+		word = e.Selection.Text(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col)
+	}
+	if word == "" {
+		e.selectWord(e.Cursor.Line, e.Cursor.Col)
+		if e.Selection.Active {
+			e.multiSearchWord = e.Selection.Text(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col)
+		}
+		e.ensureMulti()
+		e.syncToMulti()
+		return
+	}
+	if e.multiSearchWord == "" {
+		e.multiSearchWord = word
+	}
+	e.ensureMulti()
+	e.syncToMulti()
+
+	searchWord := e.multiSearchWord
+	lastCursor := e.Multi.Cursors[len(e.Multi.Cursors)-1]
+	startLine := lastCursor.Line
+	startCol := lastCursor.Col
+
+	for line := startLine; line < len(e.Buf.Lines)+startLine; line++ {
+		l := line % len(e.Buf.Lines)
+		runes := []rune(e.Buf.Lines[l])
+		searchRunes := []rune(searchWord)
+		fromCol := 0
+		if l == startLine {
+			fromCol = startCol
+		}
+		for col := fromCol; col <= len(runes)-len(searchRunes); col++ {
+			if string(runes[col:col+len(searchRunes)]) == searchWord {
+				already := false
+				for _, c := range e.Multi.Cursors {
+					s, end := c.Sel.Range(c.Line, c.Col)
+					if s.Line == l && s.Col == col && end.Col == col+len(searchRunes) {
+						already = true
+						break
+					}
+				}
+				if already {
+					continue
+				}
+				sel := selection.Selection{Active: true, Anchor: selection.Position{Line: l, Col: col}}
+				e.Multi.AddWithSelection(l, col+len(searchRunes), sel)
+				e.syncFromMulti()
+				e.scrollViewport()
+				return
+			}
+		}
+	}
+}
+
+func (e *EditorPaneWidget) SelectAllOccurrences() {
+	if e.Selection == nil {
+		return
+	}
+	word := ""
+	if e.Selection.Active {
+		word = e.Selection.Text(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col)
+	}
+	if word == "" {
+		e.selectWord(e.Cursor.Line, e.Cursor.Col)
+		if e.Selection.Active {
+			word = e.Selection.Text(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col)
+		}
+	}
+	if word == "" {
+		return
+	}
+	e.multiSearchWord = word
+	e.ensureMulti()
+	e.syncToMulti()
+
+	searchRunes := []rune(word)
+	for line := 0; line < len(e.Buf.Lines); line++ {
+		runes := []rune(e.Buf.Lines[line])
+		for col := 0; col <= len(runes)-len(searchRunes); col++ {
+			if string(runes[col:col+len(searchRunes)]) == word {
+				sel := selection.Selection{Active: true, Anchor: selection.Position{Line: line, Col: col}}
+				e.Multi.AddWithSelection(line, col+len(searchRunes), sel)
+			}
+		}
+	}
+	e.syncFromMulti()
+}
+
+func (e *EditorPaneWidget) UndoLastCursor() {
+	if e.Multi == nil || !e.Multi.IsMulti() {
+		return
+	}
+	e.Multi.RemoveLast()
+	if !e.Multi.IsMulti() {
+		e.syncFromMulti()
+		e.Multi = nil
+		e.multiSearchWord = ""
+	} else {
+		e.syncFromMulti()
+	}
 	e.scrollViewport()
 }

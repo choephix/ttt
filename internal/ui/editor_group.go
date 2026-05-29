@@ -11,6 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/cursor"
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/core/highlight"
+	"github.com/eugenioenko/ttt/internal/core/multicursor"
 	"github.com/eugenioenko/ttt/internal/core/selection"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -45,6 +46,7 @@ type editorTab struct {
 	Vp          *view.Viewport
 	Undo        *undo.UndoStack
 	Sel         *selection.Selection
+	Multi       *multicursor.MultiCursor
 	Highlighter *highlight.Highlighter
 	Diagnostics []Diagnostic
 	TabSize     int
@@ -245,8 +247,15 @@ func (g *EditorGroupWidget) SetTabSize(size int) {
 
 func (g *EditorGroupWidget) SwitchTab(idx int) {
 	if idx >= 0 && idx < len(g.tabs) {
+		g.saveMultiState()
 		g.active = idx
 		g.syncTabs()
+	}
+}
+
+func (g *EditorGroupWidget) saveMultiState() {
+	if t := g.activeTab(); t != nil && t.Content == nil {
+		t.Multi = g.Editor.Multi
 	}
 }
 
@@ -584,6 +593,41 @@ func (g *EditorGroupWidget) DeleteWordRight() {
 	}
 }
 
+func (g *EditorGroupWidget) SelectNextOccurrence() {
+	if g.IsEditorActive() {
+		g.Editor.SelectNextOccurrence()
+	}
+}
+
+func (g *EditorGroupWidget) SelectAllOccurrences() {
+	if g.IsEditorActive() {
+		g.Editor.SelectAllOccurrences()
+	}
+}
+
+func (g *EditorGroupWidget) UndoLastCursor() {
+	if g.IsEditorActive() {
+		g.Editor.UndoLastCursor()
+	}
+}
+
+func (g *EditorGroupWidget) IsMultiCursorActive() bool {
+	return g.IsEditorActive() && g.Editor.isMultiActive()
+}
+
+func (g *EditorGroupWidget) MultiCursorCount() int {
+	if g.IsEditorActive() && g.Editor.Multi != nil {
+		return len(g.Editor.Multi.Cursors)
+	}
+	return 1
+}
+
+func (g *EditorGroupWidget) CollapseMultiCursor() {
+	if g.IsEditorActive() {
+		g.Editor.collapseMulti()
+	}
+}
+
 func (g *EditorGroupWidget) Copy() {
 	t := g.activeTab()
 	if t == nil || t.Content != nil || t.Sel == nil || !t.Sel.Active {
@@ -626,6 +670,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Viewport = t.Vp
 		g.Editor.Undo = t.Undo
 		g.Editor.Selection = t.Sel
+		g.Editor.Multi = t.Multi
 		g.Editor.Highlighter = t.Highlighter
 		g.Editor.Diagnostics = t.Diagnostics
 		if t.TabSize > 0 {
