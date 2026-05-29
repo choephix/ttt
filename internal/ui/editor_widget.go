@@ -1222,13 +1222,14 @@ func (e *EditorPaneWidget) multiExecRune(r rune) {
 			cs.Line = start.Line
 			cs.Col = start.Col
 			cs.Sel.Clear()
-			e.adjustCursorsAfterDelete(i, start, end)
+			e.adjustLaterCursors(i, start, end)
 		}
-		cmd := &undo.InsertRuneCommand{Line: cs.Line, Col: cs.Col, Rune: r}
+		insertCol := cs.Col
+		cmd := &undo.InsertRuneCommand{Line: cs.Line, Col: insertCol, Rune: r}
 		cmd.Apply(e.Buf)
 		cmds = append(cmds, cmd)
 		cs.Col++
-		e.adjustCursorsAfterInsert(i, cs.Line, 1)
+		e.shiftLaterCursors(i, cs.Line, insertCol, 1)
 	}
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
@@ -1255,7 +1256,7 @@ func (e *EditorPaneWidget) multiExecBackspace() {
 			cs.Line = start.Line
 			cs.Col = start.Col
 			cs.Sel.Clear()
-			e.adjustCursorsAfterDelete(i, start, end)
+			e.adjustLaterCursors(i, start, end)
 			continue
 		}
 		if cs.Col > 0 {
@@ -1263,15 +1264,15 @@ func (e *EditorPaneWidget) multiExecBackspace() {
 			cmd.Apply(e.Buf)
 			cmds = append(cmds, cmd)
 			cs.Col--
-			e.adjustCursorsAfterInsert(i, cs.Line, -1)
+			e.shiftLaterCursors(i, cs.Line, cs.Col, -1)
 		} else if cs.Line > 0 {
 			prevLen := len([]rune(e.Buf.Lines[cs.Line-1]))
 			cmd := &undo.JoinLineCommand{Line: cs.Line}
 			cmd.Apply(e.Buf)
 			cmds = append(cmds, cmd)
+			e.shiftLaterLines(i, cs.Line, -1)
 			cs.Line--
 			cs.Col = prevLen
-			e.adjustCursorsAfterJoinLine(i, cs.Line+1)
 		}
 	}
 	if len(cmds) > 0 {
@@ -1302,7 +1303,7 @@ func (e *EditorPaneWidget) multiExecDelete() {
 			cs.Line = start.Line
 			cs.Col = start.Col
 			cs.Sel.Clear()
-			e.adjustCursorsAfterDelete(i, start, end)
+			e.adjustLaterCursors(i, start, end)
 			continue
 		}
 		lineLen := len([]rune(e.Buf.Lines[cs.Line]))
@@ -1310,12 +1311,12 @@ func (e *EditorPaneWidget) multiExecDelete() {
 			cmd := &undo.DeleteRuneCommand{Line: cs.Line, Col: cs.Col}
 			cmd.Apply(e.Buf)
 			cmds = append(cmds, cmd)
-			e.adjustCursorsAfterInsert(i, cs.Line, -1)
+			e.shiftLaterCursors(i, cs.Line, cs.Col, -1)
 		} else if cs.Line < len(e.Buf.Lines)-1 {
 			cmd := &undo.JoinLineCommand{Line: cs.Line + 1}
 			cmd.Apply(e.Buf)
 			cmds = append(cmds, cmd)
-			e.adjustCursorsAfterJoinLine(i, cs.Line+1)
+			e.shiftLaterLines(i, cs.Line+1, -1)
 		}
 	}
 	if len(cmds) > 0 {
@@ -1346,14 +1347,14 @@ func (e *EditorPaneWidget) multiExecEnter() {
 			cs.Line = start.Line
 			cs.Col = start.Col
 			cs.Sel.Clear()
-			e.adjustCursorsAfterDelete(i, start, end)
+			e.adjustLaterCursors(i, start, end)
 		}
 		cmd := &undo.SplitLineCommand{Line: cs.Line, Col: cs.Col}
 		cmd.Apply(e.Buf)
 		cmds = append(cmds, cmd)
+		e.shiftLaterLines(i, cs.Line, 1)
 		cs.Line++
 		cs.Col = 0
-		e.adjustCursorsAfterSplitLine(i, cs.Line-1)
 	}
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
@@ -1361,6 +1362,44 @@ func (e *EditorPaneWidget) multiExecEnter() {
 	e.syncFromMulti()
 	if e.OnChange != nil {
 		e.OnChange()
+	}
+}
+
+func (e *EditorPaneWidget) adjustLaterCursors(editedIdx int, start, end selection.Position) {
+	for j := editedIdx + 1; j < len(e.Multi.Cursors); j++ {
+		cs := &e.Multi.Cursors[j]
+		if start.Line == end.Line {
+			if cs.Line == start.Line && cs.Col >= end.Col {
+				cs.Col -= end.Col - start.Col
+			}
+		} else {
+			if cs.Line == end.Line {
+				cs.Col = start.Col + (cs.Col - end.Col)
+				cs.Line = start.Line
+			} else if cs.Line > end.Line {
+				cs.Line -= end.Line - start.Line
+			}
+		}
+	}
+}
+
+func (e *EditorPaneWidget) shiftLaterCursors(editedIdx, line, col, delta int) {
+	for j := editedIdx + 1; j < len(e.Multi.Cursors); j++ {
+		cs := &e.Multi.Cursors[j]
+		if cs.Line == line && cs.Col >= col {
+			cs.Col += delta
+			if cs.Col < 0 {
+				cs.Col = 0
+			}
+		}
+	}
+}
+
+func (e *EditorPaneWidget) shiftLaterLines(editedIdx, fromLine, delta int) {
+	for j := editedIdx + 1; j < len(e.Multi.Cursors); j++ {
+		if e.Multi.Cursors[j].Line >= fromLine {
+			e.Multi.Cursors[j].Line += delta
+		}
 	}
 }
 
@@ -1372,47 +1411,6 @@ func (e *EditorPaneWidget) multiMoveAll(moveFn func(cs *multicursor.CursorState)
 	}
 	e.Multi.Deduplicate()
 	e.syncFromMulti()
-}
-
-func (e *EditorPaneWidget) adjustCursorsAfterInsert(editedIdx, editedLine, colDelta int) {
-	for j := editedIdx - 1; j >= 0; j-- {
-		if e.Multi.Cursors[j].Line == editedLine {
-			e.Multi.Cursors[j].Col += colDelta
-			if e.Multi.Cursors[j].Col < 0 {
-				e.Multi.Cursors[j].Col = 0
-			}
-		}
-	}
-}
-
-func (e *EditorPaneWidget) adjustCursorsAfterDelete(editedIdx int, start, end selection.Position) {
-	for j := editedIdx - 1; j >= 0; j-- {
-		cs := &e.Multi.Cursors[j]
-		if cs.Line > end.Line {
-			cs.Line -= end.Line - start.Line
-		} else if cs.Line == end.Line && cs.Col >= end.Col {
-			cs.Col = start.Col + (cs.Col - end.Col)
-			cs.Line = start.Line
-		} else if cs.Line == start.Line && cs.Col > start.Col {
-			cs.Col = start.Col
-		}
-	}
-}
-
-func (e *EditorPaneWidget) adjustCursorsAfterJoinLine(editedIdx, joinedLine int) {
-	for j := editedIdx - 1; j >= 0; j-- {
-		if e.Multi.Cursors[j].Line >= joinedLine {
-			e.Multi.Cursors[j].Line--
-		}
-	}
-}
-
-func (e *EditorPaneWidget) adjustCursorsAfterSplitLine(editedIdx, splitLine int) {
-	for j := editedIdx - 1; j >= 0; j-- {
-		if e.Multi.Cursors[j].Line > splitLine {
-			e.Multi.Cursors[j].Line++
-		}
-	}
 }
 
 func (e *EditorPaneWidget) SelectNextOccurrence() {

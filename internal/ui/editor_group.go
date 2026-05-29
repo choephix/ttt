@@ -596,18 +596,21 @@ func (g *EditorGroupWidget) DeleteWordRight() {
 func (g *EditorGroupWidget) SelectNextOccurrence() {
 	if g.IsEditorActive() {
 		g.Editor.SelectNextOccurrence()
+		g.saveMultiState()
 	}
 }
 
 func (g *EditorGroupWidget) SelectAllOccurrences() {
 	if g.IsEditorActive() {
 		g.Editor.SelectAllOccurrences()
+		g.saveMultiState()
 	}
 }
 
 func (g *EditorGroupWidget) UndoLastCursor() {
 	if g.IsEditorActive() {
 		g.Editor.UndoLastCursor()
+		g.saveMultiState()
 	}
 }
 
@@ -780,5 +783,7 @@ func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
 	if t.Content != nil {
 		return t.Content.HandleEvent(ev)
 	}
-	return g.Editor.HandleEvent(ev)
+	result = g.Editor.HandleEvent(ev)
+	g.saveMultiState()
+	return result
 }
