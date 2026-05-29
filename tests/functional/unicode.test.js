@@ -79,6 +79,6 @@ describe("unicode editing", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("→ línea número één");
+    expect(content).toBe("→ línea número één\n");
   });
 });

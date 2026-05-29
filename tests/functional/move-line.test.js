@@ -24,7 +24,7 @@ describe("move line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("BBB\nAAA\nCCC");
+    expect(content).toBe("BBB\nAAA\nCCC\n");
   });
 
   it("should move line up via command palette", () => {
@@ -45,7 +45,7 @@ describe("move line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("AAA\nCCC\nBBB");
+    expect(content).toBe("AAA\nCCC\nBBB\n");
   });
 
   it("should not move first line up", () => {
@@ -62,7 +62,7 @@ describe("move line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("First\nSecond");
+    expect(content).toBe("First\nSecond\n");
   });
 
   it("should undo move line", () => {
@@ -82,6 +82,6 @@ describe("move line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("One\nTwo\nThree");
+    expect(content).toBe("One\nTwo\nThree\n");
   });
 });

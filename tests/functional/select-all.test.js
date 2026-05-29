@@ -27,7 +27,7 @@ describe("select all and overwrite", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("replaced");
+    expect(content).toBe("replaced\n");
   });
 
   it("should undo select-all overwrite to restore original", () => {

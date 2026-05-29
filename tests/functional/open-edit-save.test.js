@@ -38,7 +38,7 @@ describe("open, edit, save", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("Original content Modified");
+    expect(content).toBe("Original content Modified\n");
   });
 
   it("should show dirty indicator after editing", () => {

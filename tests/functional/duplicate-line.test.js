@@ -27,7 +27,7 @@ describe("duplicate line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("AAA\nBBB\nBBB\nCCC");
+    expect(content).toBe("AAA\nBBB\nBBB\nCCC\n");
   });
 
   it("should duplicate last line", () => {
@@ -47,7 +47,7 @@ describe("duplicate line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("First\nLast\nLast");
+    expect(content).toBe("First\nLast\nLast\n");
   });
 
   it("should undo duplicate line", () => {
@@ -67,6 +67,6 @@ describe("duplicate line", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("Only\nTwo");
+    expect(content).toBe("Only\nTwo\n");
   });
 });

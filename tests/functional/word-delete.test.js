@@ -27,7 +27,7 @@ describe("word delete", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("hello ");
+    expect(content).toBe("hello \n");
   });
 
   it("should delete word to the right via command palette", () => {
@@ -47,7 +47,7 @@ describe("word delete", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe(" world today");
+    expect(content).toBe(" world today\n");
   });
 
   it("should undo word delete", () => {
@@ -70,6 +70,6 @@ describe("word delete", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toBe("keep these words");
+    expect(content).toBe("keep these words\n");
   });
 });

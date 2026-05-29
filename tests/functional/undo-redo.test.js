@@ -62,7 +62,7 @@ describe("undo and redo", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
-    expect(readFile(file)).toBe("First Second");
+    expect(readFile(file)).toBe("First Second\n");
 
     tui.type(" Third");
     tui.waitFor("First Second Third");
@@ -72,6 +72,6 @@ describe("undo and redo", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
-    expect(readFile(file)).toBe("First Second");
+    expect(readFile(file)).toBe("First Second\n");
   });
 });
