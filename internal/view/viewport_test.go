@@ -17,8 +17,8 @@ func TestScrollVertical(t *testing.T) {
 		t.Errorf("expected TopLine=0, got %d", v.TopLine)
 	}
 	v.ScrollVertical(100, 10)
-	if v.TopLine != 5 {
-		t.Errorf("expected TopLine=5, got %d", v.TopLine)
+	if v.TopLine != 9 {
+		t.Errorf("expected TopLine=9, got %d", v.TopLine)
 	}
 }
 

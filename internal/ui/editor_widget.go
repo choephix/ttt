@@ -164,7 +164,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		e.scrollbar.X = r.X + w - 1
 		e.scrollbar.Y = r.Y
 		e.scrollbar.Height = h
-		e.scrollbar.TotalItems = totalLines
+		e.scrollbar.TotalItems = totalLines + h - 1
 		e.scrollbar.TopItem = e.Viewport.TopLine
 		e.scrollbar.Render(surface, w-1, 0)
 	}
@@ -307,7 +307,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		if btn&tcell.WheelDown != 0 {
-			max := len(e.Buf.Lines) - e.Viewport.Height
+			max := len(e.Buf.Lines) - 1
 			if max < 0 {
 				max = 0
 			}

@@ -14,11 +14,12 @@ func (v *Viewport) ScrollVertical(n, maxLines int) {
 	if v.TopLine < 0 {
 		v.TopLine = 0
 	}
-	if v.TopLine > maxLines-v.Height {
-		v.TopLine = maxLines - v.Height
-		if v.TopLine < 0 {
-			v.TopLine = 0
-		}
+	maxTop := maxLines - 1
+	if maxTop < 0 {
+		maxTop = 0
+	}
+	if v.TopLine > maxTop {
+		v.TopLine = maxTop
 	}
 }
 
