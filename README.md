@@ -67,6 +67,7 @@ cp bin/ttt ~/.local/bin/
 - **Undo/redo** (Ctrl+Z/Y) via a command-pattern undo stack
 - **`.editorconfig` support** — indent size is picked up automatically per file
 - **Indent detection** — auto-detects indentation from file content; manual override via the status bar indent picker
+- **Multi-cursor editing** — Ctrl+D to select next occurrence, Ctrl+K L to select all occurrences, Alt+Click to add cursors; typing, backspace, delete, and enter work at all positions simultaneously
 - **Mouse support** — click to position cursor, click tabs, drag sidebar/panel dividers, right-click context menus
 - **Auto-completion** — LSP-powered completions with live filtering, debounce, and auto-import support
 - **Signature help** — parameter hints shown automatically on `(` and `,`
@@ -412,6 +413,12 @@ All keybindings are customizable via `keybindings.json`. Supports chord sequence
 | Ctrl+X | Cut |
 | Ctrl+V | Paste |
 | Ctrl+G | Go to line |
+| | **Multi-Cursor** |
+| Ctrl+D | Select next occurrence |
+| Ctrl+K L | Select all occurrences |
+| Alt+Click | Add cursor at click position |
+| Ctrl+K U | Undo last cursor addition |
+| Escape | Collapse to single cursor |
 | | **Search** |
 | Ctrl+F | Find |
 | Ctrl+H | Find and replace |

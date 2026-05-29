@@ -45,6 +45,16 @@ All keybindings can be customized in `~/.config/ttt/keybindings.json`.
 | Alt+Delete | `editor.deleteWordRight` | Delete word right |
 | Ctrl+Delete | `editor.deleteWordRight` | Delete word right |
 
+## Multi-Cursor
+
+| Shortcut | Command | Description |
+|----------|---------|-------------|
+| Ctrl+D | `editor.selectNextOccurrence` | Select next occurrence of current word/selection |
+| Ctrl+K L | `editor.selectAllOccurrences` | Select all occurrences at once |
+| Alt+Click | *(mouse)* | Add cursor at click position |
+| Ctrl+K U | `editor.undoCursor` | Undo last cursor addition |
+| Escape | `editor.focus` | Collapse to single cursor (when multiple cursors exist) |
+
 ## Search
 
 | Shortcut | Command | Description |

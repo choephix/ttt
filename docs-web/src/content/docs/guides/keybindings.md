@@ -36,6 +36,16 @@ All keybindings are customizable via `keybindings.json`. TTT supports chord sequ
 | Ctrl+V | Paste |
 | Ctrl+G | Go to line |
 
+### Multi-Cursor
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+D | Select next occurrence |
+| Ctrl+K L | Select all occurrences |
+| Alt+Click | Add cursor at click position |
+| Ctrl+K U | Undo last cursor addition |
+| Escape | Collapse to single cursor |
+
 ### Search
 
 | Shortcut | Action |

@@ -11,6 +11,7 @@ TTT (Terminal Text Tool) is a fully-featured code editor that runs in your termi
 
 - **Single binary** built with Go, no runtime dependencies
 - **Zero config** out of the box, but fully customizable
+- **Multi-cursor editing** with Ctrl+D, Ctrl+K L, and Alt+Click
 - **LSP support** for language-aware editing (completions, diagnostics, formatting, rename, references)
 - **Integrated terminal** with full VT escape sequence support
 - **Git integration** with staging, committing, and diff view
