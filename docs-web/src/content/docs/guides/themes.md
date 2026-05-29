@@ -48,3 +48,190 @@ To use your terminal's native colors instead of the theme's, set foreground/back
 ## Theme Files
 
 Theme files are stored as `<name>.json` in the `themes/` subdirectory of your config directory (`~/.config/ttt/themes/`). The filename (without `.json`) is the theme name used in `settings.json` and the theme picker.
+
+## Full Theme Reference
+
+Below is a complete theme file showing every configurable section. All color values are hex strings (`"#rrggbb"`). Optional `"bold"` and `"italic"` flags are supported where noted. Any field left empty (`{}`) inherits from the `default` colors.
+
+```json
+{
+  "default": {
+    "fg": "#f8f8f2",
+    "bg": "#272822"
+  },
+  "success": {
+    "fg": "#a6e22e"
+  },
+  "danger": {
+    "fg": "#f92672"
+  },
+  "warning": {
+    "fg": "#e6db74"
+  },
+  "border": {
+    "fg": "#75715e"
+  },
+  "statusBar": {},
+  "tabs": {
+    "active": {
+      "fg": "#f8f8f2",
+      "bg": "#3e3d32",
+      "bold": true
+    },
+    "inactive": {
+      "fg": "#75715e"
+    }
+  },
+  "sidebar": {
+    "header": {
+      "fg": "#f8f8f2",
+      "bold": true
+    },
+    "item": {},
+    "selected": {
+      "fg": "#f8f8f2",
+      "bg": "#3e3d32"
+    }
+  },
+  "dialog": {
+    "input": {},
+    "item": {},
+    "selected": {
+      "fg": "#f8f8f2",
+      "bg": "#3e3d32"
+    },
+    "muted": {
+      "fg": "#75715e"
+    }
+  },
+  "editor": {
+    "lineNumber": {
+      "fg": "#75715e"
+    },
+    "activeLine": {
+      "bg": "#3e3d32"
+    },
+    "selection": {
+      "bg": "#49483e"
+    },
+    "searchMatch": {
+      "bg": "#e6db74",
+      "fg": "#272822"
+    },
+    "searchActive": {
+      "bg": "#f92672",
+      "fg": "#f8f8f2"
+    }
+  },
+  "menu": {
+    "item": {},
+    "active": {
+      "fg": "#f8f8f2",
+      "bg": "#3e3d32",
+      "bold": true
+    }
+  },
+  "diff": {
+    "added": {
+      "bg": "#1e2e1e"
+    },
+    "deleted": {
+      "bg": "#3b1e1e"
+    },
+    "modified": {
+      "bg": "#2e2e1a"
+    }
+  },
+  "scrollbar": {
+    "fg": "#75715e",
+    "bg": "#333428"
+  },
+  "syntax": {
+    "comment": {
+      "fg": "#75715e"
+    },
+    "string": {
+      "fg": "#e6db74"
+    },
+    "keyword": {
+      "fg": "#f92672"
+    },
+    "number": {
+      "fg": "#ae81ff"
+    },
+    "operator": {
+      "fg": "#f92672"
+    },
+    "function": {
+      "fg": "#a6e22e"
+    },
+    "type": {
+      "fg": "#66d9ef"
+    },
+    "builtin": {
+      "fg": "#66d9ef"
+    },
+    "variable": {
+      "fg": "#f8f8f2"
+    },
+    "punctuation": {
+      "fg": "#f8f8f2"
+    },
+    "tag": {
+      "fg": "#f92672"
+    },
+    "attribute": {
+      "fg": "#a6e22e"
+    }
+  },
+  "terminal": {
+    "black": "#272822",
+    "red": "#f92672",
+    "green": "#a6e22e",
+    "yellow": "#e6db74",
+    "blue": "#66d9ef",
+    "magenta": "#ae81ff",
+    "cyan": "#a1efe4",
+    "white": "#f8f8f2",
+    "brightBlack": "#75715e",
+    "brightRed": "#f44747",
+    "brightGreen": "#b6e354",
+    "brightYellow": "#eae07e",
+    "brightBlue": "#78dce8",
+    "brightMagenta": "#c0a0ff",
+    "brightCyan": "#a4f4e8",
+    "brightWhite": "#f9f8f5"
+  },
+  "borders": {
+    "horizontal": "─",
+    "vertical": "│",
+    "topLeft": "┌",
+    "topRight": "┐",
+    "bottomLeft": "└",
+    "bottomRight": "┘",
+    "topTee": "┬",
+    "bottomTee": "┴",
+    "leftTee": "├",
+    "rightTee": "┤"
+  }
+}
+```
+
+### Section Reference
+
+| Section | Description |
+|---------|-------------|
+| `default` | Base foreground and background colors inherited by all other sections |
+| `success`, `danger`, `warning` | Semantic colors used for status indicators and messages |
+| `border` | Color for UI borders and dividers |
+| `statusBar` | Status bar at the bottom of the editor |
+| `tabs` | Active and inactive editor tab colors |
+| `sidebar` | File explorer sidebar: section headers, items, and selected item |
+| `dialog` | Command palette and dialog boxes: input field, items, selection, muted text |
+| `editor` | Editor pane: line numbers, active line highlight, selection, and search matches |
+| `menu` | Menu bar dropdown items and active/hovered item |
+| `diff` | Diff view background colors for added, deleted, and modified lines |
+| `scrollbar` | Scrollbar thumb (`fg`) and track (`bg`) colors |
+| `syntax` | Syntax highlighting colors for language tokens |
+| `terminal` | ANSI color palette for the integrated terminal (16 colors) |
+| `borders` | Unicode characters used for drawing box borders |
