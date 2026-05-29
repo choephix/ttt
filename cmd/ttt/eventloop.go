@@ -37,6 +37,7 @@ func runEventLoop(
 		app.status.Line = line
 		app.status.Col = col
 		app.status.Dirty = app.editorGroup.IsDirty()
+		app.status.CursorCount = app.editorGroup.MultiCursorCount()
 		app.explorer.ActiveFile = filePath
 
 		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {

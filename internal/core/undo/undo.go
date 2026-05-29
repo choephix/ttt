@@ -417,6 +417,22 @@ func (c *PasteCommand) Undo(b *buffer.Buffer) {
 	b.Dirty = true
 }
 
+type BatchCommand struct {
+	Commands []EditCommand
+}
+
+func (c *BatchCommand) Apply(b *buffer.Buffer) {
+	for _, cmd := range c.Commands {
+		cmd.Apply(b)
+	}
+}
+
+func (c *BatchCommand) Undo(b *buffer.Buffer) {
+	for i := len(c.Commands) - 1; i >= 0; i-- {
+		c.Commands[i].Undo(b)
+	}
+}
+
 func splitLines(s string) []string {
 	var lines []string
 	start := 0

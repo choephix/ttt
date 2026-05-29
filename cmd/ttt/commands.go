@@ -200,6 +200,10 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 				app.DismissAutocomplete()
 				return
 			}
+			if app.editorGroup.IsMultiCursorActive() {
+				app.editorGroup.CollapseMultiCursor()
+				return
+			}
 			app.FocusEditor()
 		},
 	})
@@ -519,6 +523,19 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	reg.Register(command.Command{
 		ID: "editor.deleteWordRight", Title: "Delete Word Right",
 		Handler: func() { app.editorGroup.DeleteWordRight() },
+	})
+
+	reg.Register(command.Command{
+		ID: "multicursor.selectNext", Title: "Add Next Occurrence",
+		Handler: func() { app.editorGroup.SelectNextOccurrence() },
+	})
+	reg.Register(command.Command{
+		ID: "multicursor.selectAll", Title: "Select All Occurrences",
+		Handler: func() { app.editorGroup.SelectAllOccurrences() },
+	})
+	reg.Register(command.Command{
+		ID: "multicursor.undoCursor", Title: "Undo Last Cursor",
+		Handler: func() { app.editorGroup.UndoLastCursor() },
 	})
 
 	reg.Register(command.Command{

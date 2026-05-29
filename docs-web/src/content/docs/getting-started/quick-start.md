@@ -30,6 +30,8 @@ ttt --workspace project.ttt     # loads a saved workspace file
 - **Ctrl+C / Ctrl+X / Ctrl+V** for copy/cut/paste
 - **Ctrl+F** to find, **Ctrl+H** to find and replace
 - **Ctrl+A** to select all
+- **Ctrl+D** to select the next occurrence (multi-cursor)
+- **Alt+Click** to add cursors at multiple positions
 
 ## Tabs
 

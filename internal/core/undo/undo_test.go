@@ -89,6 +89,49 @@ func TestDeleteSelectionCommand(t *testing.T) {
 	}
 }
 
+func TestBatchCommand(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{"abc"}}
+	batch := &BatchCommand{
+		Commands: []EditCommand{
+			&InsertRuneCommand{Line: 0, Col: 0, Rune: 'X'},
+			&InsertRuneCommand{Line: 0, Col: 1, Rune: 'Y'},
+			&InsertRuneCommand{Line: 0, Col: 2, Rune: 'Z'},
+		},
+	}
+	batch.Apply(b)
+	if b.Lines[0] != "XYZabc" {
+		t.Errorf("expected 'XYZabc', got '%s'", b.Lines[0])
+	}
+	batch.Undo(b)
+	if b.Lines[0] != "abc" {
+		t.Errorf("expected 'abc' after undo, got '%s'", b.Lines[0])
+	}
+}
+
+func TestBatchCommandUndoStack(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{"hello"}}
+	s := &UndoStack{}
+	batch := &BatchCommand{
+		Commands: []EditCommand{
+			&InsertRuneCommand{Line: 0, Col: 5, Rune: '!'},
+			&InsertRuneCommand{Line: 0, Col: 6, Rune: '!'},
+		},
+	}
+	batch.Apply(b)
+	s.Push(batch)
+	if b.Lines[0] != "hello!!" {
+		t.Errorf("expected 'hello!!', got '%s'", b.Lines[0])
+	}
+	s.Undo(b)
+	if b.Lines[0] != "hello" {
+		t.Errorf("expected 'hello' after single undo, got '%s'", b.Lines[0])
+	}
+	s.Redo(b)
+	if b.Lines[0] != "hello!!" {
+		t.Errorf("expected 'hello!!' after redo, got '%s'", b.Lines[0])
+	}
+}
+
 func TestUndoStack(t *testing.T) {
 	b := &buffer.Buffer{Lines: []string{"abc"}}
 	s := &UndoStack{}

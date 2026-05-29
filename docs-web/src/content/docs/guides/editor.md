@@ -31,6 +31,28 @@ Press **Ctrl+G** to open the Go to Line dialog.
 - **Ctrl+Z** to undo, **Ctrl+Y** to redo
 - Uses a command-pattern undo stack for reliable history tracking
 
+## Multi-Cursor Editing
+
+TTT supports editing with multiple cursors simultaneously. Place cursors at multiple locations and type, delete, or insert lines — all cursors act in parallel.
+
+### Adding Cursors
+
+- **Ctrl+D** — select the current word (or extend the current selection) and add a cursor at the next occurrence
+- **Ctrl+K L** — select all occurrences of the current word/selection at once
+- **Alt+Click** — add a cursor at the clicked position
+
+### Removing Cursors
+
+- **Ctrl+K U** — undo the last cursor addition
+- **Escape** — collapse back to a single cursor (when multiple cursors are active)
+
+### Behavior
+
+- Typing, backspace, delete, and enter work at all cursor positions simultaneously
+- Undo/redo groups multi-cursor edits into a single action
+- The status bar shows the cursor count (e.g., "3 cursors") when multiple cursors are active
+- All cursors render as solid blocks
+
 ## Indentation
 
 TTT supports `.editorconfig` files and picks up indent size automatically per file. It also auto-detects indentation from file content. You can manually override indentation via the status bar indent picker.

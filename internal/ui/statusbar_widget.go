@@ -57,7 +57,11 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 		id   string
 	}
 	var right []segment
-	right = append(right, segment{fmt.Sprintf("Ln %d, Col %d", st.Line+1, st.Col+1), "pos"})
+	posText := fmt.Sprintf("Ln %d, Col %d", st.Line+1, st.Col+1)
+	if st.CursorCount > 1 {
+		posText += fmt.Sprintf(" (%d cursors)", st.CursorCount)
+	}
+	right = append(right, segment{posText, "pos"})
 	if st.TabSize > 0 {
 		right = append(right, segment{fmt.Sprintf("Spaces: %d", st.TabSize), "indent"})
 	}
