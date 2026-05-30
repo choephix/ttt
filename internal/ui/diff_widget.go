@@ -15,14 +15,30 @@ type DiffViewWidget struct {
 	Lines       []diff.DiffLine
 	Highlighter *highlight.Highlighter
 	TopLine     int
+	LeftCol     int
+	maxLineW    int
 	viewH       int
+	contentW    int
+	scrollbar   Scrollbar
+	hscrollbar  HScrollbar
 }
 
 func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
+	lines := fd.AllLines()
+	maxW := 0
+	for _, dl := range lines {
+		if lw := len([]rune(dl.Left.Text)); lw > maxW {
+			maxW = lw
+		}
+		if rw := len([]rune(dl.Right.Text)); rw > maxW {
+			maxW = rw
+		}
+	}
 	return &DiffViewWidget{
 		FilePath:    filePath,
-		Lines:       fd.AllLines(),
+		Lines:       lines,
 		Highlighter: highlight.New(filePath),
+		maxLineW:    maxW,
 	}
 }
 
@@ -47,14 +63,29 @@ func (d *DiffViewWidget) gutterWidth() int {
 
 func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
-	d.viewH = h
+	r := d.GetRect()
 
 	gutterW := d.gutterWidth()
+
+	showVScroll := len(d.Lines) > h
+	contentW := (w - 1) / 2 - gutterW
+	showHScroll := d.maxLineW > contentW
+
+	if showHScroll {
+		h--
+	}
+	if showVScroll {
+		w--
+	}
+
+	d.viewH = h
+
 	dividerX := (w - 1) / 2
 	leftStart := gutterW
 	leftW := dividerX - gutterW
 	rightStart := dividerX + 1 + gutterW
 	rightW := w - rightStart
+	d.contentW = leftW
 
 	if leftW < 1 || rightW < 1 {
 		return
@@ -94,6 +125,38 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle, leftSpans)
 		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle, rightSpans)
 	}
+
+	if showVScroll {
+		d.scrollbar.X = r.X + w
+		d.scrollbar.Y = r.Y
+		d.scrollbar.Height = h
+		d.scrollbar.TotalItems = len(d.Lines)
+		d.scrollbar.TopItem = d.TopLine
+		d.scrollbar.Render(surface, w, 0)
+	}
+
+	if showHScroll {
+		d.hscrollbar.X = r.X + leftStart
+		d.hscrollbar.Y = r.Y + h
+		d.hscrollbar.Width = leftW
+		d.hscrollbar.TotalCols = d.maxLineW
+		d.hscrollbar.LeftCol = d.LeftCol
+		d.hscrollbar.Render(surface, leftStart, h)
+
+		for x := 0; x < gutterW; x++ {
+			surface.SetCell(x, h, term.Cell{Ch: ' '})
+		}
+		surface.SetCell(dividerX, h, term.Cell{Ch: '│', Style: term.StyleBorder})
+		for x := dividerX + 1; x < rightStart; x++ {
+			surface.SetCell(x, h, term.Cell{Ch: ' '})
+		}
+
+		rhscroll := HScrollbar{
+			X: r.X + rightStart, Y: r.Y + h,
+			Width: rightW, TotalCols: d.maxLineW, LeftCol: d.LeftCol,
+		}
+		rhscroll.Render(surface, rightStart, h)
+	}
 }
 
 func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl diff.SideLine, style term.Style) {
@@ -113,13 +176,14 @@ func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl di
 func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span) {
 	runes := []rune(text)
 	for i := 0; i < w; i++ {
+		colIdx := d.LeftCol + i
 		ch := ' '
-		if i < len(runes) {
-			ch = runes[i]
+		if colIdx < len(runes) {
+			ch = runes[colIdx]
 		}
 		style := term.StyleDefault
 		for _, sp := range spans {
-			if i >= sp.Start && i < sp.End {
+			if colIdx >= sp.Start && colIdx < sp.End {
 				style = sp.Style
 				break
 			}
@@ -143,7 +207,29 @@ func kindToStyle(k diff.LineKind) term.Style {
 	}
 }
 
+func (d *DiffViewWidget) clampLeftCol() {
+	max := d.maxLineW - d.contentW
+	if max < 0 {
+		max = 0
+	}
+	if d.LeftCol > max {
+		d.LeftCol = max
+	}
+	if d.LeftCol < 0 {
+		d.LeftCol = 0
+	}
+}
+
 func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
+	if newTop, consumed := d.scrollbar.HandleEvent(ev); consumed {
+		d.TopLine = newTop
+		return EventConsumed
+	}
+	if newLeft, consumed := d.hscrollbar.HandleEvent(ev); consumed {
+		d.LeftCol = newLeft
+		return EventConsumed
+	}
+
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		switch tev.Key() {
@@ -160,6 +246,15 @@ func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			if d.TopLine < max {
 				d.TopLine++
 			}
+			return EventConsumed
+		case tcell.KeyLeft:
+			if d.LeftCol > 0 {
+				d.LeftCol--
+			}
+			return EventConsumed
+		case tcell.KeyRight:
+			d.LeftCol++
+			d.clampLeftCol()
 			return EventConsumed
 		case tcell.KeyPgUp:
 			d.TopLine -= d.viewH
@@ -179,6 +274,7 @@ func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		case tcell.KeyHome:
 			d.TopLine = 0
+			d.LeftCol = 0
 			return EventConsumed
 		case tcell.KeyEnd:
 			max := len(d.Lines) - d.viewH
@@ -190,22 +286,47 @@ func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case *tcell.EventMouse:
 		btn := tev.Buttons()
+		mod := tev.Modifiers()
 		if btn&tcell.WheelUp != 0 {
-			d.TopLine -= 3
-			if d.TopLine < 0 {
-				d.TopLine = 0
+			if mod&tcell.ModShift != 0 {
+				d.LeftCol -= 4
+				if d.LeftCol < 0 {
+					d.LeftCol = 0
+				}
+			} else {
+				d.TopLine -= 3
+				if d.TopLine < 0 {
+					d.TopLine = 0
+				}
 			}
 			return EventConsumed
 		}
 		if btn&tcell.WheelDown != 0 {
-			max := len(d.Lines) - d.viewH
-			if max < 0 {
-				max = 0
+			if mod&tcell.ModShift != 0 {
+				d.LeftCol += 4
+				d.clampLeftCol()
+			} else {
+				max := len(d.Lines) - d.viewH
+				if max < 0 {
+					max = 0
+				}
+				d.TopLine += 3
+				if d.TopLine > max {
+					d.TopLine = max
+				}
 			}
-			d.TopLine += 3
-			if d.TopLine > max {
-				d.TopLine = max
+			return EventConsumed
+		}
+		if btn&tcell.WheelLeft != 0 {
+			d.LeftCol -= 4
+			if d.LeftCol < 0 {
+				d.LeftCol = 0
 			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelRight != 0 {
+			d.LeftCol += 4
+			d.clampLeftCol()
 			return EventConsumed
 		}
 	}

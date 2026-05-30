@@ -38,6 +38,7 @@ type EditorPaneWidget struct {
 	clickCount    int
 	mouseDown     bool
 	scrollbar       Scrollbar
+	hscrollbar      HScrollbar
 	Diagnostics     []Diagnostic
 	OnChange        func()
 	Multi           *multicursor.MultiCursor
@@ -69,9 +70,21 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)
-	showScrollbar := totalLines > h
 	gutterW := e.GutterWidth()
+
+	maxLineW := 0
+	for _, line := range e.Buf.Lines {
+		if lw := len([]rune(line)); lw > maxLineW {
+			maxLineW = lw
+		}
+	}
+
 	editorW := w - gutterW
+	showHScrollbar := maxLineW > editorW
+	if showHScrollbar {
+		h--
+	}
+	showScrollbar := totalLines > h
 	if showScrollbar {
 		editorW--
 	}
@@ -202,14 +215,29 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		}
 	}
 
+	scrollbarCol := w - 1
+	if showHScrollbar {
+		scrollbarCol = w - 1
+	}
 	if showScrollbar {
 		r := e.GetRect()
-		e.scrollbar.X = r.X + w - 1
+		e.scrollbar.X = r.X + scrollbarCol
 		e.scrollbar.Y = r.Y
 		e.scrollbar.Height = h
 		e.scrollbar.TotalItems = totalLines + h - 1
 		e.scrollbar.TopItem = e.Viewport.TopLine
-		e.scrollbar.Render(surface, w-1, 0)
+		e.scrollbar.Render(surface, scrollbarCol, 0)
+	}
+
+	if showHScrollbar {
+		r := e.GetRect()
+		trackW := editorW
+		e.hscrollbar.X = r.X + gutterW
+		e.hscrollbar.Y = r.Y + h
+		e.hscrollbar.Width = trackW
+		e.hscrollbar.TotalCols = maxLineW
+		e.hscrollbar.LeftCol = e.Viewport.LeftCol
+		e.hscrollbar.Render(surface, gutterW, h)
 	}
 
 	r := e.GetRect()
@@ -341,23 +369,53 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if e.scrollbar.IsDragging() {
 			return EventConsumed
 		}
+		if newLeft, consumed := e.hscrollbar.HandleEvent(ev); consumed {
+			e.Viewport.LeftCol = newLeft
+			return EventConsumed
+		}
+		if e.hscrollbar.IsDragging() {
+			return EventConsumed
+		}
 
+		mod := mev.Modifiers()
 		if btn&tcell.WheelUp != 0 {
-			e.Viewport.TopLine -= 3
-			if e.Viewport.TopLine < 0 {
-				e.Viewport.TopLine = 0
+			if mod&tcell.ModShift != 0 {
+				e.Viewport.LeftCol -= 4
+				if e.Viewport.LeftCol < 0 {
+					e.Viewport.LeftCol = 0
+				}
+			} else {
+				e.Viewport.TopLine -= 3
+				if e.Viewport.TopLine < 0 {
+					e.Viewport.TopLine = 0
+				}
 			}
 			return EventConsumed
 		}
 		if btn&tcell.WheelDown != 0 {
-			max := len(e.Buf.Lines) - 1
-			if max < 0 {
-				max = 0
+			if mod&tcell.ModShift != 0 {
+				e.Viewport.LeftCol += 4
+			} else {
+				max := len(e.Buf.Lines) - 1
+				if max < 0 {
+					max = 0
+				}
+				e.Viewport.TopLine += 3
+				if e.Viewport.TopLine > max {
+					e.Viewport.TopLine = max
+				}
 			}
-			e.Viewport.TopLine += 3
-			if e.Viewport.TopLine > max {
-				e.Viewport.TopLine = max
+			return EventConsumed
+		}
+		if btn&tcell.WheelLeft != 0 {
+			e.Viewport.LeftCol -= 4
+			if e.Viewport.LeftCol < 0 {
+				e.Viewport.LeftCol = 0
 			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelRight != 0 {
+			e.Viewport.LeftCol += 4
 			return EventConsumed
 		}
 		if btn&tcell.Button1 != 0 {

@@ -45,7 +45,7 @@ func (s *Scrollbar) Render(surface *RenderSurface, rx, ry int) {
 		if y >= thumbTop && y < thumbTop+thumbH {
 			surface.SetCell(rx, ry+y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
 		} else {
-			surface.SetCell(rx, ry+y, term.Cell{Ch: ' ', Style: term.StyleScrollbar})
+			surface.SetCell(rx, ry+y, term.Cell{Ch: '█', Style: term.StyleScrollbar})
 		}
 	}
 }
@@ -110,4 +110,110 @@ func (s *Scrollbar) posToTopItem(thumbTop int) int {
 		top = scrollable
 	}
 	return top
+}
+
+type HScrollbar struct {
+	X         int
+	Y         int
+	Width     int
+	TotalCols int
+	LeftCol   int
+	dragging  bool
+	dragOffset int
+}
+
+func (s *HScrollbar) Visible() bool {
+	return s.TotalCols > s.Width && s.Width > 0
+}
+
+func (s *HScrollbar) ThumbPos() (left, width int) {
+	if s.TotalCols <= s.Width {
+		return 0, s.Width
+	}
+	width = s.Width * s.Width / s.TotalCols
+	if width < 1 {
+		width = 1
+	}
+	scrollable := s.TotalCols - s.Width
+	left = s.LeftCol * (s.Width - width) / scrollable
+	if left+width > s.Width {
+		left = s.Width - width
+	}
+	return
+}
+
+func (s *HScrollbar) Render(surface *RenderSurface, rx, ry int) {
+	if !s.Visible() {
+		return
+	}
+	thumbLeft, thumbW := s.ThumbPos()
+	for x := 0; x < s.Width; x++ {
+		if x >= thumbLeft && x < thumbLeft+thumbW {
+			surface.SetCell(rx+x, ry, term.Cell{Ch: '▄', Style: term.StyleScrollbarThumb})
+		} else {
+			surface.SetCell(rx+x, ry, term.Cell{Ch: '▄', Style: term.StyleScrollbar})
+		}
+	}
+}
+
+func (s *HScrollbar) HandleEvent(ev tcell.Event) (newLeftCol int, consumed bool) {
+	mev, ok := ev.(*tcell.EventMouse)
+	if !ok {
+		return s.LeftCol, false
+	}
+
+	mx, my := mev.Position()
+	btn := mev.Buttons()
+
+	if s.dragging {
+		if btn == tcell.ButtonNone {
+			s.dragging = false
+			return s.LeftCol, false
+		}
+		if btn&tcell.Button1 != 0 {
+			relX := mx - s.X
+			return s.posToLeftCol(relX - s.dragOffset), true
+		}
+	}
+
+	if btn&tcell.Button1 != 0 && my == s.Y && mx >= s.X && mx < s.X+s.Width {
+		relX := mx - s.X
+		thumbLeft, thumbW := s.ThumbPos()
+
+		s.dragging = true
+		if relX >= thumbLeft && relX < thumbLeft+thumbW {
+			s.dragOffset = relX - thumbLeft
+		} else {
+			s.dragOffset = thumbW / 2
+			return s.posToLeftCol(relX - s.dragOffset), true
+		}
+		return s.LeftCol, true
+	}
+
+	return s.LeftCol, false
+}
+
+func (s *HScrollbar) IsDragging() bool { return s.dragging }
+
+func (s *HScrollbar) posToLeftCol(thumbLeft int) int {
+	_, thumbW := s.ThumbPos()
+	maxThumbLeft := s.Width - thumbW
+	if maxThumbLeft <= 0 {
+		return 0
+	}
+	if thumbLeft < 0 {
+		thumbLeft = 0
+	}
+	if thumbLeft > maxThumbLeft {
+		thumbLeft = maxThumbLeft
+	}
+	scrollable := s.TotalCols - s.Width
+	left := thumbLeft * scrollable / maxThumbLeft
+	if left < 0 {
+		left = 0
+	}
+	if left > scrollable {
+		left = scrollable
+	}
+	return left
 }
