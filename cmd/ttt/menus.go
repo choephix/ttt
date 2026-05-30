@@ -22,6 +22,8 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Add Folder to Workspace", Command: "workspace.addFolder"},
 		{Label: "Save Workspace As...", Command: "workspace.saveAs"},
 		ui.MenuSep(),
+		{Label: "Open Pull Request", Command: "pr.open"},
+		ui.MenuSep(),
 		{Label: "Quit", Command: "editor.quit"},
 	},
 	// Edit

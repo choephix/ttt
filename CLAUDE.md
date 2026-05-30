@@ -50,6 +50,10 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 - **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw. Accepts a `--workspace <file>` flag to open a saved workspace, or folder/file paths as positional arguments.
 
+### Design Philosophy
+
+- **UX comes first.** When making design decisions, prioritize user experience over implementation simplicity. If a feature needs good navigation, discoverability, or interaction patterns, invest in that rather than taking shortcuts.
+
 ### Key Design Constraints
 
 - Cursor `Col` is a visual column (rune-based), not a byte index — all line-length calculations use `[]rune()`.

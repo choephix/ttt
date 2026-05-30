@@ -8,6 +8,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -74,7 +75,7 @@ func main() {
 	cmdRegistry := command.NewRegistry()
 	borders := buildBorderSet(cfg.Theme.Borders)
 
-	app := buildApp(&cfg, &borders)
+	app, prURLs := buildApp(&cfg, &borders)
 	app.screen = screen
 	app.renderer = renderer
 	app.lspManager = lspManager
@@ -123,6 +124,18 @@ func main() {
 	running := true
 	registerCommands(cmdRegistry, app, &running, &quitPending)
 	bindKeys(app.root, cmdRegistry, cfg.Keybindings)
+
+	if len(prURLs) > 0 {
+		if !github.IsGHInstalled() {
+			app.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
+		} else {
+			app.ShowSidebar()
+			app.sidebar.SetActivePanel("changes")
+			for _, url := range prURLs {
+				app.fetchAndOpenPR(url)
+			}
+		}
+	}
 
 	w, h := screen.Size()
 	app.root.SetSize(w, h)
