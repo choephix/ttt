@@ -3,15 +3,21 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
-func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile string) {
+func isPRURL(arg string) bool {
+	return strings.Contains(arg, "github.com/") && strings.Contains(arg, "/pull/")
+}
+
+func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile string, prURLs []string) {
 	var folders []string
 	var wsFile string
 
@@ -25,6 +31,12 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		if args[i] == "--config" && i+1 < len(args) {
 			configFile = args[i+1]
 			i++
+			continue
+		}
+		if isPRURL(args[i]) {
+			if _, _, _, err := github.ParsePRURL(args[i]); err == nil {
+				prURLs = append(prURLs, args[i])
+			}
 			continue
 		}
 		absPath, err := filepath.Abs(args[i])
@@ -61,7 +73,7 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		}
 	}
 
-	if len(folders) == 0 {
+	if len(folders) == 0 && len(prURLs) == 0 {
 		cwd, _ := os.Getwd()
 		folders = append(folders, cwd)
 	}
@@ -69,9 +81,9 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 	return
 }
 
-func buildApp(cfg *config.AppConfig, borders *term.BorderSet) *App {
-	ws, openFiles, _ := resolveArgs()
-	return buildAppFromConfig(cfg, borders, ws, openFiles)
+func buildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string) {
+	ws, openFiles, _, prURLs := resolveArgs()
+	return buildAppFromConfig(cfg, borders, ws, openFiles), prURLs
 }
 
 func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {

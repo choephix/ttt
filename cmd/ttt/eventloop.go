@@ -213,6 +213,28 @@ func runEventLoop(
 					app.allDiagnostics[v.path] = v.diagnostics
 				}
 				app.refreshProblems()
+			case *prFetchResult:
+				app.changes.Loading = false
+				if v.err != nil {
+					app.StatusError("PR fetch failed: " + v.err.Error())
+				} else {
+					var files []git.FileStatus
+					for _, f := range v.info.Files {
+						files = append(files, git.FileStatus{
+							Status: f.Status,
+							Path:   f.Path,
+						})
+					}
+					groupName := fmt.Sprintf("PR #%d: %s", v.info.Number, v.info.Title)
+					app.changes.AddPRGroup(groupName, v.url, files, v.diffs)
+					app.sidebar.SetActivePanel("changes")
+					if !app.sidebar.Visible {
+						app.ShowSidebar()
+					}
+					app.root.SetFocus(app.changes)
+					app.sidebar.SetPanelDirty("changes", app.changes.TotalChanges() > 0)
+					app.StatusNotify(fmt.Sprintf("Opened PR #%d: %s (%d files)", v.info.Number, v.info.Title, len(v.info.Files)))
+				}
 			}
 			redraw()
 		}

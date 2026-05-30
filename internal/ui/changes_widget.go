@@ -18,6 +18,9 @@ type ChangesGroup struct {
 	StagedExpanded  bool
 	ChangesExpanded bool
 	Input           *InputWidget
+	IsPR            bool
+	PRURL           string
+	PRDiffs         map[string]string
 }
 
 type changesItemKind int
@@ -46,10 +49,13 @@ type ChangesWidget struct {
 	items        []changesItem
 	multiRoot    bool
 	inputFocused bool
+	Loading          bool
 	OnOpenDiff       func(dir string, status git.FileStatus)
+	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus)
 	OnRightClick     func(dir string, status git.FileStatus, screenX, screenY int)
 	OnCommit         func(dir string, message string)
 	OnGroupMenu      func(dir string, screenX, screenY int)
+	OnPRGroupMenu    func(group *ChangesGroup, screenX, screenY int)
 	OnConfirmDiscard func(message string, onConfirm func())
 }
 
@@ -72,8 +78,12 @@ func (c *ChangesWidget) SetDirs(dirs []string) {
 
 func (c *ChangesWidget) Refresh() {
 	oldGroups := make(map[string]ChangesGroup)
+	var prGroups []ChangesGroup
 	for _, g := range c.Groups {
 		oldGroups[g.Dir] = g
+		if g.IsPR {
+			prGroups = append(prGroups, g)
+		}
 	}
 	c.Groups = nil
 	for _, dir := range c.Dirs {
@@ -116,6 +126,8 @@ func (c *ChangesWidget) Refresh() {
 			Input:           input,
 		})
 	}
+	c.Groups = append(c.Groups, prGroups...)
+	c.multiRoot = len(c.Groups) > 1
 	c.buildItems()
 	c.ClampSelected(len(c.items))
 }
@@ -123,16 +135,19 @@ func (c *ChangesWidget) Refresh() {
 func (c *ChangesWidget) buildItems() {
 	c.items = nil
 	for gi, g := range c.Groups {
-		if c.multiRoot {
+		showHeader := c.multiRoot || g.IsPR
+		if showHeader {
 			c.items = append(c.items, changesItem{kind: itemHeader, groupIndex: gi})
 		}
-		if !c.multiRoot || g.Expanded {
-			if c.multiRoot {
+		if !showHeader || g.Expanded {
+			if showHeader {
 				c.items = append(c.items, changesItem{kind: itemBorder, groupIndex: gi})
 			}
-			c.items = append(c.items, changesItem{kind: itemInput, groupIndex: gi})
-			c.items = append(c.items, changesItem{kind: itemBorder, groupIndex: gi})
-			if len(g.Staged) > 0 {
+			if !g.IsPR {
+				c.items = append(c.items, changesItem{kind: itemInput, groupIndex: gi})
+				c.items = append(c.items, changesItem{kind: itemBorder, groupIndex: gi})
+			}
+			if !g.IsPR && len(g.Staged) > 0 {
 				c.items = append(c.items, changesItem{kind: itemSection, groupIndex: gi, staged: true})
 				if g.StagedExpanded {
 					for fi := range g.Staged {
@@ -141,7 +156,9 @@ func (c *ChangesWidget) buildItems() {
 				}
 			}
 			if len(g.Unstaged) > 0 {
-				c.items = append(c.items, changesItem{kind: itemSection, groupIndex: gi, staged: false})
+				if !g.IsPR {
+					c.items = append(c.items, changesItem{kind: itemSection, groupIndex: gi, staged: false})
+				}
 				if g.ChangesExpanded {
 					for fi := range g.Unstaged {
 						c.items = append(c.items, changesItem{kind: itemFile, groupIndex: gi, fileIndex: fi, staged: false})
@@ -205,6 +222,9 @@ func (c *ChangesWidget) Render(surface *RenderSurface) {
 
 	if c.TotalChanges() == 0 {
 		msg := "No changes"
+		if c.Loading {
+			msg = "Loading..."
+		}
 		for i, ch := range msg {
 			if i+1 < w {
 				surface.SetCell(i+1, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
@@ -269,8 +289,9 @@ func (c *ChangesWidget) renderHeader(surface *RenderSurface, y, w int, style ter
 		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 		x++
 	}
+	maxNameX := w - 3
 	for _, ch := range g.Name {
-		if x >= w {
+		if x >= maxNameX {
 			break
 		}
 		surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
@@ -354,7 +375,11 @@ func (c *ChangesWidget) renderFile(surface *RenderSurface, y, w int, style term.
 		x++
 	}
 
+	isPR := c.Groups[item.groupIndex].IsPR
 	maxPathX := w - 4
+	if isPR {
+		maxPathX = w - 1
+	}
 	for _, ch := range f.Path {
 		if x >= maxPathX {
 			break
@@ -363,13 +388,15 @@ func (c *ChangesWidget) renderFile(surface *RenderSurface, y, w int, style term.
 		x++
 	}
 
-	if item.staged {
-		if w >= 3 {
-			surface.SetCell(w-2, y, term.Cell{Ch: '−', Style: style})
-		}
-	} else {
-		if w >= 3 {
-			surface.SetCell(w-2, y, term.Cell{Ch: '+', Style: style})
+	if !isPR {
+		if item.staged {
+			if w >= 3 {
+				surface.SetCell(w-2, y, term.Cell{Ch: '−', Style: style})
+			}
+		} else {
+			if w >= 3 {
+				surface.SetCell(w-2, y, term.Cell{Ch: '+', Style: style})
+			}
 		}
 	}
 }
@@ -459,8 +486,13 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 			if idx >= 0 && idx < len(c.items) {
 				item := c.items[idx]
 				if item.kind == itemHeader && mx >= r.X+r.W-3 {
-					if c.OnGroupMenu != nil {
-						c.OnGroupMenu(c.Groups[item.groupIndex].Dir, mx, my)
+					g := &c.Groups[item.groupIndex]
+					if g.IsPR {
+						if c.OnPRGroupMenu != nil {
+							c.OnPRGroupMenu(g, mx, my)
+						}
+					} else if c.OnGroupMenu != nil {
+						c.OnGroupMenu(g.Dir, mx, my)
 					}
 					return EventConsumed
 				}
@@ -504,23 +536,24 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 
 	if tev, ok := ev.(*tcell.EventKey); ok {
+		inPR := c.selectedInPR()
 		switch {
 		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'r' || tev.Rune() == 'R'):
 			c.Refresh()
 			return EventConsumed
-		case tev.Key() == tcell.KeyRune && tev.Rune() == ' ':
+		case !inPR && tev.Key() == tcell.KeyRune && tev.Rune() == ' ':
 			c.toggleStageSelected()
 			return EventConsumed
-		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'a' || tev.Rune() == 'A'):
+		case !inPR && tev.Key() == tcell.KeyRune && (tev.Rune() == 'a' || tev.Rune() == 'A'):
 			c.stageAll()
 			return EventConsumed
-		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'u' || tev.Rune() == 'U'):
+		case !inPR && tev.Key() == tcell.KeyRune && (tev.Rune() == 'u' || tev.Rune() == 'U'):
 			c.unstageAll()
 			return EventConsumed
-		case tev.Key() == tcell.KeyRune && tev.Rune() == 'd':
+		case !inPR && tev.Key() == tcell.KeyRune && tev.Rune() == 'd':
 			c.discardSelected()
 			return EventConsumed
-		case tev.Key() == tcell.KeyRune && tev.Rune() == 'D':
+		case !inPR && tev.Key() == tcell.KeyRune && tev.Rune() == 'D':
 			c.discardAllInGroup()
 			return EventConsumed
 		}
@@ -604,9 +637,17 @@ func (c *ChangesWidget) activateSelected() {
 		}
 		c.buildItems()
 	case itemFile:
-		dir, status, ok := c.SelectedFile()
-		if ok && c.OnOpenDiff != nil {
-			c.OnOpenDiff(dir, status)
+		g := &c.Groups[item.groupIndex]
+		if g.IsPR {
+			_, status, ok := c.SelectedFile()
+			if ok && c.OnOpenPRDiff != nil {
+				c.OnOpenPRDiff(g, status)
+			}
+		} else {
+			dir, status, ok := c.SelectedFile()
+			if ok && c.OnOpenDiff != nil {
+				c.OnOpenDiff(dir, status)
+			}
 		}
 	}
 }
@@ -677,4 +718,53 @@ func (c *ChangesWidget) confirmDiscardAll(gi int) {
 		}
 		c.Refresh()
 	})
+}
+
+func (c *ChangesWidget) selectedInPR() bool {
+	if c.Selected < 0 || c.Selected >= len(c.items) {
+		return false
+	}
+	return c.Groups[c.items[c.Selected].groupIndex].IsPR
+}
+
+func (c *ChangesWidget) AddPRGroup(name, url string, files []git.FileStatus, diffs map[string]string) {
+	c.Groups = append(c.Groups, ChangesGroup{
+		Dir:             "pr://" + name,
+		Name:            name,
+		Unstaged:        files,
+		Expanded:        true,
+		ChangesExpanded: true,
+		IsPR:            true,
+		PRURL:           url,
+		PRDiffs:         diffs,
+	})
+	c.multiRoot = len(c.Groups) > 1
+	c.buildItems()
+	c.ClampSelected(len(c.items))
+}
+
+func (c *ChangesWidget) RemovePRGroup(name string) {
+	var kept []ChangesGroup
+	for _, g := range c.Groups {
+		if !(g.IsPR && g.Name == name) {
+			kept = append(kept, g)
+		}
+	}
+	c.Groups = kept
+	c.multiRoot = len(c.Groups) > 1
+	c.buildItems()
+	c.ClampSelected(len(c.items))
+}
+
+func (c *ChangesWidget) RemovePRGroups() {
+	var kept []ChangesGroup
+	for _, g := range c.Groups {
+		if !g.IsPR {
+			kept = append(kept, g)
+		}
+	}
+	c.Groups = kept
+	c.multiRoot = len(c.Groups) > 1
+	c.buildItems()
+	c.ClampSelected(len(c.items))
 }

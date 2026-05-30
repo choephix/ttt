@@ -11,6 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
@@ -22,6 +23,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	registerExplorerCommands(reg, app)
 	registerGitCommands(reg, app)
 	registerWorkspaceCommands(reg, app)
+	registerPRCommands(reg, app)
 	registerWidgetCallbacks(reg, app)
 }
 
@@ -1051,6 +1053,29 @@ func registerWorkspaceCommands(reg *command.Registry, app *App) {
 	})
 }
 
+func registerPRCommands(reg *command.Registry, app *App) {
+	reg.Register(command.Command{
+		ID: "pr.open", Title: "Open Pull Request",
+		Handler: func() {
+			if !github.IsGHInstalled() {
+				app.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
+				return
+			}
+			app.ShowInputDialog("Open Pull Request", "https://github.com/owner/repo/pull/123", "", func(url string) {
+				if url != "" {
+					app.fetchAndOpenPR(url)
+				}
+			})
+		},
+	})
+	reg.Register(command.Command{
+		ID: "pr.close", Title: "Close Pull Request",
+		Handler: func() {
+			app.changes.RemovePRGroups()
+		},
+	})
+}
+
 func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	for i := range menuBarMenus {
 		idx := i
@@ -1083,6 +1108,7 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		case "explorer":
 			items = []ui.ContextMenuItem{
 				{Label: "New File", Command: "file.new"},
+				{Label: "Add Folder", Command: "workspace.addFolder"},
 				{Label: "Refresh", Command: "explorer.refresh"},
 			}
 		case "search":
@@ -1098,6 +1124,7 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		case "changes":
 			items = []ui.ContextMenuItem{
 				{Label: "Refresh", Command: "changes.refresh"},
+				{Label: "Open Pull Request", Command: "pr.open"},
 				ui.MenuSep(),
 				{Label: "Pull", Command: "git.pull"},
 				{Label: "Push", Command: "git.push"},
@@ -1277,6 +1304,46 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		}
 		app.editorGroup.OpenDiff(status.Path, parsed)
 		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.changes.OnOpenPRDiff = func(group *ui.ChangesGroup, status git.FileStatus) {
+		diffText, ok := group.PRDiffs[status.Path]
+		if !ok || diffText == "" {
+			app.StatusWarn("No diff available for " + status.Path)
+			return
+		}
+		parsed := diff.Parse(diffText)
+		if len(parsed.Hunks) == 0 {
+			app.StatusWarn("Empty diff for " + status.Path)
+			return
+		}
+		app.editorGroup.OpenDiff(status.Path, parsed)
+		app.root.SetFocus(app.editorGroup)
+	}
+
+	app.changes.OnPRGroupMenu = func(group *ui.ChangesGroup, sx, sy int) {
+		name := group.Name
+		url := group.PRURL
+		refreshID := "pr.refresh." + name
+		closeID := "pr.close." + name
+		reg.Register(command.Command{
+			ID: refreshID, Title: "Refresh",
+			Handler: func() {
+				app.changes.RemovePRGroup(name)
+				app.fetchAndOpenPR(url)
+			},
+		})
+		reg.Register(command.Command{
+			ID: closeID, Title: "Close",
+			Handler: func() {
+				app.changes.RemovePRGroup(name)
+			},
+		})
+		items := []ui.ContextMenuItem{
+			{Label: "Refresh", Command: refreshID},
+			{Label: "Close", Command: closeID},
+		}
+		openContextMenu(app, reg, items, sx, sy)
 	}
 
 	app.changes.OnGroupMenu = func(dir string, sx, sy int) {

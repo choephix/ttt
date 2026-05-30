@@ -59,6 +59,8 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		ui.MenuSep(),
 		{Label: "Switch Theme", Command: "theme.switch"},
 		ui.MenuSep(),
+		{Label: "Open Pull Request", Command: "pr.open"},
+		ui.MenuSep(),
 		{Label: "Keyboard Tester", Command: "view.keyboardTester"},
 	},
 	// Help
