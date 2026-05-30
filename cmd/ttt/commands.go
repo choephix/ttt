@@ -1061,11 +1061,19 @@ func registerPRCommands(reg *command.Registry, app *App) {
 				app.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
 				return
 			}
-			app.ShowInputDialog("Open Pull Request", "https://github.com/owner/repo/pull/123", "", func(url string) {
+			dialog := ui.NewInputDialogWidget("Open Pull Request", "https://github.com/owner/repo/pull/123", "")
+			dialog.ConfirmLabel = "Open"
+			dialog.Borders = app.borders
+			dialog.OnSubmit = func(url string) {
+				app.DismissDialog()
 				if url != "" {
 					app.fetchAndOpenPR(url)
 				}
-			})
+			}
+			dialog.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(dialog)
 		},
 	})
 	reg.Register(command.Command{

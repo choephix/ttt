@@ -8,15 +8,16 @@ import (
 
 type InputDialogWidget struct {
 	BaseWidget
-	Title      string
-	Input      InputWidget
-	Borders    *term.BorderSet
-	OnSubmit   func(value string)
-	OnDismiss  func()
-	focusedBtn int // 0 = input, 1 = cancel, 2 = save
-	boxX       int
-	boxY       int
-	boxW       int
+	Title        string
+	ConfirmLabel string
+	Input        InputWidget
+	Borders      *term.BorderSet
+	OnSubmit     func(value string)
+	OnDismiss    func()
+	focusedBtn   int // 0 = input, 1 = cancel, 2 = save
+	boxX         int
+	boxY         int
+	boxW         int
 }
 
 func NewInputDialogWidget(title, placeholder, initial string) *InputDialogWidget {
@@ -32,24 +33,21 @@ func (d *InputDialogWidget) Focusable() bool { return true }
 
 func (d *InputDialogWidget) CursorPosition() (int, int, bool) {
 	if d.focusedBtn == 0 {
-		return d.Input.CursorX(d.boxX + 1), d.boxY + 1, true
+		return d.Input.CursorX(d.boxX + 1), d.boxY + 3, true
 	}
 	return 0, 0, false
 }
 
 func (d *InputDialogWidget) Render(surface *RenderSurface) {
-	sw, sh := surface.Size()
+	sw, _ := surface.Size()
 
 	d.boxW = 50
 	if d.boxW > sw-4 {
 		d.boxW = sw - 4
 	}
-	boxH := 4
+	boxH := 7
 	d.boxX = (sw - d.boxW) / 2
-	d.boxY = (sh - boxH) / 2
-	if d.boxY < 1 {
-		d.boxY = 1
-	}
+	d.boxY = 2
 
 	b := term.DoubleBorderSet()
 	if d.Borders != nil {
@@ -60,17 +58,21 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 	surface.ClearRect(d.boxX, d.boxY, d.boxW, boxH, term.StylePaletteItem)
 	surface.DrawBorder(d.boxX, d.boxY, d.boxW, boxH, b, bs)
 
-	// Title on top border
-	surface.DrawText(d.boxX+2, d.boxY, d.Title, d.boxX+d.boxW-2, bs)
+	// Title inside box
+	surface.DrawText(d.boxX+2, d.boxY+1, d.Title, d.boxX+d.boxW-2, term.StylePaletteItem)
 
 	// Input row
 	inputW := d.boxW - 2
-	d.Input.Render(surface, d.boxX+1, d.boxY+1, inputW)
+	d.Input.Render(surface, d.boxX+1, d.boxY+3, inputW)
 
 	// Buttons row
-	btnY := d.boxY + 2
+	btnY := d.boxY + 5
 	cancelLabel := " Cancel "
-	saveLabel := " Save "
+	confirmText := "Save"
+	if d.ConfirmLabel != "" {
+		confirmText = d.ConfirmLabel
+	}
+	saveLabel := " " + confirmText + " "
 
 	cancelStyle := term.StyleMuted
 	saveStyle := term.StyleMuted
@@ -91,9 +93,13 @@ func (d *InputDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
 		if mev.Buttons()&tcell.Button1 != 0 {
 			mx, my := mev.Position()
-			btnY := d.boxY + 2
+			btnY := d.boxY + 5
 			if my == btnY {
-				saveLabel := " Save "
+				confirmText := "Save"
+				if d.ConfirmLabel != "" {
+					confirmText = d.ConfirmLabel
+				}
+				saveLabel := " " + confirmText + " "
 				cancelLabel := " Cancel "
 				saveEnd := d.boxX + d.boxW - 2
 				saveStart := saveEnd - len([]rune(saveLabel))
@@ -114,7 +120,7 @@ func (d *InputDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 					return EventConsumed
 				}
 			}
-			if my == d.boxY+1 {
+			if my == d.boxY+3 {
 				d.focusedBtn = 0
 			}
 		}
