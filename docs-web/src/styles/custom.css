@@ -19,6 +19,11 @@
   max-width: none !important;
 }
 
+.hero .tagline {
+  width: 100%;
+  text-align: center;
+}
+
 .hero h1::after {
   content: '_';
   animation: blink 1s step-end infinite;
