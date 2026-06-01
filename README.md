@@ -11,25 +11,17 @@ The IDE that lives in your terminal. Not a simplified terminal editor — a real
 - [Git](https://git-scm.com/) — required for source control features
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) — required for workspace search
 
-### Quick Install (Linux / macOS)
+### Quick Install MacOS (brew)
+```sh
+brew tap eugenioenko/ttt
+brew install ttt
+```
 
+### Quick Install Linux
 ```sh
 curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
 ```
 
-This downloads the latest release binary for your OS/architecture and installs it to `/usr/local/bin`. To install to a different directory:
-
-```sh
-INSTALL_DIR=~/.local/bin curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
-```
-
-### Homebrew (macOS / Linux)
-
-*Coming soon* — a Homebrew tap is planned. In the meantime, use the install script or download a binary from Releases.
-
-### Download Binary
-
-Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/eugenioenko/ttt/releases) page. Download the one for your platform, make it executable, and put it in your `PATH`.
 
 ### Go Install
 
@@ -40,6 +32,16 @@ go install github.com/eugenioenko/ttt/cmd/ttt@latest
 ```
 
 This installs the `ttt` binary to your `$GOPATH/bin` (or `$HOME/go/bin` by default). Make sure that directory is in your `PATH`.
+
+This downloads the latest release binary for your OS/architecture and installs it to `/usr/local/bin`. To install to a different directory:
+
+```sh
+INSTALL_DIR=~/.local/bin curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
+```
+
+### Download Binary
+
+Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/eugenioenko/ttt/releases) page. Download the one for your platform, make it executable, and put it in your `PATH`.
 
 ### From Source
 
