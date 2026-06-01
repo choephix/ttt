@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -560,6 +561,12 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 	reg.Register(command.Command{
 		ID: "search.find", Title: "Find",
 		Handler: func() {
+			dv := app.editorGroup.ActiveDiffWidget()
+			slog.Debug("search.find", "activeDiff", dv != nil)
+			if dv != nil {
+				app.showDiffFindBar(dv)
+				return
+			}
 			findBar := ui.NewFindBarWidget()
 			findBar.Borders = app.borders
 			findBar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
@@ -1191,7 +1198,24 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		app.root.SetFocus(app.editorGroup)
 	}
 
+	app.search.DiffSources = func() []ui.DiffSearchSource {
+		var sources []ui.DiffSearchSource
+		for _, dt := range app.editorGroup.DiffTabSources() {
+			sources = append(sources, ui.DiffSearchSource{TabName: dt.TabName, Lines: dt.Lines})
+		}
+		return sources
+	}
+
 	app.search.OnOpenMatch = func(path string, line, col int) {
+		if strings.HasSuffix(path, " (diff)") {
+			if app.editorGroup.SwitchToTabByPath(path) {
+				if dv := app.editorGroup.ActiveDiffWidget(); dv != nil {
+					dv.ScrollToLine(line - 1)
+				}
+				app.root.SetFocus(app.editorGroup)
+				return
+			}
+		}
 		app.editorGroup.OpenFile(path)
 		app.editorGroup.GoToLine(line)
 		app.root.SetFocus(app.editorGroup)

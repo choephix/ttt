@@ -2,12 +2,19 @@ package ui
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/core/highlight"
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )
+
+type diffMergedRef struct {
+	isRight  bool
+	sideIdx  int
+}
 
 type DiffViewWidget struct {
 	BaseWidget
@@ -21,6 +28,12 @@ type DiffViewWidget struct {
 	contentW    int
 	scrollbar   Scrollbar
 	hscrollbar  HScrollbar
+
+	SearchMatchesLeft  []FindMatch
+	SearchMatchesRight []FindMatch
+	searchMergedRefs   []diffMergedRef
+	searchActiveRight  bool
+	searchActiveSideIdx int
 }
 
 func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
@@ -43,6 +56,96 @@ func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
 }
 
 func (d *DiffViewWidget) Focusable() bool { return true }
+
+func (d *DiffViewWidget) LeftLines() []string {
+	lines := make([]string, len(d.Lines))
+	for i, dl := range d.Lines {
+		lines[i] = dl.Left.Text
+	}
+	return lines
+}
+
+func (d *DiffViewWidget) RightLines() []string {
+	lines := make([]string, len(d.Lines))
+	for i, dl := range d.Lines {
+		lines[i] = dl.Right.Text
+	}
+	return lines
+}
+
+func (d *DiffViewWidget) ScrollToLine(line int) {
+	if d.viewH <= 0 {
+		d.TopLine = line
+		return
+	}
+	if line < d.TopLine || line >= d.TopLine+d.viewH {
+		d.TopLine = line - d.viewH/2
+		if d.TopLine < 0 {
+			d.TopLine = 0
+		}
+		max := len(d.Lines) - d.viewH
+		if max < 0 {
+			max = 0
+		}
+		if d.TopLine > max {
+			d.TopLine = max
+		}
+	}
+}
+
+func (d *DiffViewWidget) ClearSearch() {
+	d.SearchMatchesLeft = nil
+	d.SearchMatchesRight = nil
+	d.searchMergedRefs = nil
+	d.searchActiveRight = false
+	d.searchActiveSideIdx = -1
+}
+
+func (d *DiffViewWidget) SetSearchMatches(left, right []FindMatch) []FindMatch {
+	d.SearchMatchesLeft = left
+	d.SearchMatchesRight = right
+
+	type entry struct {
+		match   FindMatch
+		isRight bool
+		sideIdx int
+	}
+	var entries []entry
+	for i, m := range left {
+		entries = append(entries, entry{m, false, i})
+	}
+	for i, m := range right {
+		entries = append(entries, entry{m, true, i})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].match.Line != entries[j].match.Line {
+			return entries[i].match.Line < entries[j].match.Line
+		}
+		if entries[i].isRight != entries[j].isRight {
+			return !entries[i].isRight
+		}
+		return entries[i].match.Col < entries[j].match.Col
+	})
+
+	merged := make([]FindMatch, len(entries))
+	d.searchMergedRefs = make([]diffMergedRef, len(entries))
+	for i, e := range entries {
+		merged[i] = e.match
+		d.searchMergedRefs[i] = diffMergedRef{isRight: e.isRight, sideIdx: e.sideIdx}
+	}
+	return merged
+}
+
+func (d *DiffViewWidget) SetActiveMatch(mergedIdx int) {
+	if mergedIdx >= 0 && mergedIdx < len(d.searchMergedRefs) {
+		ref := d.searchMergedRefs[mergedIdx]
+		d.searchActiveRight = ref.isRight
+		d.searchActiveSideIdx = ref.sideIdx
+	} else {
+		d.searchActiveRight = false
+		d.searchActiveSideIdx = -1
+	}
+}
 
 func (d *DiffViewWidget) gutterWidth() int {
 	maxLine := 0
@@ -122,8 +225,16 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 				rightSpans = d.Highlighter.HighlightLine(dl.Right.Text)
 			}
 		}
-		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle, leftSpans)
-		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle, rightSpans)
+		leftActive := -1
+		if !d.searchActiveRight {
+			leftActive = d.searchActiveSideIdx
+		}
+		rightActive := -1
+		if d.searchActiveRight {
+			rightActive = d.searchActiveSideIdx
+		}
+		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle, leftSpans, idx, d.SearchMatchesLeft, leftActive)
+		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle, rightSpans, idx, d.SearchMatchesRight, rightActive)
 	}
 
 	if showVScroll {
@@ -173,7 +284,7 @@ func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl di
 	}
 }
 
-func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span) {
+func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span, lineIdx int, matches []FindMatch, activeIdx int) {
 	runes := []rune(text)
 	for i := 0; i < w; i++ {
 		colIdx := d.LeftCol + i
@@ -188,8 +299,18 @@ func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text st
 				break
 			}
 		}
+		for mi, m := range matches {
+			if m.Line == lineIdx && colIdx >= m.Col && colIdx < m.Col+m.Len {
+				if mi == activeIdx {
+					style = term.StyleSearchActive
+				} else {
+					style = term.StyleSearchMatch
+				}
+				break
+			}
+		}
 		cell := term.Cell{Ch: ch, Style: style}
-		if baseStyle != term.StyleDefault {
+		if style != term.StyleSearchMatch && style != term.StyleSearchActive && baseStyle != term.StyleDefault {
 			cell.BgStyle = baseStyle
 		}
 		surface.SetCell(x+i, y, cell)

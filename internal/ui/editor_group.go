@@ -231,6 +231,52 @@ func (g *EditorGroupWidget) IsEditorActive() bool {
 	return t != nil && t.Content == nil
 }
 
+func (g *EditorGroupWidget) ActiveDiffWidget() *DiffViewWidget {
+	t := g.activeTab()
+	if t == nil || t.Content == nil {
+		return nil
+	}
+	if dv, ok := t.Content.(*DiffViewWidget); ok {
+		return dv
+	}
+	return nil
+}
+
+func (g *EditorGroupWidget) SwitchToTabByPath(path string) bool {
+	for i, t := range g.tabs {
+		if t.FilePath == path {
+			g.SwitchTab(i)
+			return true
+		}
+	}
+	return false
+}
+
+type DiffTabSource struct {
+	TabName string
+	Lines   []string
+}
+
+func (g *EditorGroupWidget) DiffTabSources() []DiffTabSource {
+	var result []DiffTabSource
+	for _, t := range g.tabs {
+		if dv, ok := t.Content.(*DiffViewWidget); ok {
+			lines := make([]string, len(dv.Lines))
+			for i, dl := range dv.Lines {
+				left := dl.Left.Text
+				right := dl.Right.Text
+				if left == right {
+					lines[i] = left
+				} else {
+					lines[i] = left + " " + right
+				}
+			}
+			result = append(result, DiffTabSource{TabName: t.FilePath, Lines: lines})
+		}
+	}
+	return result
+}
+
 func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
 	if g.IsEditorActive() {
 		if g.Editor.isMultiActive() {

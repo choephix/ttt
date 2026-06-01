@@ -26,6 +26,11 @@ type SearchFileGroup struct {
 	Expanded bool
 }
 
+type DiffSearchSource struct {
+	TabName string
+	Lines   []string
+}
+
 type SearchWidget struct {
 	BaseWidget
 	Input        *InputWidget
@@ -44,6 +49,7 @@ type SearchWidget struct {
 	WorkDirs     []string
 	Searching    bool
 	Error        string
+	DiffSources  func() []DiffSearchSource
 	OnOpenMatch  func(path string, line, col int)
 	OnReplace    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
@@ -283,6 +289,33 @@ func (s *SearchWidget) runSearch() {
 				})
 			}
 			s.Groups[idx].Matches = append(s.Groups[idx].Matches, match)
+		}
+	}
+
+	if s.DiffSources != nil {
+		for _, ds := range s.DiffSources() {
+			matches, _ := FindInLines(ds.Lines, s.Input.Text, s.Options)
+			if len(matches) > 0 {
+				idx := len(s.Groups)
+				s.Groups = append(s.Groups, SearchFileGroup{
+					FilePath: ds.TabName,
+					RelPath:  ds.TabName,
+					Expanded: true,
+				})
+				for _, m := range matches {
+					lineText := ""
+					if m.Line >= 0 && m.Line < len(ds.Lines) {
+						lineText = ds.Lines[m.Line]
+					}
+					s.Groups[idx].Matches = append(s.Groups[idx].Matches, SearchMatch{
+						FilePath: ds.TabName,
+						LineNum:  m.Line + 1,
+						ColStart: m.Col,
+						ColEnd:   m.Col + m.Len,
+						LineText: lineText,
+					})
+				}
+			}
 		}
 	}
 

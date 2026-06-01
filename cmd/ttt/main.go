@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
@@ -21,7 +22,11 @@ func initLogger(debug bool) *os.File {
 		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError})))
 		return nil
 	}
-	f, err := os.OpenFile("ttt.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	logPath := "ttt.log"
+	if home, err := os.UserHomeDir(); err == nil {
+		logPath = filepath.Join(home, ".config", "ttt", "ttt.log")
+	}
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 		return nil
