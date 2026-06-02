@@ -1198,10 +1198,9 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 
 	app.search.DiffSources = func() []ui.DiffSearchSource {
 		seen := map[string]bool{}
-		var sources []ui.DiffSearchSource
-		for _, dt := range app.editorGroup.DiffTabSources() {
-			sources = append(sources, ui.DiffSearchSource{TabName: dt.TabName, Lines: dt.Lines})
-			seen[dt.TabName] = true
+		sources := app.editorGroup.DiffTabSources()
+		for _, s := range sources {
+			seen[s.TabName] = true
 		}
 		for _, g := range app.changes.Groups {
 			if !g.IsPR {
@@ -1213,18 +1212,8 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 					continue
 				}
 				fd := diff.Parse(diffText)
-				allLines := fd.AllLines()
-				lines := make([]string, len(allLines))
-				for i, dl := range allLines {
-					left := dl.Left.Text
-					right := dl.Right.Text
-					if left == right {
-						lines[i] = left
-					} else {
-						lines[i] = left + " " + right
-					}
-				}
-				sources = append(sources, ui.DiffSearchSource{TabName: tabName, Lines: lines})
+				dv := ui.NewDiffViewWidget(path, fd)
+				sources = append(sources, ui.DiffSearchSource{TabName: tabName, Lines: dv.CombinedLines()})
 			}
 		}
 		return sources
@@ -1232,38 +1221,24 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 
 	app.search.OnOpenMatch = func(path string, line, col int) {
 		if strings.HasSuffix(path, " (diff)") {
-			if app.editorGroup.SwitchToTabByPath(path) {
-				if dv := app.editorGroup.ActiveDiffWidget(); dv != nil {
-					dv.ScrollToLine(line - 1)
-					if app.search.Input.Text != "" {
-						leftMatches, _ := ui.FindInLines(dv.LeftLines(), app.search.Input.Text, app.search.Options)
-						rightMatches, _ := ui.FindInLines(dv.RightLines(), app.search.Input.Text, app.search.Options)
-						dv.SetSearchMatches(leftMatches, rightMatches)
+			if !app.editorGroup.SwitchToTabByPath(path) {
+				filePath := strings.TrimSuffix(path, " (diff)")
+				for _, g := range app.changes.Groups {
+					if !g.IsPR {
+						continue
+					}
+					if diffText, ok := g.PRDiffs[filePath]; ok {
+						app.editorGroup.OpenDiff(filePath, diff.Parse(diffText))
+						break
 					}
 				}
-				app.root.SetFocus(app.editorGroup)
-				return
 			}
-			filePath := strings.TrimSuffix(path, " (diff)")
-			for _, g := range app.changes.Groups {
-				if !g.IsPR {
-					continue
-				}
-				if diffText, ok := g.PRDiffs[filePath]; ok {
-					parsed := diff.Parse(diffText)
-					app.editorGroup.OpenDiff(filePath, parsed)
-					if dv := app.editorGroup.ActiveDiffWidget(); dv != nil {
-						dv.ScrollToLine(line - 1)
-						if app.search.Input.Text != "" {
-							leftMatches, _ := ui.FindInLines(dv.LeftLines(), app.search.Input.Text, app.search.Options)
-							rightMatches, _ := ui.FindInLines(dv.RightLines(), app.search.Input.Text, app.search.Options)
-							dv.SetSearchMatches(leftMatches, rightMatches)
-						}
-					}
-					app.root.SetFocus(app.editorGroup)
-					return
-				}
+			if dv := app.editorGroup.ActiveDiffWidget(); dv != nil {
+				dv.ScrollToLine(line - 1)
+				dv.ApplySearchHighlight(app.search.Input.Text, app.search.Options)
 			}
+			app.root.SetFocus(app.editorGroup)
+			return
 		}
 		app.editorGroup.OpenFile(path)
 		app.editorGroup.GoToLine(line)

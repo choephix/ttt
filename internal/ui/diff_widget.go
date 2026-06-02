@@ -26,8 +26,9 @@ type DiffViewWidget struct {
 	maxLineW    int
 	viewH       int
 	contentW    int
-	scrollbar   Scrollbar
-	hscrollbar  HScrollbar
+	scrollbar    Scrollbar
+	hscrollbar   HScrollbar
+	rhscrollbar  HScrollbar
 
 	SearchMatchesLeft  []FindMatch
 	SearchMatchesRight []FindMatch
@@ -48,10 +49,11 @@ func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
 		}
 	}
 	return &DiffViewWidget{
-		FilePath:    filePath,
-		Lines:       lines,
-		Highlighter: highlight.New(filePath),
-		maxLineW:    maxW,
+		FilePath:            filePath,
+		Lines:               lines,
+		Highlighter:         highlight.New(filePath),
+		maxLineW:            maxW,
+		searchActiveSideIdx: -1,
 	}
 }
 
@@ -71,6 +73,27 @@ func (d *DiffViewWidget) RightLines() []string {
 		lines[i] = dl.Right.Text
 	}
 	return lines
+}
+
+func (d *DiffViewWidget) CombinedLines() []string {
+	lines := make([]string, len(d.Lines))
+	for i, dl := range d.Lines {
+		if dl.Left.Text == dl.Right.Text {
+			lines[i] = dl.Left.Text
+		} else {
+			lines[i] = dl.Left.Text + " " + dl.Right.Text
+		}
+	}
+	return lines
+}
+
+func (d *DiffViewWidget) ApplySearchHighlight(query string, opts SearchOptions) {
+	if query == "" {
+		return
+	}
+	leftMatches, _ := FindInLines(d.LeftLines(), query, opts)
+	rightMatches, _ := FindInLines(d.RightLines(), query, opts)
+	d.SetSearchMatches(leftMatches, rightMatches)
 }
 
 func (d *DiffViewWidget) ScrollToLine(line int) {
@@ -262,11 +285,12 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 			surface.SetCell(x, h, term.Cell{Ch: ' '})
 		}
 
-		rhscroll := HScrollbar{
-			X: r.X + rightStart, Y: r.Y + h,
-			Width: rightW, TotalCols: d.maxLineW, LeftCol: d.LeftCol,
-		}
-		rhscroll.Render(surface, rightStart, h)
+		d.rhscrollbar.X = r.X + rightStart
+		d.rhscrollbar.Y = r.Y + h
+		d.rhscrollbar.Width = rightW
+		d.rhscrollbar.TotalCols = d.maxLineW
+		d.rhscrollbar.LeftCol = d.LeftCol
+		d.rhscrollbar.Render(surface, rightStart, h)
 	}
 }
 
@@ -347,6 +371,10 @@ func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 	if newLeft, consumed := d.hscrollbar.HandleEvent(ev); consumed {
+		d.LeftCol = newLeft
+		return EventConsumed
+	}
+	if newLeft, consumed := d.rhscrollbar.HandleEvent(ev); consumed {
 		d.LeftCol = newLeft
 		return EventConsumed
 	}
