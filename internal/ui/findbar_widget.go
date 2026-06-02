@@ -29,7 +29,7 @@ type FindBarWidget struct {
 
 func NewFindBarWidget() *FindBarWidget {
 	f := &FindBarWidget{focused: true}
-	f.Input = NewInputWidget(" > ")
+	f.Input = NewInputWidget()
 	f.Input.Placeholder = "Search"
 	f.Input.OnChange = func(string) {
 		f.Current = 0

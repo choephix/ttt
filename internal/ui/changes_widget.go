@@ -102,7 +102,7 @@ func (c *ChangesWidget) Refresh() {
 				unstaged = append(unstaged, f)
 			}
 		}
-		input := NewInputWidget(" > ")
+		input := NewInputWidget()
 		input.Placeholder = "Message"
 		expanded := !c.multiRoot
 		stagedExpanded := true

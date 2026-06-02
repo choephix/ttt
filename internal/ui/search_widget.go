@@ -64,13 +64,13 @@ type searchItem struct {
 
 func NewSearchWidget() *SearchWidget {
 	s := &SearchWidget{}
-	s.Input = NewInputWidget(" > ")
+	s.Input = NewInputWidget()
 	s.Input.Placeholder = "Search"
-	s.Include = NewInputWidget(" > ")
+	s.Include = NewInputWidget()
 	s.Include.Placeholder = "files to include"
-	s.Exclude = NewInputWidget(" > ")
+	s.Exclude = NewInputWidget()
 	s.Exclude.Placeholder = "files to exclude"
-	s.ReplaceInput = NewInputWidget(" > ")
+	s.ReplaceInput = NewInputWidget()
 	s.ReplaceInput.Placeholder = "Replace"
 	onChange := func(string) { s.runSearch() }
 	s.Input.OnChange = onChange

@@ -53,7 +53,8 @@ func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 	p := &CommandPaletteWidget{
 		Commands: commands,
 	}
-	p.Input = NewInputWidget(" ")
+	p.Input = NewInputWidget()
+	p.Input.Prefix = " "
 	p.Input.SetText(">")
 	p.Input.OnChange = func(text string) {
 		p.filter()
