@@ -147,3 +147,90 @@ func TestUndoStack(t *testing.T) {
 		t.Errorf("expected 'abc!', got '%s'", b.Lines[0])
 	}
 }
+
+func TestUndoGroupsConsecutiveInserts(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{""}}
+	s := &UndoStack{}
+	for i, r := range []rune("hello") {
+		cmd := &InsertRuneCommand{Line: 0, Col: i, Rune: r}
+		cmd.Apply(b)
+		s.Push(cmd)
+	}
+	if b.Lines[0] != "hello" {
+		t.Fatalf("expected 'hello', got '%s'", b.Lines[0])
+	}
+	s.Undo(b)
+	if b.Lines[0] != "" {
+		t.Errorf("expected '' after single undo, got '%s'", b.Lines[0])
+	}
+	s.Redo(b)
+	if b.Lines[0] != "hello" {
+		t.Errorf("expected 'hello' after redo, got '%s'", b.Lines[0])
+	}
+}
+
+func TestUndoBreaksGroupOnSpace(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{""}}
+	s := &UndoStack{}
+	for i, r := range []rune("hi there") {
+		cmd := &InsertRuneCommand{Line: 0, Col: i, Rune: r}
+		cmd.Apply(b)
+		s.Push(cmd)
+	}
+	if b.Lines[0] != "hi there" {
+		t.Fatalf("expected 'hi there', got '%s'", b.Lines[0])
+	}
+	// Space belongs with the next word: undo removes " there", then "hi"
+	s.Undo(b)
+	if b.Lines[0] != "hi" {
+		t.Errorf("expected 'hi' after first undo, got '%s'", b.Lines[0])
+	}
+	s.Undo(b)
+	if b.Lines[0] != "" {
+		t.Errorf("expected '' after second undo, got '%s'", b.Lines[0])
+	}
+}
+
+func TestUndoBreaksGroupOnBreakGroup(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{""}}
+	s := &UndoStack{}
+	for i, r := range []rune("ab") {
+		cmd := &InsertRuneCommand{Line: 0, Col: i, Rune: r}
+		cmd.Apply(b)
+		s.Push(cmd)
+	}
+	s.BreakGroup()
+	for i, r := range []rune("cd") {
+		cmd := &InsertRuneCommand{Line: 0, Col: 2 + i, Rune: r}
+		cmd.Apply(b)
+		s.Push(cmd)
+	}
+	if b.Lines[0] != "abcd" {
+		t.Fatalf("expected 'abcd', got '%s'", b.Lines[0])
+	}
+	s.Undo(b)
+	if b.Lines[0] != "ab" {
+		t.Errorf("expected 'ab' after first undo, got '%s'", b.Lines[0])
+	}
+	s.Undo(b)
+	if b.Lines[0] != "" {
+		t.Errorf("expected '' after second undo, got '%s'", b.Lines[0])
+	}
+}
+
+func TestUndoGroupsConsecutiveDeletes(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{"hello"}}
+	s := &UndoStack{}
+	for i := 4; i >= 0; i-- {
+		cmd := &DeleteRuneCommand{Line: 0, Col: i}
+		cmd.Apply(b)
+		s.Push(cmd)
+	}
+	if b.Lines[0] != "" {
+		t.Fatalf("expected '', got '%s'", b.Lines[0])
+	}
+	s.Undo(b)
+	if b.Lines[0] != "hello" {
+		t.Errorf("expected 'hello' after single undo, got '%s'", b.Lines[0])
+	}
+}
