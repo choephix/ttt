@@ -24,9 +24,9 @@ type InputWidget struct {
 	OnChange     func(text string)
 }
 
-func NewInputWidget(prefix string) *InputWidget {
+func NewInputWidget() *InputWidget {
 	return &InputWidget{
-		Prefix: prefix,
+		Prefix: " ❯ ",
 		Style:  term.StyleInput,
 	}
 }

@@ -28,7 +28,7 @@ type ReplaceBarWidget struct {
 
 func NewReplaceBarWidget() *ReplaceBarWidget {
 	r := &ReplaceBarWidget{}
-	r.SearchInput = NewInputWidget(" > ")
+	r.SearchInput = NewInputWidget()
 	r.SearchInput.Placeholder = "Search"
 	r.SearchInput.OnChange = func(string) {
 		r.Current = 0
@@ -49,7 +49,7 @@ func NewReplaceBarWidget() *ReplaceBarWidget {
 		}},
 	}
 
-	r.ReplaceInput = NewInputWidget(" > ")
+	r.ReplaceInput = NewInputWidget()
 	r.ReplaceInput.Placeholder = "Replace"
 	r.ReplaceInput.Actions = []InputAction{
 		{Label: "⟳", OnClick: func() {

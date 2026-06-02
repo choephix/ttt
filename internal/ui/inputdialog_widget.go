@@ -23,7 +23,7 @@ type InputDialogWidget struct {
 func NewInputDialogWidget(title, placeholder, initial string) *InputDialogWidget {
 	d := &InputDialogWidget{
 		Title: title,
-		Input: InputWidget{Prefix: " > ", Style: term.StylePaletteItem, Placeholder: placeholder},
+		Input: InputWidget{Prefix: " ❯ ", Style: term.StylePaletteItem, Placeholder: placeholder},
 	}
 	d.Input.SetText(initial)
 	return d
