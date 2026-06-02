@@ -1,8 +1,7 @@
 package ui
 
 import (
-	"strings"
-
+	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -12,22 +11,24 @@ const hoverMaxVisibleLines = 12
 
 type HoverWidget struct {
 	BaseWidget
-	Lines     []string
-	AnchorX   int
-	AnchorY   int
-	OffsetX   int
-	OffsetY   int
-	Borders   *term.BorderSet
+	Lines      []markdown.Line
+	AnchorX    int
+	AnchorY    int
+	OffsetX    int
+	OffsetY    int
+	Borders    *term.BorderSet
 	scrollTop  int
 	scrollLeft int
 	maxLineW   int
+	vscrollbar Scrollbar
+	hscrollbar HScrollbar
 }
 
 func NewHoverWidget(text string, x, y int) *HoverWidget {
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	lines := markdown.Render(text)
 	maxW := 0
 	for _, line := range lines {
-		if w := len([]rune(line)); w > maxW {
+		if w := len([]rune(line.Text())); w > maxW {
 			maxW = w
 		}
 	}
@@ -122,7 +123,8 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		if hasVScroll {
 			innerW--
 		}
-		if h.Lines[lineIdx] == "---" {
+		lineText := h.Lines[lineIdx].Text()
+		if lineText == "---" && len(h.Lines[lineIdx].Spans) == 1 && h.Lines[lineIdx].Spans[0].Style == term.StyleBorder {
 			surface.SetCell(x, row, term.Cell{Ch: b.LeftTee, Style: term.StyleBorder})
 			for bx := x + 1; bx < x+1+innerW; bx++ {
 				surface.SetCell(bx, row, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
@@ -133,98 +135,103 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		for bx := x + 1; bx < x+1+innerW; bx++ {
 			surface.SetCell(bx, row, term.Cell{Ch: ' ', Style: st})
 		}
-		runes := []rune(h.Lines[lineIdx])
+		styles := buildStyleRuns(h.Lines[lineIdx])
+		runes := []rune(lineText)
 		for j := 0; j < contentW && h.scrollLeft+j < len(runes); j++ {
-			surface.SetCell(x+1+j, row, term.Cell{Ch: runes[h.scrollLeft+j], Style: st})
+			idx := h.scrollLeft + j
+			cellStyle := st
+			if idx < len(styles) {
+				cellStyle = styles[idx]
+			}
+			surface.SetCell(x+1+j, row, term.Cell{Ch: runes[idx], Style: cellStyle})
 		}
 	}
 
 	if hasVScroll {
-		sb := Scrollbar{
-			X:          x + menuW - 2,
-			Y:          y + 1,
-			Height:     visLines,
-			TotalItems: len(h.Lines),
-			TopItem:    h.scrollTop,
-		}
-		sb.Render(surface, x+menuW-2, y+1)
+		h.vscrollbar.X = h.OffsetX + x + menuW - 2
+		h.vscrollbar.Y = h.OffsetY + y + 1
+		h.vscrollbar.Height = visLines
+		h.vscrollbar.TotalItems = len(h.Lines)
+		h.vscrollbar.TopItem = h.scrollTop
+		h.vscrollbar.Render(surface, x+menuW-2, y+1)
 	}
 
 	if hasHScroll {
-		hScrollRow := y + menuH - 2
 		trackW := menuW - 2
 		if hasVScroll {
 			trackW--
 		}
-		maxScroll := h.maxLineW - contentW
-		if maxScroll < 1 {
-			maxScroll = 1
-		}
-		thumbW := trackW * contentW / h.maxLineW
-		if thumbW < 1 {
-			thumbW = 1
-		}
-		thumbX := 0
-		if maxScroll > 0 {
-			thumbX = h.scrollLeft * (trackW - thumbW) / maxScroll
-		}
-		for i := 0; i < trackW; i++ {
-			ch := ' '
-			style := term.StyleScrollbar
-			if i >= thumbX && i < thumbX+thumbW {
-				ch = '█'
-				style = term.StyleScrollbarThumb
-			}
-			surface.SetCell(x+1+i, hScrollRow, term.Cell{Ch: rune(ch), Style: style})
-		}
+		h.hscrollbar.X = h.OffsetX + x + 1
+		h.hscrollbar.Y = h.OffsetY + y + menuH - 2
+		h.hscrollbar.Width = trackW
+		h.hscrollbar.TotalCols = h.maxLineW
+		h.hscrollbar.LeftCol = h.scrollLeft
+		h.hscrollbar.Render(surface, x+1, y+menuH-2)
 	}
 
-	h.SetRect(Rect{X: x, Y: y, W: menuW, H: menuH})
+	h.SetRect(Rect{X: h.OffsetX + x, Y: h.OffsetY + y, W: menuW, H: menuH})
 }
 
 func (h *HoverWidget) HandleEvent(ev tcell.Event) EventResult {
+	if newTop, consumed := h.vscrollbar.HandleEvent(ev); consumed {
+		h.scrollTop = newTop
+		return EventConsumed
+	}
+	if newLeft, consumed := h.hscrollbar.HandleEvent(ev); consumed {
+		h.scrollLeft = newLeft
+		return EventConsumed
+	}
+
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		return EventDismissed
 	case *tcell.EventMouse:
+		mx, my := tev.Position()
+		r := h.GetRect()
+		inside := mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H
 		btn := tev.Buttons()
-		if btn&tcell.WheelUp != 0 {
-			if h.scrollTop > 0 {
-				h.scrollTop--
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelDown != 0 {
-			max := len(h.Lines) - h.visibleLines()
-			if max < 0 {
-				max = 0
-			}
-			if h.scrollTop < max {
-				h.scrollTop++
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelLeft != 0 {
-			if h.scrollLeft > 0 {
-				h.scrollLeft -= 4
-				if h.scrollLeft < 0 {
-					h.scrollLeft = 0
+		if inside {
+			if btn&tcell.WheelUp != 0 {
+				if h.scrollTop > 0 {
+					h.scrollTop--
 				}
+				return EventConsumed
+			}
+			if btn&tcell.WheelDown != 0 {
+				max := len(h.Lines) - h.visibleLines()
+				if max < 0 {
+					max = 0
+				}
+				if h.scrollTop < max {
+					h.scrollTop++
+				}
+				return EventConsumed
+			}
+			if btn&tcell.WheelLeft != 0 {
+				if h.scrollLeft > 0 {
+					h.scrollLeft -= 4
+					if h.scrollLeft < 0 {
+						h.scrollLeft = 0
+					}
+				}
+				return EventConsumed
+			}
+			if btn&tcell.WheelRight != 0 {
+				max := h.maxLineW - h.contentWidth()
+				if max < 0 {
+					max = 0
+				}
+				if h.scrollLeft < max {
+					h.scrollLeft += 4
+					if h.scrollLeft > max {
+						h.scrollLeft = max
+					}
+				}
+				return EventConsumed
 			}
 			return EventConsumed
 		}
-		if btn&tcell.WheelRight != 0 {
-			visW := h.visibleContentWidth()
-			max := h.maxLineW - visW
-			if max < 0 {
-				max = 0
-			}
-			if h.scrollLeft < max {
-				h.scrollLeft += 4
-				if h.scrollLeft > max {
-					h.scrollLeft = max
-				}
-			}
+		if h.vscrollbar.IsDragging() || h.hscrollbar.IsDragging() {
 			return EventConsumed
 		}
 		if btn != tcell.ButtonNone {
@@ -234,11 +241,25 @@ func (h *HoverWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-func (h *HoverWidget) visibleContentWidth() int {
-	sw, _ := h.GetRect().W, h.GetRect().H
-	w := sw - 2
+func (h *HoverWidget) IsDragging() bool {
+	return h.vscrollbar.IsDragging() || h.hscrollbar.IsDragging()
+}
+
+func (h *HoverWidget) contentWidth() int {
+	r := h.GetRect()
+	w := r.W - 2
 	if len(h.Lines) > h.visibleLines() {
 		w--
 	}
 	return w
+}
+
+func buildStyleRuns(line markdown.Line) []term.Style {
+	var styles []term.Style
+	for _, span := range line.Spans {
+		for range []rune(span.Text) {
+			styles = append(styles, span.Style)
+		}
+	}
+	return styles
 }

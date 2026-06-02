@@ -138,6 +138,11 @@ func (tc TerminalColors) ANSIPalette() [16]string {
 	}
 }
 
+type HoverStyles struct {
+	Bold StyleDef `json:"bold"`
+	Code StyleDef `json:"code"`
+}
+
 type ThemeConfig struct {
 	Default StyleDef `json:"default"`
 	Muted   StyleDef `json:"muted"`
@@ -151,6 +156,7 @@ type ThemeConfig struct {
 	Editor          EditorStyles `json:"editor"`
 	Menu            MenuStyles  `json:"menu"`
 	Input           InputStyles `json:"input"`
+	Hover           HoverStyles `json:"hover"`
 	Border          StyleDef    `json:"border"`
 	Diff            DiffStyles  `json:"diff"`
 	Scrollbar       StyleDef    `json:"scrollbar"`
@@ -243,6 +249,11 @@ func (t *ThemeConfig) ResolveColors() {
 	fillFg(&t.Editor.Diagnostics.Warning, t.Warning.Fg)
 	fillFg(&t.Editor.Diagnostics.Info, t.Default.Fg)
 	fillFg(&t.Editor.Diagnostics.Hint, t.Default.Fg)
+	if !t.Hover.Bold.Bold {
+		t.Hover.Bold.Bold = true
+	}
+	fillFg(&t.Hover.Bold, t.Default.Fg)
+	fillFg(&t.Hover.Code, t.Syntax.String.Fg)
 }
 
 func fillFg(s *StyleDef, color string) {

@@ -140,9 +140,11 @@ func runEventLoop(
 			btn := tev.Buttons()
 			slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
 			app.DismissSignatureHelp()
-			if btn == 0 {
-				app.checkMouseHover(mx, my)
-			} else {
+			if app.editorGroup.Hover == nil {
+				if btn == 0 {
+					app.checkMouseHover(mx, my)
+				}
+			} else if !app.isMouseOverHover(mx, my) && btn != 0 && !app.editorGroup.Hover.IsDragging() {
 				app.DismissHover()
 			}
 			app.root.HandleEvent(tev)

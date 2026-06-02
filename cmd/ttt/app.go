@@ -315,6 +315,15 @@ func (a *App) ShowHover(text string, anchorX, anchorY int) {
 	a.editorGroup.Hover = ui.NewHoverWidget(text, anchorX, anchorY)
 }
 
+func (a *App) isMouseOverHover(mx, my int) bool {
+	h := a.editorGroup.Hover
+	if h == nil {
+		return false
+	}
+	r := h.GetRect()
+	return mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H
+}
+
 func (a *App) DismissHover() {
 	a.editorGroup.Hover = nil
 	a.cancelHoverTimer()

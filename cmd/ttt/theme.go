@@ -58,6 +58,8 @@ func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleInput, theme.Input.Item)
 	applyStyleDef(&m, term.StyleInputPlaceholder, theme.Input.Placeholder)
 	applyStyleDef(&m, term.StyleInputAction, theme.Input.Action)
+	applyStyleDef(&m, term.StyleHoverBold, theme.Hover.Bold)
+	applyStyleDef(&m, term.StyleHoverCode, theme.Hover.Code)
 	applyStyleDef(&m, term.StyleMuted, theme.Muted)
 	applyStyleDef(&m, term.StyleSuccess, theme.Success)
 	applyStyleDef(&m, term.StyleDanger, theme.Danger)
