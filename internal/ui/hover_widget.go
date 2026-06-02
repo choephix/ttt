@@ -186,42 +186,48 @@ func (h *HoverWidget) HandleEvent(ev tcell.Event) EventResult {
 	case *tcell.EventKey:
 		return EventDismissed
 	case *tcell.EventMouse:
+		mx, my := tev.Position()
+		r := h.GetRect()
+		inside := mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H
 		btn := tev.Buttons()
-		if btn&tcell.WheelUp != 0 {
-			if h.scrollTop > 0 {
-				h.scrollTop--
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelDown != 0 {
-			max := len(h.Lines) - h.visibleLines()
-			if max < 0 {
-				max = 0
-			}
-			if h.scrollTop < max {
-				h.scrollTop++
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelLeft != 0 {
-			if h.scrollLeft > 0 {
-				h.scrollLeft -= 4
-				if h.scrollLeft < 0 {
-					h.scrollLeft = 0
+		if inside {
+			if btn&tcell.WheelUp != 0 {
+				if h.scrollTop > 0 {
+					h.scrollTop--
 				}
+				return EventConsumed
 			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelRight != 0 {
-			max := h.maxLineW - h.contentWidth()
-			if max < 0 {
-				max = 0
-			}
-			if h.scrollLeft < max {
-				h.scrollLeft += 4
-				if h.scrollLeft > max {
-					h.scrollLeft = max
+			if btn&tcell.WheelDown != 0 {
+				max := len(h.Lines) - h.visibleLines()
+				if max < 0 {
+					max = 0
 				}
+				if h.scrollTop < max {
+					h.scrollTop++
+				}
+				return EventConsumed
+			}
+			if btn&tcell.WheelLeft != 0 {
+				if h.scrollLeft > 0 {
+					h.scrollLeft -= 4
+					if h.scrollLeft < 0 {
+						h.scrollLeft = 0
+					}
+				}
+				return EventConsumed
+			}
+			if btn&tcell.WheelRight != 0 {
+				max := h.maxLineW - h.contentWidth()
+				if max < 0 {
+					max = 0
+				}
+				if h.scrollLeft < max {
+					h.scrollLeft += 4
+					if h.scrollLeft > max {
+						h.scrollLeft = max
+					}
+				}
+				return EventConsumed
 			}
 			return EventConsumed
 		}

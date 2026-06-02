@@ -792,6 +792,9 @@ func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
 		if result == EventDismissed {
 			g.Hover = nil
 		}
+		if result == EventConsumed {
+			return EventConsumed
+		}
 	}
 	if g.SignatureHelp != nil {
 		if kev, ok := ev.(*tcell.EventKey); ok && kev.Key() == tcell.KeyEscape && g.Autocomplete == nil {
