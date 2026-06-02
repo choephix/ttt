@@ -431,7 +431,10 @@ func (g *EditorGroupWidget) Undo() {
 		return
 	}
 	if t.Undo != nil {
-		t.Undo.Undo(t.Buf)
+		if pos := t.Undo.Undo(t.Buf); pos != nil {
+			g.Editor.Cursor.Line = pos.Line
+			g.Editor.Cursor.Col = pos.Col
+		}
 	}
 }
 
@@ -441,7 +444,10 @@ func (g *EditorGroupWidget) Redo() {
 		return
 	}
 	if t.Undo != nil {
-		t.Undo.Redo(t.Buf)
+		if pos := t.Undo.Redo(t.Buf); pos != nil {
+			g.Editor.Cursor.Line = pos.Line
+			g.Editor.Cursor.Col = pos.Col
+		}
 	}
 }
 

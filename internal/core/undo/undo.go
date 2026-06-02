@@ -69,28 +69,87 @@ func canGroup(grp *BatchCommand, cmd EditCommand) bool {
 	return false
 }
 
-// Undo undoes the last command.
-func (s *UndoStack) Undo(b *buffer.Buffer) {
+// CursorPos represents a cursor position returned by Undo/Redo.
+type CursorPos struct {
+	Line, Col int
+}
+
+// Undo undoes the last command and returns where the cursor should be placed.
+func (s *UndoStack) Undo(b *buffer.Buffer) *CursorPos {
 	if len(s.undo) == 0 {
-		return
+		return nil
 	}
 	s.grouping = false
 	cmd := s.undo[len(s.undo)-1]
 	s.undo = s.undo[:len(s.undo)-1]
 	cmd.Undo(b)
 	s.redo = append(s.redo, cmd)
+	return cursorAfterUndo(cmd)
 }
 
-// Redo re-applies the last undone command.
-func (s *UndoStack) Redo(b *buffer.Buffer) {
+// Redo re-applies the last undone command and returns where the cursor should be placed.
+func (s *UndoStack) Redo(b *buffer.Buffer) *CursorPos {
 	if len(s.redo) == 0 {
-		return
+		return nil
 	}
 	s.grouping = false
 	cmd := s.redo[len(s.redo)-1]
 	s.redo = s.redo[:len(s.redo)-1]
 	cmd.Apply(b)
 	s.undo = append(s.undo, cmd)
+	return cursorAfterRedo(cmd)
+}
+
+func cursorAfterUndo(cmd EditCommand) *CursorPos {
+	switch c := cmd.(type) {
+	case *InsertRuneCommand:
+		return &CursorPos{c.Line, c.Col}
+	case *DeleteRuneCommand:
+		return &CursorPos{c.Line, c.Col + 1}
+	case *InsertStringCommand:
+		return &CursorPos{c.Line, c.Col}
+	case *SplitLineCommand:
+		return &CursorPos{c.Line, c.Col}
+	case *JoinLineCommand:
+		return &CursorPos{c.Line - 1, c.PrevLen}
+	case *DeleteSelectionCommand:
+		return &CursorPos{c.EndLine, c.EndCol}
+	case *PasteCommand:
+		return &CursorPos{c.Line, c.Col}
+	case *BatchCommand:
+		if len(c.Commands) > 0 {
+			return cursorAfterUndo(c.Commands[0])
+		}
+	}
+	return nil
+}
+
+func cursorAfterRedo(cmd EditCommand) *CursorPos {
+	switch c := cmd.(type) {
+	case *InsertRuneCommand:
+		return &CursorPos{c.Line, c.Col + 1}
+	case *DeleteRuneCommand:
+		return &CursorPos{c.Line, c.Col}
+	case *InsertStringCommand:
+		return &CursorPos{c.Line, c.Col + len([]rune(c.Text))}
+	case *SplitLineCommand:
+		return &CursorPos{c.Line + 1, 0}
+	case *JoinLineCommand:
+		return &CursorPos{c.Line - 1, c.PrevLen}
+	case *DeleteSelectionCommand:
+		return &CursorPos{c.StartLine, c.StartCol}
+	case *PasteCommand:
+		lines := splitLines(c.Text)
+		if len(lines) == 1 {
+			return &CursorPos{c.Line, c.Col + len([]rune(lines[0]))}
+		}
+		return &CursorPos{c.Line + len(lines) - 1, len([]rune(lines[len(lines)-1]))}
+	case *BatchCommand:
+		if len(c.Commands) > 0 {
+			return cursorAfterRedo(c.Commands[len(c.Commands)-1])
+		}
+	}
+	return nil
 }
 
 // InsertRuneCommand implements EditCommand for inserting a rune.
