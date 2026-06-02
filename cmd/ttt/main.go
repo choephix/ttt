@@ -25,6 +25,7 @@ func initLogger(debug bool) *os.File {
 	logPath := "ttt.log"
 	if home, err := os.UserHomeDir(); err == nil {
 		logPath = filepath.Join(home, ".config", "ttt", "ttt.log")
+		os.MkdirAll(filepath.Dir(logPath), 0755)
 	}
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {

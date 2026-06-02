@@ -252,26 +252,11 @@ func (g *EditorGroupWidget) SwitchToTabByPath(path string) bool {
 	return false
 }
 
-type DiffTabSource struct {
-	TabName string
-	Lines   []string
-}
-
-func (g *EditorGroupWidget) DiffTabSources() []DiffTabSource {
-	var result []DiffTabSource
+func (g *EditorGroupWidget) DiffTabSources() []DiffSearchSource {
+	var result []DiffSearchSource
 	for _, t := range g.tabs {
 		if dv, ok := t.Content.(*DiffViewWidget); ok {
-			lines := make([]string, len(dv.Lines))
-			for i, dl := range dv.Lines {
-				left := dl.Left.Text
-				right := dl.Right.Text
-				if left == right {
-					lines[i] = left
-				} else {
-					lines[i] = left + " " + right
-				}
-			}
-			result = append(result, DiffTabSource{TabName: t.FilePath, Lines: lines})
+			result = append(result, DiffSearchSource{TabName: t.FilePath, Lines: dv.CombinedLines()})
 		}
 	}
 	return result
