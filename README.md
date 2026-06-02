@@ -87,11 +87,18 @@ Open multiple project directories in a single session. Each root appears as a co
 
 ```sh
 ttt                             # opens the current directory
+ttt .                           # also opens the current directory
 ttt /path/to/dir                # opens that directory as the workspace
 ttt /path/to/file.go            # opens the file; workspace is the git repo root
                                 # (falls back to the file's parent dir if not in a repo)
 ttt dir1 dir2                   # opens multiple folders as a multi-root workspace
 ttt --workspace project.ttt     # loads a saved workspace file
+
+# Review a GitHub pull request
+ttt https://github.com/owner/repo/pull/123
+
+# Review a PR with the repo tree open
+ttt . https://github.com/owner/repo/pull/123
 ```
 
 Workspace files use the `.ttt` extension and store a list of folders as relative paths:

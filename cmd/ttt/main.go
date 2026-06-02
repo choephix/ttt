@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 )
+
+var version = "dev"
 
 func initLogger(debug bool) *os.File {
 	if !debug {
@@ -47,6 +50,40 @@ func findConfigFlag() string {
 }
 
 func main() {
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "--help", "-h":
+			fmt.Printf(`ttt %s - Terminal Text Tool, an IDE for your terminal
+
+Usage: ttt [options] [files/folders/URLs...]
+
+Arguments:
+  files               Open one or more files
+  folders             Open directories as workspace roots
+  .                   Open the current directory
+  PR URL              Open a GitHub pull request for review
+
+Options:
+  --help, -h          Show this help message
+  --version, -v       Show version
+  --workspace <file>  Open a saved workspace (.ttt file)
+  --config <file>     Use a custom config file
+
+Examples:
+  ttt                                           Open current directory
+  ttt main.go utils.go                          Open specific files
+  ttt ~/projectA ~/projectB                     Multi-root workspace
+  ttt . https://github.com/o/r/pull/123         Review a PR with repo tree
+
+Docs: https://tttedit.dev
+`, version)
+			os.Exit(0)
+		case "--version", "-v":
+			fmt.Println("ttt " + version)
+			os.Exit(0)
+		}
+	}
+
 	cfg := config.Load(findConfigFlag())
 	config.ParseKeyBindings(cfg.Keybindings)
 

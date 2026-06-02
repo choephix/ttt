@@ -45,6 +45,19 @@ When working with multiple folders:
 - Each group has a commit input and a menu button for pull/push/sync on that specific repo
 - File status badges: **M** (modified), **A** (added), **D** (deleted), **R** (renamed), **U** (untracked)
 
+## Pull Request Review
+
+Open a GitHub pull request directly from the command line:
+
+```sh
+ttt https://github.com/owner/repo/pull/123
+
+# Review a PR with the repo tree open
+ttt . https://github.com/owner/repo/pull/123
+```
+
+Changed files appear in the changes panel with diff view.
+
 ## Git Blame
 
 The status bar shows inline blame info for the current line: author, relative time, and commit summary.
