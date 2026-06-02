@@ -56,10 +56,14 @@ func canGroup(grp *BatchCommand, cmd EditCommand) bool {
 	switch lc := last.(type) {
 	case *InsertRuneCommand:
 		if ic, ok := cmd.(*InsertRuneCommand); ok {
-			if lc.Rune == ' ' || lc.Rune == '\t' || ic.Rune == ' ' || ic.Rune == '\t' {
+			if ic.Line != lc.Line || ic.Col != lc.Col+1 {
 				return false
 			}
-			return ic.Line == lc.Line && ic.Col == lc.Col+1
+			// Space/tab after non-space starts a new group (space belongs with the next word)
+			if (ic.Rune == ' ' || ic.Rune == '\t') && lc.Rune != ' ' && lc.Rune != '\t' {
+				return false
+			}
+			return true
 		}
 	case *DeleteRuneCommand:
 		if dc, ok := cmd.(*DeleteRuneCommand); ok {

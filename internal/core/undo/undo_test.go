@@ -180,17 +180,14 @@ func TestUndoBreaksGroupOnSpace(t *testing.T) {
 	if b.Lines[0] != "hi there" {
 		t.Fatalf("expected 'hi there', got '%s'", b.Lines[0])
 	}
-	s.Undo(b)
-	if b.Lines[0] != "hi " {
-		t.Errorf("expected 'hi ' after first undo, got '%s'", b.Lines[0])
-	}
+	// Space belongs with the next word: undo removes " there", then "hi"
 	s.Undo(b)
 	if b.Lines[0] != "hi" {
-		t.Errorf("expected 'hi' after second undo, got '%s'", b.Lines[0])
+		t.Errorf("expected 'hi' after first undo, got '%s'", b.Lines[0])
 	}
 	s.Undo(b)
 	if b.Lines[0] != "" {
-		t.Errorf("expected '' after third undo, got '%s'", b.Lines[0])
+		t.Errorf("expected '' after second undo, got '%s'", b.Lines[0])
 	}
 }
 
