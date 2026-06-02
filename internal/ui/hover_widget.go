@@ -1,8 +1,7 @@
 package ui
 
 import (
-	"strings"
-
+	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -12,7 +11,7 @@ const hoverMaxVisibleLines = 12
 
 type HoverWidget struct {
 	BaseWidget
-	Lines     []string
+	Lines     []markdown.Line
 	AnchorX   int
 	AnchorY   int
 	OffsetX   int
@@ -24,10 +23,10 @@ type HoverWidget struct {
 }
 
 func NewHoverWidget(text string, x, y int) *HoverWidget {
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	lines := markdown.Render(text)
 	maxW := 0
 	for _, line := range lines {
-		if w := len([]rune(line)); w > maxW {
+		if w := len([]rune(line.Text())); w > maxW {
 			maxW = w
 		}
 	}
@@ -122,7 +121,8 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		if hasVScroll {
 			innerW--
 		}
-		if h.Lines[lineIdx] == "---" {
+		lineText := h.Lines[lineIdx].Text()
+		if lineText == "---" && len(h.Lines[lineIdx].Spans) == 1 && h.Lines[lineIdx].Spans[0].Style == term.StyleBorder {
 			surface.SetCell(x, row, term.Cell{Ch: b.LeftTee, Style: term.StyleBorder})
 			for bx := x + 1; bx < x+1+innerW; bx++ {
 				surface.SetCell(bx, row, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
@@ -133,9 +133,15 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		for bx := x + 1; bx < x+1+innerW; bx++ {
 			surface.SetCell(bx, row, term.Cell{Ch: ' ', Style: st})
 		}
-		runes := []rune(h.Lines[lineIdx])
+		styles := buildStyleRuns(h.Lines[lineIdx])
+		runes := []rune(lineText)
 		for j := 0; j < contentW && h.scrollLeft+j < len(runes); j++ {
-			surface.SetCell(x+1+j, row, term.Cell{Ch: runes[h.scrollLeft+j], Style: st})
+			idx := h.scrollLeft + j
+			cellStyle := st
+			if idx < len(styles) {
+				cellStyle = styles[idx]
+			}
+			surface.SetCell(x+1+j, row, term.Cell{Ch: runes[idx], Style: cellStyle})
 		}
 	}
 
@@ -232,6 +238,16 @@ func (h *HoverWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 	return EventIgnored
+}
+
+func buildStyleRuns(line markdown.Line) []term.Style {
+	var styles []term.Style
+	for _, span := range line.Spans {
+		for range []rune(span.Text) {
+			styles = append(styles, span.Style)
+		}
+	}
+	return styles
 }
 
 func (h *HoverWidget) visibleContentWidth() int {
