@@ -30,16 +30,18 @@ type chordState struct {
 }
 
 type Root struct {
-	Main         Widget
-	Overlays     []Overlay
-	Focused      Widget
-	Width        int
-	Height       int
-	GlobalKeys   []GlobalKeyBinding
-	ForceKeys    []GlobalKeyBinding // checked even when focused widget wants raw keys
-	ChordKeys    []ChordKeyBinding
-	chord        *chordState
-	OnRightClick func(mx, my int)
+	Main              Widget
+	Overlays          []Overlay
+	Focused           Widget
+	Width             int
+	Height            int
+	GlobalKeys        []GlobalKeyBinding
+	ForceKeys         []GlobalKeyBinding // checked even when focused widget wants raw keys
+	ChordKeys         []ChordKeyBinding
+	chord             *chordState
+	OnRightClick      func(mx, my int)
+	EscapeDismissers  []func() bool
+	EscapeFallback    func()
 }
 
 func NewRoot(main Widget) *Root {
@@ -88,6 +90,23 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 
 	if !isKey {
 		return r.handleMouse(ev)
+	}
+
+	if kev.Key() == tcell.KeyEscape {
+		for _, dismiss := range r.EscapeDismissers {
+			if dismiss() {
+				return EventConsumed
+			}
+		}
+		if r.Focused != nil {
+			if r.Focused.HandleEvent(ev) == EventConsumed {
+				return EventConsumed
+			}
+		}
+		if r.EscapeFallback != nil {
+			r.EscapeFallback()
+		}
+		return EventConsumed
 	}
 
 	if res := r.handleChord(kev); res == EventConsumed {

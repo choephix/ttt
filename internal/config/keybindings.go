@@ -150,7 +150,6 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+c", Command: "editor.copy"},
 		{Key: "ctrl+x", Command: "editor.cut"},
 		{Key: "ctrl+v", Command: "editor.paste"},
-		{Key: "escape", Command: "editor.focus"},
 		{Key: "f3", Command: "search.findNext"},
 		{Key: "shift+f3", Command: "search.findPrev"},
 		{Key: "ctrl+k e", Command: "sidebar.explorer"},
