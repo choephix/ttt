@@ -19,6 +19,7 @@ type StatusBarWidget struct {
 	indentSpan     statusBarSpan
 	okSpan         statusBarSpan
 	actionSpan     statusBarSpan
+	secondarySpan  statusBarSpan
 }
 
 func NewStatusBarWidget(status *view.StatusBar) *StatusBarWidget {
@@ -116,6 +117,7 @@ func (s *StatusBarWidget) renderNotification(surface *RenderSurface, w int) {
 	x += s.drawText(surface, x, s.Status.Notification, style)
 
 	s.actionSpan = statusBarSpan{}
+	s.secondarySpan = statusBarSpan{}
 	s.okSpan = statusBarSpan{}
 	rightX := w - 1
 
@@ -126,6 +128,17 @@ func (s *StatusBarWidget) renderNotification(surface *RenderSurface, w int) {
 			s.actionSpan = statusBarSpan{r.X + actionX, r.X + actionX + len([]rune(actionLabel))}
 			for i, ch := range actionLabel {
 				surface.SetCell(actionX+i, 0, term.Cell{Ch: ch, Style: style})
+			}
+			rightX = actionX
+		}
+		if s.Status.SecondaryLabel != "" && s.Status.SecondaryAction != nil {
+			secLabel := " [" + s.Status.SecondaryLabel + "] "
+			secX := rightX - len([]rune(secLabel))
+			if secX > x+2 {
+				s.secondarySpan = statusBarSpan{r.X + secX, r.X + secX + len([]rune(secLabel))}
+				for i, ch := range secLabel {
+					surface.SetCell(secX+i, 0, term.Cell{Ch: ch, Style: style})
+				}
 			}
 		}
 	} else {
@@ -161,6 +174,13 @@ func (s *StatusBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		if s.actionSpan.start != s.actionSpan.end && mx >= s.actionSpan.start && mx < s.actionSpan.end {
 			if s.Status.NotifyAction != nil {
 				s.Status.NotifyAction()
+			}
+			s.Status.DismissNotification()
+			return EventConsumed
+		}
+		if s.secondarySpan.start != s.secondarySpan.end && mx >= s.secondarySpan.start && mx < s.secondarySpan.end {
+			if s.Status.SecondaryAction != nil {
+				s.Status.SecondaryAction()
 			}
 			s.Status.DismissNotification()
 			return EventConsumed

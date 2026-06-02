@@ -42,11 +42,16 @@ type LSPServerConfig struct {
 }
 
 type LSPSettings struct {
-	Enabled          *bool                      `json:"enabled,omitempty"`
-	Servers          map[string]LSPServerConfig `json:"servers,omitempty"`
-	SaveOnRename     bool                       `json:"saveOnRename"`
-	CodeActionsOnSave []string                  `json:"codeActionsOnSave,omitempty"`
-	HoverDelay       int                        `json:"hoverDelay,omitempty"`
+	Enabled            *bool                      `json:"enabled,omitempty"`
+	Servers            map[string]LSPServerConfig `json:"servers,omitempty"`
+	SaveOnRename       bool                       `json:"saveOnRename"`
+	CodeActionsOnSave  []string                   `json:"codeActionsOnSave,omitempty"`
+	HoverDelay         int                        `json:"hoverDelay,omitempty"`
+	NotifyAvailability *bool                      `json:"notifyAvailability,omitempty"`
+}
+
+func (l LSPSettings) ShouldNotifyAvailability() bool {
+	return l.NotifyAvailability == nil || *l.NotifyAvailability
 }
 
 func (l LSPSettings) IsEnabled() bool {
@@ -75,6 +80,7 @@ func DefaultExplorerSettings() ExplorerSettings {
 }
 
 type Settings struct {
+	Version        int              `json:"version"`
 	TabSize        int              `json:"tabSize"`
 	InsertSpaces   bool             `json:"insertSpaces"`
 	WordWrap       bool             `json:"wordWrap"`
@@ -94,6 +100,7 @@ type Settings struct {
 
 func DefaultSettings() Settings {
 	return Settings{
+		Version:        1,
 		TabSize:        4,
 		InsertSpaces:   true,
 		WordWrap:       false,
