@@ -24,6 +24,8 @@ func (l Line) Text() string {
 	return b.String()
 }
 
+const WrapWidth = 60
+
 func Render(text string) []Line {
 	raw := strings.Split(strings.TrimRight(text, "\n"), "\n")
 	var lines []Line
@@ -49,10 +51,66 @@ func Render(text string) []Line {
 			i++
 			continue
 		}
-		lines = append(lines, renderInline(line))
+		parsed := renderInline(line)
+		lines = append(lines, wrapLine(parsed, WrapWidth)...)
 		i++
 	}
 	return lines
+}
+
+func wrapLine(line Line, width int) []Line {
+	text := line.Text()
+	if len([]rune(text)) <= width {
+		return []Line{line}
+	}
+	styles := flattenStyles(line)
+	runes := []rune(text)
+	var result []Line
+	for len(runes) > 0 {
+		end := width
+		if end > len(runes) {
+			end = len(runes)
+		}
+		if end < len(runes) {
+			// break at last space within width
+			bp := -1
+			for j := end - 1; j > 0; j-- {
+				if runes[j] == ' ' {
+					bp = j
+					break
+				}
+			}
+			if bp > 0 {
+				end = bp + 1
+			}
+		}
+		var spans []Span
+		pos := 0
+		chunk := runes[:end]
+		chunkStyles := styles[:end]
+		for pos < len(chunk) {
+			st := chunkStyles[pos]
+			start := pos
+			for pos < len(chunk) && chunkStyles[pos] == st {
+				pos++
+			}
+			spans = append(spans, Span{Text: string(chunk[start:pos]), Style: st})
+		}
+		result = append(result, Line{Spans: spans})
+		runes = runes[end:]
+		styles = styles[end:]
+	}
+	return result
+}
+
+func flattenStyles(line Line) []term.Style {
+	var styles []term.Style
+	for _, span := range line.Spans {
+		for range []rune(span.Text) {
+			styles = append(styles, span.Style)
+		}
+	}
+	return styles
 }
 
 func renderCodeBlock(block []string, lang string) []Line {
