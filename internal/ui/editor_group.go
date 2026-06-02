@@ -621,6 +621,18 @@ func (g *EditorGroupWidget) ToggleLineComment() {
 	}
 }
 
+func (g *EditorGroupWidget) MoveWordLeft(shift bool) {
+	if g.IsEditorActive() {
+		g.Editor.MoveWordLeft(shift)
+	}
+}
+
+func (g *EditorGroupWidget) MoveWordRight(shift bool) {
+	if g.IsEditorActive() {
+		g.Editor.MoveWordRight(shift)
+	}
+}
+
 func (g *EditorGroupWidget) DeleteWordLeft() {
 	if g.IsEditorActive() {
 		g.Editor.DeleteWordLeft()
