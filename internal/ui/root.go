@@ -136,8 +136,9 @@ func (r *Root) handleOverlay(ev tcell.Event) EventResult {
 	}
 	top := r.Overlays[len(r.Overlays)-1]
 	slog.Debug("root", "action", "overlayIntercept", "modal", top.Modal, "count", len(r.Overlays))
-	if top.Modal {
-		return top.Widget.HandleEvent(ev)
+	result := top.Widget.HandleEvent(ev)
+	if top.Modal || result == EventConsumed {
+		return result
 	}
 	return EventIgnored
 }

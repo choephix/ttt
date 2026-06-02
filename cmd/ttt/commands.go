@@ -578,7 +578,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 				app.DismissDialog()
 				app.editorGroup.ClearSearch()
 			}
-			app.ShowDialog(findBar)
+			app.ShowFindBar(findBar)
 		},
 	})
 
