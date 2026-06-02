@@ -78,7 +78,6 @@ jobs:
           npm install -g typescript typescript-language-server
           npm install -g vscode-langservers-extracted
           npm install -g yaml-language-server
-          npm install -g bash-language-server
           npm install -g svelte-language-server
           pip install pyright
           sudo apt-get install -y clangd
@@ -89,4 +88,4 @@ jobs:
 
       - name: Run functional tests
         working-directory: tests/functional
-        run: pnpm test
+        run: pnpm test -- --reporter=verbose
