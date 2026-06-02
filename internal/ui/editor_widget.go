@@ -1157,32 +1157,90 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 	e.scrollViewport()
 }
 
+func wordBoundaryLeft(runes []rune, col int) int {
+	pos := col - 1
+	if pos >= len(runes) {
+		pos = len(runes) - 1
+	}
+	if pos < 0 {
+		return 0
+	}
+	if unicode.IsSpace(runes[pos]) {
+		for pos > 0 && unicode.IsSpace(runes[pos-1]) {
+			pos--
+		}
+	} else if isEditorIdentRune(runes[pos]) {
+		for pos > 0 && isEditorIdentRune(runes[pos-1]) {
+			pos--
+		}
+	} else {
+		for pos > 0 && !isEditorIdentRune(runes[pos-1]) && !unicode.IsSpace(runes[pos-1]) {
+			pos--
+		}
+	}
+	return pos
+}
+
+func wordBoundaryRight(runes []rune, col int) int {
+	pos := col
+	if pos >= len(runes) {
+		return len(runes)
+	}
+	if unicode.IsSpace(runes[pos]) {
+		for pos < len(runes) && unicode.IsSpace(runes[pos]) {
+			pos++
+		}
+	} else if isEditorIdentRune(runes[pos]) {
+		for pos < len(runes) && isEditorIdentRune(runes[pos]) {
+			pos++
+		}
+	} else {
+		for pos < len(runes) && !isEditorIdentRune(runes[pos]) && !unicode.IsSpace(runes[pos]) {
+			pos++
+		}
+	}
+	return pos
+}
+
+func (e *EditorPaneWidget) MoveWordLeft(shift bool) {
+	e.startOrExtendSelection(shift)
+	if e.Cursor.Col == 0 {
+		if e.Cursor.Line > 0 {
+			e.Cursor.Line--
+			e.Cursor.Col = len([]rune(e.Buf.Lines[e.Cursor.Line]))
+		}
+	} else {
+		runes := []rune(e.Buf.Lines[e.Cursor.Line])
+		e.Cursor.Col = wordBoundaryLeft(runes, e.Cursor.Col)
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) MoveWordRight(shift bool) {
+	e.startOrExtendSelection(shift)
+	runes := []rune(e.Buf.Lines[e.Cursor.Line])
+	if e.Cursor.Col >= len(runes) {
+		if e.Cursor.Line < len(e.Buf.Lines)-1 {
+			e.Cursor.Line++
+			e.Cursor.Col = 0
+		}
+	} else {
+		e.Cursor.Col = wordBoundaryRight(runes, e.Cursor.Col)
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
 func (e *EditorPaneWidget) DeleteWordLeft() {
 	if e.Cursor.Col == 0 {
 		return
 	}
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
-	end := e.Cursor.Col
-	start := end - 1
-	if start >= len(runes) {
-		start = len(runes) - 1
-	}
-	if unicode.IsSpace(runes[start]) {
-		for start > 0 && unicode.IsSpace(runes[start-1]) {
-			start--
-		}
-	} else if isEditorIdentRune(runes[start]) {
-		for start > 0 && isEditorIdentRune(runes[start-1]) {
-			start--
-		}
-	} else {
-		for start > 0 && !isEditorIdentRune(runes[start-1]) && !unicode.IsSpace(runes[start-1]) {
-			start--
-		}
-	}
+	start := wordBoundaryLeft(runes, e.Cursor.Col)
 	e.exec(&undo.DeleteSelectionCommand{
 		StartLine: e.Cursor.Line, StartCol: start,
-		EndLine: e.Cursor.Line, EndCol: end,
+		EndLine: e.Cursor.Line, EndCol: e.Cursor.Col,
 	})
 	e.Cursor.Col = start
 	e.clampCursor()
@@ -1194,23 +1252,9 @@ func (e *EditorPaneWidget) DeleteWordRight() {
 	if e.Cursor.Col >= len(runes) {
 		return
 	}
-	start := e.Cursor.Col
-	end := start
-	if unicode.IsSpace(runes[end]) {
-		for end < len(runes) && unicode.IsSpace(runes[end]) {
-			end++
-		}
-	} else if isEditorIdentRune(runes[end]) {
-		for end < len(runes) && isEditorIdentRune(runes[end]) {
-			end++
-		}
-	} else {
-		for end < len(runes) && !isEditorIdentRune(runes[end]) && !unicode.IsSpace(runes[end]) {
-			end++
-		}
-	}
+	end := wordBoundaryRight(runes, e.Cursor.Col)
 	e.exec(&undo.DeleteSelectionCommand{
-		StartLine: e.Cursor.Line, StartCol: start,
+		StartLine: e.Cursor.Line, StartCol: e.Cursor.Col,
 		EndLine: e.Cursor.Line, EndCol: end,
 	})
 	e.clampCursor()

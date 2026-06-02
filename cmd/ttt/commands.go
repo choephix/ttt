@@ -511,6 +511,22 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 		Handler: func() { app.editorGroup.ToggleLineComment() },
 	})
 	reg.Register(command.Command{
+		ID: "editor.moveWordLeft", Title: "Move Word Left",
+		Handler: func() { app.editorGroup.MoveWordLeft(false) },
+	})
+	reg.Register(command.Command{
+		ID: "editor.moveWordRight", Title: "Move Word Right",
+		Handler: func() { app.editorGroup.MoveWordRight(false) },
+	})
+	reg.Register(command.Command{
+		ID: "editor.selectWordLeft", Title: "Select Word Left",
+		Handler: func() { app.editorGroup.MoveWordLeft(true) },
+	})
+	reg.Register(command.Command{
+		ID: "editor.selectWordRight", Title: "Select Word Right",
+		Handler: func() { app.editorGroup.MoveWordRight(true) },
+	})
+	reg.Register(command.Command{
 		ID: "editor.deleteWordLeft", Title: "Delete Word Left",
 		Handler: func() { app.editorGroup.DeleteWordLeft() },
 	})
