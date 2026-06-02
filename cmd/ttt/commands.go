@@ -1445,6 +1445,11 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		if err := git.Commit(dir, message); err != nil {
 			app.StatusError("Commit failed: " + err.Error())
 		} else {
+			for i := range app.changes.Groups {
+				if app.changes.Groups[i].Dir == dir {
+					app.changes.Groups[i].Input.Clear()
+				}
+			}
 			app.StatusNotify("Committed: " + message)
 			app.changes.Refresh()
 		}
