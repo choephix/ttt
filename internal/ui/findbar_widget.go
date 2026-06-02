@@ -21,13 +21,14 @@ type FindBarWidget struct {
 	OnSearch   func(query string, opts SearchOptions) []FindMatch
 	OnNavigate func(match FindMatch)
 	OnDismiss  func()
+	focused    bool
 	btnPrev    HitRegion
 	btnNext    HitRegion
 	btnClose   HitRegion
 }
 
 func NewFindBarWidget() *FindBarWidget {
-	f := &FindBarWidget{}
+	f := &FindBarWidget{focused: true}
 	f.Input = NewInputWidget(" > ")
 	f.Input.Placeholder = "Search"
 	f.Input.OnChange = func(string) {
@@ -73,6 +74,9 @@ func (f *FindBarWidget) barLayout() (barX, barY, barW, barH int) {
 func (f *FindBarWidget) Focusable() bool { return true }
 
 func (f *FindBarWidget) CursorPosition() (int, int, bool) {
+	if !f.focused {
+		return 0, 0, false
+	}
 	r := f.GetRect()
 	barX, barY, barW, _ := f.barLayout()
 	row := barY + 1
@@ -165,52 +169,62 @@ func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	case *tcell.EventMouse:
 		if tev.Buttons()&tcell.Button1 != 0 {
 			mx, my := tev.Position()
-			barX, barY, barW, _ := f.barLayout()
+			barX, barY, barW, barH := f.barLayout()
 			r := f.GetRect()
 			localX := mx - r.X
 			localY := my - r.Y
-			row := barY + 1
-			if localY == row && localX >= barX+1 && localX < barX+1+barW-2 {
-				if f.Input.HandleMouseClick(localX, localY) {
-					return EventConsumed
+			if localY >= barY && localY < barY+barH && localX >= barX && localX < barX+barW {
+				f.focused = true
+				row := barY + 1
+				if localY == row && localX >= barX+1 && localX < barX+1+barW-2 {
+					f.Input.HandleMouseClick(localX, localY)
 				}
-			}
-			if f.btnPrev.Contains(mx, my) {
-				if len(f.Matches) > 0 {
-					f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
-					f.navigate()
+				if f.btnPrev.Contains(mx, my) {
+					if len(f.Matches) > 0 {
+						f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
+						f.navigate()
+					}
+				}
+				if f.btnNext.Contains(mx, my) {
+					if len(f.Matches) > 0 {
+						f.Current = (f.Current + 1) % len(f.Matches)
+						f.navigate()
+					}
+				}
+				if f.btnClose.Contains(mx, my) {
+					if f.OnDismiss != nil {
+						f.OnDismiss()
+					}
 				}
 				return EventConsumed
 			}
-			if f.btnNext.Contains(mx, my) {
-				if len(f.Matches) > 0 {
-					f.Current = (f.Current + 1) % len(f.Matches)
-					f.navigate()
-				}
-				return EventConsumed
-			}
-			if f.btnClose.Contains(mx, my) {
-				if f.OnDismiss != nil {
-					f.OnDismiss()
-				}
-				return EventConsumed
-			}
+			f.focused = false
 		}
-		return EventConsumed
+		return EventIgnored
 	case *tcell.EventKey:
 		return f.handleKey(tev)
 	}
-	return EventConsumed
+	return EventIgnored
 }
 
 func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
+	if !f.focused {
+		if kev.Key() == tcell.KeyEscape {
+			if f.OnDismiss != nil {
+				f.OnDismiss()
+			}
+			return EventConsumed
+		}
+		return EventIgnored
+	}
+
 	switch kev.Key() {
 	case tcell.KeyEscape:
 		if f.OnDismiss != nil {
 			f.OnDismiss()
 		}
 		return EventConsumed
-	case tcell.KeyEnter:
+	case tcell.KeyEnter, tcell.KeyDown:
 		if len(f.Matches) > 0 {
 			if kev.Modifiers()&tcell.ModShift != 0 {
 				f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
@@ -223,12 +237,6 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	case tcell.KeyUp:
 		if len(f.Matches) > 0 {
 			f.Current = (f.Current - 1 + len(f.Matches)) % len(f.Matches)
-			f.navigate()
-		}
-		return EventConsumed
-	case tcell.KeyDown:
-		if len(f.Matches) > 0 {
-			f.Current = (f.Current + 1) % len(f.Matches)
 			f.navigate()
 		}
 		return EventConsumed
@@ -255,5 +263,5 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 		return EventConsumed
 	}
 
-	return EventConsumed
+	return EventIgnored
 }

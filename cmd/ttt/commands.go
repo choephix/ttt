@@ -25,6 +25,7 @@ func registerCommands(reg *command.Registry, app *App, running *bool, quitPendin
 	registerWorkspaceCommands(reg, app)
 	registerPRCommands(reg, app)
 	registerWidgetCallbacks(reg, app)
+	registerEscapeDismissers(app)
 }
 
 func registerViewCommands(reg *command.Registry, app *App) {
@@ -197,15 +198,6 @@ func registerEditorCommands(reg *command.Registry, app *App, running *bool, quit
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "Focus Editor",
 		Handler: func() {
-			app.DismissHover()
-			if app.IsAutocompleteActive() {
-				app.DismissAutocomplete()
-				return
-			}
-			if app.editorGroup.IsMultiCursorActive() {
-				app.editorGroup.CollapseMultiCursor()
-				return
-			}
 			app.FocusEditor()
 		},
 	})
@@ -586,7 +578,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 				app.DismissDialog()
 				app.editorGroup.ClearSearch()
 			}
-			app.ShowDialog(findBar)
+			app.ShowFindBar(findBar)
 		},
 	})
 
@@ -1550,4 +1542,40 @@ func formatKeyBinding(key string) string {
 		parts[i] = strings.Join(tokens, "+")
 	}
 	return strings.Join(parts, " ")
+}
+
+func registerEscapeDismissers(app *App) {
+	app.root.EscapeDismissers = []func() bool{
+		func() bool {
+			if app.IsAutocompleteActive() {
+				app.DismissAutocomplete()
+				return true
+			}
+			return false
+		},
+		func() bool {
+			if app.editorGroup.SignatureHelp != nil {
+				app.DismissSignatureHelp()
+				return true
+			}
+			return false
+		},
+		func() bool {
+			if app.editorGroup.Hover != nil {
+				app.DismissHover()
+				return true
+			}
+			return false
+		},
+		func() bool {
+			if app.editorGroup.IsMultiCursorActive() {
+				app.editorGroup.CollapseMultiCursor()
+				return true
+			}
+			return false
+		},
+	}
+	app.root.EscapeFallback = func() {
+		app.FocusEditor()
+	}
 }

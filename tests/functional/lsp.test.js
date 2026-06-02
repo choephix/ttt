@@ -14,7 +14,12 @@ import { createTempDir, cleanupDir } from "./helpers.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LSP_DIR = resolve(__dirname, "lsp");
-const LOG_FILE = resolve(__dirname, "ttt.log");
+const LOG_FILE = resolve(
+  process.env.HOME || process.env.USERPROFILE,
+  ".config",
+  "ttt",
+  "ttt.log"
+);
 
 function sleep(ms) {
   execSync(`sleep ${ms / 1000}`);

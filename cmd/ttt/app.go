@@ -1173,6 +1173,10 @@ func (a *App) ShowDialog(w ui.Widget) {
 	a.root.SetFocus(w)
 }
 
+func (a *App) ShowFindBar(w ui.Widget) {
+	a.root.PushOverlay(ui.Overlay{Widget: w, Modal: false})
+}
+
 func (a *App) DismissDialog() {
 	a.root.PopOverlay()
 	a.FocusEditor()
@@ -1232,7 +1236,7 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 		a.DismissDialog()
 		dv.ClearSearch()
 	}
-	a.ShowDialog(findBar)
+	a.ShowFindBar(findBar)
 }
 
 func (a *App) ShowPicker(items []command.Command, onSelect func(id string)) {
