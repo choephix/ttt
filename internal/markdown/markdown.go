@@ -1,11 +1,16 @@
 package markdown
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/core/highlight"
 	"github.com/eugenioenko/ttt/internal/term"
 )
+
+// Strip blank lines adjacent to --- dividers (LSP hover content often has extra newlines around them)
+var reDividerBlanks = regexp.MustCompile(`\n+---`)
+var reDividerBlanksAfter = regexp.MustCompile(`---\n+`)
 
 type Span struct {
 	Text  string
@@ -27,7 +32,10 @@ func (l Line) Text() string {
 const WrapWidth = 60
 
 func Render(text string) []Line {
-	raw := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	text = strings.TrimRight(text, "\n")
+	text = reDividerBlanks.ReplaceAllString(text, "\n---")
+	text = reDividerBlanksAfter.ReplaceAllString(text, "---\n")
+	raw := strings.Split(text, "\n")
 	var lines []Line
 	i := 0
 	for i < len(raw) {
