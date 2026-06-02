@@ -148,8 +148,8 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 	}
 
 	if hasVScroll {
-		h.vscrollbar.X = x + menuW - 2
-		h.vscrollbar.Y = y + 1
+		h.vscrollbar.X = h.OffsetX + x + menuW - 2
+		h.vscrollbar.Y = h.OffsetY + y + 1
 		h.vscrollbar.Height = visLines
 		h.vscrollbar.TotalItems = len(h.Lines)
 		h.vscrollbar.TopItem = h.scrollTop
@@ -161,15 +161,15 @@ func (h *HoverWidget) Render(surface *RenderSurface) {
 		if hasVScroll {
 			trackW--
 		}
-		h.hscrollbar.X = x + 1
-		h.hscrollbar.Y = y + menuH - 2
+		h.hscrollbar.X = h.OffsetX + x + 1
+		h.hscrollbar.Y = h.OffsetY + y + menuH - 2
 		h.hscrollbar.Width = trackW
 		h.hscrollbar.TotalCols = h.maxLineW
 		h.hscrollbar.LeftCol = h.scrollLeft
 		h.hscrollbar.Render(surface, x+1, y+menuH-2)
 	}
 
-	h.SetRect(Rect{X: x, Y: y, W: menuW, H: menuH})
+	h.SetRect(Rect{X: h.OffsetX + x, Y: h.OffsetY + y, W: menuW, H: menuH})
 }
 
 func (h *HoverWidget) HandleEvent(ev tcell.Event) EventResult {
@@ -239,6 +239,10 @@ func (h *HoverWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 	return EventIgnored
+}
+
+func (h *HoverWidget) IsDragging() bool {
+	return h.vscrollbar.IsDragging() || h.hscrollbar.IsDragging()
 }
 
 func (h *HoverWidget) contentWidth() int {
