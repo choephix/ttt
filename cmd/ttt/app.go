@@ -1210,16 +1210,12 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 	findBar := ui.NewFindBarWidget()
 	findBar.Borders = a.borders
 	findBar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
-		leftLines := dv.LeftLines()
-		rightLines := dv.RightLines()
-		slog.Debug("diffFindBar", "query", query, "leftLines", len(leftLines), "rightLines", len(rightLines))
-		leftMatches, err := ui.FindInLines(leftLines, query, opts)
+		leftMatches, err := ui.FindInLines(dv.LeftLines(), query, opts)
 		if err != nil {
 			a.StatusWarn("Invalid regex: " + err.Error())
 			return nil
 		}
-		rightMatches, _ := ui.FindInLines(rightLines, query, opts)
-		slog.Debug("diffFindBar", "leftMatches", len(leftMatches), "rightMatches", len(rightMatches))
+		rightMatches, _ := ui.FindInLines(dv.RightLines(), query, opts)
 		return dv.SetSearchMatches(leftMatches, rightMatches)
 	}
 	findBar.OnNavigate = func(match ui.FindMatch) {
