@@ -21,7 +21,9 @@ describe("undo and redo", () => {
     tui.type(" Added");
     tui.waitFor("Base Added");
 
-    for (let i = 0; i < 6; i++) tui.press("ctrl+z");
+    // "Added" is one group, " " is one group → 2 undos
+    tui.press("ctrl+z");
+    tui.press("ctrl+z");
     tui.waitStable();
 
     const snap = tui.snapshot();
@@ -40,11 +42,13 @@ describe("undo and redo", () => {
     tui.type(" Extra");
     tui.waitFor("Base Extra");
 
-    for (let i = 0; i < 6; i++) tui.press("ctrl+z");
+    tui.press("ctrl+z");
+    tui.press("ctrl+z");
     tui.waitStable();
     expect(tui.snapshot()).not.toContain("Extra");
 
-    for (let i = 0; i < 6; i++) tui.press("ctrl+y");
+    tui.press("ctrl+y");
+    tui.press("ctrl+y");
     tui.waitStable();
     expect(tui.snapshot()).toContain("Base Extra");
   });
@@ -67,11 +71,59 @@ describe("undo and redo", () => {
     tui.type(" Third");
     tui.waitFor("First Second Third");
 
-    for (let i = 0; i < 6; i++) tui.press("ctrl+z");
+    // "Third" is one group, " " is one group → 2 undos
+    tui.press("ctrl+z");
+    tui.press("ctrl+z");
     tui.waitStable();
 
     tui.press("ctrl+s");
     tui.waitStable();
     expect(readFile(file)).toBe("First Second\n");
+  });
+
+  it("should undo word by word, not char by char", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "group.txt", "");
+
+    tui.start(file);
+    tui.waitStable();
+
+    tui.type("hello world");
+    tui.waitFor("hello world");
+
+    // One undo removes "world"
+    tui.press("ctrl+z");
+    tui.waitStable();
+    expect(tui.snapshot()).toContain("hello ");
+    expect(tui.snapshot()).not.toContain("hello world");
+
+    // Next undo removes the space
+    tui.press("ctrl+z");
+    tui.waitStable();
+
+    // Next undo removes "hello"
+    tui.press("ctrl+z");
+    tui.waitStable();
+    expect(tui.snapshot()).not.toContain("hello");
+  });
+
+  it("should break undo group on cursor movement", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "cursor.txt", "");
+
+    tui.start(file);
+    tui.waitStable();
+
+    tui.type("ab");
+    tui.press("arrow_left");
+    tui.press("arrow_right");
+    tui.type("cd");
+    tui.waitFor("abcd");
+
+    // First undo removes "cd" (typed after cursor movement)
+    tui.press("ctrl+z");
+    tui.waitStable();
+    expect(tui.snapshot()).toContain("ab");
+    expect(tui.snapshot()).not.toContain("abcd");
   });
 });

@@ -306,6 +306,9 @@ func (e *EditorPaneWidget) deleteSelection() {
 	if e.Selection == nil || !e.Selection.Active {
 		return
 	}
+	if e.Undo != nil {
+		e.Undo.BreakGroup()
+	}
 	start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
 	cmd := &undo.DeleteSelectionCommand{
 		StartLine: start.Line, StartCol: start.Col,
@@ -419,6 +422,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		if btn&tcell.Button1 != 0 {
+			if e.Undo != nil {
+				e.Undo.BreakGroup()
+			}
 			r := e.GetRect()
 			mx, my := mev.Position()
 			line, col := e.mouseToPos(r, mx, my)
@@ -485,6 +491,14 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
 		return EventIgnored
+	}
+
+	switch kev.Key() {
+	case tcell.KeyRune, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete:
+	default:
+		if e.Undo != nil {
+			e.Undo.BreakGroup()
+		}
 	}
 
 	shift := kev.Modifiers()&tcell.ModShift != 0
