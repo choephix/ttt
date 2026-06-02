@@ -1057,13 +1057,19 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 	serverCfg := a.lspManager.ServerConfig(serverKey)
 	if len(serverCfg.Command) > 0 {
 		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
-			if !a.lspNotified[serverKey] {
+			if !a.lspNotified[serverKey] && a.settings.LSP.ShouldNotifyAvailability() {
 				a.lspNotified[serverKey] = true
 				msg := fmt.Sprintf("%s autocomplete support is available. Click Docs for installation instructions.", lang)
 				anchor := serverKey
 				a.status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
 					openURL("https://tttedit.dev/guides/lsp/#" + anchor)
 				})
+				a.status.SecondaryLabel = "Don't show again"
+				a.status.SecondaryAction = func() {
+					v := false
+					a.settings.LSP.NotifyAvailability = &v
+					config.SaveSettings(*a.settings)
+				}
 				time.AfterFunc(10*time.Second, func() {
 					a.screen.PostEvent(tcell.NewEventInterrupt(nil))
 				})

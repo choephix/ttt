@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"os/exec"
+
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -43,7 +45,14 @@ func runEventLoop(
 		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
 			lang := app.editorGroup.Editor.Highlighter.Language()
 			app.status.Language = lang
-			_, _, lspOk := app.lspResolve(filePath, lang)
+			serverKey, _, lspOk := app.lspResolve(filePath, lang)
+			if lspOk {
+				serverCfg := app.lspManager.ServerConfig(serverKey)
+				if len(serverCfg.Command) > 0 {
+					_, err := exec.LookPath(serverCfg.Command[0])
+					lspOk = err == nil
+				}
+			}
 			app.status.LSP = lspOk
 		} else {
 			app.status.Language = ""
