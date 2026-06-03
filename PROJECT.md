@@ -623,6 +623,8 @@ This should be built as part of Phase 2 (widget framework, step 3 — event rout
 - [x] Search results grouped by file, showing matching line with context
 - [x] Click result to open file at that line
 - [x] Respect .gitignore patterns (via ripgrep)
+- [x] Debounced search input (`search.debounce` in settings.json, default 350ms) with generation counter and mutex to prevent concurrent races
+- [x] Editor search highlights tied to search panel lifecycle — cleared when switching away, re-applied from existing results when switching back (no re-run)
 - [ ] Find and replace across files (with preview/confirmation)
 
 ---
@@ -987,8 +989,10 @@ One thing the core needs to support: `editor/openFile` must accept absolute path
 
 ## Design Principles
 
-1. **Core stays terminal-free.** `internal/core/` must compile and test without tcell. All terminal interaction goes through the `Screen` interface.
-2. **Composition over inheritance.** Windows, panes, dialogs, and sidebar are all composed from the same primitives: Rect, Viewport, Buffer, Renderer.
-3. **Test without a terminal.** MockScreen exists for this reason. New UI components should be testable against it.
-4. **Render efficiently.** The diff-based renderer exists from day one. Never rebuild the full screen when a partial update will do.
-5. **Rune-correct.** Cursor positions, selections, and display widths are always rune-based, not byte-based. CJK and emoji support is a goal, not an afterthought.
+1. **UX comes first.** Implement the UI feel and look first, then the functionality. When making design decisions, prioritize user experience over implementation simplicity. If a feature needs good navigation, discoverability, or interaction patterns, invest in that rather than taking shortcuts.
+2. **Core stays terminal-free.** `internal/core/` must compile and test without tcell. All terminal interaction goes through the `Screen` interface.
+3. **Composition over inheritance.** Windows, panes, dialogs, and sidebar are all composed from the same primitives: Rect, Viewport, Buffer, Renderer.
+4. **Single source of truth for layout.** When Render computes layout values (positions, offsets), store them on the struct so event handlers reuse them directly instead of recalculating — divergent calculations cause click offset bugs.
+5. **Test without a terminal.** MockScreen exists for this reason. New UI components should be testable against it.
+6. **Render efficiently.** The diff-based renderer exists from day one. Never rebuild the full screen when a partial update will do.
+7. **Rune-correct.** Cursor positions, selections, and display widths are always rune-based, not byte-based. CJK and emoji support is a goal, not an afterthought.
