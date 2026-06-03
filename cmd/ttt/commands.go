@@ -40,22 +40,14 @@ func registerViewCommands(reg *command.Registry, app *App) {
 		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
 			app.explorer.Reload()
-			app.sidebar.SetActivePanel("explorer")
-			if !app.sidebar.Visible {
-				app.ShowSidebar()
-			}
-			app.root.SetFocus(app.explorer)
+			app.ShowPanel("explorer", app.explorer)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "sidebar.search", Title: "Show Search",
 		Handler: func() {
-			app.sidebar.SetActivePanel("search")
-			if !app.sidebar.Visible {
-				app.ShowSidebar()
-			}
-			app.root.SetFocus(app.search)
+			app.ShowPanel("search", app.search)
 		},
 	})
 
@@ -66,10 +58,7 @@ func registerViewCommands(reg *command.Registry, app *App) {
 				app.search.ToggleReplaceMode()
 			} else {
 				app.search.SetReplaceMode(true)
-				app.sidebar.SetActivePanel("search")
-				if !app.sidebar.Visible {
-					app.ShowSidebar()
-				}
+				app.ShowPanel("search", app.search)
 			}
 			app.root.SetFocus(app.search)
 		},
@@ -79,11 +68,7 @@ func registerViewCommands(reg *command.Registry, app *App) {
 		ID: "sidebar.changes", Title: "Show Changes",
 		Handler: func() {
 			app.changes.Refresh()
-			app.sidebar.SetActivePanel("changes")
-			if !app.sidebar.Visible {
-				app.ShowSidebar()
-			}
-			app.root.SetFocus(app.changes)
+			app.ShowPanel("changes", app.changes)
 		},
 	})
 
@@ -1162,10 +1147,7 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 
 	app.sidebar.OnPanelChange = func(id string) {
 		if id == "search" {
-			if app.search.Input.Text != "" {
-				matches, _ := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, app.search.Input.Text, app.search.Options)
-				app.editorGroup.SetSearch(app.search.Input.Text, matches)
-			}
+			app.applySearchHighlights()
 		} else {
 			app.editorGroup.ClearSearch()
 		}

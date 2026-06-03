@@ -95,11 +95,28 @@ func formatKeyDisplay(key string) string {
 func (a *App) ShowSidebar() {
 	a.sidebar.Visible = true
 	a.splitPanel.ShowLeft = true
+	a.applySearchHighlights()
 }
 
 func (a *App) HideSidebar() {
 	a.sidebar.Visible = false
 	a.splitPanel.ShowLeft = false
+	a.editorGroup.ClearSearch()
+}
+
+func (a *App) applySearchHighlights() {
+	if a.sidebar.ActivePanel == "search" && a.search.Input.Text != "" {
+		matches, _ := ui.FindInLines(a.editorGroup.Editor.Buf.Lines, a.search.Input.Text, a.search.Options)
+		a.editorGroup.SetSearch(a.search.Input.Text, matches)
+	}
+}
+
+func (a *App) ShowPanel(id string, widget ui.Widget) {
+	a.sidebar.SetActivePanel(id)
+	if !a.sidebar.Visible {
+		a.ShowSidebar()
+	}
+	a.root.SetFocus(widget)
 }
 
 func (a *App) ToggleSidebar() {

@@ -86,8 +86,7 @@ func NewSearchWidget() *SearchWidget {
 	s.ReplaceInput.Placeholder = "Replace"
 	s.Input.OnChange = func(text string) {
 		if text == "" {
-			s.cancelSearch()
-			s.runSearch()
+			s.runSearchSync()
 			if s.OnClear != nil {
 				s.OnClear()
 			}
@@ -102,12 +101,12 @@ func NewSearchWidget() *SearchWidget {
 		{Label: "Aa", OnClick: func() {
 			s.Options.CaseSensitive = !s.Options.CaseSensitive
 			s.syncOptionActions()
-			s.runSearch()
+			s.runSearchSync()
 		}},
 		{Label: ".*", OnClick: func() {
 			s.Options.UseRegex = !s.Options.UseRegex
 			s.syncOptionActions()
-			s.runSearch()
+			s.runSearchSync()
 		}},
 	}
 	s.ReplaceInput.Actions = []InputAction{
@@ -138,7 +137,7 @@ func (s *SearchWidget) ToggleReplaceMode() {
 }
 
 func (s *SearchWidget) Refresh() {
-	s.runSearch()
+	s.runSearchSync()
 }
 
 func (s *SearchWidget) visibleInputs() []*InputWidget {
@@ -217,25 +216,35 @@ func (s *SearchWidget) scheduleSearch() {
 		delay = 350
 	}
 	s.debounceTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.Error = fmt.Sprintf("%v", r)
+			}
+			if s.PostEvent != nil {
+				s.PostEvent()
+			}
+		}()
+
 		s.searchMu.Lock()
 		defer s.searchMu.Unlock()
 
 		s.debounceMu.Lock()
 		if gen != s.searchGen {
 			s.debounceMu.Unlock()
-			if s.PostEvent != nil {
-				s.PostEvent()
-			}
 			return
 		}
 		s.debouncing = false
 		s.debounceMu.Unlock()
 
 		s.runSearch()
-		if s.PostEvent != nil {
-			s.PostEvent()
-		}
 	})
+}
+
+func (s *SearchWidget) runSearchSync() {
+	s.cancelSearch()
+	s.searchMu.Lock()
+	defer s.searchMu.Unlock()
+	s.runSearch()
 }
 
 func (s *SearchWidget) runSearch() {
@@ -742,12 +751,12 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			case 'c':
 				s.Options.CaseSensitive = !s.Options.CaseSensitive
 				s.syncOptionActions()
-				s.runSearch()
+				s.runSearchSync()
 				return EventConsumed
 			case 'r':
 				s.Options.UseRegex = !s.Options.UseRegex
 				s.syncOptionActions()
-				s.runSearch()
+				s.runSearchSync()
 				return EventConsumed
 			}
 		}
@@ -766,7 +775,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		case tcell.KeyEnter:
 			if s.focusIdx == 0 && len(s.FlatList) == 0 {
-				s.runSearch()
+				s.runSearchSync()
 			} else {
 				s.activateSelected()
 			}
@@ -780,12 +789,6 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			if s.Selected < len(s.FlatList)-1 {
 				s.Selected++
 			}
-			return EventConsumed
-		case tcell.KeyLeft:
-			s.collapseSelected()
-			return EventConsumed
-		case tcell.KeyRight:
-			s.expandSelected()
 			return EventConsumed
 		default:
 			if s.focusedInput().HandleEvent(ev) == EventConsumed {
@@ -850,27 +853,5 @@ func (s *SearchWidget) activateSelected() {
 				s.OnOpenMatch(m.FilePath, m.LineNum, m.ColStart)
 			}
 		}
-	}
-}
-
-func (s *SearchWidget) collapseSelected() {
-	if s.Selected < 0 || s.Selected >= len(s.FlatList) {
-		return
-	}
-	item := s.FlatList[s.Selected]
-	if item.IsFile {
-		s.Groups[item.Group].Expanded = false
-		s.flatten()
-	}
-}
-
-func (s *SearchWidget) expandSelected() {
-	if s.Selected < 0 || s.Selected >= len(s.FlatList) {
-		return
-	}
-	item := s.FlatList[s.Selected]
-	if item.IsFile {
-		s.Groups[item.Group].Expanded = true
-		s.flatten()
 	}
 }
