@@ -6,6 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
+
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -54,6 +57,15 @@ type SearchWidget struct {
 	OnReplace    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
 	OnPreview    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
+	OnClear      func()
+	PostEvent     func()
+	DebounceMs    int
+	debounceTimer *time.Timer
+	debounceMu    sync.Mutex
+	debouncing    bool
+	searchGen     uint64
+	searchMu      sync.Mutex
+	resultStartY  int
 }
 
 type searchItem struct {
@@ -72,8 +84,18 @@ func NewSearchWidget() *SearchWidget {
 	s.Exclude.Placeholder = "files to exclude"
 	s.ReplaceInput = NewInputWidget()
 	s.ReplaceInput.Placeholder = "Replace"
-	onChange := func(string) { s.runSearch() }
-	s.Input.OnChange = onChange
+	s.Input.OnChange = func(text string) {
+		if text == "" {
+			s.cancelSearch()
+			s.runSearch()
+			if s.OnClear != nil {
+				s.OnClear()
+			}
+			return
+		}
+		s.scheduleSearch()
+	}
+	onChange := func(string) { s.scheduleSearch() }
 	s.Include.OnChange = onChange
 	s.Exclude.OnChange = onChange
 	s.Input.Actions = []InputAction{
@@ -144,17 +166,6 @@ func (s *SearchWidget) SetWorkDirs(dirs []string) {
 
 func (s *SearchWidget) Focusable() bool { return true }
 
-func (s *SearchWidget) resultsStartY() int {
-	base := 2
-	if s.showReplace {
-		base += 2
-	}
-	if s.showFilters {
-		base += 4
-	}
-	return base
-}
-
 func (s *SearchWidget) CursorPosition() (int, int, bool) {
 	r := s.GetRect()
 	inp := s.focusedInput()
@@ -180,6 +191,51 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 		return base + 2
 	}
 	return 0
+}
+
+func (s *SearchWidget) cancelSearch() {
+	s.debounceMu.Lock()
+	defer s.debounceMu.Unlock()
+	if s.debounceTimer != nil {
+		s.debounceTimer.Stop()
+	}
+	s.debouncing = false
+	s.searchGen++
+}
+
+func (s *SearchWidget) scheduleSearch() {
+	s.debounceMu.Lock()
+	defer s.debounceMu.Unlock()
+	if s.debounceTimer != nil {
+		s.debounceTimer.Stop()
+	}
+	s.debouncing = true
+	s.searchGen++
+	gen := s.searchGen
+	delay := s.DebounceMs
+	if delay <= 0 {
+		delay = 350
+	}
+	s.debounceTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+		s.searchMu.Lock()
+		defer s.searchMu.Unlock()
+
+		s.debounceMu.Lock()
+		if gen != s.searchGen {
+			s.debounceMu.Unlock()
+			if s.PostEvent != nil {
+				s.PostEvent()
+			}
+			return
+		}
+		s.debouncing = false
+		s.debounceMu.Unlock()
+
+		s.runSearch()
+		if s.PostEvent != nil {
+			s.PostEvent()
+		}
+	})
 }
 
 func (s *SearchWidget) runSearch() {
@@ -419,7 +475,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	if s.Input.Text != "" && len(s.FlatList) == 0 && !s.Searching {
+	if s.Input.Text != "" && len(s.FlatList) == 0 && !s.Searching && !s.debouncing {
 		msg := "No results"
 		for i, ch := range msg {
 			if i < w {
@@ -427,6 +483,19 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 			}
 		}
 		return
+	}
+
+	if s.debouncing || s.Searching {
+		msg := "Searching..."
+		for i, ch := range msg {
+			if i < w {
+				surface.SetCell(i, startY, term.Cell{Ch: ch, Style: term.StyleMuted})
+			}
+		}
+		if len(s.FlatList) == 0 {
+			return
+		}
+		startY++
 	}
 
 	if len(s.Groups) > 0 {
@@ -447,6 +516,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		startY++
 	}
 
+	s.resultStartY = startY
 	visibleH := h - startY
 	if visibleH <= 0 {
 		return
@@ -630,12 +700,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 				}
 			}
 
-			startY := s.resultsStartY()
-			if len(s.Groups) > 0 {
-				startY++
-			}
-
-			idx := s.ScrollTop + (localY - startY)
+			idx := s.ScrollTop + (localY - s.resultStartY)
 			if idx >= 0 && idx < len(s.FlatList) {
 				item := s.FlatList[idx]
 				if s.showReplace && s.ReplaceInput.Text != "" && item.IsFile {

@@ -13,6 +13,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func registerCommands(reg *command.Registry, app *App, running *bool, quitPending *bool) {
@@ -656,6 +658,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 			app.search.FlatList = nil
 			app.search.Selected = 0
 			app.search.ScrollTop = 0
+			app.editorGroup.ClearSearch()
 		},
 	})
 }
@@ -1158,6 +1161,14 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	}
 
 	app.sidebar.OnPanelChange = func(id string) {
+		if id == "search" {
+			if app.search.Input.Text != "" {
+				matches, _ := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, app.search.Input.Text, app.search.Options)
+				app.editorGroup.SetSearch(app.search.Input.Text, matches)
+			}
+		} else {
+			app.editorGroup.ClearSearch()
+		}
 		if id == "changes" {
 			app.changes.Refresh()
 		}
@@ -1204,6 +1215,12 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		app.root.SetFocus(app.editorGroup)
 	}
 
+	app.search.OnClear = func() {
+		app.editorGroup.ClearSearch()
+	}
+	app.search.PostEvent = func() {
+		app.screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
 	app.search.DiffSources = func() []ui.DiffSearchSource {
 		seen := map[string]bool{}
 		sources := app.editorGroup.DiffTabSources()
