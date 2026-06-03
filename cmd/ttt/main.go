@@ -5,8 +5,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
@@ -25,11 +26,7 @@ func initLogger(debug bool) *os.File {
 		slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError})))
 		return nil
 	}
-	logPath := "ttt.log"
-	if home, err := os.UserHomeDir(); err == nil {
-		logPath = filepath.Join(home, ".config", "ttt", "ttt.log")
-		os.MkdirAll(filepath.Dir(logPath), 0755)
-	}
+	logPath := config.ConfigFilePath("ttt.log")
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
@@ -37,6 +34,24 @@ func initLogger(debug bool) *os.File {
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	return f
+}
+
+func handlePanic(screen *term.TcellScreen) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	if screen != nil {
+		screen.Fini()
+	}
+	stack := debug.Stack()
+	crashMsg := fmt.Sprintf("ttt crashed: %v\n\n%s", r, stack)
+	crashPath := config.ConfigFilePath("crash.log")
+	header := fmt.Sprintf("ttt crash report — %s\nVersion: %s\n\n", time.Now().Format(time.RFC3339), version)
+	os.WriteFile(crashPath, []byte(header+crashMsg), 0644)
+	fmt.Fprintf(os.Stderr, "ttt crashed. Crash log saved to %s\n", crashPath)
+	fmt.Fprintln(os.Stderr, crashMsg)
+	os.Exit(1)
 }
 
 func findConfigFlag() string {
@@ -98,6 +113,7 @@ Docs: https://tttedit.dev
 		panic(err)
 	}
 	defer screen.Fini()
+	defer handlePanic(screen)
 
 	screen.SetStyleMap(buildStyleMap(cfg.Theme))
 	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.CursorStyle))
