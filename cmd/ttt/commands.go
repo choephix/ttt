@@ -13,6 +13,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func registerCommands(reg *command.Registry, app *App, running *bool, quitPending *bool) {
@@ -1204,6 +1206,9 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		app.root.SetFocus(app.editorGroup)
 	}
 
+	app.search.PostEvent = func() {
+		app.screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
 	app.search.DiffSources = func() []ui.DiffSearchSource {
 		seen := map[string]bool{}
 		sources := app.editorGroup.DiffTabSources()

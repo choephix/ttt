@@ -6,6 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
+
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -54,6 +57,13 @@ type SearchWidget struct {
 	OnReplace    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
 	OnPreview    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
+	PostEvent     func()
+	DebounceMs    int
+	debounceTimer *time.Timer
+	debounceMu    sync.Mutex
+	debouncing    bool
+	searchGen     uint64
+	searchMu      sync.Mutex
 }
 
 type searchItem struct {
@@ -72,7 +82,7 @@ func NewSearchWidget() *SearchWidget {
 	s.Exclude.Placeholder = "files to exclude"
 	s.ReplaceInput = NewInputWidget()
 	s.ReplaceInput.Placeholder = "Replace"
-	onChange := func(string) { s.runSearch() }
+	onChange := func(string) { s.scheduleSearch() }
 	s.Input.OnChange = onChange
 	s.Include.OnChange = onChange
 	s.Exclude.OnChange = onChange
@@ -180,6 +190,41 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 		return base + 2
 	}
 	return 0
+}
+
+func (s *SearchWidget) scheduleSearch() {
+	s.debounceMu.Lock()
+	defer s.debounceMu.Unlock()
+	if s.debounceTimer != nil {
+		s.debounceTimer.Stop()
+	}
+	s.debouncing = true
+	s.searchGen++
+	gen := s.searchGen
+	delay := s.DebounceMs
+	if delay <= 0 {
+		delay = 350
+	}
+	s.debounceTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+		s.searchMu.Lock()
+		defer s.searchMu.Unlock()
+
+		s.debounceMu.Lock()
+		if gen != s.searchGen {
+			s.debounceMu.Unlock()
+			if s.PostEvent != nil {
+				s.PostEvent()
+			}
+			return
+		}
+		s.debouncing = false
+		s.debounceMu.Unlock()
+
+		s.runSearch()
+		if s.PostEvent != nil {
+			s.PostEvent()
+		}
+	})
 }
 
 func (s *SearchWidget) runSearch() {
@@ -419,7 +464,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	if s.Input.Text != "" && len(s.FlatList) == 0 && !s.Searching {
+	if s.Input.Text != "" && len(s.FlatList) == 0 && !s.Searching && !s.debouncing {
 		msg := "No results"
 		for i, ch := range msg {
 			if i < w {
@@ -427,6 +472,19 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 			}
 		}
 		return
+	}
+
+	if s.debouncing || s.Searching {
+		msg := "Searching..."
+		for i, ch := range msg {
+			if i < w {
+				surface.SetCell(i, startY, term.Cell{Ch: ch, Style: term.StyleMuted})
+			}
+		}
+		if len(s.FlatList) == 0 {
+			return
+		}
+		startY++
 	}
 
 	if len(s.Groups) > 0 {

@@ -67,6 +67,16 @@ func DefaultLSPSettings() LSPSettings {
 	}
 }
 
+type SearchSettings struct {
+	Debounce int `json:"debounce"`
+}
+
+func DefaultSearchSettings() SearchSettings {
+	return SearchSettings{
+		Debounce: 350,
+	}
+}
+
 type ExplorerSettings struct {
 	ShowHidden     bool `json:"showHidden"`
 	ShowGitIgnored bool `json:"showGitIgnored"`
@@ -92,6 +102,7 @@ type Settings struct {
 	DebugMode      bool             `json:"debugMode,omitempty"`
 	FormatOnSave       bool             `json:"formatOnSave"`
 	InsertFinalNewline bool             `json:"insertFinalNewline"`
+	Search         SearchSettings       `json:"search,omitzero"`
 	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`
 	LSP            LSPSettings          `json:"lsp,omitzero"`
@@ -108,6 +119,7 @@ func DefaultSettings() Settings {
 		SidebarVisible: true,
 		SidebarWidth:   30,
 		InsertFinalNewline: true,
+		Search:         DefaultSearchSettings(),
 		Explorer:       DefaultExplorerSettings(),
 		Terminal:       DefaultTerminalSettings(),
 		LSP:            DefaultLSPSettings(),
