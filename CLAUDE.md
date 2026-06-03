@@ -50,9 +50,10 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 - **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw. Accepts a `--workspace <file>` flag to open a saved workspace, or folder/file paths as positional arguments.
 
-### Design Philosophy
+### Design Principles
 
-- **UX comes first.** When making design decisions, prioritize user experience over implementation simplicity. If a feature needs good navigation, discoverability, or interaction patterns, invest in that rather than taking shortcuts.
+1. **UX comes first.** Implement the UI feel and look first, then the functionality. When making design decisions, prioritize user experience over implementation simplicity. If a feature needs good navigation, discoverability, or interaction patterns, invest in that rather than taking shortcuts.
+2. **Single source of truth for layout.** When Render computes layout values (positions, offsets), store them on the struct so event handlers reuse them directly instead of recalculating — divergent calculations cause click offset bugs.
 
 ### Key Design Constraints
 
@@ -64,6 +65,7 @@ The codebase follows a strict layered architecture: **core → view → render �
 - The diff view layers syntax highlighting on top of diff background colors using `BgStyle` layering.
 - **RawKeyConsumer interface**: when the integrated terminal is focused, all key events are routed directly to the PTY. Only force-keys (Ctrl+`) bypass this to allow toggling the terminal panel.
 - Async PTY output wakes the event loop via `PostEvent`/`EventInterrupt`.
+- **Global search** (`search_widget.go`) shells out to `rg` (ripgrep) with debounced input (`search.debounce` in settings.json, default 350ms). Uses a generation counter and mutex to prevent concurrent searches from racing. Editor search highlights are tied to the search panel lifecycle — cleared when switching away, re-applied from existing results when switching back.
 
 ### Keybinding System & tcell Key Mapping
 
