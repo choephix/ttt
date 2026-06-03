@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -21,6 +22,7 @@ type FindBarWidget struct {
 	OnSearch   func(query string, opts SearchOptions) []FindMatch
 	OnNavigate func(match FindMatch)
 	OnDismiss  func()
+	Debounce   Debouncer
 	focused    bool
 	btnPrev    HitRegion
 	btnNext    HitRegion
@@ -147,6 +149,12 @@ func (f *FindBarWidget) currentDisplay() int {
 }
 
 func (f *FindBarWidget) search() {
+	f.Debounce.Schedule(func() {
+		f.doSearch()
+	})
+}
+
+func (f *FindBarWidget) doSearch() {
 	if f.OnSearch != nil {
 		f.Matches = f.OnSearch(f.Input.Text, f.Options)
 		if len(f.Matches) > 0 {
