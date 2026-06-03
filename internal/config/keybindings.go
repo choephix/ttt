@@ -189,6 +189,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "alt+backspace", Command: "editor.deleteWordLeft"},
 		{Key: "alt+delete", Command: "editor.deleteWordRight"},
 		{Key: "ctrl+delete", Command: "editor.deleteWordRight"},
+		{Key: "ctrl+k j", Command: "panel.toggle"},
 		{Key: "ctrl+t", Command: "terminal.toggle"},
 		{Key: "alt+t", Command: "terminal.fullscreen"},
 		{Key: "f10", Command: "menu.file"},
