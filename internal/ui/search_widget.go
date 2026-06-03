@@ -790,12 +790,6 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 				s.Selected++
 			}
 			return EventConsumed
-		case tcell.KeyLeft:
-			s.collapseSelected()
-			return EventConsumed
-		case tcell.KeyRight:
-			s.expandSelected()
-			return EventConsumed
 		default:
 			if s.focusedInput().HandleEvent(ev) == EventConsumed {
 				return EventConsumed
@@ -859,27 +853,5 @@ func (s *SearchWidget) activateSelected() {
 				s.OnOpenMatch(m.FilePath, m.LineNum, m.ColStart)
 			}
 		}
-	}
-}
-
-func (s *SearchWidget) collapseSelected() {
-	if s.Selected < 0 || s.Selected >= len(s.FlatList) {
-		return
-	}
-	item := s.FlatList[s.Selected]
-	if item.IsFile {
-		s.Groups[item.Group].Expanded = false
-		s.flatten()
-	}
-}
-
-func (s *SearchWidget) expandSelected() {
-	if s.Selected < 0 || s.Selected >= len(s.FlatList) {
-		return
-	}
-	item := s.FlatList[s.Selected]
-	if item.IsFile {
-		s.Groups[item.Group].Expanded = true
-		s.flatten()
 	}
 }
