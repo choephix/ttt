@@ -29,7 +29,9 @@ func runEventLoop(
 	lastBlameFile := ""
 	lastBranchDir := app.workspace.Primary()
 	blameGen := 0
-	app.status.Branch = git.BranchName(lastBranchDir)
+	if lastBranchDir != "" {
+		app.status.Branch = git.BranchName(lastBranchDir)
+	}
 	app.status.TabSize = app.settings.TabSize
 
 	syncStatus := func() {
