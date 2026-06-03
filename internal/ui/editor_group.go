@@ -129,6 +129,12 @@ func (g *EditorGroupWidget) reportError(msg string) {
 	}
 }
 
+func (g *EditorGroupWidget) PinActiveTab() {
+	if t := g.activeTab(); t != nil {
+		t.Pinned = true
+	}
+}
+
 func (g *EditorGroupWidget) OpenFile(path string) {
 	for i := range g.tabs {
 		if g.tabs[i].FilePath == path {

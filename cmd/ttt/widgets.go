@@ -85,6 +85,7 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.InsertFinalNewline = cfg.Settings.InsertFinalNewline
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f)
+		editorGroup.PinActiveTab()
 	}
 
 	terminalPanel := ui.NewTerminalPanelWidget()
