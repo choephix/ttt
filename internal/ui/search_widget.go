@@ -57,6 +57,7 @@ type SearchWidget struct {
 	OnReplace    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
 	OnPreview    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
+	OnClear      func()
 	PostEvent     func()
 	DebounceMs    int
 	debounceTimer *time.Timer
@@ -82,8 +83,18 @@ func NewSearchWidget() *SearchWidget {
 	s.Exclude.Placeholder = "files to exclude"
 	s.ReplaceInput = NewInputWidget()
 	s.ReplaceInput.Placeholder = "Replace"
+	s.Input.OnChange = func(text string) {
+		if text == "" {
+			s.cancelSearch()
+			s.runSearch()
+			if s.OnClear != nil {
+				s.OnClear()
+			}
+			return
+		}
+		s.scheduleSearch()
+	}
 	onChange := func(string) { s.scheduleSearch() }
-	s.Input.OnChange = onChange
 	s.Include.OnChange = onChange
 	s.Exclude.OnChange = onChange
 	s.Input.Actions = []InputAction{
@@ -190,6 +201,16 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 		return base + 2
 	}
 	return 0
+}
+
+func (s *SearchWidget) cancelSearch() {
+	s.debounceMu.Lock()
+	defer s.debounceMu.Unlock()
+	if s.debounceTimer != nil {
+		s.debounceTimer.Stop()
+	}
+	s.debouncing = false
+	s.searchGen++
 }
 
 func (s *SearchWidget) scheduleSearch() {

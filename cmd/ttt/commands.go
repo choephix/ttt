@@ -658,6 +658,7 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 			app.search.FlatList = nil
 			app.search.Selected = 0
 			app.search.ScrollTop = 0
+			app.editorGroup.ClearSearch()
 		},
 	})
 }
@@ -1160,6 +1161,14 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	}
 
 	app.sidebar.OnPanelChange = func(id string) {
+		if id == "search" {
+			if app.search.Input.Text != "" {
+				matches, _ := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, app.search.Input.Text, app.search.Options)
+				app.editorGroup.SetSearch(app.search.Input.Text, matches)
+			}
+		} else {
+			app.editorGroup.ClearSearch()
+		}
 		if id == "changes" {
 			app.changes.Refresh()
 		}
@@ -1206,6 +1215,9 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 		app.root.SetFocus(app.editorGroup)
 	}
 
+	app.search.OnClear = func() {
+		app.editorGroup.ClearSearch()
+	}
 	app.search.PostEvent = func() {
 		app.screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
