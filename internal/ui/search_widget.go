@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/eugenioenko/ttt/internal/term"
 
@@ -58,14 +57,11 @@ type SearchWidget struct {
 	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
 	OnPreview    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 	OnClear      func()
-	PostEvent     func()
-	DebounceMs    int
-	debounceTimer *time.Timer
-	debounceMu    sync.Mutex
-	debouncing    bool
-	searchGen     uint64
-	searchMu      sync.Mutex
-	resultStartY  int
+	PostEvent    func()
+	Debounce     Debouncer
+	debouncing   bool
+	searchMu     sync.Mutex
+	resultStartY int
 }
 
 type searchItem struct {
@@ -193,49 +189,21 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 }
 
 func (s *SearchWidget) cancelSearch() {
-	s.debounceMu.Lock()
-	defer s.debounceMu.Unlock()
-	if s.debounceTimer != nil {
-		s.debounceTimer.Stop()
-	}
+	s.Debounce.Stop()
 	s.debouncing = false
-	s.searchGen++
 }
 
 func (s *SearchWidget) scheduleSearch() {
-	s.debounceMu.Lock()
-	defer s.debounceMu.Unlock()
-	if s.debounceTimer != nil {
-		s.debounceTimer.Stop()
-	}
 	s.debouncing = true
-	s.searchGen++
-	gen := s.searchGen
-	delay := s.DebounceMs
-	if delay <= 0 {
-		delay = 350
-	}
-	s.debounceTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+	s.Debounce.Schedule(func() {
 		defer func() {
 			if r := recover(); r != nil {
 				s.Error = fmt.Sprintf("%v", r)
 			}
-			if s.PostEvent != nil {
-				s.PostEvent()
-			}
 		}()
-
 		s.searchMu.Lock()
 		defer s.searchMu.Unlock()
-
-		s.debounceMu.Lock()
-		if gen != s.searchGen {
-			s.debounceMu.Unlock()
-			return
-		}
 		s.debouncing = false
-		s.debounceMu.Unlock()
-
 		s.runSearch()
 	})
 }

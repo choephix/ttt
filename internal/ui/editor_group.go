@@ -441,6 +441,7 @@ func (g *EditorGroupWidget) Undo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
+		g.Editor.InvalidateMaxLineWidth()
 	}
 }
 
@@ -454,6 +455,7 @@ func (g *EditorGroupWidget) Redo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
+		g.Editor.InvalidateMaxLineWidth()
 	}
 }
 
@@ -475,6 +477,7 @@ func (g *EditorGroupWidget) SetSearch(query string, matches []FindMatch) {
 	g.Editor.SearchQuery = query
 	g.Editor.SearchMatches = matches
 	g.Editor.SearchActive = 0
+	g.Editor.buildSearchIndex()
 }
 
 func (g *EditorGroupWidget) SetSearchActive(idx int) {
@@ -512,6 +515,7 @@ func (g *EditorGroupWidget) ClearSearch() {
 	g.Editor.SearchQuery = ""
 	g.Editor.SearchMatches = nil
 	g.Editor.SearchActive = 0
+	g.Editor.searchByLine = nil
 }
 
 func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
@@ -520,6 +524,7 @@ func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
 			g.tabs[i].Diagnostics = diags
 			if i == g.active {
 				g.Editor.Diagnostics = diags
+				g.Editor.buildDiagIndex()
 			}
 			return
 		}
@@ -734,6 +739,8 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Multi = t.Multi
 		g.Editor.Highlighter = t.Highlighter
 		g.Editor.Diagnostics = t.Diagnostics
+		g.Editor.buildDiagIndex()
+		g.Editor.InvalidateMaxLineWidth()
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
 		}

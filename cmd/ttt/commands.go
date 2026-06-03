@@ -562,6 +562,12 @@ func registerSearchCommands(reg *command.Registry, app *App) {
 			}
 			findBar := ui.NewFindBarWidget()
 			findBar.Borders = app.borders
+			if len(app.editorGroup.Editor.Buf.Lines) > 5000 {
+				findBar.Debounce.DelayMs = app.settings.Search.Debounce
+			}
+			findBar.Debounce.OnFinish = func() {
+				app.screen.PostEvent(tcell.NewEventInterrupt(nil))
+			}
 			findBar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
 				matches, err := ui.FindInLines(app.editorGroup.Editor.Buf.Lines, query, opts)
 				if err != nil {
@@ -1203,6 +1209,7 @@ func registerWidgetCallbacks(reg *command.Registry, app *App) {
 	app.search.PostEvent = func() {
 		app.screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
+	app.search.Debounce.OnFinish = app.search.PostEvent
 	app.search.DiffSources = func() []ui.DiffSearchSource {
 		seen := map[string]bool{}
 		sources := app.editorGroup.DiffTabSources()

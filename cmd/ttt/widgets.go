@@ -116,7 +116,7 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	explorer := ui.NewExplorerWidget(cfg.Settings.Explorer, ws.Paths()...)
 	search := ui.NewSearchWidget()
 	search.SetWorkDirs(ws.Paths())
-	search.DebounceMs = cfg.Settings.Search.Debounce
+	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
