@@ -12,9 +12,9 @@ afterEach(() => {
 describe("sidebar toggle", () => {
   it("should toggle sidebar with ctrl+b", () => {
     dir = createTempDir();
-    const file = createTempFile(dir, "side.txt", "Sidebar test");
+    createTempFile(dir, "side.txt", "Sidebar test");
 
-    tui.start(file);
+    tui.start(dir);
     tui.waitFor("Explore");
 
     tui.press("ctrl+b");
@@ -32,9 +32,9 @@ describe("sidebar toggle", () => {
 
   it("should switch sidebar panels with chord keys", () => {
     dir = createTempDir();
-    const file = createTempFile(dir, "panels.txt", "Panel test");
+    createTempFile(dir, "panels.txt", "Panel test");
 
-    tui.start(file);
+    tui.start(dir);
     tui.waitFor("Explore");
 
     tui.pressChord("ctrl+k", "f");

@@ -26,9 +26,9 @@ describe("command palette", () => {
 
   it("should execute a command from the palette", () => {
     dir = createTempDir();
-    const file = createTempFile(dir, "exec.txt", "Exec test");
+    createTempFile(dir, "exec.txt", "Exec test");
 
-    tui.start(file);
+    tui.start(dir);
     tui.waitFor("Explore");
 
     tui.exec("Toggle Sidebar");

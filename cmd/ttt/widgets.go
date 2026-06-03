@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"github.com/eugenioenko/ttt/internal/config"
-	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -53,12 +52,6 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 			folders = append(folders, absPath)
 		} else {
 			openFiles = append(openFiles, absPath)
-			dir := filepath.Dir(absPath)
-			if root := git.RepoRoot(dir); root != "" {
-				folders = append(folders, root)
-			} else {
-				folders = append(folders, dir)
-			}
 		}
 	}
 
@@ -73,7 +66,7 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		}
 	}
 
-	if len(folders) == 0 && len(prURLs) == 0 {
+	if len(folders) == 0 && len(prURLs) == 0 && len(openFiles) == 0 {
 		cwd, _ := os.Getwd()
 		folders = append(folders, cwd)
 	}
@@ -92,6 +85,7 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.InsertFinalNewline = cfg.Settings.InsertFinalNewline
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f)
+		editorGroup.PinActiveTab()
 	}
 
 	terminalPanel := ui.NewTerminalPanelWidget()
@@ -129,7 +123,8 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	sidebar.AddPanel("explorer", "Explore", explorer)
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes)
-	sidebar.Visible = cfg.Settings.SidebarVisible
+	hasFolders := len(ws.Paths()) > 0
+	sidebar.Visible = cfg.Settings.SidebarVisible && hasFolders
 	sidebar.Borders = borders
 
 	sidebarWidth := cfg.Settings.SidebarWidth

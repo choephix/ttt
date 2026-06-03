@@ -16,6 +16,7 @@ describe("tab management", () => {
     const file2 = createTempFile(dir, "second.txt", "Second file");
 
     tui.start(file1, file2);
+    tui.waitStable();
     tui.waitFor("second.txt");
 
     const snap = tui.snapshot();
