@@ -710,8 +710,11 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 
 			startY := s.resultsStartY()
-			if len(s.Groups) > 0 {
+			if s.debouncing || s.Searching {
 				startY++
+			}
+			if len(s.Groups) > 0 {
+				startY += 2
 			}
 
 			idx := s.ScrollTop + (localY - startY)
