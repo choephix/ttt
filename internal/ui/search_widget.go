@@ -65,6 +65,7 @@ type SearchWidget struct {
 	debouncing    bool
 	searchGen     uint64
 	searchMu      sync.Mutex
+	resultStartY  int
 }
 
 type searchItem struct {
@@ -164,17 +165,6 @@ func (s *SearchWidget) SetWorkDirs(dirs []string) {
 }
 
 func (s *SearchWidget) Focusable() bool { return true }
-
-func (s *SearchWidget) resultsStartY() int {
-	base := 2
-	if s.showReplace {
-		base += 2
-	}
-	if s.showFilters {
-		base += 4
-	}
-	return base
-}
 
 func (s *SearchWidget) CursorPosition() (int, int, bool) {
 	r := s.GetRect()
@@ -526,6 +516,7 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		startY++
 	}
 
+	s.resultStartY = startY
 	visibleH := h - startY
 	if visibleH <= 0 {
 		return
@@ -709,15 +700,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 				}
 			}
 
-			startY := s.resultsStartY()
-			if s.debouncing || s.Searching {
-				startY++
-			}
-			if len(s.Groups) > 0 {
-				startY += 2
-			}
-
-			idx := s.ScrollTop + (localY - startY)
+			idx := s.ScrollTop + (localY - s.resultStartY)
 			if idx >= 0 && idx < len(s.FlatList) {
 				item := s.FlatList[idx]
 				if s.showReplace && s.ReplaceInput.Text != "" && item.IsFile {
