@@ -139,6 +139,7 @@ func registerPaletteCommands(app *App) {
 		ID: "settings.open", Title: "Preferences: Open Settings",
 		Handler: func() {
 			path := config.ConfigFilePath("settings.json")
+			config.EnsureConfigFile(path, "{}\n")
 			app.EditorGroup.OpenFile(path)
 		},
 	})
@@ -147,6 +148,7 @@ func registerPaletteCommands(app *App) {
 		ID: "keybindings.open", Title: "Preferences: Open Keyboard Shortcuts",
 		Handler: func() {
 			path := config.ConfigFilePath("keybindings.json")
+			config.EnsureConfigFile(path, "{}\n")
 			app.EditorGroup.OpenFile(path)
 		},
 	})

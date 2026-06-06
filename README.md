@@ -285,7 +285,7 @@ TTT supports fully customizable themes via JSON files. You can change every colo
 
 #### Built-in Themes
 
-10 themes ship in the `sample-config/` directory:
+10 themes ship in [`internal/config/themes/`](internal/config/themes/):
 
 - Aurora
 - Bubblegum
@@ -298,16 +298,94 @@ TTT supports fully customizable themes via JSON files. You can change every colo
 - Solarized Light
 - Virtru Dark
 
+<details>
+<summary>Default Dark theme (click to expand)</summary>
+
+```json
+{
+  "default": { "fg": "#fafafa", "bg": "#1f1f1f" },
+  "success": { "fg": "#73c991" },
+  "danger":  { "fg": "#f14c4c" },
+  "warning": { "fg": "#e2c08d" },
+  "border":  { "fg": "#555555" },
+  "statusBar": {},
+  "tabs": {
+    "active":   { "fg": "#ffffff", "bold": true },
+    "inactive": { "fg": "#999999" }
+  },
+  "sidebar": {
+    "header":   { "fg": "#ffffff", "bold": true },
+    "item":     {},
+    "selected": { "fg": "#ffffff", "bg": "#37373d" }
+  },
+  "dialog": {
+    "input":    {},
+    "item":     {},
+    "selected": { "fg": "#ffffff", "bg": "#37373d" },
+    "muted":    { "fg": "#888888" }
+  },
+  "editor": {
+    "lineNumber":   { "fg": "#999999" },
+    "activeLine":   { "bg": "#282828" },
+    "selection":    { "bg": "#3a3d41" },
+    "searchMatch":  {},
+    "searchActive": {}
+  },
+  "menu": {
+    "item":   {},
+    "active": { "fg": "#ffffff", "bg": "#505050", "bold": true }
+  },
+  "diff": {
+    "added":    { "bg": "#1e2e1e" },
+    "deleted":  { "bg": "#2e1e1e" },
+    "modified": { "bg": "#2e2e1e" }
+  },
+  "scrollbar": { "fg": "#999999", "bg": "#555555" },
+  "syntax": {
+    "comment":     { "fg": "#6a9955" },
+    "string":      { "fg": "#ce9178" },
+    "keyword":     { "fg": "#569cd6" },
+    "number":      { "fg": "#b5cea8" },
+    "operator":    { "fg": "#d4d4d4" },
+    "function":    { "fg": "#dcdcaa" },
+    "type":        { "fg": "#4ec9b0" },
+    "builtin":     { "fg": "#4ec9b0" },
+    "variable":    { "fg": "#9cdcfe" },
+    "punctuation": { "fg": "#d4d4d4" },
+    "tag":         { "fg": "#569cd6" },
+    "attribute":   { "fg": "#9cdcfe" }
+  },
+  "borders": {
+    "horizontal": "─", "vertical": "│",
+    "topLeft": "┌", "topRight": "┐",
+    "bottomLeft": "└", "bottomRight": "┘",
+    "topTee": "┬", "bottomTee": "┴",
+    "leftTee": "├", "rightTee": "┤"
+  }
+}
+```
+
+</details>
+
 #### Switching Themes
 
 Press **Ctrl+K Ctrl+T** (or use **View > Switch Theme** from the menu bar) to open the theme picker with a live preview.
 
 #### Customizing
 
-To create a custom theme, copy one of the built-in theme files to your config directory and edit it:
+To create a custom theme, copy one of the built-in theme files to your themes directory and edit it:
 
 ```sh
-cp sample-config/theme.monokai.json ~/.config/ttt/theme.json
+mkdir -p ~/.config/ttt/themes
+cp internal/config/themes/monokai.json ~/.config/ttt/themes/my-theme.json
+```
+
+Set it in `settings.json`:
+
+```json
+{
+  "theme": "my-theme"
+}
 ```
 
 Restart TTT (or switch themes) to pick up changes.
@@ -324,9 +402,11 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 
 | File | Purpose |
 |------|---------|
-| `keybindings.json` | Custom keybindings (VS Code key format) |
-| `settings.json` | Editor settings (tabSize, insertSpaces, wordWrap, lineNumbers, sidebarWidth, explorer, terminal, theme, lsp, formatOnSave, autocomplete) |
-| `theme.json` | Colors and styles (or use `theme.<name>.json` for named themes) |
+| [`settings.json`](config/settings.json) | Editor settings (tabSize, wordWrap, theme, lsp, autocomplete, etc.) |
+| [`keybindings.json`](config/keybindings.json) | Custom keybindings (VS Code key format) |
+| `themes/*.json` | Custom color themes |
+
+You can also open these directly from the command palette (**Ctrl+P**): **Preferences: Open Settings** and **Preferences: Open Keyboard Shortcuts**.
 
 #### Settings
 
@@ -342,6 +422,8 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 | `theme` | string | `""` | Theme name (from `~/.config/ttt/themes/`) |
 | `debugMode` | bool | `false` | Enable debug logging to `~/.config/ttt/debug.log` |
 | `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `insertFinalNewline` | bool | `true` | Ensure files end with a newline on save |
+| `search.debounce` | int | `350` | Milliseconds to debounce global search input |
 | `explorer.showHidden` | bool | `true` | Show hidden files (dot-prefixed) in the file explorer |
 | `explorer.showGitIgnored` | bool | `true` | Show gitignored files in the file explorer |
 | `terminal.shell` | string | `""` | Shell command for the integrated terminal (empty = system default) |
@@ -353,7 +435,7 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
 | `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
 
-Example `~/.config/ttt/settings.json`:
+Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`](config/settings.json)):
 
 ```json
 {
@@ -364,17 +446,21 @@ Example `~/.config/ttt/settings.json`:
   "sidebarVisible": true,
   "sidebarWidth": 30,
   "theme": "default-dark",
-  "formatOnSave": true,
+  "formatOnSave": false,
+  "insertFinalNewline": true,
+  "search": {
+    "debounce": 350
+  },
   "explorer": {
     "showHidden": true,
     "showGitIgnored": true
   },
   "terminal": {
-    "shell": "/bin/zsh",
+    "shell": "",
     "scrollback": 1000
   },
   "lsp": {
-    "saveOnRename": true,
+    "saveOnRename": false,
     "servers": {
       "go": { "command": ["gopls"] },
       "typescript": {
@@ -397,11 +483,9 @@ Example `~/.config/ttt/settings.json`:
 }
 ```
 
-Settings and keybindings can also be opened from the command palette: **Preferences: Open Settings** and **Preferences: Open Keyboard Shortcuts**.
-
 ## Keybindings
 
-All keybindings are customizable via `keybindings.json`. Supports chord sequences (e.g. `ctrl+k ctrl+t`). These are the defaults:
+All keybindings are customizable via [`keybindings.json`](config/keybindings.json). Supports chord sequences (e.g. `ctrl+k ctrl+t`). These are the defaults:
 
 | Shortcut | Action |
 |----------|--------|
