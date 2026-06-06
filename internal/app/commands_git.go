@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 )
 
 func (a *App) DiscardSelected() {
-	dir, status, ok := a.changes.SelectedFile()
+	dir, status, ok := a.Changes.SelectedFile()
 	if !ok || status.Staged {
 		return
 	}
@@ -33,7 +33,7 @@ func (a *App) DiscardSelected() {
 				} else {
 					git.Discard(dir, status.Path)
 				}
-				a.changes.Refresh()
+				a.Changes.Refresh()
 			},
 		},
 	)
@@ -54,13 +54,13 @@ func (a *App) AddWorkspaceFolder() {
 			a.StatusError("Not a directory: " + abs)
 			return
 		}
-		a.workspace.AddFolder(abs)
+		a.Workspace.AddFolder(abs)
 		a.refreshWorkspaceWidgets()
 	})
 }
 
 func (a *App) RemoveWorkspaceFolder() {
-	paths := a.workspace.Paths()
+	paths := a.Workspace.Paths()
 	if len(paths) <= 1 {
 		a.StatusWarn("Cannot remove the last folder")
 		return
@@ -70,7 +70,7 @@ func (a *App) RemoveWorkspaceFolder() {
 		cmds = append(cmds, command.Command{ID: p, Title: filepath.Base(p)})
 	}
 	a.ShowPicker(cmds, func(path string) {
-		a.workspace.RemoveFolder(path)
+		a.Workspace.RemoveFolder(path)
 		a.refreshWorkspaceWidgets()
 	})
 }
@@ -80,7 +80,7 @@ func (a *App) SaveWorkspaceAs() {
 		if path == "" {
 			return
 		}
-		if err := a.workspace.SaveFile(path); err != nil {
+		if err := a.Workspace.SaveFile(path); err != nil {
 			a.StatusError("Error: " + err.Error())
 		} else {
 			a.StatusNotify("Workspace saved: " + path)
@@ -95,11 +95,11 @@ func (a *App) OpenPullRequestDialog() {
 	}
 	dialog := ui.NewInputDialogWidget("Open Pull Request", "https://github.com/owner/repo/pull/123", "")
 	dialog.ConfirmLabel = "Open"
-	dialog.Borders = a.borders
+	dialog.Borders = a.Borders
 	dialog.OnSubmit = func(url string) {
 		a.DismissDialog()
 		if url != "" {
-			a.fetchAndOpenPR(url)
+			a.FetchAndOpenPR(url)
 		}
 	}
 	dialog.OnDismiss = func() {
@@ -109,14 +109,14 @@ func (a *App) OpenPullRequestDialog() {
 }
 
 func registerGitCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "changes.openDiff", Title: "Open Diff",
 		Handler: func() {
-			dir, status, ok := app.changes.SelectedFile()
-			if ok && app.changes.OnOpenDiff != nil {
-				app.changes.OnOpenDiff(dir, status)
+			dir, status, ok := app.Changes.SelectedFile()
+			if ok && app.Changes.OnOpenDiff != nil {
+				app.Changes.OnOpenDiff(dir, status)
 			}
 		},
 	})
@@ -124,26 +124,26 @@ func registerGitCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "changes.openFile", Title: "Open File",
 		Handler: func() {
-			fullPath := app.changes.SelectedFullPath()
+			fullPath := app.Changes.SelectedFullPath()
 			if fullPath != "" {
-				app.editorGroup.OpenFile(fullPath)
-				app.root.SetFocus(app.editorGroup)
+				app.EditorGroup.OpenFile(fullPath)
+				app.Root.SetFocus(app.EditorGroup)
 			}
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "changes.refresh", Title: "Refresh Changes",
-		Handler: func() { app.changes.Refresh() },
+		Handler: func() { app.Changes.Refresh() },
 	})
 
 	reg.Register(command.Command{
 		ID: "changes.stage", Title: "Stage File",
 		Handler: func() {
-			dir, status, ok := app.changes.SelectedFile()
+			dir, status, ok := app.Changes.SelectedFile()
 			if ok && !status.Staged {
 				git.Stage(dir, status.Path)
-				app.changes.Refresh()
+				app.Changes.Refresh()
 			}
 		},
 	})
@@ -151,10 +151,10 @@ func registerGitCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "changes.unstage", Title: "Unstage File",
 		Handler: func() {
-			dir, status, ok := app.changes.SelectedFile()
+			dir, status, ok := app.Changes.SelectedFile()
 			if ok && status.Staged {
 				git.Unstage(dir, status.Path)
-				app.changes.Refresh()
+				app.Changes.Refresh()
 			}
 		},
 	})
@@ -168,7 +168,7 @@ func registerGitCommands(app *App) {
 		reg.Register(command.Command{
 			ID: id, Title: title,
 			Handler: func() {
-				for _, dir := range app.changes.Dirs {
+				for _, dir := range app.Changes.Dirs {
 					for _, op := range ops {
 						if err := op(dir); err != nil {
 							app.StatusError(fmt.Sprintf("%s failed: %v", verb, err))
@@ -177,7 +177,7 @@ func registerGitCommands(app *App) {
 					}
 				}
 				app.StatusNotify(verb + " successfully")
-				app.changes.Refresh()
+				app.Changes.Refresh()
 			},
 		})
 	}
@@ -187,7 +187,7 @@ func registerGitCommands(app *App) {
 }
 
 func registerWorkspaceCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
@@ -206,7 +206,7 @@ func registerWorkspaceCommands(app *App) {
 }
 
 func registerPRCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "pr.open", Title: "Open Pull Request",
@@ -214,6 +214,6 @@ func registerPRCommands(app *App) {
 	})
 	reg.Register(command.Command{
 		ID: "pr.close", Title: "Close Pull Request",
-		Handler: func() { app.changes.RemovePRGroups() },
+		Handler: func() { app.Changes.RemovePRGroups() },
 	})
 }

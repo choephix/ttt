@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 )
 
 func (a *App) ExplorerNewFile() {
-	node := a.explorer.SelectedNode()
+	node := a.Explorer.SelectedNode()
 	if node == nil {
 		return
 	}
@@ -26,14 +26,14 @@ func (a *App) ExplorerNewFile() {
 			a.StatusError("Error: " + err.Error())
 			return
 		}
-		a.explorer.Reload()
-		a.editorGroup.OpenFile(newPath)
+		a.Explorer.Reload()
+		a.EditorGroup.OpenFile(newPath)
 		a.FocusEditor()
 	})
 }
 
 func (a *App) ExplorerNewFolder() {
-	node := a.explorer.SelectedNode()
+	node := a.Explorer.SelectedNode()
 	if node == nil {
 		return
 	}
@@ -47,12 +47,12 @@ func (a *App) ExplorerNewFolder() {
 			a.StatusError("Error: " + err.Error())
 			return
 		}
-		a.explorer.Reload()
+		a.Explorer.Reload()
 	})
 }
 
 func (a *App) ExplorerRename() {
-	node := a.explorer.SelectedNode()
+	node := a.Explorer.SelectedNode()
 	if node == nil {
 		return
 	}
@@ -63,12 +63,12 @@ func (a *App) ExplorerRename() {
 			a.StatusError("Error: " + err.Error())
 			return
 		}
-		a.explorer.Reload()
+		a.Explorer.Reload()
 	})
 }
 
 func (a *App) ExplorerDelete() {
-	node := a.explorer.SelectedNode()
+	node := a.Explorer.SelectedNode()
 	if node == nil {
 		return
 	}
@@ -81,7 +81,7 @@ func (a *App) ExplorerDelete() {
 					a.StatusError("Error: " + err.Error())
 					return
 				}
-				a.explorer.Reload()
+				a.Explorer.Reload()
 			},
 			func() { a.DismissDialog() },
 		},
@@ -89,16 +89,16 @@ func (a *App) ExplorerDelete() {
 }
 
 func registerExplorerCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "explorer.refresh", Title: "Refresh Explorer",
-		Handler: func() { app.explorer.Reload() },
+		Handler: func() { app.Explorer.Reload() },
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.open", Title: "Open",
-		Handler: func() { app.explorer.ActivateSelected() },
+		Handler: func() { app.Explorer.ActivateSelected() },
 	})
 
 	reg.Register(command.Command{

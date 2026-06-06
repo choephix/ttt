@@ -6,17 +6,15 @@ import (
 	"log/slog"
 	"os"
 	"runtime/debug"
-	"strings"
 	"time"
 
+	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
-
-	"github.com/gdamore/tcell/v2"
 )
 
 var version = "dev"
@@ -115,92 +113,42 @@ Docs: https://tttedit.dev
 	defer screen.Fini()
 	defer handlePanic(screen)
 
-	screen.SetStyleMap(buildStyleMap(cfg.Theme))
+	screen.SetStyleMap(app.BuildStyleMap(cfg.Theme))
 	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.CursorStyle))
 
 	lspManager := lsp.NewManager(cfg.Settings.LSP)
 	defer lspManager.Shutdown()
-	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {
-		path := uriToPath(params.URI)
-		diags := lspToUIDiagnostics(params.Diagnostics)
-		slog.Debug("lsp diagnostics", "path", path, "count", len(diags))
-		screen.PostEvent(tcell.NewEventInterrupt(&diagnosticsResult{
-			path:        path,
-			diagnostics: diags,
-		}))
-	}
 
 	renderer := &render.Renderer{}
 	cmdRegistry := command.NewRegistry()
-	borders := buildBorderSet(cfg.Theme.Borders)
+	borders := app.BuildBorderSet(cfg.Theme.Borders)
 
-	app, prURLs := buildApp(&cfg, &borders)
-	app.screen = screen
-	app.renderer = renderer
-	app.lspManager = lspManager
+	editor, prURLs := app.BuildApp(&cfg, &borders)
+	editor.Init(screen, renderer, lspManager)
 
-	app.editorGroup.OnError = func(msg string) {
-		app.StatusError(msg)
-	}
-	app.editorGroup.OnFileOpen = func(path, lang, text string) {
-		app.NotifyLSPOpen(path, lang, text)
-	}
-	app.editorGroup.OnFileClose = func(path, lang string) {
-		app.NotifyLSPClose(path, lang)
-	}
-	if path := app.editorGroup.ActiveFilePath(); path != "" {
-		if app.editorGroup.Editor != nil && app.editorGroup.Editor.Highlighter != nil {
-			lang := app.editorGroup.Editor.Highlighter.Language()
-			text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")
-			app.NotifyLSPOpen(path, lang, text)
-		}
-	}
-	app.problems.OnNavigate = func(file string, line, col int) {
-		app.editorGroup.OpenFile(file)
-		app.editorGroup.GoToLine(line + 1)
-		app.root.SetFocus(app.editorGroup)
-	}
-	app.references.OnNavigate = func(file string, line, col int) {
-		app.editorGroup.OpenFile(file)
-		app.editorGroup.GoToLine(line + 1)
-		app.root.SetFocus(app.editorGroup)
-	}
-
-	app.editorGroup.Editor.OnChange = func() {
-		path := app.editorGroup.ActiveFilePath()
-		lang := ""
-		if app.editorGroup.Editor.Highlighter != nil {
-			lang = app.editorGroup.Editor.Highlighter.Language()
-		}
-		text := strings.Join(app.editorGroup.Editor.Buf.Lines, "\n")
-		app.NotifyLSPChange(path, lang, text)
-		app.ScheduleAutocomplete()
-		app.CheckSignatureHelpTrigger()
-	}
-
-	app.keybindings = cfg.Keybindings
-	app.reg = cmdRegistry
+	editor.Keybindings = cfg.Keybindings
+	editor.Reg = cmdRegistry
 	quitPending := false
 	running := true
-	app.running = &running
-	app.quitPending = &quitPending
-	registerCommands(app)
-	bindKeys(app.root, cmdRegistry, cfg.Keybindings)
+	editor.Running = &running
+	editor.QuitPending = &quitPending
+	app.RegisterCommands(editor)
+	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
 
 	if len(prURLs) > 0 {
 		if !github.IsGHInstalled() {
-			app.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
+			editor.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
 		} else {
-			app.ShowSidebar()
-			app.sidebar.SetActivePanel("changes")
+			editor.ShowSidebar()
+			editor.Sidebar.SetActivePanel("changes")
 			for _, url := range prURLs {
-				app.fetchAndOpenPR(url)
+				editor.FetchAndOpenPR(url)
 			}
 		}
 	}
 
 	w, h := screen.Size()
-	app.root.SetSize(w, h)
+	editor.Root.SetSize(w, h)
 
-	runEventLoop(screen, renderer, app, &running, &quitPending, app.CloseTerminal)
+	app.RunEventLoop(screen, renderer, editor, &running, &quitPending, editor.CloseTerminal)
 }

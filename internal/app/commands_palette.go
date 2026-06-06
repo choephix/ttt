@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 )
 
 func (a *App) OpenCommandPalette(fileMode bool, initialText ...string) {
-	palette := ui.NewCommandPaletteWidget(a.reg.List())
-	palette.Borders = a.borders
-	palette.SetFiles(a.workspace.Paths())
+	palette := ui.NewCommandPaletteWidget(a.Reg.List())
+	palette.Borders = a.Borders
+	palette.SetFiles(a.Workspace.Paths())
 	if len(initialText) > 0 {
 		palette.Input.SetText(initialText[0])
 	} else if fileMode {
@@ -21,15 +21,15 @@ func (a *App) OpenCommandPalette(fileMode bool, initialText ...string) {
 	}
 	palette.OnExecute = func(id string) {
 		a.DismissDialog()
-		a.reg.Execute(id)
+		a.Reg.Execute(id)
 	}
 	palette.OnOpenFile = func(absPath string) {
 		a.DismissDialog()
-		a.editorGroup.OpenFile(absPath)
+		a.EditorGroup.OpenFile(absPath)
 	}
 	palette.OnGoToLine = func(line int) {
 		a.DismissDialog()
-		a.editorGroup.GoToLine(line)
+		a.EditorGroup.GoToLine(line)
 	}
 	palette.OnDismiss = func() {
 		a.DismissDialog()
@@ -47,13 +47,13 @@ func (a *App) ShowThemePicker() {
 		cmds = append(cmds, command.Command{ID: name, Title: name})
 	}
 	picker := ui.NewCommandPaletteWidget(cmds)
-	picker.Borders = a.borders
-	originalStyleMap := a.screen.GetStyleMap()
-	originalPalette := *a.palette
+	picker.Borders = a.Borders
+	originalStyleMap := a.Screen.GetStyleMap()
+	originalPalette := *a.Palette
 	applyTheme := func(theme config.ThemeConfig) {
-		a.screen.SetStyleMap(buildStyleMap(theme))
-		*a.palette = buildTerminalPalette(theme)
-		a.renderer.Clear()
+		a.Screen.SetStyleMap(BuildStyleMap(theme))
+		*a.Palette = BuildTerminalPalette(theme)
+		a.Renderer.Clear()
 	}
 	picker.OnSelectionChange = func(name string) {
 		theme, err := config.LoadTheme(name)
@@ -69,14 +69,14 @@ func (a *App) ShowThemePicker() {
 			return
 		}
 		applyTheme(theme)
-		a.settings.Theme = name
-		config.SaveSettings(*a.settings)
+		a.Settings.Theme = name
+		config.SaveSettings(*a.Settings)
 	}
 	picker.OnDismiss = func() {
 		a.DismissDialog()
-		a.screen.SetStyleMap(originalStyleMap)
-		*a.palette = originalPalette
-		a.renderer.Clear()
+		a.Screen.SetStyleMap(originalStyleMap)
+		*a.Palette = originalPalette
+		a.Renderer.Clear()
 	}
 	a.ShowDialog(picker)
 }
@@ -92,21 +92,21 @@ func (a *App) ShowIndentPicker() {
 	cmds = append(cmds, command.Command{ID: "detect", Title: "Detect from Content"})
 	a.ShowPicker(cmds, func(id string) {
 		if id == "detect" {
-			if a.editorGroup.Editor != nil && a.editorGroup.Editor.Buf != nil {
-				if info := buffer.DetectIndent(a.editorGroup.Editor.Buf.Lines); info.Size > 0 {
-					a.editorGroup.SetTabSize(info.Size)
+			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Buf != nil {
+				if info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines); info.Size > 0 {
+					a.EditorGroup.SetTabSize(info.Size)
 				}
 			}
 		} else if id == "tabs" {
-			a.editorGroup.SetTabSize(4)
+			a.EditorGroup.SetTabSize(4)
 		} else if size, err := strconv.Atoi(id); err == nil {
-			a.editorGroup.SetTabSize(size)
+			a.EditorGroup.SetTabSize(size)
 		}
 	})
 }
 
 func registerPaletteCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "command.palette", Title: "Command Palette",
@@ -128,7 +128,7 @@ func registerPaletteCommands(app *App) {
 		Handler: app.ShowThemePicker,
 	})
 
-	app.statusBar.OnIndentClick = app.ShowIndentPicker
+	app.StatusBar.OnIndentClick = app.ShowIndentPicker
 
 	reg.Register(command.Command{
 		ID: "editor.indentation", Title: "Change Indentation",
@@ -139,7 +139,7 @@ func registerPaletteCommands(app *App) {
 		ID: "settings.open", Title: "Preferences: Open Settings",
 		Handler: func() {
 			path := config.ConfigFilePath("settings.json")
-			app.editorGroup.OpenFile(path)
+			app.EditorGroup.OpenFile(path)
 		},
 	})
 
@@ -147,7 +147,7 @@ func registerPaletteCommands(app *App) {
 		ID: "keybindings.open", Title: "Preferences: Open Keyboard Shortcuts",
 		Handler: func() {
 			path := config.ConfigFilePath("keybindings.json")
-			app.editorGroup.OpenFile(path)
+			app.EditorGroup.OpenFile(path)
 		},
 	})
 }

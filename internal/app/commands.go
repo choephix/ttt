@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
-func registerCommands(app *App) {
+func RegisterCommands(app *App) {
 	registerViewCommands(app)
 	registerEditorCommands(app)
 	registerSearchCommands(app)
@@ -18,16 +18,16 @@ func registerCommands(app *App) {
 	registerWorkspaceCommands(app)
 	registerPRCommands(app)
 	registerWidgetCallbacks(app)
-	registerEscapeDismissers(app)
+	RegisterEscapeDismissers(app)
 }
 
-func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBinding) {
+func BindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBinding) {
 	for _, kb := range keybindings {
 		if len(kb.Steps) == 0 {
 			continue
 		}
 		cmdID := kb.Command
-		reg.SetShortcut(cmdID, formatKeyBinding(kb.Key))
+		reg.SetShortcut(cmdID, FormatKeyBinding(kb.Key))
 		if kb.IsChord() {
 			steps := make([]ui.GlobalKeyBinding, len(kb.Steps))
 			for i, step := range kb.Steps {
@@ -48,7 +48,7 @@ func bindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBind
 	}
 }
 
-func formatKeyBinding(key string) string {
+func FormatKeyBinding(key string) string {
 	parts := strings.Fields(key)
 	for i, part := range parts {
 		tokens := strings.Split(part, "+")
@@ -64,8 +64,8 @@ func formatKeyBinding(key string) string {
 	return strings.Join(parts, " ")
 }
 
-func registerEscapeDismissers(app *App) {
-	app.root.EscapeDismissers = []func() bool{
+func RegisterEscapeDismissers(app *App) {
+	app.Root.EscapeDismissers = []func() bool{
 		func() bool {
 			if app.IsAutocompleteActive() {
 				app.DismissAutocomplete()
@@ -74,28 +74,28 @@ func registerEscapeDismissers(app *App) {
 			return false
 		},
 		func() bool {
-			if app.editorGroup.SignatureHelp != nil {
+			if app.EditorGroup.SignatureHelp != nil {
 				app.DismissSignatureHelp()
 				return true
 			}
 			return false
 		},
 		func() bool {
-			if app.editorGroup.Hover != nil {
+			if app.EditorGroup.Hover != nil {
 				app.DismissHover()
 				return true
 			}
 			return false
 		},
 		func() bool {
-			if app.editorGroup.IsMultiCursorActive() {
-				app.editorGroup.CollapseMultiCursor()
+			if app.EditorGroup.IsMultiCursorActive() {
+				app.EditorGroup.CollapseMultiCursor()
 				return true
 			}
 			return false
 		},
 	}
-	app.root.EscapeFallback = func() {
+	app.Root.EscapeFallback = func() {
 		app.FocusEditor()
 	}
 }

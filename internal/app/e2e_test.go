@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"os"
@@ -51,32 +51,32 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	config.ParseKeyBindings(cfg.Keybindings)
 
 	screen := term.NewTcellScreenFrom(sim)
-	screen.SetStyleMap(buildStyleMap(cfg.Theme))
+	screen.SetStyleMap(BuildStyleMap(cfg.Theme))
 
-	borders := buildBorderSet(cfg.Theme.Borders)
+	borders := BuildBorderSet(cfg.Theme.Borders)
 
 	ws := workspace.New([]string{dir})
-	app := buildAppFromConfig(&cfg, &borders, ws, nil)
-	app.screen = screen
-	app.renderer = &render.Renderer{}
+	app := BuildAppFromConfig(&cfg, &borders, ws, nil)
+	app.Screen = screen
+	app.Renderer = &render.Renderer{}
 
 	reg := command.NewRegistry()
-	app.reg = reg
+	app.Reg = reg
 	quitPending := false
 	running := true
-	app.running = &running
-	app.quitPending = &quitPending
-	registerCommands(app)
-	bindKeys(app.root, reg, cfg.Keybindings)
+	app.Running = &running
+	app.QuitPending = &quitPending
+	RegisterCommands(app)
+	BindKeys(app.Root, reg, cfg.Keybindings)
 
-	app.root.SetSize(w, h)
+	app.Root.SetSize(w, h)
 
 	h2 := &testHarness{
 		t:        t,
 		app:      app,
 		screen:   sim,
 		reg:      reg,
-		renderer: app.renderer,
+		renderer: app.Renderer,
 		running:  running,
 	}
 	h2.redraw()
@@ -85,26 +85,26 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 
 func (h *testHarness) redraw() {
 	h.t.Helper()
-	cells := make([][]term.Cell, h.app.root.Height)
+	cells := make([][]term.Cell, h.app.Root.Height)
 	for y := range cells {
-		cells[y] = make([]term.Cell, h.app.root.Width)
+		cells[y] = make([]term.Cell, h.app.Root.Width)
 	}
-	h.app.root.Render(cells)
+	h.app.Root.Render(cells)
 	h.renderer.SetCurrent(cells)
-	h.renderer.Render(h.app.screen)
+	h.renderer.Render(h.app.Screen)
 }
 
 func (h *testHarness) pressKey(key tcell.Key, mod tcell.ModMask) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(key, 0, mod)
-	h.app.root.HandleEvent(ev)
+	h.app.Root.HandleEvent(ev)
 	h.redraw()
 }
 
 func (h *testHarness) pressRune(r rune) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
-	h.app.root.HandleEvent(ev)
+	h.app.Root.HandleEvent(ev)
 	h.redraw()
 }
 
@@ -116,9 +116,9 @@ func (h *testHarness) pressCtrl(key tcell.Key) {
 func (h *testHarness) click(x, y int) {
 	h.t.Helper()
 	down := tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
-	h.app.root.HandleEvent(down)
+	h.app.Root.HandleEvent(down)
 	up := tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone)
-	h.app.root.HandleEvent(up)
+	h.app.Root.HandleEvent(up)
 	h.redraw()
 }
 
@@ -194,35 +194,35 @@ func TestSidebarTabClick(t *testing.T) {
 	defer h.stop()
 
 	// Widen sidebar so all 4 tabs are visible without overflow
-	h.app.splitPanel.DividerPos = 40
-	h.app.root.SetSize(80, 24)
+	h.app.SplitPanel.DividerPos = 40
+	h.app.Root.SetSize(80, 24)
 	h.redraw()
 
-	if h.app.sidebar.ActivePanel != "explorer" {
-		t.Fatalf("expected active panel 'explorer', got %q", h.app.sidebar.ActivePanel)
+	if h.app.Sidebar.ActivePanel != "explorer" {
+		t.Fatalf("expected active panel 'explorer', got %q", h.app.Sidebar.ActivePanel)
 	}
 
 	// Sidebar tabs render at y=1 (row below menu bar).
 	// Tabs: " Explore " (x=0..8), " Find " (x=9..14), " Changes " (x=15..23), " Debug " (x=24..30)
-	sidebarY := h.app.sidebar.GetRect().Y
-	sidebarX := h.app.sidebar.GetRect().X
+	sidebarY := h.app.Sidebar.GetRect().Y
+	sidebarX := h.app.Sidebar.GetRect().X
 
 	// Click on "Find" tab
 	h.click(sidebarX+10, sidebarY)
-	if h.app.sidebar.ActivePanel != "search" {
-		t.Errorf("expected active panel 'search' after click, got %q", h.app.sidebar.ActivePanel)
+	if h.app.Sidebar.ActivePanel != "search" {
+		t.Errorf("expected active panel 'search' after click, got %q", h.app.Sidebar.ActivePanel)
 	}
 
 	// Click on "Changes" tab
 	h.click(sidebarX+18, sidebarY)
-	if h.app.sidebar.ActivePanel != "changes" {
-		t.Errorf("expected active panel 'changes' after click, got %q", h.app.sidebar.ActivePanel)
+	if h.app.Sidebar.ActivePanel != "changes" {
+		t.Errorf("expected active panel 'changes' after click, got %q", h.app.Sidebar.ActivePanel)
 	}
 
 	// Click back on "Explore" tab
 	h.click(sidebarX+3, sidebarY)
-	if h.app.sidebar.ActivePanel != "explorer" {
-		t.Errorf("expected active panel 'explorer' after click, got %q", h.app.sidebar.ActivePanel)
+	if h.app.Sidebar.ActivePanel != "explorer" {
+		t.Errorf("expected active panel 'explorer' after click, got %q", h.app.Sidebar.ActivePanel)
 	}
 }
 
@@ -231,32 +231,32 @@ func TestBottomPanelTabClick(t *testing.T) {
 	defer h.stop()
 
 	// Add two panels to bottom panel
-	h.app.bottomPanel.AddPanel("test-a", "Alpha", newEmptyWidget())
-	h.app.bottomPanel.AddPanel("test-b", "Beta", newEmptyWidget())
-	h.app.contentSplit.ShowBottom = true
-	h.app.contentSplit.BottomH = 10
+	h.app.BottomPanel.AddPanel("test-a", "Alpha", newEmptyWidget())
+	h.app.BottomPanel.AddPanel("test-b", "Beta", newEmptyWidget())
+	h.app.ContentSplit.ShowBottom = true
+	h.app.ContentSplit.BottomH = 10
 	h.redraw()
 
-	h.app.bottomPanel.SetActivePanel("test-a")
-	if h.app.bottomPanel.ActivePanel != "test-a" {
-		t.Fatalf("expected active panel 'test-a', got %q", h.app.bottomPanel.ActivePanel)
+	h.app.BottomPanel.SetActivePanel("test-a")
+	if h.app.BottomPanel.ActivePanel != "test-a" {
+		t.Fatalf("expected active panel 'test-a', got %q", h.app.BottomPanel.ActivePanel)
 	}
 
 	// Bottom panel tabs at the top of the bottom panel area
-	panelY := h.app.bottomPanel.GetRect().Y
-	panelX := h.app.bottomPanel.GetRect().X
+	panelY := h.app.BottomPanel.GetRect().Y
+	panelX := h.app.BottomPanel.GetRect().X
 
 	// Click on "Beta" tab — offset accounts for TERMINAL + PROBLEMS + REFERENCES + Alpha tabs
 	// " TERMINAL " = 10, " PROBLEMS " = 10, " REFERENCES " = 12, " Alpha " = 7 → Beta starts at 39
 	h.click(panelX+39, panelY)
-	if h.app.bottomPanel.ActivePanel != "test-b" {
-		t.Errorf("expected active panel 'test-b' after click, got %q", h.app.bottomPanel.ActivePanel)
+	if h.app.BottomPanel.ActivePanel != "test-b" {
+		t.Errorf("expected active panel 'test-b' after click, got %q", h.app.BottomPanel.ActivePanel)
 	}
 
 	// Click back on "Alpha" tab — starts at 32
 	h.click(panelX+32, panelY)
-	if h.app.bottomPanel.ActivePanel != "test-a" {
-		t.Errorf("expected active panel 'test-a' after click, got %q", h.app.bottomPanel.ActivePanel)
+	if h.app.BottomPanel.ActivePanel != "test-a" {
+		t.Errorf("expected active panel 'test-a' after click, got %q", h.app.BottomPanel.ActivePanel)
 	}
 }
 
@@ -264,29 +264,29 @@ func TestTabbedPanelRemovePanel(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.app.bottomPanel.AddPanel("p1", "One", newEmptyWidget())
-	h.app.bottomPanel.AddPanel("p2", "Two", newEmptyWidget())
-	h.app.bottomPanel.AddPanel("p3", "Three", newEmptyWidget())
-	h.app.bottomPanel.SetActivePanel("p2")
+	h.app.BottomPanel.AddPanel("p1", "One", newEmptyWidget())
+	h.app.BottomPanel.AddPanel("p2", "Two", newEmptyWidget())
+	h.app.BottomPanel.AddPanel("p3", "Three", newEmptyWidget())
+	h.app.BottomPanel.SetActivePanel("p2")
 
-	if h.app.bottomPanel.PanelCount() != 6 {
-		t.Fatalf("expected 6 panels, got %d", h.app.bottomPanel.PanelCount())
+	if h.app.BottomPanel.PanelCount() != 6 {
+		t.Fatalf("expected 6 panels, got %d", h.app.BottomPanel.PanelCount())
 	}
 
 	// Remove active panel, should switch to next
-	h.app.bottomPanel.RemovePanel("p2")
-	if h.app.bottomPanel.PanelCount() != 5 {
-		t.Fatalf("expected 5 panels, got %d", h.app.bottomPanel.PanelCount())
+	h.app.BottomPanel.RemovePanel("p2")
+	if h.app.BottomPanel.PanelCount() != 5 {
+		t.Fatalf("expected 5 panels, got %d", h.app.BottomPanel.PanelCount())
 	}
-	if h.app.bottomPanel.ActivePanel == "p2" {
+	if h.app.BottomPanel.ActivePanel == "p2" {
 		t.Error("active panel should have changed after removing it")
 	}
 
 	// Remove all added panels
-	h.app.bottomPanel.RemovePanel("p1")
-	h.app.bottomPanel.RemovePanel("p3")
-	if h.app.bottomPanel.PanelCount() != 3 {
-		t.Fatalf("expected 3 panels (terminal+problems+references), got %d", h.app.bottomPanel.PanelCount())
+	h.app.BottomPanel.RemovePanel("p1")
+	h.app.BottomPanel.RemovePanel("p3")
+	if h.app.BottomPanel.PanelCount() != 3 {
+		t.Fatalf("expected 3 panels (terminal+problems+references), got %d", h.app.BottomPanel.PanelCount())
 	}
 }
 
@@ -317,17 +317,17 @@ func TestTogglePanel(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	if h.app.contentSplit.ShowBottom {
+	if h.app.ContentSplit.ShowBottom {
 		t.Error("bottom panel should start hidden")
 	}
 
 	h.exec("panel.toggle")
-	if !h.app.contentSplit.ShowBottom {
+	if !h.app.ContentSplit.ShowBottom {
 		t.Error("bottom panel should be visible after toggle")
 	}
 
 	h.exec("panel.toggle")
-	if h.app.contentSplit.ShowBottom {
+	if h.app.ContentSplit.ShowBottom {
 		t.Error("bottom panel should be hidden after second toggle")
 	}
 }
@@ -336,19 +336,19 @@ func TestSidebarPanelSwitching(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
-	if h.app.sidebar.ActivePanel != "explorer" {
-		t.Errorf("expected active panel 'explorer', got %q", h.app.sidebar.ActivePanel)
+	h.exec("sidebar.Explorer")
+	if h.app.Sidebar.ActivePanel != "explorer" {
+		t.Errorf("expected active panel 'explorer', got %q", h.app.Sidebar.ActivePanel)
 	}
 
 	h.exec("sidebar.search")
-	if h.app.sidebar.ActivePanel != "search" {
-		t.Errorf("expected active panel 'search', got %q", h.app.sidebar.ActivePanel)
+	if h.app.Sidebar.ActivePanel != "search" {
+		t.Errorf("expected active panel 'search', got %q", h.app.Sidebar.ActivePanel)
 	}
 
-	h.exec("sidebar.changes")
-	if h.app.sidebar.ActivePanel != "changes" {
-		t.Errorf("expected active panel 'changes', got %q", h.app.sidebar.ActivePanel)
+	h.exec("sidebar.Changes")
+	if h.app.Sidebar.ActivePanel != "changes" {
+		t.Errorf("expected active panel 'changes', got %q", h.app.Sidebar.ActivePanel)
 	}
 }
 
@@ -357,13 +357,13 @@ func TestCommandPaletteOpenClose(t *testing.T) {
 	defer h.stop()
 
 	h.exec("command.palette")
-	if len(h.app.root.Overlays) != 1 {
-		t.Fatalf("expected 1 overlay, got %d", len(h.app.root.Overlays))
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay, got %d", len(h.app.Root.Overlays))
 	}
 
 	h.pressKey(tcell.KeyEscape, tcell.ModNone)
-	if len(h.app.root.Overlays) != 0 {
-		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.root.Overlays))
+	if len(h.app.Root.Overlays) != 0 {
+		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.Root.Overlays))
 	}
 }
 
@@ -372,13 +372,13 @@ func TestGoToLineDialog(t *testing.T) {
 	defer h.stop()
 
 	h.exec("editor.goToLine")
-	if len(h.app.root.Overlays) != 1 {
-		t.Fatalf("expected 1 overlay, got %d", len(h.app.root.Overlays))
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay, got %d", len(h.app.Root.Overlays))
 	}
 
 	h.pressKey(tcell.KeyEscape, tcell.ModNone)
-	if len(h.app.root.Overlays) != 0 {
-		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.root.Overlays))
+	if len(h.app.Root.Overlays) != 0 {
+		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.Root.Overlays))
 	}
 }
 
@@ -387,13 +387,13 @@ func TestFindDialog(t *testing.T) {
 	defer h.stop()
 
 	h.exec("search.find")
-	if len(h.app.root.Overlays) != 1 {
-		t.Fatalf("expected 1 overlay, got %d", len(h.app.root.Overlays))
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay, got %d", len(h.app.Root.Overlays))
 	}
 
 	h.pressKey(tcell.KeyEscape, tcell.ModNone)
-	if len(h.app.root.Overlays) != 0 {
-		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.root.Overlays))
+	if len(h.app.Root.Overlays) != 0 {
+		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.Root.Overlays))
 	}
 }
 
@@ -402,8 +402,8 @@ func TestNewFile(t *testing.T) {
 	defer h.stop()
 
 	h.exec("file.new")
-	if h.app.editorGroup.ActiveFilePath() != "untitled" {
-		t.Errorf("expected path 'untitled', got %q", h.app.editorGroup.ActiveFilePath())
+	if h.app.EditorGroup.ActiveFilePath() != "untitled" {
+		t.Errorf("expected path 'untitled', got %q", h.app.EditorGroup.ActiveFilePath())
 	}
 	h.assertContains("untitled")
 }
@@ -412,16 +412,16 @@ func TestSidebarWidth(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	initial := h.app.splitPanel.DividerPos
+	initial := h.app.SplitPanel.DividerPos
 
 	h.exec("sidebar.wider")
-	if h.app.splitPanel.DividerPos != initial+1 {
-		t.Errorf("expected width %d, got %d", initial+1, h.app.splitPanel.DividerPos)
+	if h.app.SplitPanel.DividerPos != initial+1 {
+		t.Errorf("expected width %d, got %d", initial+1, h.app.SplitPanel.DividerPos)
 	}
 
 	h.exec("sidebar.narrower")
-	if h.app.splitPanel.DividerPos != initial {
-		t.Errorf("expected width %d, got %d", initial, h.app.splitPanel.DividerPos)
+	if h.app.SplitPanel.DividerPos != initial {
+		t.Errorf("expected width %d, got %d", initial, h.app.SplitPanel.DividerPos)
 	}
 }
 
@@ -446,10 +446,10 @@ func TestThemeSwitchDialog(t *testing.T) {
 
 	h.exec("theme.switch")
 	// If theme files exist, overlay opens; otherwise it's a no-op
-	if len(h.app.root.Overlays) == 1 {
+	if len(h.app.Root.Overlays) == 1 {
 		h.pressKey(tcell.KeyEscape, tcell.ModNone)
-		if len(h.app.root.Overlays) != 0 {
-			t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.root.Overlays))
+		if len(h.app.Root.Overlays) != 0 {
+			t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.Root.Overlays))
 		}
 	}
 }
@@ -458,33 +458,33 @@ func TestExplorerKeyNavigation(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
+	h.exec("sidebar.Explorer")
 
-	if len(h.app.explorer.FlatList) < 3 {
-		t.Skipf("expected at least 3 explorer items, got %d", len(h.app.explorer.FlatList))
+	if len(h.app.Explorer.FlatList) < 3 {
+		t.Skipf("expected at least 3 explorer items, got %d", len(h.app.Explorer.FlatList))
 	}
 
-	h.app.explorer.Selected = 0
+	h.app.Explorer.Selected = 0
 
 	h.pressKey(tcell.KeyDown, tcell.ModNone)
-	if h.app.explorer.Selected != 1 {
-		t.Errorf("expected Selected 1 after Down, got %d", h.app.explorer.Selected)
+	if h.app.Explorer.Selected != 1 {
+		t.Errorf("expected Selected 1 after Down, got %d", h.app.Explorer.Selected)
 	}
 
 	h.pressKey(tcell.KeyDown, tcell.ModNone)
-	if h.app.explorer.Selected != 2 {
-		t.Errorf("expected Selected 2 after second Down, got %d", h.app.explorer.Selected)
+	if h.app.Explorer.Selected != 2 {
+		t.Errorf("expected Selected 2 after second Down, got %d", h.app.Explorer.Selected)
 	}
 
 	h.pressKey(tcell.KeyUp, tcell.ModNone)
-	if h.app.explorer.Selected != 1 {
-		t.Errorf("expected Selected 1 after Up, got %d", h.app.explorer.Selected)
+	if h.app.Explorer.Selected != 1 {
+		t.Errorf("expected Selected 1 after Up, got %d", h.app.Explorer.Selected)
 	}
 
-	h.app.explorer.Selected = 0
+	h.app.Explorer.Selected = 0
 	h.pressKey(tcell.KeyUp, tcell.ModNone)
-	if h.app.explorer.Selected != 0 {
-		t.Errorf("expected Selected 0 (clamped at top), got %d", h.app.explorer.Selected)
+	if h.app.Explorer.Selected != 0 {
+		t.Errorf("expected Selected 0 (clamped at top), got %d", h.app.Explorer.Selected)
 	}
 }
 
@@ -492,21 +492,21 @@ func TestExplorerDirExpandCollapse(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
+	h.exec("sidebar.Explorer")
 
-	h.app.explorer.Selected = 0
-	root := h.app.explorer.FlatList[0]
+	h.app.Explorer.Selected = 0
+	root := h.app.Explorer.FlatList[0]
 	if !root.IsDir {
 		t.Fatal("expected root to be a directory")
 	}
 
-	initialCount := len(h.app.explorer.FlatList)
+	initialCount := len(h.app.Explorer.FlatList)
 
 	h.pressKey(tcell.KeyLeft, tcell.ModNone)
 	if root.Expanded {
 		t.Error("expected root to be collapsed after Left")
 	}
-	if len(h.app.explorer.FlatList) >= initialCount {
+	if len(h.app.Explorer.FlatList) >= initialCount {
 		t.Error("expected fewer items after collapsing root")
 	}
 
@@ -514,8 +514,8 @@ func TestExplorerDirExpandCollapse(t *testing.T) {
 	if !root.Expanded {
 		t.Error("expected root to be expanded after Right")
 	}
-	if len(h.app.explorer.FlatList) != initialCount {
-		t.Errorf("expected %d items after re-expanding, got %d", initialCount, len(h.app.explorer.FlatList))
+	if len(h.app.Explorer.FlatList) != initialCount {
+		t.Errorf("expected %d items after re-expanding, got %d", initialCount, len(h.app.Explorer.FlatList))
 	}
 }
 
@@ -523,10 +523,10 @@ func TestExplorerEnterOpensFile(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
+	h.exec("sidebar.Explorer")
 
 	fileIdx := -1
-	for i, node := range h.app.explorer.FlatList {
+	for i, node := range h.app.Explorer.FlatList {
 		if !node.IsDir {
 			fileIdx = i
 			break
@@ -536,13 +536,13 @@ func TestExplorerEnterOpensFile(t *testing.T) {
 		t.Skip("no file found in explorer")
 	}
 
-	h.app.explorer.Selected = fileIdx
-	expectedPath := h.app.explorer.FlatList[fileIdx].Path
+	h.app.Explorer.Selected = fileIdx
+	expectedPath := h.app.Explorer.FlatList[fileIdx].Path
 
 	h.pressKey(tcell.KeyEnter, tcell.ModNone)
 
-	if h.app.editorGroup.ActiveFilePath() != expectedPath {
-		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.editorGroup.ActiveFilePath())
+	if h.app.EditorGroup.ActiveFilePath() != expectedPath {
+		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.EditorGroup.ActiveFilePath())
 	}
 }
 
@@ -550,10 +550,10 @@ func TestExplorerEnterToggleDir(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
+	h.exec("sidebar.Explorer")
 
-	h.app.explorer.Selected = 0
-	root := h.app.explorer.FlatList[0]
+	h.app.Explorer.Selected = 0
+	root := h.app.Explorer.FlatList[0]
 	if !root.IsDir || !root.Expanded {
 		t.Fatal("expected root to be an expanded directory")
 	}
@@ -573,11 +573,11 @@ func TestExplorerClickOpensFile(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
+	h.exec("sidebar.Explorer")
 	h.redraw()
 
 	fileIdx := -1
-	for i, node := range h.app.explorer.FlatList {
+	for i, node := range h.app.Explorer.FlatList {
 		if !node.IsDir {
 			fileIdx = i
 			break
@@ -587,17 +587,17 @@ func TestExplorerClickOpensFile(t *testing.T) {
 		t.Skip("no file found in explorer")
 	}
 
-	r := h.app.explorer.GetRect()
-	clickY := r.Y + (fileIdx - h.app.explorer.ScrollTop)
+	r := h.app.Explorer.GetRect()
+	clickY := r.Y + (fileIdx - h.app.Explorer.ScrollTop)
 	h.click(r.X+5, clickY)
 
-	if h.app.explorer.Selected != fileIdx {
-		t.Errorf("expected Selected %d after click, got %d", fileIdx, h.app.explorer.Selected)
+	if h.app.Explorer.Selected != fileIdx {
+		t.Errorf("expected Selected %d after click, got %d", fileIdx, h.app.Explorer.Selected)
 	}
 
-	expectedPath := h.app.explorer.FlatList[fileIdx].Path
-	if h.app.editorGroup.ActiveFilePath() != expectedPath {
-		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.editorGroup.ActiveFilePath())
+	expectedPath := h.app.Explorer.FlatList[fileIdx].Path
+	if h.app.EditorGroup.ActiveFilePath() != expectedPath {
+		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.EditorGroup.ActiveFilePath())
 	}
 }
 
@@ -605,21 +605,21 @@ func TestExplorerScrollFollowing(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.explorer")
+	h.exec("sidebar.Explorer")
 
-	itemCount := len(h.app.explorer.FlatList)
+	itemCount := len(h.app.Explorer.FlatList)
 	if itemCount < 5 {
 		t.Skipf("need at least 5 items for scroll test, got %d", itemCount)
 	}
 
-	h.app.explorer.Selected = itemCount - 1
-	r := h.app.explorer.GetRect()
+	h.app.Explorer.Selected = itemCount - 1
+	r := h.app.Explorer.GetRect()
 	contentH := r.H
 
 	h.redraw()
 
 	if contentH > 0 && itemCount > contentH {
-		if h.app.explorer.ScrollTop == 0 {
+		if h.app.Explorer.ScrollTop == 0 {
 			t.Error("expected ScrollTop > 0 when selected item is past visible area")
 		}
 	}
@@ -629,17 +629,17 @@ func TestChangesKeyNavigation(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.changes")
+	h.exec("sidebar.Changes")
 
-	if h.app.changes.TotalChanges() == 0 {
+	if h.app.Changes.TotalChanges() == 0 {
 		t.Skip("no changed files in working directory")
 	}
 
-	h.app.changes.Selected = 0
+	h.app.Changes.Selected = 0
 	h.pressKey(tcell.KeyDown, tcell.ModNone)
 	h.pressKey(tcell.KeyUp, tcell.ModNone)
-	if h.app.changes.Selected != 0 {
-		t.Errorf("expected Selected 0 after Up, got %d", h.app.changes.Selected)
+	if h.app.Changes.Selected != 0 {
+		t.Errorf("expected Selected 0 after Up, got %d", h.app.Changes.Selected)
 	}
 }
 
@@ -647,7 +647,7 @@ func TestChangesRefreshKey(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.changes")
+	h.exec("sidebar.Changes")
 
 	h.pressRune('r')
 	// Just verify refresh doesn't crash
@@ -658,12 +658,12 @@ func TestFocusEditor(t *testing.T) {
 	defer h.stop()
 
 	h.exec("sidebar.focus")
-	if h.app.root.Focused == h.app.editorGroup {
+	if h.app.Root.Focused == h.app.EditorGroup {
 		t.Error("focus should not be on editor after sidebar.focus")
 	}
 
 	h.exec("editor.focus")
-	if h.app.root.Focused != h.app.editorGroup {
+	if h.app.Root.Focused != h.app.EditorGroup {
 		t.Error("focus should be on editor after editor.focus")
 	}
 }
@@ -674,11 +674,11 @@ func TestSidebarTabOverflow(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.app.splitPanel.DividerPos = 20
-	h.app.root.SetSize(80, 24)
+	h.app.SplitPanel.DividerPos = 20
+	h.app.Root.SetSize(80, 24)
 	h.redraw()
 
-	sidebarY := h.app.sidebar.GetRect().Y
+	sidebarY := h.app.Sidebar.GetRect().Y
 	row := h.screenRow(sidebarY)
 	t.Logf("sidebar row (w=20): %q", row)
 
@@ -686,13 +686,13 @@ func TestSidebarTabOverflow(t *testing.T) {
 		t.Errorf("expected overflow » indicator in narrow sidebar, got: %s", row)
 	}
 
-	if len(h.app.sidebar.TabBar.HiddenTabs) == 0 {
+	if len(h.app.Sidebar.TabBar.HiddenTabs) == 0 {
 		t.Error("expected at least one hidden tab due to overflow")
 	}
 
 	// Default width: all tabs should fit without overflow
-	h.app.splitPanel.DividerPos = 30
-	h.app.root.SetSize(80, 24)
+	h.app.SplitPanel.DividerPos = 30
+	h.app.Root.SetSize(80, 24)
 	h.redraw()
 
 	row = h.screenRow(sidebarY)
@@ -702,8 +702,8 @@ func TestSidebarTabOverflow(t *testing.T) {
 		t.Errorf("expected no overflow with default sidebar, got: %s", row)
 	}
 
-	if len(h.app.sidebar.TabBar.HiddenTabs) != 0 {
-		t.Errorf("expected 0 hidden tabs with default sidebar, got %d", len(h.app.sidebar.TabBar.HiddenTabs))
+	if len(h.app.Sidebar.TabBar.HiddenTabs) != 0 {
+		t.Errorf("expected 0 hidden tabs with default sidebar, got %d", len(h.app.Sidebar.TabBar.HiddenTabs))
 	}
 }
 

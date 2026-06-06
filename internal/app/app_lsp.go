@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -18,8 +18,8 @@ import (
 )
 
 func (a *App) ShowAutocomplete(items []ui.CompletionItem, lspItems []lsp.CompletionItem) {
-	a.completionItems = items
-	a.lspCompletionItems = lspItems
+	a.CompletionItems = items
+	a.LspCompletionItems = lspItems
 	prefix := a.currentPrefix()
 	filtered := ui.FilterCompletions(items, prefix)
 	if len(filtered) == 0 {
@@ -33,11 +33,11 @@ func (a *App) ShowAutocomplete(items []ui.CompletionItem, lspItems []lsp.Complet
 	ac.OnDismiss = func() {
 		a.DismissAutocomplete()
 	}
-	a.editorGroup.Autocomplete = ac
+	a.EditorGroup.Autocomplete = ac
 }
 
 func (a *App) RefreshAutocomplete() {
-	if a.editorGroup.Autocomplete == nil || len(a.completionItems) == 0 {
+	if a.EditorGroup.Autocomplete == nil || len(a.CompletionItems) == 0 {
 		return
 	}
 	prefix := a.currentPrefix()
@@ -45,19 +45,19 @@ func (a *App) RefreshAutocomplete() {
 		a.DismissAutocomplete()
 		return
 	}
-	filtered := ui.FilterCompletions(a.completionItems, prefix)
+	filtered := ui.FilterCompletions(a.CompletionItems, prefix)
 	if len(filtered) == 0 {
 		a.DismissAutocomplete()
 		return
 	}
-	a.editorGroup.Autocomplete.SetItems(filtered)
+	a.EditorGroup.Autocomplete.SetItems(filtered)
 }
 
 func (a *App) identStart() (line, start, col int) {
-	if !a.editorGroup.IsEditorActive() {
+	if !a.EditorGroup.IsEditorActive() {
 		return 0, 0, 0
 	}
-	editor := a.editorGroup.Editor
+	editor := a.EditorGroup.Editor
 	line = editor.Cursor.Line
 	col = editor.Cursor.Col
 	if line >= len(editor.Buf.Lines) {
@@ -75,10 +75,10 @@ func (a *App) identStart() (line, start, col int) {
 }
 
 func (a *App) currentPrefix() string {
-	if !a.editorGroup.IsEditorActive() {
+	if !a.EditorGroup.IsEditorActive() {
 		return ""
 	}
-	editor := a.editorGroup.Editor
+	editor := a.EditorGroup.Editor
 	line, start, col := a.identStart()
 	runes := []rune(editor.Buf.Lines[line])
 	if col > len(runes) {
@@ -91,34 +91,34 @@ func (a *App) currentPrefix() string {
 }
 
 func (a *App) DismissAutocomplete() {
-	a.editorGroup.Autocomplete = nil
-	a.completionItems = nil
-	a.lspCompletionItems = nil
+	a.EditorGroup.Autocomplete = nil
+	a.CompletionItems = nil
+	a.LspCompletionItems = nil
 }
 
 func (a *App) IsAutocompleteActive() bool {
-	return a.editorGroup.Autocomplete != nil
+	return a.EditorGroup.Autocomplete != nil
 }
 
 func (a *App) resolveAndInsert(item ui.CompletionItem) {
 	var lspItem *lsp.CompletionItem
-	for i, li := range a.lspCompletionItems {
+	for i, li := range a.LspCompletionItems {
 		if li.Label == item.Label {
-			lspItem = &a.lspCompletionItems[i]
+			lspItem = &a.LspCompletionItems[i]
 			break
 		}
 	}
 
 	if lspItem != nil && len(lspItem.AdditionalTextEdits) == 0 {
-		path := a.editorGroup.ActiveFilePath()
+		path := a.EditorGroup.ActiveFilePath()
 		lang := ""
-		if a.editorGroup.Editor != nil && a.editorGroup.Editor.Highlighter != nil {
-			lang = a.editorGroup.Editor.Highlighter.Language()
+		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {
+			lang = a.EditorGroup.Editor.Highlighter.Language()
 		}
 		serverKey, _, ok := a.lspResolve(path, lang)
 		if ok {
 			workDir := a.lspWorkDir(path)
-			client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+			client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 			if err == nil {
 				resolved, err := client.ResolveCompletion(*lspItem)
 				if err == nil && resolved != nil {
@@ -140,14 +140,14 @@ func (a *App) resolveAndInsert(item ui.CompletionItem) {
 }
 
 func (a *App) insertCompletion(item ui.CompletionItem) {
-	if !a.editorGroup.IsEditorActive() {
+	if !a.EditorGroup.IsEditorActive() {
 		return
 	}
 	text := item.InsertText
 	if text == "" {
 		text = item.Label
 	}
-	editor := a.editorGroup.Editor
+	editor := a.EditorGroup.Editor
 	line, start, col := a.identStart()
 	if start < col {
 		editor.ExecCommand(&undo.DeleteSelectionCommand{
@@ -193,26 +193,26 @@ func (a *App) insertCompletion(item ui.CompletionItem) {
 }
 
 func (a *App) ScheduleAutocomplete() {
-	if !a.settings.Autocomplete.Enabled || !a.settings.Autocomplete.AutoSuggest {
+	if !a.Settings.Autocomplete.Enabled || !a.Settings.Autocomplete.AutoSuggest {
 		return
 	}
-	if a.autocompleteTimer != nil {
-		a.autocompleteTimer.Stop()
+	if a.AutocompleteTimer != nil {
+		a.AutocompleteTimer.Stop()
 	}
-	delay := time.Duration(a.settings.Autocomplete.Debounce) * time.Millisecond
-	a.autocompleteTimer = time.AfterFunc(delay, func() {
-		a.screen.PostEvent(tcell.NewEventInterrupt(&autocompleteTrigger{}))
+	delay := time.Duration(a.Settings.Autocomplete.Debounce) * time.Millisecond
+	a.AutocompleteTimer = time.AfterFunc(delay, func() {
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&AutocompleteTrigger{}))
 	})
 }
 
 func (a *App) CheckSignatureHelpTrigger() {
-	if !a.settings.Autocomplete.Enabled || !a.settings.Autocomplete.SignatureHelp {
+	if !a.Settings.Autocomplete.Enabled || !a.Settings.Autocomplete.SignatureHelp {
 		return
 	}
-	if !a.editorGroup.IsEditorActive() {
+	if !a.EditorGroup.IsEditorActive() {
 		return
 	}
-	editor := a.editorGroup.Editor
+	editor := a.EditorGroup.Editor
 	line := editor.Cursor.Line
 	col := editor.Cursor.Col
 	if col <= 0 || line >= len(editor.Buf.Lines) {
@@ -224,7 +224,7 @@ func (a *App) CheckSignatureHelpTrigger() {
 	}
 	ch := runes[col-1]
 	if ch == '(' || ch == ',' {
-		path := a.editorGroup.ActiveFilePath()
+		path := a.EditorGroup.ActiveFilePath()
 		lang := ""
 		if editor.Highlighter != nil {
 			lang = editor.Highlighter.Language()
@@ -242,40 +242,40 @@ func (a *App) RequestSignatureHelp(path, lang string, line, col int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
-		sig, err := client.SignatureHelp(fileURI(path), line, col)
+		sig, err := client.SignatureHelp(FileURI(path), line, col)
 		if err != nil {
 			slog.Error("lsp signatureHelp", "err", err)
 			return
 		}
 		if sig != nil && len(sig.Signatures) > 0 {
-			result := lspToSignatureHelpResult(sig)
-			if result.label != "" {
-				slog.Debug("lsp signature help response", "label", result.label)
-				a.screen.PostEvent(tcell.NewEventInterrupt(result))
+			result := LspToSignatureHelpResult(sig)
+			if result.Label != "" {
+				slog.Debug("lsp signature help response", "label", result.Label)
+				a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 			}
 		}
 	}()
 }
 
-func (a *App) ShowSignatureHelp(result *signatureHelpResult) {
-	w := ui.NewSignatureHelpWidget(result.label, result.paramStart, result.paramEnd)
-	a.editorGroup.SignatureHelp = w
+func (a *App) ShowSignatureHelp(result *SignatureHelpResult) {
+	w := ui.NewSignatureHelpWidget(result.Label, result.ParamStart, result.ParamEnd)
+	a.EditorGroup.SignatureHelp = w
 }
 
 func (a *App) DismissSignatureHelp() {
-	a.editorGroup.SignatureHelp = nil
+	a.EditorGroup.SignatureHelp = nil
 }
 
 func (a *App) editorTabSize() (int, bool) {
-	tabSize := a.settings.TabSize
-	insertSpaces := a.settings.InsertSpaces
-	if a.editorGroup.Editor != nil && a.editorGroup.Editor.TabSize > 0 {
-		tabSize = a.editorGroup.Editor.TabSize
+	tabSize := a.Settings.TabSize
+	insertSpaces := a.Settings.InsertSpaces
+	if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.TabSize > 0 {
+		tabSize = a.EditorGroup.Editor.TabSize
 	}
 	return tabSize, insertSpaces
 }
@@ -291,18 +291,18 @@ func (a *App) RequestFormatting(path, lang string) {
 	workDir := a.lspWorkDir(path)
 	tabSize, insertSpaces := a.editorTabSize()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
-		edits, err := client.Formatting(fileURI(path), tabSize, insertSpaces)
+		edits, err := client.Formatting(FileURI(path), tabSize, insertSpaces)
 		if err != nil {
 			slog.Error("lsp formatting", "err", err)
 			return
 		}
 		if len(edits) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&formattingResult{edits: edits}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&FormattingResult{Edits: edits}))
 		}
 	}()
 }
@@ -322,24 +322,24 @@ func (a *App) RequestRangeFormatting(path, lang string, startLine, startCol, end
 		End:   lsp.Position{Line: endLine, Character: endCol},
 	}
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
-		edits, err := client.RangeFormatting(fileURI(path), r, tabSize, insertSpaces)
+		edits, err := client.RangeFormatting(FileURI(path), r, tabSize, insertSpaces)
 		if err != nil {
 			slog.Error("lsp rangeFormatting", "err", err)
 			return
 		}
 		if len(edits) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&formattingResult{edits: edits}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&FormattingResult{Edits: edits}))
 		}
 	}()
 }
 
 func (a *App) RunCodeActionsOnSave(path, lang string) {
-	if len(a.settings.LSP.CodeActionsOnSave) == 0 {
+	if len(a.Settings.LSP.CodeActionsOnSave) == 0 {
 		return
 	}
 	serverKey, _, ok := a.lspResolve(path, lang)
@@ -347,19 +347,19 @@ func (a *App) RunCodeActionsOnSave(path, lang string) {
 		return
 	}
 	workDir := a.lspWorkDir(path)
-	client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+	client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 	if err != nil {
 		return
 	}
 	lineCount := 0
-	if a.editorGroup.Editor != nil {
-		lineCount = len(a.editorGroup.Editor.Buf.Lines)
+	if a.EditorGroup.Editor != nil {
+		lineCount = len(a.EditorGroup.Editor.Buf.Lines)
 	}
 	fullRange := lsp.Range{
 		Start: lsp.Position{Line: 0, Character: 0},
 		End:   lsp.Position{Line: lineCount, Character: 0},
 	}
-	actions, err := client.CodeAction(fileURI(path), fullRange, a.settings.LSP.CodeActionsOnSave)
+	actions, err := client.CodeAction(FileURI(path), fullRange, a.Settings.LSP.CodeActionsOnSave)
 	if err != nil {
 		slog.Error("lsp codeActionsOnSave", "err", err)
 		return
@@ -367,7 +367,7 @@ func (a *App) RunCodeActionsOnSave(path, lang string) {
 	for _, action := range actions {
 		if action.Edit != nil && len(action.Edit.Changes) > 0 {
 			for uri, edits := range action.Edit.Changes {
-				if uriToPath(uri) == path {
+				if URIToPath(uri) == path {
 					a.ApplyTextEdits(edits)
 				}
 			}
@@ -385,27 +385,27 @@ func (a *App) RequestCodeAction(path, lang, kind string) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
 		lineCount := 0
-		if a.editorGroup.Editor != nil {
-			lineCount = len(a.editorGroup.Editor.Buf.Lines)
+		if a.EditorGroup.Editor != nil {
+			lineCount = len(a.EditorGroup.Editor.Buf.Lines)
 		}
 		fullRange := lsp.Range{
 			Start: lsp.Position{Line: 0, Character: 0},
 			End:   lsp.Position{Line: lineCount, Character: 0},
 		}
-		actions, err := client.CodeAction(fileURI(path), fullRange, []string{kind})
+		actions, err := client.CodeAction(FileURI(path), fullRange, []string{kind})
 		if err != nil {
 			slog.Error("lsp codeAction", "err", err)
 			return
 		}
 		for _, action := range actions {
 			if action.Edit != nil && len(action.Edit.Changes) > 0 {
-				a.screen.PostEvent(tcell.NewEventInterrupt(&formattingResult{edits: action.Edit.Changes[fileURI(path)]}))
+				a.Screen.PostEvent(tcell.NewEventInterrupt(&FormattingResult{Edits: action.Edit.Changes[FileURI(path)]}))
 				return
 			}
 		}
@@ -419,11 +419,11 @@ func (a *App) FormatOnSave(path, lang string) {
 	}
 	workDir := a.lspWorkDir(path)
 	tabSize, insertSpaces := a.editorTabSize()
-	client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+	client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 	if err != nil {
 		return
 	}
-	edits, err := client.Formatting(fileURI(path), tabSize, insertSpaces)
+	edits, err := client.Formatting(FileURI(path), tabSize, insertSpaces)
 	if err != nil {
 		slog.Error("lsp formatOnSave", "err", err)
 		return
@@ -443,41 +443,41 @@ func (a *App) RequestRename(path, lang string, line, col int, newName string) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
-		edit, err := client.Rename(fileURI(path), line, col, newName)
+		edit, err := client.Rename(FileURI(path), line, col, newName)
 		if err != nil {
 			slog.Error("lsp rename", "err", err)
 			return
 		}
 		if edit != nil && len(edit.Changes) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&renameResult{edit: edit}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&RenameResult{Edit: edit}))
 		}
 	}()
 }
 
 func (a *App) ApplyWorkspaceEdit(edit *lsp.WorkspaceEdit) {
-	currentPath := a.editorGroup.ActiveFilePath()
+	currentPath := a.EditorGroup.ActiveFilePath()
 
 	for uri, edits := range edit.Changes {
-		path := uriToPath(uri)
-		a.editorGroup.OpenFile(path)
+		path := URIToPath(uri)
+		a.EditorGroup.OpenFile(path)
 		a.ApplyTextEdits(edits)
 
-		if a.settings.LSP.SaveOnRename {
-			a.editorGroup.Save()
-			if a.editorGroup.Editor != nil && a.editorGroup.Editor.Highlighter != nil {
-				lang := a.editorGroup.Editor.Highlighter.Language()
-				text := strings.Join(a.editorGroup.Editor.Buf.Lines, "\n")
+		if a.Settings.LSP.SaveOnRename {
+			a.EditorGroup.Save()
+			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {
+				lang := a.EditorGroup.Editor.Highlighter.Language()
+				text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
 				a.NotifyLSPSave(path, lang, text)
 			}
 		}
 	}
 
-	a.editorGroup.OpenFile(currentPath)
+	a.EditorGroup.OpenFile(currentPath)
 	fileCount := len(edit.Changes)
 	a.StatusNotify(fmt.Sprintf("Renamed across %d file(s)", fileCount))
 }
@@ -492,20 +492,20 @@ func (a *App) RequestReferences(path, lang string, line, col int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
-		locs, err := client.References(fileURI(path), line, col, true)
+		locs, err := client.References(FileURI(path), line, col, true)
 		if err != nil {
 			slog.Error("lsp references", "err", err)
 			return
 		}
 		if len(locs) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&referencesResult{locations: locs}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&ReferencesResult{Locations: locs}))
 		} else {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&referencesResult{}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&ReferencesResult{}))
 		}
 	}()
 }
@@ -513,8 +513,8 @@ func (a *App) RequestReferences(path, lang string, line, col int) {
 func (a *App) ShowReferences(locs []lsp.Location) {
 	items := make([]ui.ReferenceItem, 0, len(locs))
 	for _, loc := range locs {
-		path := uriToPath(loc.URI)
-		text := readLineFromFile(path, loc.Range.Start.Line)
+		path := URIToPath(loc.URI)
+		text := ReadLineFromFile(path, loc.Range.Start.Line)
 		items = append(items, ui.ReferenceItem{
 			File: path,
 			Line: loc.Range.Start.Line,
@@ -522,18 +522,18 @@ func (a *App) ShowReferences(locs []lsp.Location) {
 			Text: strings.TrimSpace(text),
 		})
 	}
-	a.references.SetItems(items)
-	a.bottomPanel.SetActivePanel("references")
-	if !a.contentSplit.ShowBottom {
-		a.contentSplit.ShowBottom = true
+	a.References.SetItems(items)
+	a.BottomPanel.SetActivePanel("references")
+	if !a.ContentSplit.ShowBottom {
+		a.ContentSplit.ShowBottom = true
 	}
 }
 
 func (a *App) ApplyTextEdits(edits []lsp.TextEdit) {
-	if !a.editorGroup.IsEditorActive() {
+	if !a.EditorGroup.IsEditorActive() {
 		return
 	}
-	editor := a.editorGroup.Editor
+	editor := a.EditorGroup.Editor
 
 	sort.Slice(edits, func(i, j int) bool {
 		if edits[i].Range.Start.Line != edits[j].Range.Start.Line {
@@ -569,10 +569,10 @@ func (a *App) ApplyTextEdits(edits []lsp.TextEdit) {
 }
 
 func (a *App) wordAtCursor() string {
-	if !a.editorGroup.IsEditorActive() {
+	if !a.EditorGroup.IsEditorActive() {
 		return ""
 	}
-	editor := a.editorGroup.Editor
+	editor := a.EditorGroup.Editor
 	line := editor.Cursor.Line
 	col := editor.Cursor.Col
 	if line >= len(editor.Buf.Lines) {
@@ -601,10 +601,10 @@ func isIdentRune(r rune) bool {
 }
 
 func (a *App) lspResolve(path, lang string) (serverKey, languageID string, ok bool) {
-	if a.lspManager == nil || !a.settings.LSP.IsEnabled() {
+	if a.LspManager == nil || !a.Settings.LSP.IsEnabled() {
 		return "", "", false
 	}
-	return a.lspManager.ResolveLanguage(path, lang)
+	return a.LspManager.ResolveLanguage(path, lang)
 }
 
 func (a *App) RequestCompletions(path, lang string, line, col int) {
@@ -614,36 +614,36 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
 		}
 		slog.Debug("lsp completion request", "path", path, "line", line, "col", col)
-		items, err := client.Completion(fileURI(path), line, col)
+		items, err := client.Completion(FileURI(path), line, col)
 		if err != nil {
 			slog.Error("lsp completion", "err", err)
 			return
 		}
 		slog.Debug("lsp completion response", "count", len(items))
-		uiItems := lspToUICompletions(items)
+		uiItems := LspToUICompletions(items)
 		if len(uiItems) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&completionResult{items: uiItems, lspItems: items}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&CompletionResult{Items: uiItems, LspItems: items}))
 		}
 	}()
 }
 
 func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
 	diagText := ""
-	if a.editorGroup.Editor != nil {
-		if d := a.editorGroup.Editor.DiagnosticAt(line, col); d != nil {
+	if a.EditorGroup.Editor != nil {
+		if d := a.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
 			diagText = d.Message
 		}
 	}
 
-	gen := a.hoverGen
+	gen := a.HoverGen
 	post := func(text string) {
-		a.screen.PostEvent(tcell.NewEventInterrupt(&hoverResult{text: text, anchorX: anchorX, anchorY: anchorY, gen: gen}))
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&HoverResult{Text: text, AnchorX: anchorX, AnchorY: anchorY, Gen: gen}))
 	}
 
 	serverKey, _, ok := a.lspResolve(path, lang)
@@ -655,7 +655,7 @@ func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			if diagText != "" {
@@ -663,7 +663,7 @@ func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
 			}
 			return
 		}
-		hover, err := client.Hover(fileURI(path), line, col)
+		hover, err := client.Hover(FileURI(path), line, col)
 		if err != nil {
 			slog.Error("lsp hover", "err", err)
 			if diagText != "" {
@@ -711,7 +711,7 @@ func (a *App) requestLocation(method, path, lang string, line, col int) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
@@ -720,25 +720,25 @@ func (a *App) requestLocation(method, path, lang string, line, col int) {
 		var reqErr error
 		switch method {
 		case "textDocument/definition":
-			locs, reqErr = client.Definition(fileURI(path), line, col)
+			locs, reqErr = client.Definition(FileURI(path), line, col)
 		case "textDocument/implementation":
-			locs, reqErr = client.Implementation(fileURI(path), line, col)
+			locs, reqErr = client.Implementation(FileURI(path), line, col)
 		case "textDocument/typeDefinition":
-			locs, reqErr = client.TypeDefinition(fileURI(path), line, col)
+			locs, reqErr = client.TypeDefinition(FileURI(path), line, col)
 		}
 		if reqErr != nil {
 			slog.Error("lsp "+method, "err", reqErr)
 			return
 		}
 		if len(locs) > 0 {
-			a.screen.PostEvent(tcell.NewEventInterrupt(&locationResult{locations: locs}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&LocationResult{Locations: locs}))
 		}
 	}()
 }
 
 func (a *App) lspWorkDir(path string) string {
-	workDir := a.workspace.Primary()
-	if folder := a.workspace.FolderForFile(path); folder != nil {
+	workDir := a.Workspace.Primary()
+	if folder := a.Workspace.FolderForFile(path); folder != nil {
 		workDir = folder.Path
 	}
 	return workDir
@@ -750,24 +750,24 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 		return
 	}
 
-	serverCfg := a.lspManager.ServerConfig(serverKey)
+	serverCfg := a.LspManager.ServerConfig(serverKey)
 	if len(serverCfg.Command) > 0 {
 		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
-			if !a.lspNotified[serverKey] && a.settings.LSP.ShouldNotifyAvailability() {
-				a.lspNotified[serverKey] = true
+			if !a.LspNotified[serverKey] && a.Settings.LSP.ShouldNotifyAvailability() {
+				a.LspNotified[serverKey] = true
 				msg := fmt.Sprintf("%s autocomplete support is available. Click Docs for installation instructions.", lang)
 				anchor := serverKey
-				a.status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
-					openURL("https://tttedit.dev/guides/lsp/#" + anchor)
+				a.Status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
+					OpenURL("https://tttedit.dev/guides/lsp/#" + anchor)
 				})
-				a.status.SecondaryLabel = "Don't show again"
-				a.status.SecondaryAction = func() {
+				a.Status.SecondaryLabel = "Don't show again"
+				a.Status.SecondaryAction = func() {
 					v := false
-					a.settings.LSP.NotifyAvailability = &v
-					config.SaveSettings(*a.settings)
+					a.Settings.LSP.NotifyAvailability = &v
+					config.SaveSettings(*a.Settings)
 				}
 				time.AfterFunc(10*time.Second, func() {
-					a.screen.PostEvent(tcell.NewEventInterrupt(nil))
+					a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 				})
 			}
 			return
@@ -775,16 +775,16 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 	}
 
 	workDir := a.lspWorkDir(path)
-	a.docVersionsMu.Lock()
-	a.docVersions[path] = 1
-	a.docVersionsMu.Unlock()
+	a.DocVersionsMu.Lock()
+	a.DocVersions[path] = 1
+	a.DocVersionsMu.Unlock()
 	slog.Debug("lsp didOpen", "path", path, "language", langID)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
-		client.DidOpen(fileURI(path), langID, text)
+		client.DidOpen(FileURI(path), langID, text)
 	}()
 }
 
@@ -794,16 +794,16 @@ func (a *App) NotifyLSPChange(path, lang, text string) {
 		return
 	}
 	workDir := a.lspWorkDir(path)
-	a.docVersionsMu.Lock()
-	a.docVersions[path]++
-	version := a.docVersions[path]
-	a.docVersionsMu.Unlock()
+	a.DocVersionsMu.Lock()
+	a.DocVersions[path]++
+	version := a.DocVersions[path]
+	a.DocVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
-		client.DidChange(fileURI(path), text, version)
+		client.DidChange(FileURI(path), text, version)
 	}()
 }
 
@@ -814,11 +814,11 @@ func (a *App) NotifyLSPSave(path, lang, text string) {
 	}
 	workDir := a.lspWorkDir(path)
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
-		client.DidSave(fileURI(path), text)
+		client.DidSave(FileURI(path), text)
 	}()
 }
 
@@ -828,14 +828,14 @@ func (a *App) NotifyLSPClose(path, lang string) {
 		return
 	}
 	workDir := a.lspWorkDir(path)
-	a.docVersionsMu.Lock()
-	delete(a.docVersions, path)
-	a.docVersionsMu.Unlock()
+	a.DocVersionsMu.Lock()
+	delete(a.DocVersions, path)
+	a.DocVersionsMu.Unlock()
 	go func() {
-		client, err := a.lspManager.ClientForLanguage(serverKey, workDir)
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			return
 		}
-		client.DidClose(fileURI(path))
+		client.DidClose(FileURI(path))
 	}()
 }

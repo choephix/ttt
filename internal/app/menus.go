@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"github.com/eugenioenko/ttt/internal/command"
@@ -51,9 +51,9 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Command Palette", Command: "command.palette"},
 		{Label: "Quick Open", Command: "file.quickOpen"},
 		ui.MenuSep(),
-		{Label: "Explore", Command: "sidebar.explorer"},
+		{Label: "Explore", Command: "sidebar.Explorer"},
 		{Label: "Find", Command: "sidebar.search"},
-		{Label: "Changes", Command: "sidebar.changes"},
+		{Label: "Changes", Command: "sidebar.Changes"},
 		ui.MenuSep(),
 		{Label: "Toggle Sidebar", Command: "sidebar.toggle"},
 		{Label: "Toggle Terminal", Command: "terminal.toggle"},
@@ -122,60 +122,60 @@ func resolveShortcuts(reg *command.Registry, items []ui.ContextMenuItem) []ui.Co
 }
 
 func openContextMenu(app *App, items []ui.ContextMenuItem, x, y int) {
-	reg := app.reg
+	reg := app.Reg
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), x, y)
-	menu.Borders = app.borders
+	menu.Borders = app.Borders
 	menu.OnExec = func(cmd string) {
-		app.root.PopOverlay()
+		app.Root.PopOverlay()
 		reg.Execute(cmd)
 	}
 	menu.OnDismiss = func() {
-		app.root.PopOverlay()
+		app.Root.PopOverlay()
 	}
-	app.root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
-	app.root.SetFocus(menu)
+	app.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	app.Root.SetFocus(menu)
 }
 
 func openMenuBarDropdown(app *App, index int) {
 	if index < 0 || index >= len(menuBarMenus) {
 		return
 	}
-	reg := app.reg
-	app.menuBar.Selected = index
-	anchorX := app.menuBar.ItemAnchorX(index)
+	reg := app.Reg
+	app.MenuBar.Selected = index
+	anchorX := app.MenuBar.ItemAnchorX(index)
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, menuBarMenus[index]), anchorX, 1)
-	menu.Borders = app.borders
+	menu.Borders = app.Borders
 	menu.OnExec = func(cmd string) {
-		app.root.PopOverlay()
-		app.menuBar.Selected = -1
+		app.Root.PopOverlay()
+		app.MenuBar.Selected = -1
 		reg.Execute(cmd)
 	}
 	menu.OnDismiss = func() {
-		app.root.PopOverlay()
-		app.menuBar.Selected = -1
+		app.Root.PopOverlay()
+		app.MenuBar.Selected = -1
 	}
 	menu.OnNavigate = func(dir int) {
-		app.root.PopOverlay()
+		app.Root.PopOverlay()
 		next := (index + dir + len(menuBarMenus)) % len(menuBarMenus)
 		openMenuBarDropdown(app, next)
 	}
-	app.root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
-	app.root.SetFocus(menu)
+	app.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	app.Root.SetFocus(menu)
 }
 
 func handleRightClick(app *App, mx, my int) {
-	panelRect := app.splitPanel.GetRect()
+	panelRect := app.SplitPanel.GetRect()
 	if my < panelRect.Y || my >= panelRect.Y+panelRect.H {
 		return
 	}
 
-	if app.sidebar.Visible {
-		divX := app.splitPanel.DividerScreenX()
+	if app.Sidebar.Visible {
+		divX := app.SplitPanel.DividerScreenX()
 		if mx < divX {
-			sidebarR := app.sidebar.GetRect()
+			sidebarR := app.Sidebar.GetRect()
 			if my > sidebarR.Y+1 {
 				ev := tcell.NewEventMouse(mx, my, tcell.Button2, 0)
-				if w := app.sidebar.ActiveWidget(); w != nil {
+				if w := app.Sidebar.ActiveWidget(); w != nil {
 					w.HandleEvent(ev)
 				}
 			}
@@ -183,10 +183,10 @@ func handleRightClick(app *App, mx, my int) {
 		}
 	}
 
-	tabR := app.editorGroup.TabBar.GetRect()
+	tabR := app.EditorGroup.TabBar.GetRect()
 	if my >= tabR.Y && my < tabR.Y+tabR.H {
 		ev := tcell.NewEventMouse(mx, my, tcell.Button2, 0)
-		app.editorGroup.TabBar.HandleEvent(ev)
+		app.EditorGroup.TabBar.HandleEvent(ev)
 		return
 	}
 

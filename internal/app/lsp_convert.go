@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"bufio"
@@ -10,49 +10,49 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
-type completionResult struct {
-	items    []ui.CompletionItem
-	lspItems []lsp.CompletionItem
+type CompletionResult struct {
+	Items    []ui.CompletionItem
+	LspItems []lsp.CompletionItem
 }
 
-type locationResult struct {
-	locations []lsp.Location
+type LocationResult struct {
+	Locations []lsp.Location
 }
 
-type hoverResult struct {
-	text    string
-	anchorX int
-	anchorY int
-	gen     uint64
+type HoverResult struct {
+	Text    string
+	AnchorX int
+	AnchorY int
+	Gen     uint64
 }
 
-type autocompleteTrigger struct{}
+type AutocompleteTrigger struct{}
 
-type diagnosticsResult struct {
-	path        string
-	diagnostics []ui.Diagnostic
+type DiagnosticsResult struct {
+	Path        string
+	Diagnostics []ui.Diagnostic
 }
 
 
-type signatureHelpResult struct {
-	label      string
-	paramStart int
-	paramEnd   int
+type SignatureHelpResult struct {
+	Label      string
+	ParamStart int
+	ParamEnd   int
 }
 
-type formattingResult struct {
-	edits []lsp.TextEdit
+type FormattingResult struct {
+	Edits []lsp.TextEdit
 }
 
-type referencesResult struct {
-	locations []lsp.Location
+type ReferencesResult struct {
+	Locations []lsp.Location
 }
 
-type renameResult struct {
-	edit *lsp.WorkspaceEdit
+type RenameResult struct {
+	Edit *lsp.WorkspaceEdit
 }
 
-func readLineFromFile(path string, line int) string {
+func ReadLineFromFile(path string, line int) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -67,15 +67,15 @@ func readLineFromFile(path string, line int) string {
 	return ""
 }
 
-func fileURI(path string) string {
+func FileURI(path string) string {
 	return "file://" + path
 }
 
-func uriToPath(uri string) string {
+func URIToPath(uri string) string {
 	return strings.TrimPrefix(uri, "file://")
 }
 
-func lspToUICompletions(items []lsp.CompletionItem) []ui.CompletionItem {
+func LspToUICompletions(items []lsp.CompletionItem) []ui.CompletionItem {
 	result := make([]ui.CompletionItem, 0, len(items))
 	for _, item := range items {
 		uiItem := ui.CompletionItem{
@@ -128,7 +128,7 @@ func lspKindToUI(kind lsp.CompletionItemKind) ui.CompletionKind {
 	}
 }
 
-func lspToUIDiagnostics(diags []lsp.Diagnostic) []ui.Diagnostic {
+func LspToUIDiagnostics(diags []lsp.Diagnostic) []ui.Diagnostic {
 	result := make([]ui.Diagnostic, len(diags))
 	for i, d := range diags {
 		result[i] = ui.Diagnostic{
@@ -144,28 +144,28 @@ func lspToUIDiagnostics(diags []lsp.Diagnostic) []ui.Diagnostic {
 	return result
 }
 
-func lspToSignatureHelpResult(sig *lsp.SignatureHelp) *signatureHelpResult {
+func LspToSignatureHelpResult(sig *lsp.SignatureHelp) *SignatureHelpResult {
 	idx := sig.ActiveSignature
 	if idx < 0 || idx >= len(sig.Signatures) {
 		idx = 0
 	}
 	info := sig.Signatures[idx]
-	result := &signatureHelpResult{label: info.Label}
+	result := &SignatureHelpResult{Label: info.Label}
 
 	paramIdx := sig.ActiveParameter
 	if paramIdx >= 0 && paramIdx < len(info.Parameters) {
 		param := info.Parameters[paramIdx]
 		var offsets [2]int
 		if err := json.Unmarshal(param.Label, &offsets); err == nil {
-			result.paramStart = offsets[0]
-			result.paramEnd = offsets[1]
+			result.ParamStart = offsets[0]
+			result.ParamEnd = offsets[1]
 		} else {
 			var label string
 			if err := json.Unmarshal(param.Label, &label); err == nil {
 				start := strings.Index(info.Label, label)
 				if start >= 0 {
-					result.paramStart = start
-					result.paramEnd = start + len(label)
+					result.ParamStart = start
+					result.ParamEnd = start + len(label)
 				}
 			}
 		}

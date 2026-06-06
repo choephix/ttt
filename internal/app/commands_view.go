@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"github.com/eugenioenko/ttt/internal/command"
@@ -6,13 +6,13 @@ import (
 )
 
 func (a *App) ToggleTerminal() {
-	if !a.contentSplit.ShowBottom {
-		r := a.contentSplit.GetRect()
+	if !a.ContentSplit.ShowBottom {
+		r := a.ContentSplit.GetRect()
 		half := r.H / 2
 		if half > r.H-4 {
 			half = r.H - 4
 		}
-		a.contentSplit.BottomH = half
+		a.ContentSplit.BottomH = half
 		a.showTerminalPanel()
 	} else {
 		a.HideBottomPanel()
@@ -20,30 +20,30 @@ func (a *App) ToggleTerminal() {
 }
 
 func (a *App) ToggleTerminalFullscreen() {
-	r := a.contentSplit.GetRect()
+	r := a.ContentSplit.GetRect()
 	fullH := r.H - 1
-	if a.contentSplit.ShowBottom && a.contentSplit.BottomH >= fullH {
+	if a.ContentSplit.ShowBottom && a.ContentSplit.BottomH >= fullH {
 		a.HideBottomPanel()
 	} else {
-		a.contentSplit.BottomH = fullH
+		a.ContentSplit.BottomH = fullH
 		a.showTerminalPanel()
 	}
 }
 
 func (a *App) FocusPanel() {
-	if !a.contentSplit.ShowBottom {
-		a.contentSplit.ShowBottom = true
+	if !a.ContentSplit.ShowBottom {
+		a.ContentSplit.ShowBottom = true
 	}
-	if w := a.bottomPanel.ActiveWidget(); w != nil {
-		a.root.SetFocus(w)
+	if w := a.BottomPanel.ActiveWidget(); w != nil {
+		a.Root.SetFocus(w)
 	}
 }
 
 func (a *App) ShowKeyboardTester() {
 	kt := ui.NewKeyTesterWidget()
-	kt.Borders = a.borders
+	kt.Borders = a.Borders
 	kt.LookupBinding = func(combo string) string {
-		for _, kb := range a.keybindings {
+		for _, kb := range a.Keybindings {
 			if kb.Key == combo {
 				return kb.Command
 			}
@@ -57,17 +57,17 @@ func (a *App) ShowKeyboardTester() {
 }
 
 func (a *App) ToggleSearchReplace() {
-	if a.sidebar.Visible && a.sidebar.ActivePanel == "search" {
-		a.search.ToggleReplaceMode()
+	if a.Sidebar.Visible && a.Sidebar.ActivePanel == "search" {
+		a.Search.ToggleReplaceMode()
 	} else {
-		a.search.SetReplaceMode(true)
-		a.ShowPanel("search", a.search)
+		a.Search.SetReplaceMode(true)
+		a.ShowPanel("search", a.Search)
 	}
-	a.root.SetFocus(a.search)
+	a.Root.SetFocus(a.Search)
 }
 
 func registerViewCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "sidebar.toggle", Title: "Toggle Sidebar",
@@ -75,17 +75,17 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.explorer", Title: "Show Explorer",
+		ID: "sidebar.Explorer", Title: "Show Explorer",
 		Handler: func() {
-			app.explorer.Reload()
-			app.ShowPanel("explorer", app.explorer)
+			app.Explorer.Reload()
+			app.ShowPanel("explorer", app.Explorer)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "sidebar.search", Title: "Show Search",
 		Handler: func() {
-			app.ShowPanel("search", app.search)
+			app.ShowPanel("search", app.Search)
 		},
 	})
 
@@ -95,18 +95,18 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.changes", Title: "Show Changes",
+		ID: "sidebar.Changes", Title: "Show Changes",
 		Handler: func() {
-			app.changes.Refresh()
-			app.ShowPanel("changes", app.changes)
+			app.Changes.Refresh()
+			app.ShowPanel("changes", app.Changes)
 		},
 	})
 
 	reg.Register(command.Command{
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
 		Handler: func() {
-			if app.sidebar.Visible {
-				app.SetSidebarWidth(app.splitPanel.DividerPos + 1)
+			if app.Sidebar.Visible {
+				app.SetSidebarWidth(app.SplitPanel.DividerPos + 1)
 			}
 		},
 	})
@@ -114,8 +114,8 @@ func registerViewCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
 		Handler: func() {
-			if app.sidebar.Visible {
-				app.SetSidebarWidth(app.splitPanel.DividerPos - 1)
+			if app.Sidebar.Visible {
+				app.SetSidebarWidth(app.SplitPanel.DividerPos - 1)
 			}
 		},
 	})
@@ -163,7 +163,7 @@ func registerViewCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
 		Handler: func() {
-			openURL("https://github.com/eugenioenko/ttt")
+			OpenURL("https://github.com/eugenioenko/ttt")
 		},
 	})
 }

@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"github.com/eugenioenko/ttt/internal/command"
@@ -6,78 +6,78 @@ import (
 )
 
 func (a *App) OpenFind() {
-	dv := a.editorGroup.ActiveDiffWidget()
+	dv := a.EditorGroup.ActiveDiffWidget()
 	if dv != nil {
 		a.showDiffFindBar(dv)
 		return
 	}
 	findBar := ui.NewFindBarWidget()
-	findBar.Borders = a.borders
+	findBar.Borders = a.Borders
 	findBar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
-		matches, err := ui.FindInLines(a.editorGroup.Editor.Buf.Lines, query, opts)
+		matches, err := ui.FindInLines(a.EditorGroup.Editor.Buf.Lines, query, opts)
 		if err != nil {
 			a.StatusWarn("Invalid regex: " + err.Error())
 			return nil
 		}
-		a.editorGroup.SetSearch(query, matches)
+		a.EditorGroup.SetSearch(query, matches)
 		return matches
 	}
 	findBar.OnNavigate = func(match ui.FindMatch) {
-		a.editorGroup.SetSearchActive(findBar.Current)
-		a.editorGroup.Editor.Cursor.Line = match.Line
-		a.editorGroup.Editor.Cursor.Col = match.Col
-		a.editorGroup.ScrollToCursor()
+		a.EditorGroup.SetSearchActive(findBar.Current)
+		a.EditorGroup.Editor.Cursor.Line = match.Line
+		a.EditorGroup.Editor.Cursor.Col = match.Col
+		a.EditorGroup.ScrollToCursor()
 	}
 	findBar.OnDismiss = func() {
 		a.DismissDialog()
-		a.editorGroup.ClearSearch()
+		a.EditorGroup.ClearSearch()
 	}
 	a.ShowFindBar(findBar)
 }
 
 func (a *App) OpenFindReplace() {
 	bar := ui.NewReplaceBarWidget()
-	bar.Borders = a.borders
+	bar.Borders = a.Borders
 	bar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
-		matches, err := ui.FindInLines(a.editorGroup.Editor.Buf.Lines, query, opts)
+		matches, err := ui.FindInLines(a.EditorGroup.Editor.Buf.Lines, query, opts)
 		if err != nil {
 			a.StatusWarn("Invalid regex: " + err.Error())
 			return nil
 		}
-		a.editorGroup.SetSearch(query, matches)
+		a.EditorGroup.SetSearch(query, matches)
 		return matches
 	}
 	bar.OnNavigate = func(match ui.FindMatch) {
-		a.editorGroup.SetSearchActive(bar.Current)
-		a.editorGroup.Editor.Cursor.Line = match.Line
-		a.editorGroup.Editor.Cursor.Col = match.Col
-		a.editorGroup.ScrollToCursor()
+		a.EditorGroup.SetSearchActive(bar.Current)
+		a.EditorGroup.Editor.Cursor.Line = match.Line
+		a.EditorGroup.Editor.Cursor.Col = match.Col
+		a.EditorGroup.ScrollToCursor()
 	}
 	bar.OnReplace = func(match ui.FindMatch, replacement string) {
-		a.editorGroup.ReplaceMatch(match, replacement)
+		a.EditorGroup.ReplaceMatch(match, replacement)
 	}
 	bar.OnReplaceAll = func(query, replacement string) {
-		a.editorGroup.ReplaceAll(query, replacement)
+		a.EditorGroup.ReplaceAll(query, replacement)
 	}
 	bar.OnDismiss = func() {
 		a.DismissDialog()
-		a.editorGroup.ClearSearch()
+		a.EditorGroup.ClearSearch()
 	}
 	a.ShowDialog(bar)
 }
 
 func (a *App) ClearGlobalSearch() {
-	a.search.Input.Text = ""
-	a.search.Input.CursorPos = 0
-	a.search.Groups = nil
-	a.search.FlatList = nil
-	a.search.Selected = 0
-	a.search.ScrollTop = 0
-	a.editorGroup.ClearSearch()
+	a.Search.Input.Text = ""
+	a.Search.Input.CursorPos = 0
+	a.Search.Groups = nil
+	a.Search.FlatList = nil
+	a.Search.Selected = 0
+	a.Search.ScrollTop = 0
+	a.EditorGroup.ClearSearch()
 }
 
 func registerSearchCommands(app *App) {
-	reg := app.reg
+	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "search.find", Title: "Find",
@@ -86,17 +86,17 @@ func registerSearchCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "search.findNext", Title: "Find Next",
-		Handler: func() { app.editorGroup.FindNext() },
+		Handler: func() { app.EditorGroup.FindNext() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.findPrev", Title: "Find Previous",
-		Handler: func() { app.editorGroup.FindPrev() },
+		Handler: func() { app.EditorGroup.FindPrev() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.clearFind", Title: "Clear Find Highlights",
-		Handler: func() { app.editorGroup.ClearSearch() },
+		Handler: func() { app.EditorGroup.ClearSearch() },
 	})
 
 	reg.Register(command.Command{

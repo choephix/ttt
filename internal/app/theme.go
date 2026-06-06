@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"github.com/eugenioenko/ttt/internal/config"
@@ -8,7 +8,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-func buildStyleMap(theme config.ThemeConfig) term.StyleMap {
+func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	m := term.DefaultStyleMap()
 
 	base := tcell.StyleDefault
@@ -80,7 +80,7 @@ func firstRune(s string, fallback rune) rune {
 	return fallback
 }
 
-func buildBorderSet(bc config.BorderChars) term.BorderSet {
+func BuildBorderSet(bc config.BorderChars) term.BorderSet {
 	d := term.SingleBorderSet()
 	return term.BorderSet{
 		Horizontal:  firstRune(bc.Horizontal, d.Horizontal),
@@ -121,12 +121,12 @@ func applyDiagStyle(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 	m[idx] = tcell.StyleDefault.Underline(tcell.UnderlineStyleCurly, color)
 }
 
-func buildTerminalPalettePtr(theme config.ThemeConfig) *ui.TerminalColorPalette {
-	p := buildTerminalPalette(theme)
+func BuildTerminalPalettePtr(theme config.ThemeConfig) *ui.TerminalColorPalette {
+	p := BuildTerminalPalette(theme)
 	return &p
 }
 
-func buildTerminalPalette(theme config.ThemeConfig) ui.TerminalColorPalette {
+func BuildTerminalPalette(theme config.ThemeConfig) ui.TerminalColorPalette {
 	tc := theme.Terminal
 	fg := tc.Foreground
 	if fg == "" {
