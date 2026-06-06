@@ -179,9 +179,12 @@ Docs: https://tttedit.dev
 	}
 
 	app.keybindings = cfg.Keybindings
+	app.reg = cmdRegistry
 	quitPending := false
 	running := true
-	registerCommands(cmdRegistry, app, &running, &quitPending)
+	app.running = &running
+	app.quitPending = &quitPending
+	registerCommands(app)
 	bindKeys(app.root, cmdRegistry, cfg.Keybindings)
 
 	if len(prURLs) > 0 {

@@ -121,7 +121,8 @@ func resolveShortcuts(reg *command.Registry, items []ui.ContextMenuItem) []ui.Co
 	return resolved
 }
 
-func openContextMenu(app *App, reg *command.Registry, items []ui.ContextMenuItem, x, y int) {
+func openContextMenu(app *App, items []ui.ContextMenuItem, x, y int) {
+	reg := app.reg
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), x, y)
 	menu.Borders = app.borders
 	menu.OnExec = func(cmd string) {
@@ -135,10 +136,11 @@ func openContextMenu(app *App, reg *command.Registry, items []ui.ContextMenuItem
 	app.root.SetFocus(menu)
 }
 
-func openMenuBarDropdown(app *App, reg *command.Registry, index int) {
+func openMenuBarDropdown(app *App, index int) {
 	if index < 0 || index >= len(menuBarMenus) {
 		return
 	}
+	reg := app.reg
 	app.menuBar.Selected = index
 	anchorX := app.menuBar.ItemAnchorX(index)
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, menuBarMenus[index]), anchorX, 1)
@@ -155,13 +157,13 @@ func openMenuBarDropdown(app *App, reg *command.Registry, index int) {
 	menu.OnNavigate = func(dir int) {
 		app.root.PopOverlay()
 		next := (index + dir + len(menuBarMenus)) % len(menuBarMenus)
-		openMenuBarDropdown(app, reg, next)
+		openMenuBarDropdown(app, next)
 	}
 	app.root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
 	app.root.SetFocus(menu)
 }
 
-func handleRightClick(app *App, reg *command.Registry, mx, my int) {
+func handleRightClick(app *App, mx, my int) {
 	panelRect := app.splitPanel.GetRect()
 	if my < panelRect.Y || my >= panelRect.Y+panelRect.H {
 		return
@@ -188,5 +190,5 @@ func handleRightClick(app *App, reg *command.Registry, mx, my int) {
 		return
 	}
 
-	openContextMenu(app, reg, editorContextMenu, mx, my)
+	openContextMenu(app, editorContextMenu, mx, my)
 }

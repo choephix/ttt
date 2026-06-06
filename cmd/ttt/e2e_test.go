@@ -61,9 +61,12 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	app.renderer = &render.Renderer{}
 
 	reg := command.NewRegistry()
+	app.reg = reg
 	quitPending := false
 	running := true
-	registerCommands(reg, app, &running, &quitPending)
+	app.running = &running
+	app.quitPending = &quitPending
+	registerCommands(app)
 	bindKeys(app.root, reg, cfg.Keybindings)
 
 	app.root.SetSize(w, h)

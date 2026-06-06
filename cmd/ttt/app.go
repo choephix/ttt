@@ -67,6 +67,9 @@ type App struct {
 	allDiagnostics     map[string][]ui.Diagnostic
 	keybindings        []config.KeyBinding
 	lspNotified        map[string]bool
+	reg                *command.Registry
+	running            *bool
+	quitPending        *bool
 }
 
 func (a *App) KeyFor(cmd string) string {

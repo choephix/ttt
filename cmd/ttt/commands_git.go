@@ -1,0 +1,219 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/github"
+	"github.com/eugenioenko/ttt/internal/ui"
+)
+
+func (a *App) DiscardSelected() {
+	dir, status, ok := a.changes.SelectedFile()
+	if !ok || status.Staged {
+		return
+	}
+	msg := fmt.Sprintf("Discard changes to %s? This is irreversible.", status.Path)
+	if status.Status == "?" {
+		msg = fmt.Sprintf("Delete untracked file %s? This is irreversible.", status.Path)
+	}
+	a.ShowConfirmDialog(msg,
+		[]string{"Cancel", "Discard"},
+		[]func(){
+			func() {
+				a.DismissDialog()
+			},
+			func() {
+				a.DismissDialog()
+				if status.Status == "?" {
+					git.DiscardUntracked(dir, status.Path)
+				} else {
+					git.Discard(dir, status.Path)
+				}
+				a.changes.Refresh()
+			},
+		},
+	)
+}
+
+func (a *App) AddWorkspaceFolder() {
+	a.ShowInputDialog("Add Folder", "Folder path", "", func(path string) {
+		if path == "" {
+			return
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		info, err := os.Stat(abs)
+		if err != nil || !info.IsDir() {
+			a.StatusError("Not a directory: " + abs)
+			return
+		}
+		a.workspace.AddFolder(abs)
+		a.refreshWorkspaceWidgets()
+	})
+}
+
+func (a *App) RemoveWorkspaceFolder() {
+	paths := a.workspace.Paths()
+	if len(paths) <= 1 {
+		a.StatusWarn("Cannot remove the last folder")
+		return
+	}
+	var cmds []command.Command
+	for _, p := range paths {
+		cmds = append(cmds, command.Command{ID: p, Title: filepath.Base(p)})
+	}
+	a.ShowPicker(cmds, func(path string) {
+		a.workspace.RemoveFolder(path)
+		a.refreshWorkspaceWidgets()
+	})
+}
+
+func (a *App) SaveWorkspaceAs() {
+	a.ShowInputDialog("Save Workspace", "Filename", "workspace.ttt", func(path string) {
+		if path == "" {
+			return
+		}
+		if err := a.workspace.SaveFile(path); err != nil {
+			a.StatusError("Error: " + err.Error())
+		} else {
+			a.StatusNotify("Workspace saved: " + path)
+		}
+	})
+}
+
+func (a *App) OpenPullRequestDialog() {
+	if !github.IsGHInstalled() {
+		a.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
+		return
+	}
+	dialog := ui.NewInputDialogWidget("Open Pull Request", "https://github.com/owner/repo/pull/123", "")
+	dialog.ConfirmLabel = "Open"
+	dialog.Borders = a.borders
+	dialog.OnSubmit = func(url string) {
+		a.DismissDialog()
+		if url != "" {
+			a.fetchAndOpenPR(url)
+		}
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
+}
+
+func registerGitCommands(app *App) {
+	reg := app.reg
+
+	reg.Register(command.Command{
+		ID: "changes.openDiff", Title: "Open Diff",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && app.changes.OnOpenDiff != nil {
+				app.changes.OnOpenDiff(dir, status)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.openFile", Title: "Open File",
+		Handler: func() {
+			fullPath := app.changes.SelectedFullPath()
+			if fullPath != "" {
+				app.editorGroup.OpenFile(fullPath)
+				app.root.SetFocus(app.editorGroup)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.refresh", Title: "Refresh Changes",
+		Handler: func() { app.changes.Refresh() },
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.stage", Title: "Stage File",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && !status.Staged {
+				git.Stage(dir, status.Path)
+				app.changes.Refresh()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.unstage", Title: "Unstage File",
+		Handler: func() {
+			dir, status, ok := app.changes.SelectedFile()
+			if ok && status.Staged {
+				git.Unstage(dir, status.Path)
+				app.changes.Refresh()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.discard", Title: "Discard Changes",
+		Handler: app.DiscardSelected,
+	})
+
+	registerGitCmd := func(id, title string, ops []func(string) error, verb string) {
+		reg.Register(command.Command{
+			ID: id, Title: title,
+			Handler: func() {
+				for _, dir := range app.changes.Dirs {
+					for _, op := range ops {
+						if err := op(dir); err != nil {
+							app.StatusError(fmt.Sprintf("%s failed: %v", verb, err))
+							return
+						}
+					}
+				}
+				app.StatusNotify(verb + " successfully")
+				app.changes.Refresh()
+			},
+		})
+	}
+	registerGitCmd("git.pull", "Git Pull", []func(string) error{git.Pull}, "Pulled")
+	registerGitCmd("git.push", "Git Push", []func(string) error{git.Push}, "Pushed")
+	registerGitCmd("git.sync", "Git Sync", []func(string) error{git.Pull, git.Push}, "Synced")
+}
+
+func registerWorkspaceCommands(app *App) {
+	reg := app.reg
+
+	reg.Register(command.Command{
+		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
+		Handler: app.AddWorkspaceFolder,
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.removeFolder", Title: "Remove Folder from Workspace",
+		Handler: app.RemoveWorkspaceFolder,
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.saveAs", Title: "Save Workspace As...",
+		Handler: app.SaveWorkspaceAs,
+	})
+}
+
+func registerPRCommands(app *App) {
+	reg := app.reg
+
+	reg.Register(command.Command{
+		ID: "pr.open", Title: "Open Pull Request",
+		Handler: app.OpenPullRequestDialog,
+	})
+	reg.Register(command.Command{
+		ID: "pr.close", Title: "Close Pull Request",
+		Handler: func() { app.changes.RemovePRGroups() },
+	})
+}
