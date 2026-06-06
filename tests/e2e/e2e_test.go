@@ -1,10 +1,12 @@
-package app
+package e2e
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/render"
@@ -17,7 +19,7 @@ import (
 
 type testHarness struct {
 	t        *testing.T
-	app      *App
+	app      *app.App
 	screen   tcell.SimulationScreen
 	reg      *command.Registry
 	renderer *render.Renderer
@@ -51,32 +53,32 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	config.ParseKeyBindings(cfg.Keybindings)
 
 	screen := term.NewTcellScreenFrom(sim)
-	screen.SetStyleMap(BuildStyleMap(cfg.Theme))
+	screen.SetStyleMap(app.BuildStyleMap(cfg.Theme))
 
-	borders := BuildBorderSet(cfg.Theme.Borders)
+	borders := app.BuildBorderSet(cfg.Theme.Borders)
 
 	ws := workspace.New([]string{dir})
-	app := BuildAppFromConfig(&cfg, &borders, ws, nil)
-	app.Screen = screen
-	app.Renderer = &render.Renderer{}
+	editor := app.BuildAppFromConfig(&cfg, &borders, ws, nil)
+	editor.Screen = screen
+	editor.Renderer = &render.Renderer{}
 
 	reg := command.NewRegistry()
-	app.Reg = reg
+	editor.Reg = reg
 	quitPending := false
 	running := true
-	app.Running = &running
-	app.QuitPending = &quitPending
-	RegisterCommands(app)
-	BindKeys(app.Root, reg, cfg.Keybindings)
+	editor.Running = &running
+	editor.QuitPending = &quitPending
+	app.RegisterCommands(editor)
+	app.BindKeys(editor.Root, reg, cfg.Keybindings)
 
-	app.Root.SetSize(w, h)
+	editor.Root.SetSize(w, h)
 
 	h2 := &testHarness{
 		t:        t,
-		app:      app,
+		app:      editor,
 		screen:   sim,
 		reg:      reg,
-		renderer: app.Renderer,
+		renderer: editor.Renderer,
 		running:  running,
 	}
 	h2.redraw()
