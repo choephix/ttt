@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"os"
@@ -74,12 +74,12 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 	return
 }
 
-func buildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string) {
+func BuildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string) {
 	ws, openFiles, _, prURLs := resolveArgs()
-	return buildAppFromConfig(cfg, borders, ws, openFiles), prURLs
+	return BuildAppFromConfig(cfg, borders, ws, openFiles), prURLs
 }
 
-func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
+func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
 
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
 	editorGroup.InsertFinalNewline = cfg.Settings.InsertFinalNewline
@@ -150,27 +150,27 @@ func buildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	root.SetFocus(editorGroup)
 
 	return &App{
-		root:         root,
-		editorGroup:  editorGroup,
-		sidebar:      sidebar,
-		splitPanel:   splitPanel,
-		contentSplit: contentSplit,
-		bottomPanel:  bottomPanel,
-		explorer:     explorer,
-		search:       search,
-		changes:      changes,
-		menuBar:      menuBar,
-		statusBar:    statusBar,
-		status:       status,
-		borders:      borders,
-		settings:     &cfg.Settings,
-		workspace:    ws,
-		palette:      buildTerminalPalettePtr(cfg.Theme),
-		terminalPanel:  terminalPanel,
-		problems:       problems,
-		references:     references,
-		docVersions:    make(map[string]int),
-		allDiagnostics: make(map[string][]ui.Diagnostic),
-		lspNotified:    make(map[string]bool),
+		Root:              root,
+		EditorGroup:       editorGroup,
+		Sidebar:           sidebar,
+		SplitPanel:        splitPanel,
+		ContentSplit:      contentSplit,
+		BottomPanel:       bottomPanel,
+		Explorer:          explorer,
+		Search:            search,
+		Changes:           changes,
+		MenuBar:           menuBar,
+		StatusBar:         statusBar,
+		Status:            status,
+		Borders:           borders,
+		Settings:          &cfg.Settings,
+		Workspace:         ws,
+		Palette:           BuildTerminalPalettePtr(cfg.Theme),
+		TerminalPanel:     terminalPanel,
+		Problems:          problems,
+		References:        references,
+		DocVersions:       make(map[string]int),
+		AllDiagnostics:    make(map[string][]ui.Diagnostic),
+		LspNotified:       make(map[string]bool),
 	}
 }
