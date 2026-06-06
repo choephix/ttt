@@ -75,7 +75,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.Explorer", Title: "Show Explorer",
+		ID: "sidebar.explorer", Title: "Show Explorer",
 		Handler: func() {
 			app.Explorer.Reload()
 			app.ShowPanel("explorer", app.Explorer)
@@ -95,7 +95,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.Changes", Title: "Show Changes",
+		ID: "sidebar.changes", Title: "Show Changes",
 		Handler: func() {
 			app.Changes.Refresh()
 			app.ShowPanel("changes", app.Changes)

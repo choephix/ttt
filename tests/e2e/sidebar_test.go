@@ -53,7 +53,7 @@ func TestSidebarPanelSwitching(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 	if h.app.Sidebar.ActivePanel != "explorer" {
 		t.Errorf("expected active panel 'explorer', got %q", h.app.Sidebar.ActivePanel)
 	}
@@ -63,7 +63,7 @@ func TestSidebarPanelSwitching(t *testing.T) {
 		t.Errorf("expected active panel 'search', got %q", h.app.Sidebar.ActivePanel)
 	}
 
-	h.exec("sidebar.Changes")
+	h.exec("sidebar.changes")
 	if h.app.Sidebar.ActivePanel != "changes" {
 		t.Errorf("expected active panel 'changes', got %q", h.app.Sidebar.ActivePanel)
 	}

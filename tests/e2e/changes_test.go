@@ -10,7 +10,7 @@ func TestChangesKeyNavigation(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Changes")
+	h.exec("sidebar.changes")
 
 	if h.app.Changes.TotalChanges() == 0 {
 		t.Skip("no changed files in working directory")
@@ -28,7 +28,7 @@ func TestChangesRefreshKey(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Changes")
+	h.exec("sidebar.changes")
 
 	h.pressRune('r')
 }

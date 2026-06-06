@@ -10,7 +10,7 @@ func TestExplorerKeyNavigation(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 
 	if len(h.app.Explorer.FlatList) < 3 {
 		t.Skipf("expected at least 3 explorer items, got %d", len(h.app.Explorer.FlatList))
@@ -44,7 +44,7 @@ func TestExplorerDirExpandCollapse(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 
 	h.app.Explorer.Selected = 0
 	root := h.app.Explorer.FlatList[0]
@@ -75,7 +75,7 @@ func TestExplorerEnterOpensFile(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 
 	fileIdx := -1
 	for i, node := range h.app.Explorer.FlatList {
@@ -102,7 +102,7 @@ func TestExplorerEnterToggleDir(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 
 	h.app.Explorer.Selected = 0
 	root := h.app.Explorer.FlatList[0]
@@ -125,7 +125,7 @@ func TestExplorerClickOpensFile(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 	h.redraw()
 
 	fileIdx := -1
@@ -157,7 +157,7 @@ func TestExplorerScrollFollowing(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
 
-	h.exec("sidebar.Explorer")
+	h.exec("sidebar.explorer")
 
 	itemCount := len(h.app.Explorer.FlatList)
 	if itemCount < 5 {
