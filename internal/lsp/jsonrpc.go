@@ -1,20 +1,18 @@
 package lsp
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
-	"sync"
+
+	"github.com/eugenioenko/ttt/internal/jsonrpc"
 )
 
 type Request struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      *int        `json:"id,omitempty"`
-	Method  string      `json:"method"`
-	Params  any `json:"params,omitempty"`
+	JSONRPC string `json:"jsonrpc"`
+	ID      *int   `json:"id,omitempty"`
+	Method  string `json:"method"`
+	Params  any    `json:"params,omitempty"`
 }
 
 type Response struct {
@@ -40,61 +38,24 @@ func (e *RPCError) Error() string {
 }
 
 type Codec struct {
-	reader *bufio.Reader
-	writer io.Writer
-	mu     sync.Mutex
+	codec *jsonrpc.Codec
 }
 
 func NewCodec(r io.Reader, w io.Writer) *Codec {
-	return &Codec{
-		reader: bufio.NewReader(r),
-		writer: w,
-	}
+	return &Codec{codec: jsonrpc.NewCodec(r, w)}
 }
 
 func (c *Codec) Send(req Request) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(data))
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, err := io.WriteString(c.writer, header); err != nil {
-		return err
-	}
-	_, err = c.writer.Write(data)
-	return err
+	return c.codec.Send(req)
 }
 
 func (c *Codec) Receive() (Response, error) {
-	contentLen := -1
-	for {
-		line, err := c.reader.ReadString('\n')
-		if err != nil {
-			return Response{}, err
-		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			break
-		}
-		if val, ok := strings.CutPrefix(line, "Content-Length: "); ok {
-			n, err := strconv.Atoi(val)
-			if err != nil {
-				return Response{}, fmt.Errorf("bad Content-Length: %w", err)
-			}
-			contentLen = n
-		}
-	}
-	if contentLen < 0 {
-		return Response{}, fmt.Errorf("missing Content-Length header")
-	}
-	body := make([]byte, contentLen)
-	if _, err := io.ReadFull(c.reader, body); err != nil {
+	raw, err := c.codec.Receive()
+	if err != nil {
 		return Response{}, err
 	}
 	var resp Response
-	if err := json.Unmarshal(body, &resp); err != nil {
+	if err := json.Unmarshal(raw, &resp); err != nil {
 		return Response{}, err
 	}
 	return resp, nil
