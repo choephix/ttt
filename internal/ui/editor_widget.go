@@ -43,6 +43,10 @@ type EditorPaneWidget struct {
 	OnChange        func()
 	Multi           *multicursor.MultiCursor
 	multiSearchWord string
+	maxLineWidth      int
+	maxLineWidthDirty bool
+	searchByLine      map[int][]int
+	diagByLine        map[int][]int
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -66,18 +70,48 @@ func (e *EditorPaneWidget) GutterWidth() int {
 	return digits + 3
 }
 
+func (e *EditorPaneWidget) computeMaxLineWidth() int {
+	if !e.maxLineWidthDirty && e.maxLineWidth > 0 {
+		return e.maxLineWidth
+	}
+	maxW := 0
+	for _, line := range e.Buf.Lines {
+		if lw := len([]rune(line)); lw > maxW {
+			maxW = lw
+		}
+	}
+	e.maxLineWidth = maxW
+	e.maxLineWidthDirty = false
+	return maxW
+}
+
+func (e *EditorPaneWidget) InvalidateMaxLineWidth() {
+	e.maxLineWidthDirty = true
+}
+
+func (e *EditorPaneWidget) buildSearchIndex() {
+	e.searchByLine = make(map[int][]int, len(e.SearchMatches))
+	for i, m := range e.SearchMatches {
+		e.searchByLine[m.Line] = append(e.searchByLine[m.Line], i)
+	}
+}
+
+func (e *EditorPaneWidget) buildDiagIndex() {
+	e.diagByLine = make(map[int][]int)
+	for i, d := range e.Diagnostics {
+		for line := d.StartLine; line <= d.EndLine; line++ {
+			e.diagByLine[line] = append(e.diagByLine[line], i)
+		}
+	}
+}
+
 func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)
 	gutterW := e.GutterWidth()
 
-	maxLineW := 0
-	for _, line := range e.Buf.Lines {
-		if lw := len([]rune(line)); lw > maxLineW {
-			maxLineW = lw
-		}
-	}
+	maxLineW := e.computeMaxLineWidth()
 
 	editorW := w - gutterW
 	showHScrollbar := maxLineW > editorW
@@ -150,14 +184,17 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					}
 				}
 				if hasSearch {
-					for mi, m := range e.SearchMatches {
-						if m.Line == lineIdx && colIdx >= m.Col && colIdx < m.Col+m.Len {
-							if mi == e.SearchActive {
-								style = term.StyleSearchActive
-							} else {
-								style = term.StyleSearchMatch
+					if indices, ok := e.searchByLine[lineIdx]; ok {
+						for _, mi := range indices {
+							m := e.SearchMatches[mi]
+							if colIdx >= m.Col && colIdx < m.Col+m.Len {
+								if mi == e.SearchActive {
+									style = term.StyleSearchActive
+								} else {
+									style = term.StyleSearchMatch
+								}
+								break
 							}
-							break
 						}
 					}
 				}
@@ -264,10 +301,12 @@ func (e *EditorPaneWidget) DiagnosticAt(line, col int) *Diagnostic {
 }
 
 func (e *EditorPaneWidget) diagStyleAt(line, col int) term.Style {
-	for _, d := range e.Diagnostics {
-		if line < d.StartLine || line > d.EndLine {
-			continue
-		}
+	indices, ok := e.diagByLine[line]
+	if !ok {
+		return 0
+	}
+	for _, i := range indices {
+		d := e.Diagnostics[i]
 		if line == d.StartLine && col < d.StartCol {
 			continue
 		}
@@ -295,6 +334,7 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	if e.Undo != nil {
 		e.Undo.Push(cmd)
 	}
+	e.maxLineWidthDirty = true
 	if e.OnChange != nil {
 		e.OnChange()
 	}
