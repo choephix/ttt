@@ -1,0 +1,43 @@
+{
+  "tabSize": 4,
+  "insertSpaces": true,
+  "wordWrap": false,
+  "lineNumbers": true,
+  "sidebarVisible": true,
+  "sidebarWidth": 30,
+  "theme": "default-dark",
+  "formatOnSave": false,
+  "insertFinalNewline": true,
+  "search": {
+    "debounce": 350
+  },
+  "explorer": {
+    "showHidden": true,
+    "showGitIgnored": true
+  },
+  "terminal": {
+    "shell": "",
+    "scrollback": 1000
+  },
+  "lsp": {
+    "saveOnRename": false,
+    "servers": {
+      "go": { "command": ["gopls"] },
+      "typescript": {
+        "command": ["typescript-language-server", "--stdio"],
+        "languages": {
+          ".ts": "typescript",
+          ".tsx": "typescriptreact",
+          ".js": "javascript",
+          ".jsx": "javascriptreact"
+        }
+      }
+    }
+  },
+  "autocomplete": {
+    "enabled": true,
+    "autoSuggest": true,
+    "debounce": 150,
+    "signatureHelp": true
+  }
+}

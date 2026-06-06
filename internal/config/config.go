@@ -145,6 +145,14 @@ func ConfigFilePath(filename string) string {
 	return filepath.Join(".config", filename)
 }
 
+func EnsureConfigFile(path, defaultContent string) {
+	if _, err := os.Stat(path); err == nil {
+		return
+	}
+	os.MkdirAll(filepath.Dir(path), 0755)
+	os.WriteFile(path, []byte(defaultContent), 0644)
+}
+
 func readFirst(dirs []string, filename string) ([]byte, error) {
 	for _, dir := range dirs {
 		data, err := os.ReadFile(filepath.Join(dir, filename))

@@ -5,7 +5,9 @@ sidebar:
   order: 1
 ---
 
-Settings are stored in `~/.config/ttt/settings.json`.
+Settings are stored in `~/.config/ttt/settings.json`. A complete example is available at [`config/settings.json`](https://github.com/eugenioenko/ttt/blob/main/config/settings.json) in the repository.
+
+You can open your settings file directly from the command palette (**Ctrl+P**) with **Preferences: Open Settings**.
 
 ## Editor
 
@@ -45,6 +47,12 @@ Settings are stored in `~/.config/ttt/settings.json`.
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
 | `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
 
+## Search
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `search.debounce` | int | `350` | Milliseconds to debounce global search input |
+
 ## Autocomplete
 
 | Key | Type | Default | Description |
@@ -67,6 +75,9 @@ Settings are stored in `~/.config/ttt/settings.json`.
   "theme": "default-dark",
   "formatOnSave": true,
   "insertFinalNewline": true,
+  "search": {
+    "debounce": 350
+  },
   "explorer": {
     "showHidden": true,
     "showGitIgnored": true

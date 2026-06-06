@@ -30,7 +30,7 @@ To create a custom theme, copy one of the built-in theme files to your themes di
 
 ```sh
 mkdir -p ~/.config/ttt/themes
-cp sample-config/monokai.json ~/.config/ttt/themes/my-theme.json
+cp internal/config/themes/monokai.json ~/.config/ttt/themes/my-theme.json
 ```
 
 Set it in `settings.json`:

@@ -5,7 +5,9 @@ sidebar:
   order: 2
 ---
 
-All keybindings can be customized in `~/.config/ttt/keybindings.json`.
+All keybindings can be customized in `~/.config/ttt/keybindings.json`. See [`config/keybindings.json`](https://github.com/eugenioenko/ttt/blob/main/config/keybindings.json) for a complete example.
+
+You can open your keybindings file from the command palette (**Ctrl+P**) with **Preferences: Open Keyboard Shortcuts**.
 
 ## General
 

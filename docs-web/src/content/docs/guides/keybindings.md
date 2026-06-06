@@ -3,7 +3,9 @@ title: Keybindings
 description: Keyboard shortcuts and customization.
 ---
 
-All keybindings are customizable via `keybindings.json`. TTT supports chord sequences (e.g. `ctrl+k ctrl+t`) for two-step shortcuts.
+All keybindings are customizable via `keybindings.json`. A complete example is available at [`config/keybindings.json`](https://github.com/eugenioenko/ttt/blob/main/config/keybindings.json) in the repository. TTT supports chord sequences (e.g. `ctrl+k ctrl+t`) for two-step shortcuts.
+
+You can open your keybindings file directly from the command palette (**Ctrl+P**) with **Preferences: Open Keyboard Shortcuts**.
 
 ## Default Keybindings
 
