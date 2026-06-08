@@ -42,6 +42,7 @@ type Root struct {
 	OnRightClick      func(mx, my int)
 	EscapeDismissers  []func() bool
 	EscapeFallback    func()
+	capturedWidget    Widget
 }
 
 func NewRoot(main Widget) *Root {
@@ -82,6 +83,10 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 				return EventConsumed
 			}
 		}
+	}
+
+	if !isKey && r.capturedWidget != nil {
+		return r.handleMouse(ev)
 	}
 
 	if res := r.handleOverlay(ev); res == EventConsumed {
@@ -144,16 +149,37 @@ func (r *Root) handleOverlay(ev tcell.Event) EventResult {
 }
 
 func (r *Root) handleMouse(ev tcell.Event) EventResult {
-	if mev, ok := ev.(*tcell.EventMouse); ok {
-		btn := mev.Buttons()
-		if btn&tcell.Button2 != 0 && r.OnRightClick != nil {
-			mx, my := mev.Position()
-			slog.Debug("root", "action", "rightClick", "x", mx, "y", my)
-			r.OnRightClick(mx, my)
+	mev, ok := ev.(*tcell.EventMouse)
+	if !ok {
+		return EventIgnored
+	}
+	btn := mev.Buttons()
+
+	if r.capturedWidget != nil {
+		if btn == tcell.ButtonNone {
+			r.capturedWidget.HandleEvent(ev)
+			r.capturedWidget = nil
+			slog.Debug("root", "action", "mouseCapture", "state", "released")
 			return EventConsumed
 		}
+		r.capturedWidget.HandleEvent(ev)
+		slog.Debug("root", "action", "mouseCapture", "state", "active")
+		return EventConsumed
 	}
+
+	if btn&tcell.Button2 != 0 && r.OnRightClick != nil {
+		mx, my := mev.Position()
+		slog.Debug("root", "action", "rightClick", "x", mx, "y", my)
+		r.OnRightClick(mx, my)
+		return EventConsumed
+	}
+
 	result := r.Main.HandleEvent(ev)
+	if result == EventCaptured {
+		r.capturedWidget = r.Main
+		slog.Debug("root", "action", "mouseCapture", "state", "set")
+		return EventConsumed
+	}
 	slog.Debug("root", "action", "mouseToMain", "result", result)
 	return result
 }

@@ -286,6 +286,9 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			if tw.scrollOffset < 0 {
 				tw.scrollOffset = 0
 			}
+			if tw.scrollbar.IsDragging() {
+				return EventCaptured
+			}
 			return EventConsumed
 		}
 		btn := tev.Buttons()
@@ -308,7 +311,7 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			} else {
 				tw.selCurrent = pos
 			}
-			return EventConsumed
+			return EventCaptured
 		}
 		if tw.selecting {
 			tw.selecting = false

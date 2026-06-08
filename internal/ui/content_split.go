@@ -19,6 +19,7 @@ type ContentSplitWidget struct {
 	RightBorderStartY  *int
 	dragging           bool
 	wasPressed         bool
+	capturedChild      Widget
 }
 
 func NewContentSplitWidget() *ContentSplitWidget {
@@ -106,10 +107,23 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			if cs.OnResize != nil {
 				cs.OnResize(newH)
 			}
-			return EventConsumed
+			return EventCaptured
 		}
 		cs.dragging = false
 		return EventIgnored
+	}
+
+	if cs.capturedChild != nil {
+		if btn == tcell.ButtonNone {
+			cs.capturedChild.HandleEvent(ev)
+			cs.capturedChild = nil
+			return EventConsumed
+		}
+		result := cs.capturedChild.HandleEvent(ev)
+		if result == EventCaptured {
+			return EventCaptured
+		}
+		return EventConsumed
 	}
 
 	if cs.ShowBottom {
@@ -133,16 +147,23 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 				return EventConsumed
 			}
 			cs.dragging = true
-			return EventConsumed
+			return EventCaptured
 		}
 
 		if freshClick && my >= divY-1 && my <= divY && mx < r.X+r.W-1 {
 			cs.dragging = true
-			return EventConsumed
+			return EventCaptured
 		}
 
 		if my > divY && cs.Bottom != nil {
 			result := cs.Bottom.HandleEvent(ev)
+			if result == EventCaptured {
+				cs.capturedChild = cs.Bottom
+				if cs.OnBottomClick != nil {
+					cs.OnBottomClick()
+				}
+				return EventCaptured
+			}
 			if result == EventConsumed && btn&tcell.Button1 != 0 && cs.OnBottomClick != nil {
 				cs.OnBottomClick()
 			}
@@ -151,12 +172,19 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 	} else {
 		if freshClick && my == r.Y+r.H {
 			cs.dragging = true
-			return EventConsumed
+			return EventCaptured
 		}
 	}
 
 	if cs.Top != nil {
 		result := cs.Top.HandleEvent(ev)
+		if result == EventCaptured {
+			cs.capturedChild = cs.Top
+			if cs.OnTopClick != nil {
+				cs.OnTopClick()
+			}
+			return EventCaptured
+		}
 		if result == EventConsumed && btn&tcell.Button1 != 0 && cs.OnTopClick != nil {
 			cs.OnTopClick()
 		}
