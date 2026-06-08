@@ -195,6 +195,10 @@ func (s *SearchWidget) cancelSearch() {
 
 func (s *SearchWidget) scheduleSearch() {
 	s.debouncing = true
+	s.Groups = nil
+	s.FlatList = nil
+	s.Selected = 0
+	s.ScrollTop = 0
 	s.Debounce.Schedule(func() {
 		defer func() {
 			if r := recover(); r != nil {

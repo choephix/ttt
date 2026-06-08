@@ -160,7 +160,6 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+k p", Command: "command.palette"},
 		{Key: "ctrl+k q", Command: "file.quickOpen"},
 		{Key: "ctrl+k s", Command: "file.saveAs"},
-		{Key: "ctrl+k ctrl+t", Command: "theme.switch"},
 		{Key: "ctrl+u", Command: "editor.autocomplete"},
 		{Key: "ctrl+k i", Command: "editor.hover"},
 		{Key: "f2", Command: "editor.rename"},
