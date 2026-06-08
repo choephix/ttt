@@ -621,6 +621,9 @@ func (s *SearchWidget) toggleRow() int {
 func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := s.scrollbar.HandleEvent(ev); consumed {
 		s.ScrollTop = newTop
+		if s.scrollbar.IsDragging() {
+			return EventCaptured
+		}
 		return EventConsumed
 	}
 	switch tev := ev.(type) {

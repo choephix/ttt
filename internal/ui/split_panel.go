@@ -20,6 +20,7 @@ type SplitPanelWidget struct {
 	OnRightClick      func()
 	dragging          bool
 	wasPressed        bool
+	capturedChild     Widget
 }
 
 func NewSplitPanelWidget() *SplitPanelWidget {
@@ -184,10 +185,23 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 				newWidth := mx - r.X - 1
 				s.OnResize(newWidth)
 			}
-			return EventConsumed
+			return EventCaptured
 		}
 		s.dragging = false
 		return EventIgnored
+	}
+
+	if s.capturedChild != nil {
+		if btn == tcell.ButtonNone {
+			s.capturedChild.HandleEvent(ev)
+			s.capturedChild = nil
+			return EventConsumed
+		}
+		result := s.capturedChild.HandleEvent(ev)
+		if result == EventCaptured {
+			return EventCaptured
+		}
+		return EventConsumed
 	}
 
 	if !inBounds {
@@ -202,12 +216,19 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 		// divX to divX+1: grab zone extends right only to avoid overlapping the scrollbar
 		if freshClick && mx >= divX && mx <= divX+1 && s.OnResize != nil {
 			s.dragging = true
-			return EventConsumed
+			return EventCaptured
 		}
 		if mx < divX {
 			if s.Left != nil {
 				result := s.Left.HandleEvent(ev)
 				slog.Debug("splitPanel", "action", "leftChild", "result", result)
+				if result == EventCaptured {
+					s.capturedChild = s.Left
+					if s.OnLeftClick != nil {
+						s.OnLeftClick()
+					}
+					return EventCaptured
+				}
 				if result == EventConsumed && isClick && s.OnLeftClick != nil {
 					s.OnLeftClick()
 				}
@@ -217,6 +238,13 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 			if s.Right != nil {
 				result := s.Right.HandleEvent(ev)
 				slog.Debug("splitPanel", "action", "rightChild", "result", result)
+				if result == EventCaptured {
+					s.capturedChild = s.Right
+					if s.OnRightClick != nil {
+						s.OnRightClick()
+					}
+					return EventCaptured
+				}
 				if result == EventConsumed && isClick && s.OnRightClick != nil {
 					s.OnRightClick()
 				}
@@ -226,10 +254,17 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 	} else {
 		if freshClick && mx == r.X {
 			s.dragging = true
-			return EventConsumed
+			return EventCaptured
 		}
 		if s.Right != nil {
 			result := s.Right.HandleEvent(ev)
+			if result == EventCaptured {
+				s.capturedChild = s.Right
+				if s.OnRightClick != nil {
+					s.OnRightClick()
+				}
+				return EventCaptured
+			}
 			if result == EventConsumed && isClick && s.OnRightClick != nil {
 				s.OnRightClick()
 			}

@@ -12,6 +12,7 @@ const (
 	EventIgnored   EventResult = iota
 	EventConsumed
 	EventDismissed
+	EventCaptured
 )
 
 type ConstraintType int

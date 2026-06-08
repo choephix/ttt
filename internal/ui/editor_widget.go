@@ -407,17 +407,23 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 
 		if newTop, consumed := e.scrollbar.HandleEvent(ev); consumed {
 			e.Viewport.TopLine = newTop
+			if e.scrollbar.IsDragging() {
+				return EventCaptured
+			}
 			return EventConsumed
 		}
 		if e.scrollbar.IsDragging() {
-			return EventConsumed
+			return EventCaptured
 		}
 		if newLeft, consumed := e.hscrollbar.HandleEvent(ev); consumed {
 			e.Viewport.LeftCol = newLeft
+			if e.hscrollbar.IsDragging() {
+				return EventCaptured
+			}
 			return EventConsumed
 		}
 		if e.hscrollbar.IsDragging() {
-			return EventConsumed
+			return EventCaptured
 		}
 
 		mod := mev.Modifiers()
@@ -476,7 +482,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				e.Multi.Add(line, col)
 				e.syncFromMulti()
 				e.scrollViewport()
-				return EventConsumed
+				return EventCaptured
 			}
 
 			if !e.mouseDown {
@@ -515,7 +521,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				e.Cursor.Col = col
 			}
 			e.scrollViewport()
-			return EventConsumed
+			return EventCaptured
 		}
 		if btn == tcell.ButtonNone && e.mouseDown {
 			e.mouseDown = false

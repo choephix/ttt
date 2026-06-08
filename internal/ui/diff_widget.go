@@ -368,14 +368,23 @@ func (d *DiffViewWidget) clampLeftCol() {
 func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := d.scrollbar.HandleEvent(ev); consumed {
 		d.TopLine = newTop
+		if d.scrollbar.IsDragging() {
+			return EventCaptured
+		}
 		return EventConsumed
 	}
 	if newLeft, consumed := d.hscrollbar.HandleEvent(ev); consumed {
 		d.LeftCol = newLeft
+		if d.hscrollbar.IsDragging() {
+			return EventCaptured
+		}
 		return EventConsumed
 	}
 	if newLeft, consumed := d.rhscrollbar.HandleEvent(ev); consumed {
 		d.LeftCol = newLeft
+		if d.rhscrollbar.IsDragging() {
+			return EventCaptured
+		}
 		return EventConsumed
 	}
 
