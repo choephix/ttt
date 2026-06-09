@@ -136,7 +136,6 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			divY = r.Y
 		}
 
-		// divY±1: extend grab zone 1 row above and below divider for easier targeting
 		// r.W-1: exclude last column to avoid colliding with editor scrollbar
 		// For divY+1 (tab bar row), let the bottom panel handle clicks first
 		if freshClick && my == divY+1 && mx < r.X+r.W-1 && cs.Bottom != nil {
@@ -150,7 +149,7 @@ func (cs *ContentSplitWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventCaptured
 		}
 
-		if freshClick && my >= divY-1 && my <= divY && mx < r.X+r.W-1 {
+		if freshClick && my == divY && mx < r.X+r.W-1 {
 			cs.dragging = true
 			return EventCaptured
 		}
