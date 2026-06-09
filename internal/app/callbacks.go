@@ -31,6 +31,9 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 		items = []ui.ContextMenuItem{
 			{Label: replaceLabel, Shortcut: a.KeyFor("sidebar.searchReplace"), Command: "sidebar.searchReplace"},
 			ui.MenuSep(),
+			{Label: "Expand All", Command: "search.expandAll"},
+			{Label: "Collapse All", Command: "search.collapseAll"},
+			ui.MenuSep(),
 			{Label: "Clear Results", Command: "search.clear"},
 		}
 	case "changes":

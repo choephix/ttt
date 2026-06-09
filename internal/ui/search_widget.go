@@ -458,6 +458,20 @@ type rgSubmatch struct {
 	End   int    `json:"end"`
 }
 
+func (s *SearchWidget) CollapseAll() {
+	for i := range s.Groups {
+		s.Groups[i].Expanded = false
+	}
+	s.flatten()
+}
+
+func (s *SearchWidget) ExpandAll() {
+	for i := range s.Groups {
+		s.Groups[i].Expanded = true
+	}
+	s.flatten()
+}
+
 func (s *SearchWidget) flatten() {
 	s.FlatList = nil
 	for gi, g := range s.Groups {
