@@ -105,6 +105,16 @@ func registerSearchCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "search.expandAll", Title: "Expand All Search Results",
+		Handler: func() { app.Search.ExpandAll() },
+	})
+
+	reg.Register(command.Command{
+		ID: "search.collapseAll", Title: "Collapse All Search Results",
+		Handler: func() { app.Search.CollapseAll() },
+	})
+
+	reg.Register(command.Command{
 		ID: "search.clear", Title: "Clear Search Results",
 		Handler: app.ClearGlobalSearch,
 	})
