@@ -3,6 +3,9 @@ package ui
 import (
 	"fmt"
 	"sort"
+	"strings"
+	"time"
+	"unicode"
 
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/core/highlight"
@@ -14,6 +17,11 @@ import (
 type diffMergedRef struct {
 	isRight  bool
 	sideIdx  int
+}
+
+type diffSelPos struct {
+	Line int
+	Col  int
 }
 
 type DiffViewWidget struct {
@@ -29,6 +37,23 @@ type DiffViewWidget struct {
 	scrollbar    Scrollbar
 	hscrollbar   HScrollbar
 	rhscrollbar  HScrollbar
+
+	// layout cache for mouse hit-testing
+	layoutDividerX  int
+	layoutLeftStart int
+	layoutLeftW     int
+	layoutRightStart int
+	layoutRightW    int
+	layoutGutterW   int
+
+	// selection state
+	selecting    bool
+	hasSelection bool
+	selRight     bool
+	selAnchor    diffSelPos
+	selCurrent   diffSelPos
+	lastClickTime time.Time
+	lastClickPos  diffSelPos
 
 	SearchMatchesLeft  []FindMatch
 	SearchMatchesRight []FindMatch
@@ -213,6 +238,13 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	rightW := w - rightStart
 	d.contentW = leftW
 
+	d.layoutDividerX = dividerX
+	d.layoutLeftStart = leftStart
+	d.layoutLeftW = leftW
+	d.layoutRightStart = rightStart
+	d.layoutRightW = rightW
+	d.layoutGutterW = gutterW
+
 	if leftW < 1 || rightW < 1 {
 		return
 	}
@@ -256,8 +288,8 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 		if d.searchActiveRight {
 			rightActive = d.searchActiveSideIdx
 		}
-		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle, leftSpans, idx, d.SearchMatchesLeft, leftActive)
-		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle, rightSpans, idx, d.SearchMatchesRight, rightActive)
+		d.renderSide(surface, leftStart, y, leftW, dl.Left.Text, leftStyle, leftSpans, idx, d.SearchMatchesLeft, leftActive, !d.selRight)
+		d.renderSide(surface, rightStart, y, rightW, dl.Right.Text, rightStyle, rightSpans, idx, d.SearchMatchesRight, rightActive, d.selRight)
 	}
 
 	if showVScroll {
@@ -308,7 +340,7 @@ func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl di
 	}
 }
 
-func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span, lineIdx int, matches []FindMatch, activeIdx int) {
+func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span, lineIdx int, matches []FindMatch, activeIdx int, selSide bool) {
 	runes := []rune(text)
 	for i := 0; i < w; i++ {
 		colIdx := d.LeftCol + i
@@ -334,7 +366,9 @@ func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text st
 			}
 		}
 		cell := term.Cell{Ch: ch, Style: style}
-		if style != term.StyleSearchMatch && style != term.StyleSearchActive && baseStyle != term.StyleDefault {
+		if selSide && d.isCellSelected(lineIdx, colIdx) {
+			cell.BgStyle = term.StyleSelection
+		} else if style != term.StyleSearchMatch && style != term.StyleSearchActive && baseStyle != term.StyleDefault {
 			cell.BgStyle = baseStyle
 		}
 		surface.SetCell(x+i, y, cell)
@@ -350,6 +384,136 @@ func kindToStyle(k diff.LineKind) term.Style {
 	default:
 		return term.StyleDefault
 	}
+}
+
+func (d *DiffViewWidget) selectionRange() (start, end diffSelPos) {
+	a, b := d.selAnchor, d.selCurrent
+	if a.Line < b.Line || (a.Line == b.Line && a.Col <= b.Col) {
+		return a, b
+	}
+	return b, a
+}
+
+func (d *DiffViewWidget) isCellSelected(line, col int) bool {
+	if !d.hasSelection {
+		return false
+	}
+	start, end := d.selectionRange()
+	if line < start.Line || line > end.Line {
+		return false
+	}
+	if start.Line == end.Line {
+		return col >= start.Col && col < end.Col
+	}
+	if line == start.Line {
+		return col >= start.Col
+	}
+	if line == end.Line {
+		return col < end.Col
+	}
+	return true
+}
+
+func (d *DiffViewWidget) screenToSel(mx, my int) (pos diffSelPos, right bool, ok bool) {
+	r := d.GetRect()
+	localX := mx - r.X
+	localY := my - r.Y
+	line := d.TopLine + localY
+
+	if localX >= d.layoutLeftStart && localX < d.layoutLeftStart+d.layoutLeftW {
+		col := d.LeftCol + (localX - d.layoutLeftStart)
+		return diffSelPos{Line: line, Col: col}, false, true
+	}
+	if localX >= d.layoutRightStart && localX < d.layoutRightStart+d.layoutRightW {
+		col := d.LeftCol + (localX - d.layoutRightStart)
+		return diffSelPos{Line: line, Col: col}, true, true
+	}
+	return diffSelPos{}, false, false
+}
+
+func (d *DiffViewWidget) CopySelection() string {
+	text := d.selectedText()
+	if text != "" {
+		d.ClearSelection()
+	}
+	return text
+}
+
+func (d *DiffViewWidget) ClearSelection() {
+	d.hasSelection = false
+	d.selecting = false
+}
+
+func (d *DiffViewWidget) selectedText() string {
+	if !d.hasSelection {
+		return ""
+	}
+	start, end := d.selectionRange()
+	var lines []string
+	for i := start.Line; i <= end.Line && i < len(d.Lines); i++ {
+		var text string
+		if d.selRight {
+			text = d.Lines[i].Right.Text
+		} else {
+			text = d.Lines[i].Left.Text
+		}
+		runes := []rune(text)
+		startCol := 0
+		endCol := len(runes)
+		if i == start.Line {
+			startCol = start.Col
+		}
+		if i == end.Line {
+			endCol = end.Col
+		}
+		if startCol > len(runes) {
+			startCol = len(runes)
+		}
+		if endCol > len(runes) {
+			endCol = len(runes)
+		}
+		if startCol < endCol {
+			lines = append(lines, string(runes[startCol:endCol]))
+		} else {
+			lines = append(lines, "")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (d *DiffViewWidget) selectWord(line, col int) {
+	if line < 0 || line >= len(d.Lines) {
+		return
+	}
+	var text string
+	if d.selRight {
+		text = d.Lines[line].Right.Text
+	} else {
+		text = d.Lines[line].Left.Text
+	}
+	runes := []rune(text)
+	if len(runes) == 0 {
+		return
+	}
+	if col >= len(runes) {
+		col = len(runes) - 1
+	}
+	isWord := func(r rune) bool {
+		return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+	}
+	start, end := col, col
+	if isWord(runes[col]) {
+		for start > 0 && isWord(runes[start-1]) {
+			start--
+		}
+		for end < len(runes)-1 && isWord(runes[end+1]) {
+			end++
+		}
+	}
+	end++
+	d.hasSelection = true
+	d.selAnchor = diffSelPos{Line: line, Col: start}
+	d.selCurrent = diffSelPos{Line: line, Col: end}
 }
 
 func (d *DiffViewWidget) clampLeftCol() {
@@ -486,6 +650,38 @@ func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			d.LeftCol += 4
 			d.clampLeftCol()
 			return EventConsumed
+		}
+		mx, my := tev.Position()
+		if btn&tcell.Button1 != 0 {
+			pos, right, ok := d.screenToSel(mx, my)
+			if ok {
+				if !d.selecting {
+					now := time.Now()
+					isDoubleClick := now.Sub(d.lastClickTime) < 400*time.Millisecond &&
+						pos.Line == d.lastClickPos.Line && pos.Col == d.lastClickPos.Col
+					d.lastClickTime = now
+					d.lastClickPos = pos
+					d.selRight = right
+					if isDoubleClick {
+						d.selectWord(pos.Line, pos.Col)
+						return EventConsumed
+					}
+					d.selecting = true
+					d.hasSelection = true
+					d.selAnchor = pos
+					d.selCurrent = pos
+				} else {
+					d.selCurrent = pos
+				}
+				return EventCaptured
+			}
+		}
+		if d.selecting && btn == tcell.ButtonNone {
+			d.selecting = false
+			start, end := d.selectionRange()
+			if start.Line == end.Line && start.Col == end.Col {
+				d.hasSelection = false
+			}
 		}
 	}
 	return EventIgnored
