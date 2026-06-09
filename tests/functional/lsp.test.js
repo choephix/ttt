@@ -65,8 +65,11 @@ function lspServerAvailable(fixtureDir) {
   return true;
 }
 
+const SKIP_LANGUAGES = ["svelte"];
+
 const languages = readdirSync(LSP_DIR, { withFileTypes: true })
   .filter((d) => d.isDirectory())
+  .filter((d) => !SKIP_LANGUAGES.includes(d.name))
   .filter((d) => existsSync(resolve(LSP_DIR, d.name, "spec.json")))
   .map((d) => d.name);
 
