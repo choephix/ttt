@@ -1,17 +1,25 @@
 package ui
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )
+
+type SearchBatch struct {
+	Gen    uint64
+	Groups []SearchFileGroup
+	Done   bool
+}
 
 type SearchMatch struct {
 	FilePath string
@@ -57,10 +65,11 @@ type SearchWidget struct {
 	OnReplaceAll func(allMatches map[string][]SearchMatch, replacement string, opts SearchOptions)
 	OnPreview    func(filePath string, matches []SearchMatch, replacement string, opts SearchOptions)
 	OnClear      func()
-	PostEvent    func()
+	PostBatch    func(batch *SearchBatch)
 	Debounce     Debouncer
 	debouncing   bool
-	searchMu     sync.Mutex
+	searchGen    uint64
+	searchCancel context.CancelFunc
 	resultStartY int
 }
 
@@ -188,9 +197,19 @@ func (s *SearchWidget) inputY(inp *InputWidget) int {
 	return 0
 }
 
+func (s *SearchWidget) stopSearch() {
+	if s.searchCancel != nil {
+		s.searchCancel()
+		s.searchCancel = nil
+	}
+}
+
 func (s *SearchWidget) cancelSearch() {
 	s.Debounce.Stop()
 	s.debouncing = false
+	s.stopSearch()
+	s.searchGen++
+	s.Searching = false
 }
 
 func (s *SearchWidget) scheduleSearch() {
@@ -199,57 +218,54 @@ func (s *SearchWidget) scheduleSearch() {
 	s.FlatList = nil
 	s.Selected = 0
 	s.ScrollTop = 0
+	s.stopSearch()
+	s.searchGen++
+	gen := s.searchGen
+	ctx, cancel := context.WithCancel(context.Background())
+	s.searchCancel = cancel
+	s.Searching = true
+
 	s.Debounce.Schedule(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				s.Error = fmt.Sprintf("%v", r)
-			}
-		}()
-		s.searchMu.Lock()
-		defer s.searchMu.Unlock()
 		s.debouncing = false
-		s.runSearch()
+		s.streamSearch(ctx, gen)
 	})
 }
 
 func (s *SearchWidget) runSearchSync() {
 	s.cancelSearch()
-	s.searchMu.Lock()
-	defer s.searchMu.Unlock()
-	s.runSearch()
-}
-
-func (s *SearchWidget) runSearch() {
-	s.Groups = nil
-	s.FlatList = nil
-	s.Selected = 0
-	s.ScrollTop = 0
-	s.Error = ""
-
 	if s.Input.Text == "" {
+		s.Groups = nil
+		s.FlatList = nil
+		s.Selected = 0
+		s.ScrollTop = 0
 		return
 	}
+	s.searchGen++
+	gen := s.searchGen
+	ctx, cancel := context.WithCancel(context.Background())
+	s.searchCancel = cancel
+	s.Searching = true
+	go s.streamSearch(ctx, gen)
+}
 
-	if len(s.WorkDirs) > 0 {
-		s.searchFiles()
-	}
+func (s *SearchWidget) streamSearch(ctx context.Context, gen uint64) {
+	var groups []SearchFileGroup
 
 	if s.DiffSources != nil {
 		for _, ds := range s.DiffSources() {
 			matches, _ := FindInLines(ds.Lines, s.Input.Text, s.Options)
 			if len(matches) > 0 {
-				idx := len(s.Groups)
-				s.Groups = append(s.Groups, SearchFileGroup{
+				g := SearchFileGroup{
 					FilePath: ds.TabName,
 					RelPath:  ds.TabName,
 					Expanded: true,
-				})
+				}
 				for _, m := range matches {
 					lineText := ""
 					if m.Line >= 0 && m.Line < len(ds.Lines) {
 						lineText = ds.Lines[m.Line]
 					}
-					s.Groups[idx].Matches = append(s.Groups[idx].Matches, SearchMatch{
+					g.Matches = append(g.Matches, SearchMatch{
 						FilePath: ds.TabName,
 						LineNum:  m.Line + 1,
 						ColStart: m.Col,
@@ -257,23 +273,44 @@ func (s *SearchWidget) runSearch() {
 						LineText: lineText,
 					})
 				}
+				groups = append(groups, g)
 			}
 		}
 	}
 
-	s.flatten()
-}
-
-func (s *SearchWidget) searchFiles() {
-	if _, err := exec.LookPath("rg"); err != nil {
-		s.Error = "ripgrep (rg) not found"
+	if len(s.WorkDirs) > 0 {
+		s.streamFiles(ctx, gen, &groups)
 		return
 	}
 
-	s.Searching = true
-	dirs := s.WorkDirs
+	s.sendBatch(&SearchBatch{Gen: gen, Groups: groups, Done: true})
+}
 
-	args := []string{"--json", "--max-count=100"}
+func (s *SearchWidget) sendBatch(batch *SearchBatch) {
+	if s.PostBatch != nil {
+		s.PostBatch(batch)
+	}
+}
+
+func (s *SearchWidget) ApplyBatch(batch *SearchBatch) {
+	if batch.Gen != s.searchGen {
+		return
+	}
+	s.Groups = batch.Groups
+	s.flatten()
+	if batch.Done {
+		s.Searching = false
+	}
+}
+
+func (s *SearchWidget) streamFiles(ctx context.Context, gen uint64, groups *[]SearchFileGroup) {
+	if _, err := exec.LookPath("rg"); err != nil {
+		s.sendBatch(&SearchBatch{Gen: gen, Done: true})
+		return
+	}
+
+	dirs := s.WorkDirs
+	args := []string{"--json", "--max-count=100", "--max-columns=1000"}
 	if s.Options.CaseSensitive {
 		args = append(args, "--case-sensitive")
 	} else {
@@ -296,32 +333,47 @@ func (s *SearchWidget) searchFiles() {
 	}
 	args = append(args, s.Input.Text)
 	args = append(args, dirs...)
-	cmd := exec.Command("rg", args...)
-	out, err := cmd.Output()
-	s.Searching = false
 
+	cmd := exec.CommandContext(ctx, "rg", args...)
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if exitErr.ExitCode() == 1 {
-				return
-			}
-		}
-		s.Error = "search failed"
+		s.sendBatch(&SearchBatch{Gen: gen, Done: true})
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		s.sendBatch(&SearchBatch{Gen: gen, Done: true})
 		return
 	}
 
 	groupMap := map[string]int{}
-	for _, line := range strings.Split(string(out), "\n") {
-		if line == "" {
-			continue
-		}
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
+	first := true
+	lastFlush := time.Now()
+	dirty := false
+	const flushInterval = 100 * time.Millisecond
+
+	for scanner.Scan() {
+		line := scanner.Text()
 		var msg rgMessage
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			continue
+		}
+
+		if msg.Type == "end" {
+			if dirty && time.Since(lastFlush) >= flushInterval {
+				snapshot := make([]SearchFileGroup, len(*groups))
+				copy(snapshot, *groups)
+				s.sendBatch(&SearchBatch{Gen: gen, Groups: snapshot})
+				lastFlush = time.Now()
+				dirty = false
+			}
 			continue
 		}
 		if msg.Type != "match" {
 			continue
 		}
+
 		filePath := msg.Data.Path.Text
 		absPath := filePath
 		if !filepath.IsAbs(absPath) && len(dirs) > 0 {
@@ -349,17 +401,39 @@ func (s *SearchWidget) searchFiles() {
 
 			idx, ok := groupMap[absPath]
 			if !ok {
-				idx = len(s.Groups)
+				idx = len(*groups)
 				groupMap[absPath] = idx
-				s.Groups = append(s.Groups, SearchFileGroup{
+				*groups = append(*groups, SearchFileGroup{
 					FilePath: absPath,
 					RelPath:  relPath,
 					Expanded: true,
 				})
 			}
-			s.Groups[idx].Matches = append(s.Groups[idx].Matches, match)
+			(*groups)[idx].Matches = append((*groups)[idx].Matches, match)
+		}
+		dirty = true
+
+		if first {
+			snapshot := make([]SearchFileGroup, len(*groups))
+			copy(snapshot, *groups)
+			s.sendBatch(&SearchBatch{Gen: gen, Groups: snapshot})
+			lastFlush = time.Now()
+			first = false
+			dirty = false
 		}
 	}
+
+	if scanner.Err() != nil {
+		cmd.Process.Kill()
+	}
+	cmd.Wait()
+	if ctx.Err() != nil {
+		return
+	}
+
+	snapshot := make([]SearchFileGroup, len(*groups))
+	copy(snapshot, *groups)
+	s.sendBatch(&SearchBatch{Gen: gen, Groups: snapshot, Done: true})
 }
 
 type rgMessage struct {

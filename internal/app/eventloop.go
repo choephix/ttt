@@ -8,6 +8,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -224,6 +225,8 @@ func RunEventLoop(
 					app.AllDiagnostics[v.Path] = v.Diagnostics
 				}
 				app.refreshProblems()
+			case *ui.SearchBatch:
+				app.Search.ApplyBatch(v)
 			case *PrFetchResult:
 				app.Changes.Loading = false
 				if v.Err != nil {
