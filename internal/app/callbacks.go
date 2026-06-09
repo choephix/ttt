@@ -377,8 +377,8 @@ func registerWidgetCallbacks(app *App) {
 	app.Search.OnClear = func() {
 		app.EditorGroup.ClearSearch()
 	}
-	app.Search.PostEvent = func() {
-		app.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	app.Search.PostBatch = func(batch *ui.SearchBatch) {
+		app.Screen.PostEvent(tcell.NewEventInterrupt(batch))
 	}
 	app.Search.DiffSources = app.DiffSearchSources
 	app.Search.OnOpenMatch = app.NavigateToSearchMatch
