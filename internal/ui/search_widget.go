@@ -310,7 +310,7 @@ func (s *SearchWidget) streamFiles(ctx context.Context, gen uint64, groups *[]Se
 	}
 
 	dirs := s.WorkDirs
-	args := []string{"--json", "--max-count=100"}
+	args := []string{"--json", "--max-count=100", "--max-columns=1000"}
 	if s.Options.CaseSensitive {
 		args = append(args, "--case-sensitive")
 	} else {
@@ -423,6 +423,9 @@ func (s *SearchWidget) streamFiles(ctx context.Context, gen uint64, groups *[]Se
 		}
 	}
 
+	if scanner.Err() != nil {
+		cmd.Process.Kill()
+	}
 	cmd.Wait()
 	if ctx.Err() != nil {
 		return
