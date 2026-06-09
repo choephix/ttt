@@ -54,6 +54,7 @@ type SearchWidget struct {
 	Groups       []SearchFileGroup
 	FlatList     []searchItem
 	Selected     int
+	lastSelected int
 	ScrollTop    int
 	scrollbar    Scrollbar
 	WorkDirs     []string
@@ -591,7 +592,8 @@ func (s *SearchWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	if !s.scrollbar.IsDragging() {
+	if s.Selected != s.lastSelected {
+		s.lastSelected = s.Selected
 		if s.Selected < s.ScrollTop {
 			s.ScrollTop = s.Selected
 		}
