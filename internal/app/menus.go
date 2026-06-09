@@ -93,6 +93,12 @@ var editorContextMenu = []ui.ContextMenuItem{
 	{Label: "Go to Line", Command: "editor.goToLine"},
 }
 
+var diffContextMenu = []ui.ContextMenuItem{
+	{Label: "Copy", Command: "editor.copy"},
+	ui.MenuSep(),
+	{Label: "Find", Command: "search.find"},
+}
+
 var changesContextMenuStaged = []ui.ContextMenuItem{
 	{Label: "Open Diff", Command: "changes.openDiff"},
 	{Label: "Open File", Command: "changes.openFile"},
@@ -190,5 +196,9 @@ func handleRightClick(app *App, mx, my int) {
 		return
 	}
 
-	openContextMenu(app, editorContextMenu, mx, my)
+	if app.EditorGroup.ActiveDiffWidget() != nil {
+		openContextMenu(app, diffContextMenu, mx, my)
+	} else {
+		openContextMenu(app, editorContextMenu, mx, my)
+	}
 }

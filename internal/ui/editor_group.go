@@ -696,7 +696,16 @@ func (g *EditorGroupWidget) CollapseMultiCursor() {
 
 func (g *EditorGroupWidget) Copy() {
 	t := g.activeTab()
-	if t == nil || t.Content != nil || t.Sel == nil || !t.Sel.Active {
+	if t == nil {
+		return
+	}
+	if dv, ok := t.Content.(*DiffViewWidget); ok {
+		if text := dv.CopySelection(); text != "" {
+			clipboard.Set(text)
+		}
+		return
+	}
+	if t.Sel == nil || !t.Sel.Active {
 		return
 	}
 	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
