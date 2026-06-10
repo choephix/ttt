@@ -40,7 +40,11 @@ func (a *App) DiscardSelected() {
 }
 
 func (a *App) OpenFolder() {
-	a.ShowInputDialog("Open Folder", "Folder path", "", func(path string) {
+	dialog := ui.NewInputDialogWidget("Open Folder", "Folder path", "")
+	dialog.ConfirmLabel = "Open"
+	dialog.Borders = a.Borders
+	dialog.OnSubmit = func(path string) {
+		a.DismissDialog()
 		if path == "" {
 			return
 		}
@@ -58,7 +62,11 @@ func (a *App) OpenFolder() {
 		a.Workspace.FilePath = ""
 		a.Workspace.AddFolder(abs)
 		a.refreshWorkspaceWidgets()
-	})
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
 }
 
 func (a *App) AddWorkspaceFolder() {
