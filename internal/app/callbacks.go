@@ -302,7 +302,7 @@ func registerWidgetCallbacks(app *App) {
 		idx := i
 		reg.Register(command.Command{
 			ID:    menuBarLabels[idx],
-			Title: "Open " + menuBarLabels[idx] + " Menu",
+			Title: "Menu: " + app.MenuBar.Items[idx].Name,
 			Handler: func() {
 				openMenuBarDropdown(app, idx)
 			},
