@@ -49,7 +49,7 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 	}
 	label += name
 	if tab.Active && tab.Closable {
-		label += " ✖"
+		label += " x"
 	}
 	label += " "
 	return label
