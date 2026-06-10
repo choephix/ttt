@@ -9,6 +9,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
 func (a *App) DiscardSelected() {
@@ -105,15 +106,54 @@ func (a *App) RemoveWorkspaceFolder() {
 	})
 }
 
-func (a *App) SaveWorkspaceAs() {
-	a.ShowInputDialog("Save Workspace", "Filename", "workspace.ttt", func(path string) {
+func (a *App) OpenWorkspace() {
+	dialog := ui.NewInputDialogWidget("Open Workspace", "Path to .ttt file", "")
+	dialog.ConfirmLabel = "Open"
+	dialog.Borders = a.Borders
+	dialog.OnSubmit = func(path string) {
+		a.DismissDialog()
 		if path == "" {
 			return
 		}
-		if err := a.Workspace.SaveFile(path); err != nil {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		ws, err := workspace.LoadFile(abs)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		a.Workspace.Folders = ws.Folders
+		a.Workspace.FilePath = ws.FilePath
+		a.refreshWorkspaceWidgets()
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
+}
+
+func (a *App) SaveWorkspace() {
+	initial := "workspace.ttt"
+	if a.Workspace.FilePath != "" {
+		initial = a.Workspace.FilePath
+	}
+	a.ShowInputDialog("Save Workspace", "Filename", initial, func(path string) {
+		if path == "" {
+			return
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		if err := a.Workspace.SaveFile(abs); err != nil {
 			a.StatusError("Error: " + err.Error())
 		} else {
-			a.StatusNotify("Workspace saved: " + path)
+			a.Workspace.FilePath = abs
+			a.StatusNotify("Workspace saved: " + abs)
 		}
 	})
 }
@@ -235,8 +275,13 @@ func registerWorkspaceCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.saveAs", Title: "Save Workspace As...",
-		Handler: app.SaveWorkspaceAs,
+		ID: "workspace.open", Title: "Open Workspace",
+		Handler: app.OpenWorkspace,
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.save", Title: "Save Workspace",
+		Handler: app.SaveWorkspace,
 	})
 }
 
