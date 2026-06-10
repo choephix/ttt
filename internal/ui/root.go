@@ -283,7 +283,14 @@ func (r *Root) CursorPosition() (x, y int, visible bool) {
 	if len(r.Overlays) > 0 {
 		top := r.Overlays[len(r.Overlays)-1]
 		if cp, ok := top.Widget.(CursorProvider); ok {
-			return cp.CursorPosition()
+			if x, y, vis := cp.CursorPosition(); vis {
+				return x, y, true
+			}
+			// non-modal overlays (e.g. find bar) may lose focus to the editor;
+			// fall through so the focused widget can show its cursor instead
+			if top.Modal {
+				return 0, 0, false
+			}
 		}
 	}
 	if r.Focused != nil {
