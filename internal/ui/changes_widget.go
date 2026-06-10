@@ -86,10 +86,15 @@ func (c *ChangesWidget) Refresh() {
 		}
 	}
 	c.Groups = nil
+	seen := make(map[string]bool)
 	for _, dir := range c.Dirs {
 		if root := git.RepoRoot(dir); root != "" {
 			dir = root
 		}
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
 		files, err := git.StatusFiles(dir)
 		if err != nil {
 			files = nil
