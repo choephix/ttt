@@ -39,6 +39,28 @@ func (a *App) DiscardSelected() {
 	)
 }
 
+func (a *App) OpenFolder() {
+	a.ShowInputDialog("Open Folder", "Folder path", "", func(path string) {
+		if path == "" {
+			return
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		info, err := os.Stat(abs)
+		if err != nil || !info.IsDir() {
+			a.StatusError("Not a directory: " + abs)
+			return
+		}
+		a.Workspace.Folders = nil
+		a.Workspace.FilePath = ""
+		a.Workspace.AddFolder(abs)
+		a.refreshWorkspaceWidgets()
+	})
+}
+
 func (a *App) AddWorkspaceFolder() {
 	a.ShowInputDialog("Add Folder", "Folder path", "", func(path string) {
 		if path == "" {
@@ -190,12 +212,17 @@ func registerWorkspaceCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
+		ID: "workspace.openFolder", Title: "Open Folder",
+		Handler: app.OpenFolder,
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.addFolder", Title: "Add Folder",
 		Handler: app.AddWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.removeFolder", Title: "Remove Folder from Workspace",
+		ID: "workspace.removeFolder", Title: "Remove Folder",
 		Handler: app.RemoveWorkspaceFolder,
 	})
 

@@ -137,6 +137,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+g", Command: "editor.goToLine"},
 		{Key: "ctrl+p", Command: "command.palette"},
 		{Key: "alt+p", Command: "file.quickOpen"},
+		{Key: "ctrl+o", Command: "workspace.openFolder"},
 		{Key: "ctrl+n", Command: "file.new"},
 		{Key: "ctrl+s", Command: "file.save"},
 		{Key: "ctrl+z", Command: "editor.undo"},
