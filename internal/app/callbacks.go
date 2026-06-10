@@ -39,7 +39,6 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 	case "changes":
 		items = []ui.ContextMenuItem{
 			{Label: "Refresh", Command: "changes.refresh"},
-			{Label: "Open Pull Request", Command: "pr.open"},
 			ui.MenuSep(),
 			{Label: "Pull", Command: "git.pull"},
 			{Label: "Push", Command: "git.push"},
@@ -303,7 +302,7 @@ func registerWidgetCallbacks(app *App) {
 		idx := i
 		reg.Register(command.Command{
 			ID:    menuBarLabels[idx],
-			Title: "Open " + menuBarLabels[idx] + " Menu",
+			Title: "Menu: " + app.MenuBar.Items[idx].Name,
 			Handler: func() {
 				openMenuBarDropdown(app, idx)
 			},

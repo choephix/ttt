@@ -9,6 +9,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
 func (a *App) DiscardSelected() {
@@ -37,6 +38,36 @@ func (a *App) DiscardSelected() {
 			},
 		},
 	)
+}
+
+func (a *App) OpenFolder() {
+	dialog := ui.NewInputDialogWidget("Open Folder", "Folder path", "")
+	dialog.ConfirmLabel = "Open"
+	dialog.Borders = a.Borders
+	dialog.OnSubmit = func(path string) {
+		a.DismissDialog()
+		if path == "" {
+			return
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		info, err := os.Stat(abs)
+		if err != nil || !info.IsDir() {
+			a.StatusError("Not a directory: " + abs)
+			return
+		}
+		a.Workspace.Folders = nil
+		a.Workspace.FilePath = ""
+		a.Workspace.AddFolder(abs)
+		a.refreshWorkspaceWidgets()
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
 }
 
 func (a *App) AddWorkspaceFolder() {
@@ -75,15 +106,54 @@ func (a *App) RemoveWorkspaceFolder() {
 	})
 }
 
-func (a *App) SaveWorkspaceAs() {
-	a.ShowInputDialog("Save Workspace", "Filename", "workspace.ttt", func(path string) {
+func (a *App) OpenWorkspace() {
+	dialog := ui.NewInputDialogWidget("Open Workspace", "Path to .ttt file", "")
+	dialog.ConfirmLabel = "Open"
+	dialog.Borders = a.Borders
+	dialog.OnSubmit = func(path string) {
+		a.DismissDialog()
 		if path == "" {
 			return
 		}
-		if err := a.Workspace.SaveFile(path); err != nil {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		ws, err := workspace.LoadFile(abs)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		a.Workspace.Folders = ws.Folders
+		a.Workspace.FilePath = ws.FilePath
+		a.refreshWorkspaceWidgets()
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
+}
+
+func (a *App) SaveWorkspace() {
+	initial := "workspace.ttt"
+	if a.Workspace.FilePath != "" {
+		initial = a.Workspace.FilePath
+	}
+	a.ShowInputDialog("Save Workspace", "Filename", initial, func(path string) {
+		if path == "" {
+			return
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			a.StatusError("Error: " + err.Error())
+			return
+		}
+		if err := a.Workspace.SaveFile(abs); err != nil {
 			a.StatusError("Error: " + err.Error())
 		} else {
-			a.StatusNotify("Workspace saved: " + path)
+			a.Workspace.FilePath = abs
+			a.StatusNotify("Workspace saved: " + abs)
 		}
 	})
 }
@@ -93,8 +163,8 @@ func (a *App) OpenPullRequestDialog() {
 		a.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
 		return
 	}
-	dialog := ui.NewInputDialogWidget("Open Pull Request", "https://github.com/owner/repo/pull/123", "")
-	dialog.ConfirmLabel = "Open"
+	dialog := ui.NewInputDialogWidget("Review PR", "https://github.com/owner/repo/pull/123", "")
+	dialog.ConfirmLabel = "Review"
 	dialog.Borders = a.Borders
 	dialog.OnSubmit = func(url string) {
 		a.DismissDialog()
@@ -190,18 +260,28 @@ func registerWorkspaceCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "workspace.addFolder", Title: "Add Folder to Workspace",
+		ID: "workspace.openFolder", Title: "Open Folder",
+		Handler: app.OpenFolder,
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.addFolder", Title: "Add Folder",
 		Handler: app.AddWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.removeFolder", Title: "Remove Folder from Workspace",
+		ID: "workspace.removeFolder", Title: "Remove Folder",
 		Handler: app.RemoveWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.saveAs", Title: "Save Workspace As...",
-		Handler: app.SaveWorkspaceAs,
+		ID: "workspace.open", Title: "Open Workspace",
+		Handler: app.OpenWorkspace,
+	})
+
+	reg.Register(command.Command{
+		ID: "workspace.save", Title: "Save Workspace",
+		Handler: app.SaveWorkspace,
 	})
 }
 
@@ -209,7 +289,7 @@ func registerPRCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "pr.open", Title: "Open Pull Request",
+		ID: "pr.review", Title: "Review PR",
 		Handler: app.OpenPullRequestDialog,
 	})
 	reg.Register(command.Command{
