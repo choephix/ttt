@@ -39,7 +39,7 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 	case "changes":
 		items = []ui.ContextMenuItem{
 			{Label: "Refresh", Command: "changes.refresh"},
-			{Label: "Open Pull Request", Command: "pr.open"},
+			{Label: "Review PR", Command: "pr.review"},
 			ui.MenuSep(),
 			{Label: "Pull", Command: "git.pull"},
 			{Label: "Push", Command: "git.push"},
