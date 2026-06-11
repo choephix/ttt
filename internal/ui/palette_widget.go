@@ -196,6 +196,16 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 }
 
 func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
+	if mev, ok := ev.(*tcell.EventMouse); ok {
+		if mev.Buttons()&tcell.Button1 != 0 {
+			mx, my := mev.Position()
+			if my == p.inputY {
+				p.Input.HandleTextClick(mx)
+			}
+		}
+		return EventConsumed
+	}
+
 	kev, ok := ev.(*tcell.EventKey)
 	if !ok {
 		return EventConsumed

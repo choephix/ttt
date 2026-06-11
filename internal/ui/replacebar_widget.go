@@ -204,6 +204,7 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 					return EventConsumed
 				}
 				r.focusRow = 0
+				r.SearchInput.HandleTextClick(mx)
 				return EventConsumed
 			}
 			if localY == replRow && localX >= barX+1 && localX < barX+1+barW-2 {
@@ -211,6 +212,7 @@ func (r *ReplaceBarWidget) HandleEvent(ev tcell.Event) EventResult {
 					return EventConsumed
 				}
 				r.focusRow = 1
+				r.ReplaceInput.HandleTextClick(mx)
 				return EventConsumed
 			}
 

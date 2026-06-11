@@ -2,6 +2,8 @@ package ui
 
 import (
 	"strings"
+	"time"
+	"unicode"
 
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -16,17 +18,21 @@ type InputAction struct {
 }
 
 type InputWidget struct {
-	Text         string
-	Prefix       string
-	Placeholder  string
-	CursorPos    int
-	scrollOffset int
-	selStart     int // -1 means no selection
-	selEnd       int
-	Style        term.Style
-	Actions      []InputAction
-	ActionHits   []HitRegion
-	OnChange     func(text string)
+	Text          string
+	Prefix        string
+	Placeholder   string
+	CursorPos     int
+	scrollOffset  int
+	selStart      int // -1 means no selection
+	selEnd        int
+	lastClickTime int64
+	lastClickPos  int
+	clickCount    int
+	renderX       int // screen X of the text area, set during Render
+	Style         term.Style
+	Actions       []InputAction
+	ActionHits    []HitRegion
+	OnChange      func(text string)
 }
 
 func NewInputWidget() *InputWidget {
@@ -68,6 +74,7 @@ func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 	prefixW := len(prefixRunes)
 	textW := w - actionsW - prefixW
 
+	inp.renderX = x + prefixW
 	for i, ch := range prefixRunes {
 		surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: inp.Style})
 	}
@@ -177,9 +184,12 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 			inp.deleteSelection()
 		} else if inp.CursorPos > 0 {
 			runes := []rune(inp.Text)
-			runes = append(runes[:inp.CursorPos-1], runes[inp.CursorPos:]...)
-			inp.Text = string(runes)
-			inp.CursorPos--
+			newPos := inp.CursorPos - 1
+			if kev.Modifiers()&tcell.ModCtrl != 0 {
+				newPos = inp.wordLeft()
+			}
+			inp.Text = string(append(runes[:newPos], runes[inp.CursorPos:]...))
+			inp.CursorPos = newPos
 			inp.notify()
 		}
 		return EventConsumed
@@ -189,17 +199,23 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 		} else {
 			runes := []rune(inp.Text)
 			if inp.CursorPos < len(runes) {
-				runes = append(runes[:inp.CursorPos], runes[inp.CursorPos+1:]...)
-				inp.Text = string(runes)
+				end := inp.CursorPos + 1
+				if kev.Modifiers()&tcell.ModCtrl != 0 {
+					end = inp.wordRight()
+				}
+				inp.Text = string(append(runes[:inp.CursorPos], runes[end:]...))
 				inp.notify()
 			}
 		}
 		return EventConsumed
 	case tcell.KeyLeft:
+		ctrl := kev.Modifiers()&tcell.ModCtrl != 0
 		if shift {
 			inp.startSel()
 		}
-		if inp.CursorPos > 0 {
+		if ctrl {
+			inp.CursorPos = inp.wordLeft()
+		} else if inp.CursorPos > 0 {
 			inp.CursorPos--
 		}
 		if shift {
@@ -209,10 +225,13 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyRight:
+		ctrl := kev.Modifiers()&tcell.ModCtrl != 0
 		if shift {
 			inp.startSel()
 		}
-		if inp.CursorPos < len([]rune(inp.Text)) {
+		if ctrl {
+			inp.CursorPos = inp.wordRight()
+		} else if inp.CursorPos < len([]rune(inp.Text)) {
 			inp.CursorPos++
 		}
 		if shift {
@@ -291,6 +310,118 @@ func (inp *InputWidget) CutSelection() {
 	}
 	inp.CopySelection()
 	inp.deleteSelection()
+}
+
+func isWordRune(r rune) bool {
+	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+}
+
+func (inp *InputWidget) wordLeft() int {
+	runes := []rune(inp.Text)
+	pos := inp.CursorPos - 1
+	if pos >= len(runes) {
+		pos = len(runes) - 1
+	}
+	if pos < 0 {
+		return 0
+	}
+	if unicode.IsSpace(runes[pos]) {
+		for pos > 0 && unicode.IsSpace(runes[pos-1]) {
+			pos--
+		}
+	} else if isWordRune(runes[pos]) {
+		for pos > 0 && isWordRune(runes[pos-1]) {
+			pos--
+		}
+	} else {
+		for pos > 0 && !isWordRune(runes[pos-1]) && !unicode.IsSpace(runes[pos-1]) {
+			pos--
+		}
+	}
+	return pos
+}
+
+func (inp *InputWidget) wordRight() int {
+	runes := []rune(inp.Text)
+	pos := inp.CursorPos
+	if pos >= len(runes) {
+		return len(runes)
+	}
+	if unicode.IsSpace(runes[pos]) {
+		for pos < len(runes) && unicode.IsSpace(runes[pos]) {
+			pos++
+		}
+	} else if isWordRune(runes[pos]) {
+		for pos < len(runes) && isWordRune(runes[pos]) {
+			pos++
+		}
+	} else {
+		for pos < len(runes) && !isWordRune(runes[pos]) && !unicode.IsSpace(runes[pos]) {
+			pos++
+		}
+	}
+	return pos
+}
+
+func (inp *InputWidget) selectWordAt(pos int) {
+	runes := []rune(inp.Text)
+	if pos < 0 || pos >= len(runes) {
+		return
+	}
+	lo, hi := pos, pos
+	if isWordRune(runes[pos]) {
+		for lo > 0 && isWordRune(runes[lo-1]) {
+			lo--
+		}
+		for hi < len(runes) && isWordRune(runes[hi]) {
+			hi++
+		}
+	} else if !unicode.IsSpace(runes[pos]) {
+		for lo > 0 && !isWordRune(runes[lo-1]) && !unicode.IsSpace(runes[lo-1]) {
+			lo--
+		}
+		for hi < len(runes) && !isWordRune(runes[hi]) && !unicode.IsSpace(runes[hi]) {
+			hi++
+		}
+	} else {
+		for lo > 0 && unicode.IsSpace(runes[lo-1]) {
+			lo--
+		}
+		for hi < len(runes) && unicode.IsSpace(runes[hi]) {
+			hi++
+		}
+	}
+	inp.selStart = lo
+	inp.selEnd = hi
+	inp.CursorPos = hi
+}
+
+// HandleTextClick handles a mouse click on the input. screenX is the
+// absolute screen coordinate; the text offset is derived from the render
+// position stored during the last Render call.
+func (inp *InputWidget) HandleTextClick(screenX int) bool {
+	pos := inp.scrollOffset + (screenX - inp.renderX)
+	runes := []rune(inp.Text)
+	if pos > len(runes) {
+		pos = len(runes)
+	}
+
+	now := time.Now().UnixMilli()
+	if now-inp.lastClickTime < 400 && pos == inp.lastClickPos {
+		inp.clickCount++
+	} else {
+		inp.clickCount = 1
+	}
+	inp.lastClickTime = now
+	inp.lastClickPos = pos
+
+	if inp.clickCount == 2 {
+		inp.selectWordAt(pos)
+	} else {
+		inp.CursorPos = pos
+		inp.clearSel()
+	}
+	return true
 }
 
 // InputHolder is implemented by widgets that host an InputWidget so global

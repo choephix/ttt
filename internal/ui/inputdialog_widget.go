@@ -122,6 +122,7 @@ func (d *InputDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			if my == d.boxY+3 {
 				d.focusedBtn = 0
+				d.Input.HandleTextClick(mx)
 			}
 		}
 		return EventConsumed

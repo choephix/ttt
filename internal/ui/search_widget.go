@@ -734,6 +734,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 					return EventConsumed
 				}
 				s.focusIdx = 0
+				s.Input.HandleTextClick(mx)
 				return EventConsumed
 			}
 
@@ -748,6 +749,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 						break
 					}
 				}
+				s.ReplaceInput.HandleTextClick(mx)
 				return EventConsumed
 			}
 
