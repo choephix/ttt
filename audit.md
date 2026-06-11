@@ -69,7 +69,7 @@ These are the features whose absence loses user data or breaks trust in the tool
 
 | Feature | Status | Notes |
 |---|---|---|
-| Side-by-side editor splits | DEFERRED | Current splits are sidebar/editor and editor/terminal only. As a terminal editor, side-by-side is well served by tmux/multiplexer panes running separate instances; in-editor splits only add value for same-file dual views and shared buffer state. Not worth the structural lift now. |
+| Side-by-side editor splits | DEFERRED | Current splits are sidebar/editor and editor/terminal only. As a terminal editor, side-by-side is well served by tmux/multiplexer panes running separate instances. More fundamentally, terminal real estate doesn't support it: a typical 80–120 column window split in half leaves ~40–60 columns per side — below readable code width, before subtracting the sidebar. Not worth the structural lift. |
 | Tab drag-reorder / move between splits | MISSING | Tabs scroll and pin, but can't be reordered. |
 | Move files in explorer | MISSING | Create/rename/delete exist; no move (and delete is permanent — `os.RemoveAll`, no trash). |
 | Settings hot reload | MISSING | `settings.json` edits require restart. |
@@ -91,4 +91,5 @@ These are the features whose absence loses user data or breaks trust in the tool
 9. **Trim trailing whitespace on save** — parser already reads the flag; just apply it.
 
 Editor side-by-side splits are intentionally deferred: tmux panes with separate instances cover
-the terminal-native workflow, and the structural cost inside the editor is the highest on this list.
+the terminal-native workflow, typical terminal widths can't fit two readable code columns anyway,
+and the structural cost inside the editor is the highest on this list.
