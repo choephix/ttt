@@ -56,6 +56,7 @@ type ChangesWidget struct {
 	OnCommit         func(dir string, message string)
 	OnGroupMenu      func(dir string, screenX, screenY int)
 	OnPRGroupMenu    func(group *ChangesGroup, screenX, screenY int)
+	OnRefreshPR      func(url string)
 	OnConfirmDiscard func(message string, onConfirm func())
 }
 
@@ -564,7 +565,15 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 		inPR := c.selectedInPR()
 		switch {
 		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'r' || tev.Rune() == 'R'):
-			c.Refresh()
+			if inPR {
+				g := &c.Groups[c.items[c.Selected].groupIndex]
+				if c.OnRefreshPR != nil && g.PRURL != "" {
+					c.RemovePRGroup(g.Name)
+					c.OnRefreshPR(g.PRURL)
+				}
+			} else {
+				c.Refresh()
+			}
 			return EventConsumed
 		case !inPR && tev.Key() == tcell.KeyRune && tev.Rune() == ' ':
 			c.toggleStageSelected()
