@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +10,55 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 )
+
+// TestWatcherReloadVisibleOnScreen is the fullest black-box test: it drives the
+// real TUI render pipeline and a real external process. It opens a file,
+// captures the rendered terminal screen, has a separate OS process overwrite
+// the file, then captures the screen again — asserting the painted cells now
+// show the new content and no longer show the old. This exercises the entire
+// chain: external process -> fsnotify -> reconcile -> render -> screen cells.
+func TestWatcherReloadVisibleOnScreen(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.app.StartWatcher()
+
+	path := filepath.Join(h.dir, "screen.txt")
+	if err := os.WriteFile(path, []byte("MARKER_BEFORE\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	h.app.EditorGroup.OpenFile(path)
+	h.app.SyncWatched()
+	h.redraw()
+
+	// Capture the rendered screen before the external change.
+	if !strings.Contains(h.screenText(), "MARKER_BEFORE") {
+		t.Fatalf("expected screen to show MARKER_BEFORE, got:\n%s", h.screenText())
+	}
+
+	// A genuinely separate process rewrites the file. The new content differs
+	// in length so the change is detected regardless of mtime resolution.
+	cmd := exec.Command("sh", "-c", "printf 'MARKER_AFTER_EXTERNAL\\n' > "+path)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("external write failed: %v (%s)", err, out)
+	}
+
+	if !h.waitForFileChange(3 * time.Second) {
+		t.Fatal("watcher never reported the external write")
+	}
+
+	// Capture the rendered screen after the change.
+	after := h.screenText()
+	if !strings.Contains(after, "MARKER_AFTER_EXTERNAL") {
+		t.Errorf("expected screen to show MARKER_AFTER_EXTERNAL after reload, got:\n%s", after)
+	}
+	if strings.Contains(after, "MARKER_BEFORE") {
+		t.Errorf("expected old content to be gone from screen, got:\n%s", after)
+	}
+}
 
 // TestWatcherUpdatesEditorOnDiskWrite is a black-box test of the whole feature:
 // it starts the real fsnotify watcher, opens a file, writes to that file as an
