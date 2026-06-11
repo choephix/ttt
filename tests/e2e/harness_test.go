@@ -24,6 +24,7 @@ type testHarness struct {
 	reg      *command.Registry
 	renderer *render.Renderer
 	running  bool
+	dir      string
 }
 
 func newTestHarness(t *testing.T, w, h int) *testHarness {
@@ -80,6 +81,7 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 		reg:      reg,
 		renderer: editor.Renderer,
 		running:  running,
+		dir:      dir,
 	}
 	h2.redraw()
 	return h2

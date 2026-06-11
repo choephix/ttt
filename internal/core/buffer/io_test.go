@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestLoadAndSaveFile(t *testing.T) {
@@ -76,6 +77,49 @@ func TestSaveThroughSymlink(t *testing.T) {
 	}
 	if string(data) != "new\n" {
 		t.Errorf("expected real file to contain %q, got %q", "new\n", string(data))
+	}
+}
+
+func TestDiskChanged(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "file.txt")
+	if err := os.WriteFile(fname, []byte("one\ntwo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	b := &Buffer{}
+	if err := b.LoadFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if b.DiskChanged(fname) {
+		t.Errorf("expected no change right after load")
+	}
+
+	// Simulate an external edit: different size and a later mtime.
+	if err := os.WriteFile(fname, []byte("changed externally\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(fname, future, future); err != nil {
+		t.Fatal(err)
+	}
+	if !b.DiskChanged(fname) {
+		t.Errorf("expected change to be detected after external edit")
+	}
+
+	// Saving re-syncs our recorded disk state.
+	if err := b.SaveFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if b.DiskChanged(fname) {
+		t.Errorf("expected no change right after save")
+	}
+}
+
+func TestDiskChangedNewBuffer(t *testing.T) {
+	b := &Buffer{Lines: []string{"never saved"}}
+	if b.DiskChanged("/nonexistent/path") {
+		t.Errorf("a buffer with no recorded disk state should report no change")
 	}
 }
 
