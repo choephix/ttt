@@ -185,9 +185,7 @@ func (f *FindBarWidget) HandleEvent(ev tcell.Event) EventResult {
 				f.focused = true
 				row := barY + 1
 				if localY == row && localX >= barX+1 && localX < barX+1+barW-2 {
-					if !f.Input.HandleMouseClick(localX, localY) {
-						f.Input.HandleTextClick(mx)
-					}
+					f.Input.HandleClick(mx, my)
 				}
 				if f.btnPrev.Contains(mx, my) {
 					if len(f.Matches) > 0 {

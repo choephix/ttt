@@ -730,18 +730,12 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			localY := my - r.Y
 
 			if localY == 0 {
-				if s.Input.HandleMouseClick(localX, localY) {
-					return EventConsumed
-				}
 				s.focusIdx = 0
-				s.Input.HandleTextClick(mx)
+				s.Input.HandleClick(mx, my)
 				return EventConsumed
 			}
 
 			if s.showReplace && localY == 2 {
-				if s.ReplaceInput.HandleMouseClick(localX, localY) {
-					return EventConsumed
-				}
 				inputs := s.visibleInputs()
 				for i, inp := range inputs {
 					if inp == s.ReplaceInput {
@@ -749,7 +743,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 						break
 					}
 				}
-				s.ReplaceInput.HandleTextClick(mx)
+				s.ReplaceInput.HandleClick(mx, my)
 				return EventConsumed
 			}
 

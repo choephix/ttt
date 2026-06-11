@@ -15,6 +15,10 @@ func (s *RenderSurface) Size() (w, h int) {
 	return s.clip.W, s.clip.H
 }
 
+func (s *RenderSurface) Origin() (x, y int) {
+	return s.clip.X, s.clip.Y
+}
+
 func (s *RenderSurface) SetCell(x, y int, c term.Cell) {
 	absX := s.clip.X + x
 	absY := s.clip.Y + y

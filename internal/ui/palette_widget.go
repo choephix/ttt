@@ -200,7 +200,7 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 		if mev.Buttons()&tcell.Button1 != 0 {
 			mx, my := mev.Position()
 			if my == p.inputY {
-				p.Input.HandleTextClick(mx)
+				p.Input.HandleClick(mx, my)
 			}
 		}
 		return EventConsumed

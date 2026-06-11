@@ -534,7 +534,7 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 				if item.kind == itemInput {
 					c.Selected = idx
 					c.inputFocused = true
-					c.Groups[item.groupIndex].Input.HandleTextClick(mx)
+					c.Groups[item.groupIndex].Input.HandleClick(mx, my)
 					return EventConsumed
 				}
 				if item.kind == itemFile && mx >= r.X+r.W-3 {

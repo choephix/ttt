@@ -28,7 +28,8 @@ type InputWidget struct {
 	lastClickTime int64
 	lastClickPos  int
 	clickCount    int
-	renderX       int // screen X of the text area, set during Render
+	renderX       int // screen-absolute X of the text area start
+	renderY       int // screen-absolute Y of the input row
 	Style         term.Style
 	Actions       []InputAction
 	ActionHits    []HitRegion
@@ -74,7 +75,9 @@ func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 	prefixW := len(prefixRunes)
 	textW := w - actionsW - prefixW
 
-	inp.renderX = x + prefixW
+	ox, oy := surface.Origin()
+	inp.renderX = ox + x + prefixW
+	inp.renderY = oy + y
 	for i, ch := range prefixRunes {
 		surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: inp.Style})
 	}
@@ -128,7 +131,7 @@ func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
 			style = term.StyleDefault
 		}
 		labelW := len([]rune(action.Label))
-		inp.ActionHits = append(inp.ActionHits, HitRegion{X: ax, Y: y, W: labelW})
+		inp.ActionHits = append(inp.ActionHits, HitRegion{X: ox + ax, Y: inp.renderY, W: labelW})
 		for _, ch := range action.Label {
 			if ax < x+w {
 				surface.SetCell(ax, y, term.Cell{Ch: ch, Style: style})
@@ -396,12 +399,28 @@ func (inp *InputWidget) selectWordAt(pos int) {
 	inp.CursorPos = hi
 }
 
-// HandleTextClick handles a mouse click on the input. screenX is the
-// absolute screen coordinate; the text offset is derived from the render
-// position stored during the last Render call.
-func (inp *InputWidget) HandleTextClick(screenX int) bool {
+// HandleClick handles a mouse click at screen-absolute coordinates.
+// It checks action buttons first, then positions the cursor or selects
+// a word on double-click.
+func (inp *InputWidget) HandleClick(screenX, screenY int) bool {
+	for i, hit := range inp.ActionHits {
+		if screenX >= hit.X && screenX < hit.X+hit.W && screenY == hit.Y {
+			if i < len(inp.Actions) && inp.Actions[i].OnClick != nil {
+				inp.Actions[i].OnClick()
+			}
+			return true
+		}
+	}
+
+	if screenY != inp.renderY {
+		return false
+	}
+
 	pos := inp.scrollOffset + (screenX - inp.renderX)
 	runes := []rune(inp.Text)
+	if pos < 0 {
+		pos = 0
+	}
 	if pos > len(runes) {
 		pos = len(runes)
 	}
@@ -470,17 +489,6 @@ func (inp *InputWidget) Clear() {
 	inp.notify()
 }
 
-func (inp *InputWidget) HandleMouseClick(localX, localY int) bool {
-	for i, hit := range inp.ActionHits {
-		if localX >= hit.X && localX < hit.X+hit.W && localY == hit.Y {
-			if i < len(inp.Actions) && inp.Actions[i].OnClick != nil {
-				inp.Actions[i].OnClick()
-			}
-			return true
-		}
-	}
-	return false
-}
 
 func (inp *InputWidget) notify() {
 	if inp.OnChange != nil {
