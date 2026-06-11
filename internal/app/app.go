@@ -31,44 +31,44 @@ type TerminalTab struct {
 }
 
 type App struct {
-	Root              *ui.Root
-	EditorGroup       *ui.EditorGroupWidget
-	Sidebar           *ui.SidebarWidget
-	SplitPanel        *ui.SplitPanelWidget
-	ContentSplit      *ui.ContentSplitWidget
-	BottomPanel       *ui.BottomPanelWidget
-	Explorer          *ui.ExplorerWidget
-	Search            *ui.SearchWidget
-	Changes           *ui.ChangesWidget
-	MenuBar           *ui.MenuBarWidget
-	StatusBar         *ui.StatusBarWidget
-	Status            *view.StatusBar
-	Borders           *term.BorderSet
-	Screen            *term.TcellScreen
-	Renderer          *render.Renderer
-	Settings          *config.Settings
-	Workspace         *workspace.Workspace
-	Palette           *ui.TerminalColorPalette
-	TerminalPanel     *ui.TerminalPanelWidget
-	Terminals         []TerminalTab
-	LspManager        *lsp.Manager
-	DocVersionsMu     sync.Mutex
-	DocVersions       map[string]int
-	CompletionItems   []ui.CompletionItem
+	Root               *ui.Root
+	EditorGroup        *ui.EditorGroupWidget
+	Sidebar            *ui.SidebarWidget
+	SplitPanel         *ui.SplitPanelWidget
+	ContentSplit       *ui.ContentSplitWidget
+	BottomPanel        *ui.BottomPanelWidget
+	Explorer           *ui.ExplorerWidget
+	Search             *ui.SearchWidget
+	Changes            *ui.ChangesWidget
+	MenuBar            *ui.MenuBarWidget
+	StatusBar          *ui.StatusBarWidget
+	Status             *view.StatusBar
+	Borders            *term.BorderSet
+	Screen             *term.TcellScreen
+	Renderer           *render.Renderer
+	Settings           *config.Settings
+	Workspace          *workspace.Workspace
+	Palette            *ui.TerminalColorPalette
+	TerminalPanel      *ui.TerminalPanelWidget
+	Terminals          []TerminalTab
+	LspManager         *lsp.Manager
+	DocVersionsMu      sync.Mutex
+	DocVersions        map[string]int
+	CompletionItems    []ui.CompletionItem
 	LspCompletionItems []lsp.CompletionItem
-	AutocompleteTimer *time.Timer
-	HoverTimer        *time.Timer
-	HoverGen          uint64
-	LastHoverLine     int
-	LastHoverCol      int
-	Problems          *ui.ProblemsWidget
-	References        *ui.ReferencesWidget
-	AllDiagnostics    map[string][]ui.Diagnostic
-	Keybindings       []config.KeyBinding
-	LspNotified       map[string]bool
-	Reg               *command.Registry
-	Running           *bool
-	QuitPending       *bool
+	AutocompleteTimer  *time.Timer
+	HoverTimer         *time.Timer
+	HoverGen           uint64
+	LastHoverLine      int
+	LastHoverCol       int
+	Problems           *ui.ProblemsWidget
+	References         *ui.ReferencesWidget
+	AllDiagnostics     map[string][]ui.Diagnostic
+	Keybindings        []config.KeyBinding
+	LspNotified        map[string]bool
+	Reg                *command.Registry
+	Running            *bool
+	QuitPending        *bool
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -425,6 +425,36 @@ func OpenURL(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	cmd.Start()
+}
+
+func (a *App) Copy() {
+	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
+		if inp := holder.FocusedInput(); inp != nil {
+			inp.CopySelection()
+			return
+		}
+	}
+	a.EditorGroup.Copy()
+}
+
+func (a *App) Cut() {
+	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
+		if inp := holder.FocusedInput(); inp != nil {
+			inp.CutSelection()
+			return
+		}
+	}
+	a.EditorGroup.Cut()
+}
+
+func (a *App) Paste() {
+	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
+		if inp := holder.FocusedInput(); inp != nil {
+			inp.PasteClipboard()
+			return
+		}
+	}
+	a.EditorGroup.Paste()
 }
 
 func (a *App) ShowDialog(w ui.Widget) {
