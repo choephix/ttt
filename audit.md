@@ -69,7 +69,7 @@ These are the features whose absence loses user data or breaks trust in the tool
 
 | Feature | Status | Notes |
 |---|---|---|
-| Side-by-side editor splits | MISSING | Current splits are sidebar/editor and editor/terminal only; no two-files-side-by-side editing. |
+| Side-by-side editor splits | DEFERRED | Current splits are sidebar/editor and editor/terminal only. As a terminal editor, side-by-side is well served by tmux/multiplexer panes running separate instances; in-editor splits only add value for same-file dual views and shared buffer state. Not worth the structural lift now. |
 | Tab drag-reorder / move between splits | MISSING | Tabs scroll and pin, but can't be reordered. |
 | Move files in explorer | MISSING | Create/rename/delete exist; no move (and delete is permanent — `os.RemoveAll`, no trash). |
 | Settings hot reload | MISSING | `settings.json` edits require restart. |
@@ -89,4 +89,6 @@ These are the features whose absence loses user data or breaks trust in the tool
 7. **Recent files / reopen closed tab** — small, pairs with quick-open.
 8. **Git gutter indicators** — high visibility payoff; diff infrastructure already exists.
 9. **Trim trailing whitespace on save** — parser already reads the flag; just apply it.
-10. **Editor side-by-side split** — biggest structural lift in the list; schedule deliberately.
+
+Editor side-by-side splits are intentionally deferred: tmux panes with separate instances cover
+the terminal-native workflow, and the structural cost inside the editor is the highest on this list.
