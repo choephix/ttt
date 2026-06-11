@@ -1,5 +1,7 @@
 package buffer
 
+import "time"
+
 type IndentInfo struct {
 	UseTabs bool
 	Size    int
@@ -71,6 +73,14 @@ type Buffer struct {
 	Lines              []string
 	Dirty              bool
 	InsertFinalNewline bool
+
+	// diskModTime and diskSize record the state of the file on disk the last
+	// time we loaded or saved it, so we can detect external modifications
+	// before overwriting. diskInfoSet is false for buffers never backed by a
+	// file on disk (e.g. a new untitled buffer).
+	diskModTime time.Time
+	diskSize    int64
+	diskInfoSet bool
 }
 
 // InsertRune inserts a rune at the given line and column.

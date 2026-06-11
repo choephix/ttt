@@ -30,7 +30,33 @@ func (b *Buffer) LoadFile(filename string) error {
 	}
 	b.Lines = lines
 	b.Dirty = false
+	if info, err := f.Stat(); err == nil {
+		b.recordDiskInfo(info)
+	}
 	return nil
+}
+
+// recordDiskInfo stores the file's modification time and size so a later save
+// can detect whether the file changed on disk in the meantime.
+func (b *Buffer) recordDiskInfo(info os.FileInfo) {
+	b.diskModTime = info.ModTime()
+	b.diskSize = info.Size()
+	b.diskInfoSet = true
+}
+
+// DiskChanged reports whether the file on disk has been modified since the
+// buffer last loaded or saved it. It returns false when there is no recorded
+// disk state (a new buffer never written to disk) or when the file no longer
+// exists — a missing file is handled by the save itself, which recreates it.
+func (b *Buffer) DiskChanged(filename string) bool {
+	if !b.diskInfoSet {
+		return false
+	}
+	info, err := os.Stat(filename)
+	if err != nil {
+		return false
+	}
+	return !info.ModTime().Equal(b.diskModTime) || info.Size() != b.diskSize
 }
 
 // SaveFile writes the buffer contents to a file atomically: it writes to a
@@ -88,6 +114,9 @@ func (b *Buffer) SaveFile(filename string) error {
 	}
 
 	b.Dirty = false
+	if info, err := os.Stat(target); err == nil {
+		b.recordDiskInfo(info)
+	}
 	return nil
 }
 

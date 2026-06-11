@@ -395,6 +395,16 @@ func (g *EditorGroupWidget) ActiveFilePath() string {
 	return ""
 }
 
+// ActiveBuffer returns the buffer backing the active tab, or nil if the active
+// tab is not a text buffer (e.g. a diff view).
+func (g *EditorGroupWidget) ActiveBuffer() *buffer.Buffer {
+	t := g.activeTab()
+	if t == nil || t.Content != nil {
+		return nil
+	}
+	return t.Buf
+}
+
 func (g *EditorGroupWidget) ActiveCursor() (line, col int) {
 	t := g.activeTab()
 	if t == nil || t.Content != nil {
