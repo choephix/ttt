@@ -224,12 +224,70 @@ func (g *EditorGroupWidget) ReloadFile(path string) {
 		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
 			g.tabs[i].Buf.LoadFile(path)
 			g.tabs[i].Buf.Dirty = false
+			g.clampCursor(&g.tabs[i])
 			if i == g.active {
 				g.syncTabs()
 			}
 			return
 		}
 	}
+}
+
+// clampCursor keeps a tab's cursor within the bounds of its buffer, which may
+// have shrunk after an external reload.
+func (g *EditorGroupWidget) clampCursor(t *editorTab) {
+	if t.Cur == nil || t.Buf == nil {
+		return
+	}
+	n := len(t.Buf.Lines)
+	if n == 0 {
+		t.Cur.Line, t.Cur.Col = 0, 0
+		return
+	}
+	if t.Cur.Line >= n {
+		t.Cur.Line = n - 1
+	}
+	if t.Cur.Line < 0 {
+		t.Cur.Line = 0
+	}
+	lineLen := len([]rune(t.Buf.Lines[t.Cur.Line]))
+	if t.Cur.Col > lineLen {
+		t.Cur.Col = lineLen
+	}
+}
+
+// OpenFilePaths returns the paths of all tabs backed by a real file on disk
+// (excluding untitled buffers and non-text content like diff views). The order
+// is unspecified.
+func (g *EditorGroupWidget) OpenFilePaths() []string {
+	var paths []string
+	for i := range g.tabs {
+		t := &g.tabs[i]
+		if t.Content != nil || t.Buf == nil {
+			continue
+		}
+		if t.FilePath == "" || t.FilePath == "untitled" {
+			continue
+		}
+		paths = append(paths, t.FilePath)
+	}
+	return paths
+}
+
+// BufferForPath returns the buffer of the tab with the given path, or nil.
+func (g *EditorGroupWidget) BufferForPath(path string) *buffer.Buffer {
+	for i := range g.tabs {
+		if g.tabs[i].FilePath == path {
+			return g.tabs[i].Buf
+		}
+	}
+	return nil
+}
+
+// IsDirtyPath reports whether the tab with the given path has unsaved changes.
+func (g *EditorGroupWidget) IsDirtyPath(path string) bool {
+	b := g.BufferForPath(path)
+	return b != nil && b.Dirty
 }
 
 func (g *EditorGroupWidget) IsEditorActive() bool {

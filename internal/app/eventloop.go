@@ -26,6 +26,10 @@ func RunEventLoop(
 	quitPending *bool,
 	closeTerminal func(panelID string),
 ) {
+	if app.Watcher != nil {
+		defer app.Watcher.Close()
+	}
+
 	lastBlameLine := -1
 	lastBlameFile := ""
 	lastBranchDir := app.Workspace.Primary()
@@ -42,6 +46,7 @@ func RunEventLoop(
 		app.Status.Dirty = app.EditorGroup.IsDirty()
 		app.Status.CursorCount = app.EditorGroup.MultiCursorCount()
 		app.Explorer.ActiveFile = filePath
+		app.SyncWatched()
 
 		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.Highlighter != nil {
 			lang := app.EditorGroup.Editor.Highlighter.Language()
@@ -225,6 +230,8 @@ func RunEventLoop(
 					app.AllDiagnostics[v.Path] = v.Diagnostics
 				}
 				app.refreshProblems()
+			case *FileChangedResult:
+				app.HandleFileChanged(v.Path)
 			case *ui.SearchBatch:
 				app.Search.ApplyBatch(v)
 			case *PrFetchResult:
