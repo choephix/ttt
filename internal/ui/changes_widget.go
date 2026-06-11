@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"path/filepath"
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/term"
+	"path/filepath"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -44,11 +44,11 @@ type changesItem struct {
 type ChangesWidget struct {
 	BaseWidget
 	SelectableList
-	Dirs         []string
-	Groups       []ChangesGroup
-	items        []changesItem
-	multiRoot    bool
-	inputFocused bool
+	Dirs             []string
+	Groups           []ChangesGroup
+	items            []changesItem
+	multiRoot        bool
+	inputFocused     bool
 	Loading          bool
 	OnOpenDiff       func(dir string, status git.FileStatus)
 	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus)
@@ -452,6 +452,19 @@ func (c *ChangesWidget) CursorPosition() (int, int, bool) {
 	return 0, 0, false
 }
 
+func (c *ChangesWidget) FocusedInput() *InputWidget {
+	if !c.inputFocused {
+		return nil
+	}
+	if c.Selected >= 0 && c.Selected < len(c.items) {
+		item := c.items[c.Selected]
+		if item.kind == itemInput {
+			return c.Groups[item.groupIndex].Input
+		}
+	}
+	return nil
+}
+
 func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 	if c.inputFocused {
 		if tev, ok := ev.(*tcell.EventKey); ok {
@@ -517,6 +530,12 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 						}
 						return EventConsumed
 					}
+				}
+				if item.kind == itemInput {
+					c.Selected = idx
+					c.inputFocused = true
+					c.Groups[item.groupIndex].Input.HandleClick(mx, my)
+					return EventConsumed
 				}
 				if item.kind == itemFile && mx >= r.X+r.W-3 {
 					c.Selected = idx

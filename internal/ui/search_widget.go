@@ -157,7 +157,7 @@ func (s *SearchWidget) visibleInputs() []*InputWidget {
 	return inputs
 }
 
-func (s *SearchWidget) focusedInput() *InputWidget {
+func (s *SearchWidget) FocusedInput() *InputWidget {
 	inputs := s.visibleInputs()
 	if s.focusIdx >= 0 && s.focusIdx < len(inputs) {
 		return inputs[s.focusIdx]
@@ -173,7 +173,7 @@ func (s *SearchWidget) Focusable() bool { return true }
 
 func (s *SearchWidget) CursorPosition() (int, int, bool) {
 	r := s.GetRect()
-	inp := s.focusedInput()
+	inp := s.FocusedInput()
 	y := s.inputY(inp)
 	return inp.CursorX(r.X), r.Y + y, true
 }
@@ -438,8 +438,8 @@ func (s *SearchWidget) streamFiles(ctx context.Context, gen uint64, groups *[]Se
 }
 
 type rgMessage struct {
-	Type string         `json:"type"`
-	Data rgMatchData    `json:"data"`
+	Type string      `json:"type"`
+	Data rgMatchData `json:"data"`
 }
 
 type rgMatchData struct {
@@ -730,17 +730,12 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			localY := my - r.Y
 
 			if localY == 0 {
-				if s.Input.HandleMouseClick(localX, localY) {
-					return EventConsumed
-				}
 				s.focusIdx = 0
+				s.Input.HandleClick(mx, my)
 				return EventConsumed
 			}
 
 			if s.showReplace && localY == 2 {
-				if s.ReplaceInput.HandleMouseClick(localX, localY) {
-					return EventConsumed
-				}
 				inputs := s.visibleInputs()
 				for i, inp := range inputs {
 					if inp == s.ReplaceInput {
@@ -748,6 +743,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 						break
 					}
 				}
+				s.ReplaceInput.HandleClick(mx, my)
 				return EventConsumed
 			}
 
@@ -856,7 +852,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		default:
-			if s.focusedInput().HandleEvent(ev) == EventConsumed {
+			if s.FocusedInput().HandleEvent(ev) == EventConsumed {
 				return EventConsumed
 			}
 		}

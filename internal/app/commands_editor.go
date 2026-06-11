@@ -282,17 +282,17 @@ func registerEditorCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "editor.copy", Title: "Copy",
-		Handler: func() { app.EditorGroup.Copy() },
+		Handler: app.Copy,
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.cut", Title: "Cut",
-		Handler: func() { app.EditorGroup.Cut() },
+		Handler: app.Cut,
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.paste", Title: "Paste",
-		Handler: func() { app.EditorGroup.Paste() },
+		Handler: app.Paste,
 	})
 
 	reg.Register(command.Command{

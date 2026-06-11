@@ -29,7 +29,7 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			replaceLabel = "Search"
 		}
 		items = []ui.ContextMenuItem{
-			{Label: replaceLabel, Shortcut: a.KeyFor("sidebar.searchReplace"), Command: "sidebar.searchReplace"},
+			{Label: replaceLabel, Command: "sidebar.searchReplace"},
 			ui.MenuSep(),
 			{Label: "Expand All", Command: "search.expandAll"},
 			{Label: "Collapse All", Command: "search.collapseAll"},

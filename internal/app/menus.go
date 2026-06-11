@@ -56,6 +56,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		ui.MenuSep(),
 		{Label: "Explore", Command: "sidebar.explorer"},
 		{Label: "Find", Command: "sidebar.search"},
+		{Label: "Replace", Command: "sidebar.searchReplace"},
 		{Label: "Changes", Command: "sidebar.changes"},
 		ui.MenuSep(),
 		{Label: "Toggle Sidebar", Command: "sidebar.toggle"},
