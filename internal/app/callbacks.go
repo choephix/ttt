@@ -412,6 +412,7 @@ func registerWidgetCallbacks(app *App) {
 	app.Changes.OnOpenDiff = app.OpenChangeDiff
 	app.Changes.OnOpenPRDiff = app.OpenPRDiff
 	app.Changes.OnPRGroupMenu = app.ShowPRGroupMenu
+	app.Changes.OnRefreshPR = app.FetchAndOpenPR
 	app.Changes.OnGroupMenu = app.ShowGroupMenu
 	app.Changes.OnCommit = app.CommitChanges
 	app.Changes.OnConfirmDiscard = app.ConfirmDiscard
