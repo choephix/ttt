@@ -491,6 +491,10 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
+	app.Changes.OnOpenFile = func(path string) {
+		app.EditorGroup.OpenFile(path)
+		app.Root.SetFocus(app.EditorGroup)
+	}
 	app.Changes.OnOpenDiff = func(dir string, status git.FileStatus, extended bool) {
 		app.OpenChangeDiff(dir, status, extended)
 	}

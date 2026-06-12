@@ -56,6 +56,7 @@ type ChangesWidget struct {
 	Loading          bool
 	OnOpenDiff       func(dir string, status git.FileStatus, extended bool)
 	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus, extended bool)
+	OnOpenFile       func(path string)
 	OnRightClick     func(dir string, status git.FileStatus, screenX, screenY int)
 	OnCommit         func(dir string, message string)
 	OnGroupMenu      func(dir string, screenX, screenY int)
@@ -605,6 +606,19 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 		case !inPR && tev.Key() == tcell.KeyRune && tev.Rune() == 'D':
 			c.discardAllInGroup()
 			return EventConsumed
+		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'o' || tev.Rune() == 'v'):
+			if c.OnOpenFile != nil {
+				if path := c.SelectedFullPath(); path != "" {
+					c.OnOpenFile(path)
+				}
+			}
+			return EventConsumed
+		case tev.Key() == tcell.KeyRune && tev.Rune() == 'c':
+			c.openSelectedDiff(false)
+			return EventConsumed
+		case tev.Key() == tcell.KeyRune && tev.Rune() == 'e':
+			c.openSelectedDiff(true)
+			return EventConsumed
 		}
 	}
 	return EventIgnored
@@ -664,6 +678,24 @@ func (c *ChangesWidget) stageAll() {
 		}
 	}
 	c.Refresh()
+}
+
+func (c *ChangesWidget) openSelectedDiff(extended bool) {
+	g := c.SelectedGroup()
+	if g == nil {
+		return
+	}
+	if g.IsPR {
+		_, status, ok := c.SelectedFile()
+		if ok && c.OnOpenPRDiff != nil {
+			c.OnOpenPRDiff(g, status, extended)
+		}
+	} else {
+		dir, status, ok := c.SelectedFile()
+		if ok && c.OnOpenDiff != nil {
+			c.OnOpenDiff(dir, status, extended)
+		}
+	}
 }
 
 func (c *ChangesWidget) activateSelected() {
