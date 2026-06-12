@@ -7,10 +7,10 @@ import (
 
 func TestDefaultSettings(t *testing.T) {
 	s := DefaultSettings()
-	if s.TabSize != 4 {
-		t.Fatalf("expected TabSize 4, got %d", s.TabSize)
+	if s.Editor.TabSize != 4 {
+		t.Fatalf("expected TabSize 4, got %d", s.Editor.TabSize)
 	}
-	if !s.InsertSpaces {
+	if !s.Editor.InsertSpaces {
 		t.Fatal("expected InsertSpaces true")
 	}
 	if !s.SidebarVisible {
@@ -23,12 +23,12 @@ func TestDefaultSettings(t *testing.T) {
 
 func TestSettingsPartialJSON(t *testing.T) {
 	s := DefaultSettings()
-	json.Unmarshal([]byte(`{"tabSize": 2}`), &s)
+	json.Unmarshal([]byte(`{"editor": {"tabSize": 2}}`), &s)
 
-	if s.TabSize != 2 {
-		t.Fatalf("expected TabSize 2, got %d", s.TabSize)
+	if s.Editor.TabSize != 2 {
+		t.Fatalf("expected TabSize 2, got %d", s.Editor.TabSize)
 	}
-	if !s.InsertSpaces {
+	if !s.Editor.InsertSpaces {
 		t.Fatal("InsertSpaces should still be true (not in JSON)")
 	}
 	if s.SidebarWidth != 30 {
@@ -40,7 +40,7 @@ func TestSettingsEmptyJSON(t *testing.T) {
 	s := DefaultSettings()
 	json.Unmarshal([]byte(`{}`), &s)
 
-	if s.TabSize != 4 {
-		t.Fatalf("expected TabSize 4, got %d", s.TabSize)
+	if s.Editor.TabSize != 4 {
+		t.Fatalf("expected TabSize 4, got %d", s.Editor.TabSize)
 	}
 }

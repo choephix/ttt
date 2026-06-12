@@ -67,6 +67,28 @@ func DefaultLSPSettings() LSPSettings {
 	}
 }
 
+type EditorSettings struct {
+	TabSize                int    `json:"tabSize"`
+	InsertSpaces           bool   `json:"insertSpaces"`
+	WordWrap               bool   `json:"wordWrap"`
+	LineNumbers            bool   `json:"lineNumbers"`
+	CursorStyle            string `json:"cursorStyle,omitempty"`
+	FormatOnSave           bool   `json:"formatOnSave"`
+	InsertFinalNewline     bool   `json:"insertFinalNewline"`
+	TrimTrailingWhitespace bool   `json:"trimTrailingWhitespace"`
+	DiffView               string `json:"diffView,omitempty"`
+	FocusOnOpen            bool   `json:"focusOnOpen"`
+}
+
+func DefaultEditorSettings() EditorSettings {
+	return EditorSettings{
+		TabSize:            4,
+		InsertSpaces:       true,
+		LineNumbers:        true,
+		InsertFinalNewline: true,
+	}
+}
+
 type SearchSettings struct {
 	Debounce int `json:"debounce"`
 }
@@ -90,20 +112,12 @@ func DefaultExplorerSettings() ExplorerSettings {
 }
 
 type Settings struct {
-	Version        int              `json:"version"`
-	TabSize        int              `json:"tabSize"`
-	InsertSpaces   bool             `json:"insertSpaces"`
-	WordWrap       bool             `json:"wordWrap"`
-	LineNumbers    bool             `json:"lineNumbers"`
-	SidebarVisible bool             `json:"sidebarVisible"`
-	SidebarWidth   int              `json:"sidebarWidth"`
-	CursorStyle    string           `json:"cursorStyle,omitempty"`
-	Theme          string           `json:"theme,omitempty"`
-	DebugMode      bool             `json:"debugMode,omitempty"`
-	FormatOnSave       bool             `json:"formatOnSave"`
-	InsertFinalNewline     bool         `json:"insertFinalNewline"`
-	TrimTrailingWhitespace bool       `json:"trimTrailingWhitespace"`
-	DiffView       string               `json:"diffView,omitempty"`
+	Version        int                  `json:"version"`
+	SidebarVisible bool                 `json:"sidebarVisible"`
+	SidebarWidth   int                  `json:"sidebarWidth"`
+	Theme          string               `json:"theme,omitempty"`
+	DebugMode      bool                 `json:"debugMode,omitempty"`
+	Editor         EditorSettings       `json:"editor,omitzero"`
 	Search         SearchSettings       `json:"search,omitzero"`
 	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`
@@ -114,13 +128,9 @@ type Settings struct {
 func DefaultSettings() Settings {
 	return Settings{
 		Version:        1,
-		TabSize:        4,
-		InsertSpaces:   true,
-		WordWrap:       false,
-		LineNumbers:    true,
 		SidebarVisible: true,
 		SidebarWidth:   30,
-		InsertFinalNewline: true,
+		Editor:         DefaultEditorSettings(),
 		Search:         DefaultSearchSettings(),
 		Explorer:       DefaultExplorerSettings(),
 		Terminal:       DefaultTerminalSettings(),

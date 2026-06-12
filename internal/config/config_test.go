@@ -11,7 +11,7 @@ func TestLoadNoFiles(t *testing.T) {
 	if len(cfg.Keybindings) == 0 {
 		t.Fatal("expected default keybindings")
 	}
-	if cfg.Settings.TabSize == 0 {
+	if cfg.Settings.Editor.TabSize == 0 {
 		t.Fatal("expected non-zero default TabSize")
 	}
 	if cfg.Theme.Default.Fg == "" {
