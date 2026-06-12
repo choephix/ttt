@@ -253,6 +253,11 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	if tev, ok := ev.(*tcell.EventKey); ok {
 		switch tev.Key() {
+		case tcell.KeyRune:
+			if tev.Rune() == ' ' {
+				e.ActivateSelected()
+				return EventConsumed
+			}
 		case tcell.KeyLeft:
 			e.collapseSelected()
 			return EventConsumed

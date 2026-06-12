@@ -146,6 +146,12 @@ func (a *App) FocusEditor() {
 	a.Root.SetFocus(a.EditorGroup)
 }
 
+func (a *App) FocusEditorIfEnabled() {
+	if a.Settings.Editor.FocusOnOpen {
+		a.Root.SetFocus(a.EditorGroup)
+	}
+}
+
 func (a *App) FocusSidebar() {
 	if !a.Sidebar.Visible {
 		a.ShowSidebar()
