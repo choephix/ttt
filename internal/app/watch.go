@@ -63,6 +63,8 @@ func (a *App) HandleFileChanged(path string) {
 		a.StatusWarn(name + " changed on disk; you have unsaved changes")
 		return
 	}
+	// Reload silently: a clean buffer picking up disk changes is the routine
+	// case (e.g. tailing a live log), and a notification on every change would
+	// be noise. Only the cases needing attention (conflict, deletion) warn.
 	a.EditorGroup.ReloadFile(path)
-	a.StatusNotify(name + " reloaded (changed on disk)")
 }
