@@ -113,8 +113,6 @@ func DefaultExplorerSettings() ExplorerSettings {
 
 type Settings struct {
 	Version        int                  `json:"version"`
-	SidebarVisible bool                 `json:"sidebarVisible"`
-	SidebarWidth   int                  `json:"sidebarWidth"`
 	Theme          string               `json:"theme,omitempty"`
 	DebugMode      bool                 `json:"debugMode,omitempty"`
 	Editor         EditorSettings       `json:"editor,omitzero"`
@@ -128,8 +126,6 @@ type Settings struct {
 func DefaultSettings() Settings {
 	return Settings{
 		Version:        1,
-		SidebarVisible: true,
-		SidebarWidth:   30,
 		Editor:         DefaultEditorSettings(),
 		Search:         DefaultSearchSettings(),
 		Explorer:       DefaultExplorerSettings(),
