@@ -310,6 +310,18 @@ func (g *EditorGroupWidget) ActiveDiffWidget() *DiffViewWidget {
 	return nil
 }
 
+func (g *EditorGroupWidget) DiffWidgetByTab(tabName string) *DiffViewWidget {
+	for _, t := range g.tabs {
+		if t.FilePath == tabName {
+			if dv, ok := t.Content.(*DiffViewWidget); ok {
+				return dv
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
 func (g *EditorGroupWidget) SwitchToTabByPath(path string) bool {
 	for i, t := range g.tabs {
 		if t.FilePath == path {

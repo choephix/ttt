@@ -237,22 +237,36 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
 
 func (a *App) fetchPRFileContent(dv *ui.DiffViewWidget, owner, repo, baseSHA, headSHA, path string) {
 	if owner == "" || baseSHA == "" {
+		dv.Loading = false
 		return
 	}
-	if content, err := github.FetchFileContent(owner, repo, path, baseSHA); err == nil {
-		lines := strings.Split(content, "\n")
-		if len(lines) > 0 && lines[len(lines)-1] == "" {
-			lines = lines[:len(lines)-1]
+	tabName := path + " (diff)"
+	go func() {
+		var oldLines, newLines []string
+		var fetchErr error
+		if content, err := github.FetchFileContent(owner, repo, path, baseSHA); err == nil {
+			oldLines = strings.Split(content, "\n")
+			if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
+				oldLines = oldLines[:len(oldLines)-1]
+			}
+		} else {
+			fetchErr = err
 		}
-		dv.SetOldLines(lines)
-	}
-	if content, err := github.FetchFileContent(owner, repo, path, headSHA); err == nil {
-		lines := strings.Split(content, "\n")
-		if len(lines) > 0 && lines[len(lines)-1] == "" {
-			lines = lines[:len(lines)-1]
+		if content, err := github.FetchFileContent(owner, repo, path, headSHA); err == nil {
+			newLines = strings.Split(content, "\n")
+			if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
+				newLines = newLines[:len(newLines)-1]
+			}
+		} else if fetchErr == nil {
+			fetchErr = err
 		}
-		dv.SetNewLines(lines)
-	}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&DiffContentResult{
+			TabName:  tabName,
+			OldLines: oldLines,
+			NewLines: newLines,
+			Err:      fetchErr,
+		}))
+	}()
 }
 
 func (a *App) ShowPRGroupMenu(group *ui.ChangesGroup, sx, sy int) {

@@ -68,6 +68,7 @@ type DiffViewWidget struct {
 	newLines  []string
 
 	OnFetchExtended func(dv *DiffViewWidget)
+	Loading         bool
 }
 
 func NewDiffViewWidget(filePath string, fd diff.FileDiff, oldLines, newLines []string, extended bool) *DiffViewWidget {
@@ -98,9 +99,21 @@ func (d *DiffViewWidget) IsExtended() bool {
 
 func (d *DiffViewWidget) SetExtended(extended bool) {
 	if extended && len(d.oldLines) == 0 && d.OnFetchExtended != nil {
+		d.Loading = true
+		d.extended = true
 		d.OnFetchExtended(d)
+		return
 	}
 	d.extended = extended
+	d.rebuildLines()
+	d.TopLine = 0
+	d.LeftCol = 0
+	d.ClearSearch()
+	d.ClearSelection()
+}
+
+func (d *DiffViewWidget) FinishLoading() {
+	d.Loading = false
 	d.rebuildLines()
 	d.TopLine = 0
 	d.LeftCol = 0
@@ -259,6 +272,21 @@ func (d *DiffViewWidget) gutterWidth() int {
 func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	r := d.GetRect()
+
+	if d.Loading {
+		msg := "Loading full file..."
+		x := (w - len(msg)) / 2
+		y := h / 2
+		if x < 0 {
+			x = 0
+		}
+		for i, ch := range msg {
+			if x+i < w {
+				surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: term.StyleDefault})
+			}
+		}
+		return
+	}
 
 	gutterW := d.gutterWidth()
 

@@ -242,6 +242,20 @@ func RunEventLoop(
 				app.HandleFileChanged(v.Path)
 			case *ui.SearchBatch:
 				app.Search.ApplyBatch(v)
+			case *DiffContentResult:
+				if v.Err != nil {
+					app.StatusError("Failed to fetch file content: " + v.Err.Error())
+					if dv := app.EditorGroup.DiffWidgetByTab(v.TabName); dv != nil {
+						dv.Loading = false
+						dv.SetExtended(false)
+					}
+				} else {
+					if dv := app.EditorGroup.DiffWidgetByTab(v.TabName); dv != nil {
+						dv.SetOldLines(v.OldLines)
+						dv.SetNewLines(v.NewLines)
+						dv.FinishLoading()
+					}
+				}
 			case *PrFetchResult:
 				app.Changes.Loading = false
 				if v.Err != nil {
