@@ -118,6 +118,9 @@ func RunEventLoop(
 		renderer.Render(screen)
 	}
 
+	// Populate the status bar and register file watches for any files opened at
+	// launch, before the first user interaction.
+	syncStatus()
 	redraw()
 
 	for *running {
