@@ -114,7 +114,7 @@ Docs: https://tttedit.dev
 	defer handlePanic(screen)
 
 	screen.SetStyleMap(app.BuildStyleMap(cfg.Theme))
-	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.CursorStyle))
+	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.Editor.CursorStyle))
 
 	lspManager := lsp.NewManager(cfg.Settings.LSP)
 	defer lspManager.Shutdown()

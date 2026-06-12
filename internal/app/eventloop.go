@@ -35,7 +35,7 @@ func RunEventLoop(
 	lastBranchDir := app.Workspace.Primary()
 	blameGen := 0
 	app.Status.Branch = git.BranchName(lastBranchDir)
-	app.Status.TabSize = app.Settings.TabSize
+	app.Status.TabSize = app.Settings.Editor.TabSize
 
 	syncStatus := func() {
 		line, col := app.EditorGroup.ActiveCursor()
@@ -72,7 +72,7 @@ func RunEventLoop(
 		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.TabSize > 0 {
 			app.Status.TabSize = app.EditorGroup.Editor.TabSize
 		} else {
-			app.Status.TabSize = app.Settings.TabSize
+			app.Status.TabSize = app.Settings.Editor.TabSize
 		}
 
 		repoDir := ""

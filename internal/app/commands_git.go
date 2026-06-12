@@ -201,7 +201,7 @@ func registerGitCommands(app *App) {
 			fullPath := app.Changes.SelectedFullPath()
 			if fullPath != "" {
 				app.EditorGroup.OpenFile(fullPath)
-				app.Root.SetFocus(app.EditorGroup)
+				app.FocusEditorIfEnabled()
 			}
 		},
 	})

@@ -29,7 +29,7 @@ describe("insertFinalNewline", () => {
   it("should not add trailing newline when setting is false", () => {
     dir = createTempDir();
     const configFile = join(dir, "settings.json");
-    writeFileSync(configFile, JSON.stringify({ insertFinalNewline: false }));
+    writeFileSync(configFile, JSON.stringify({ editor: { insertFinalNewline: false } }));
     const file = createTempFile(dir, "noeol.txt", "no trailing newline");
 
     tui.start("--config", configFile, file);
@@ -49,7 +49,7 @@ describe("insertFinalNewline", () => {
   it("should not add trailing newline to multiline file when setting is false", () => {
     dir = createTempDir();
     const configFile = join(dir, "settings.json");
-    writeFileSync(configFile, JSON.stringify({ insertFinalNewline: false }));
+    writeFileSync(configFile, JSON.stringify({ editor: { insertFinalNewline: false } }));
     const file = createTempFile(dir, "multi.txt", "AAA\nBBB\nCCC");
 
     tui.start("--config", configFile, file);

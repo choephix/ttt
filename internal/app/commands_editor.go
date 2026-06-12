@@ -140,7 +140,7 @@ func (a *App) doSaveFile() {
 	path, lang := a.editorPathLang()
 	if lang != "" {
 		a.RunCodeActionsOnSave(path, lang)
-		if a.Settings.FormatOnSave {
+		if a.Settings.Editor.FormatOnSave {
 			a.FormatOnSave(path, lang)
 		}
 	}

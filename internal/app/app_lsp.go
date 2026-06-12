@@ -272,8 +272,8 @@ func (a *App) DismissSignatureHelp() {
 }
 
 func (a *App) editorTabSize() (int, bool) {
-	tabSize := a.Settings.TabSize
-	insertSpaces := a.Settings.InsertSpaces
+	tabSize := a.Settings.Editor.TabSize
+	insertSpaces := a.Settings.Editor.InsertSpaces
 	if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.TabSize > 0 {
 		tabSize = a.EditorGroup.Editor.TabSize
 	}

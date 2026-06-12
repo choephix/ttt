@@ -81,9 +81,9 @@ func BuildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string) {
 
 func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
 
-	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
-	editorGroup.InsertFinalNewline = cfg.Settings.InsertFinalNewline
-	editorGroup.TrimTrailingWhitespace = cfg.Settings.TrimTrailingWhitespace
+	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.Editor.TabSize, cfg.Settings.Editor.LineNumbers)
+	editorGroup.InsertFinalNewline = cfg.Settings.Editor.InsertFinalNewline
+	editorGroup.TrimTrailingWhitespace = cfg.Settings.Editor.TrimTrailingWhitespace
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f)
 		editorGroup.PinActiveTab()
@@ -125,19 +125,14 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes)
 	hasFolders := len(ws.Paths()) > 0
-	sidebar.Visible = cfg.Settings.SidebarVisible && hasFolders
+	sidebar.Visible = hasFolders
 	sidebar.Borders = borders
-
-	sidebarWidth := cfg.Settings.SidebarWidth
-	if sidebarWidth <= 0 {
-		sidebarWidth = 30
-	}
 
 	splitPanel := ui.NewSplitPanelWidget()
 	splitPanel.Left = sidebar
 	splitPanel.Right = contentSplit
 	splitPanel.Borders = borders
-	splitPanel.DividerPos = sidebarWidth
+	splitPanel.DividerPos = 30
 	splitPanel.ShowLeft = sidebar.Visible
 	splitPanel.RightBorderStartY = 2
 	contentSplit.RightBorderStartY = &splitPanel.RightBorderStartY
