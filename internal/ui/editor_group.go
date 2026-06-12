@@ -205,17 +205,17 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 	g.SwitchTab(len(g.tabs) - 1)
 }
 
-func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff) {
+func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff, oldLines, newLines []string, extended bool) {
 	tabName := path + " (diff)"
 	for i, t := range g.tabs {
 		if t.FilePath == tabName {
-			t.Content = NewDiffViewWidget(path, fd)
+			t.Content = NewDiffViewWidget(path, fd, oldLines, newLines, extended)
 			g.tabs[i] = t
 			g.SwitchTab(i)
 			return
 		}
 	}
-	widget := NewDiffViewWidget(path, fd)
+	widget := NewDiffViewWidget(path, fd, oldLines, newLines, extended)
 	g.tabs = append(g.tabs, editorTab{
 		FilePath: tabName,
 		Content:  widget,
@@ -306,6 +306,18 @@ func (g *EditorGroupWidget) ActiveDiffWidget() *DiffViewWidget {
 	}
 	if dv, ok := t.Content.(*DiffViewWidget); ok {
 		return dv
+	}
+	return nil
+}
+
+func (g *EditorGroupWidget) DiffWidgetByTab(tabName string) *DiffViewWidget {
+	for _, t := range g.tabs {
+		if t.FilePath == tabName {
+			if dv, ok := t.Content.(*DiffViewWidget); ok {
+				return dv
+			}
+			return nil
+		}
 	}
 	return nil
 }

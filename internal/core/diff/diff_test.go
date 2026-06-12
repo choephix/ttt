@@ -166,3 +166,72 @@ func TestGenerateAddition(t *testing.T) {
 		t.Error("expected added line 'b'")
 	}
 }
+
+func TestFullDiffLines(t *testing.T) {
+	old := []string{"a", "b", "c", "d"}
+	new := []string{"a", "x", "c", "d"}
+	lines := FullDiffLines(old, new)
+
+	if len(lines) != 4 {
+		t.Fatalf("expected 4 lines, got %d", len(lines))
+	}
+	if lines[0].Left.Kind != Context || lines[0].Left.Text != "a" {
+		t.Errorf("line 0: expected context 'a', got %v", lines[0].Left)
+	}
+	if lines[1].Left.Kind != Deleted || lines[1].Left.Text != "b" {
+		t.Errorf("line 1 left: expected deleted 'b', got %v", lines[1].Left)
+	}
+	if lines[1].Right.Kind != Added || lines[1].Right.Text != "x" {
+		t.Errorf("line 1 right: expected added 'x', got %v", lines[1].Right)
+	}
+	if lines[2].Left.Kind != Context || lines[2].Left.Text != "c" {
+		t.Errorf("line 2: expected context 'c', got %v", lines[2].Left)
+	}
+	if lines[3].Left.Kind != Context || lines[3].Left.Text != "d" {
+		t.Errorf("line 3: expected context 'd', got %v", lines[3].Left)
+	}
+}
+
+func TestFullDiffLinesIdentical(t *testing.T) {
+	lines := FullDiffLines([]string{"a", "b"}, []string{"a", "b"})
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(lines))
+	}
+	for i, dl := range lines {
+		if dl.Left.Kind != Context || dl.Right.Kind != Context {
+			t.Errorf("line %d: expected both sides context", i)
+		}
+	}
+}
+
+func TestFullDiffLinesAddition(t *testing.T) {
+	old := []string{"a", "c"}
+	new := []string{"a", "b", "c"}
+	lines := FullDiffLines(old, new)
+
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+	if lines[1].Left.Kind != Blank {
+		t.Errorf("line 1 left: expected blank, got %v", lines[1].Left.Kind)
+	}
+	if lines[1].Right.Kind != Added || lines[1].Right.Text != "b" {
+		t.Errorf("line 1 right: expected added 'b', got %v", lines[1].Right)
+	}
+}
+
+func TestFullDiffLinesDeletion(t *testing.T) {
+	old := []string{"a", "b", "c"}
+	new := []string{"a", "c"}
+	lines := FullDiffLines(old, new)
+
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+	if lines[1].Left.Kind != Deleted || lines[1].Left.Text != "b" {
+		t.Errorf("line 1 left: expected deleted 'b', got %v", lines[1].Left)
+	}
+	if lines[1].Right.Kind != Blank {
+		t.Errorf("line 1 right: expected blank, got %v", lines[1].Right.Kind)
+	}
+}

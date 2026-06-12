@@ -270,6 +270,24 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "diff.extendedView", Title: "Git: Extended Diff",
+		Handler: func() {
+			if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+				dv.SetExtended(true)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "diff.compactView", Title: "Git: Compact Diff",
+		Handler: func() {
+			if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+				dv.SetExtended(false)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "file.new", Title: "New File",
 		Handler: app.NewFile,
 	})

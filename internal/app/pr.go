@@ -15,6 +15,13 @@ type PrFetchResult struct {
 	Err   error
 }
 
+type DiffContentResult struct {
+	TabName  string
+	OldLines []string
+	NewLines []string
+	Err      error
+}
+
 func (a *App) FetchAndOpenPR(url string) {
 	owner, repo, number, err := github.ParsePRURL(url)
 	if err != nil {

@@ -21,6 +21,10 @@ type ChangesGroup struct {
 	IsPR            bool
 	PRURL           string
 	PRDiffs         map[string]string
+	PROwner         string
+	PRRepo          string
+	PRBaseSHA       string
+	PRHeadSHA       string
 }
 
 type changesItemKind int
@@ -50,8 +54,9 @@ type ChangesWidget struct {
 	multiRoot        bool
 	inputFocused     bool
 	Loading          bool
-	OnOpenDiff       func(dir string, status git.FileStatus)
-	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus)
+	OnOpenDiff       func(dir string, status git.FileStatus, extended bool)
+	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus, extended bool)
+	OnOpenFile       func(path string)
 	OnRightClick     func(dir string, status git.FileStatus, screenX, screenY int)
 	OnCommit         func(dir string, message string)
 	OnGroupMenu      func(dir string, screenX, screenY int)
@@ -213,6 +218,17 @@ func (c *ChangesWidget) SelectedFile() (dir string, status git.FileStatus, ok bo
 		return g.Dir, g.Staged[item.fileIndex], true
 	}
 	return g.Dir, g.Unstaged[item.fileIndex], true
+}
+
+func (c *ChangesWidget) SelectedGroup() *ChangesGroup {
+	if c.Selected < 0 || c.Selected >= len(c.items) {
+		return nil
+	}
+	item := c.items[c.Selected]
+	if item.groupIndex < 0 || item.groupIndex >= len(c.Groups) {
+		return nil
+	}
+	return &c.Groups[item.groupIndex]
 }
 
 func (c *ChangesWidget) SelectedFullPath() string {
@@ -590,6 +606,19 @@ func (c *ChangesWidget) HandleEvent(ev tcell.Event) EventResult {
 		case !inPR && tev.Key() == tcell.KeyRune && tev.Rune() == 'D':
 			c.discardAllInGroup()
 			return EventConsumed
+		case tev.Key() == tcell.KeyRune && (tev.Rune() == 'o' || tev.Rune() == 'v'):
+			if c.OnOpenFile != nil {
+				if path := c.SelectedFullPath(); path != "" {
+					c.OnOpenFile(path)
+				}
+			}
+			return EventConsumed
+		case tev.Key() == tcell.KeyRune && tev.Rune() == 'c':
+			c.openSelectedDiff(false)
+			return EventConsumed
+		case tev.Key() == tcell.KeyRune && tev.Rune() == 'e':
+			c.openSelectedDiff(true)
+			return EventConsumed
 		}
 	}
 	return EventIgnored
@@ -651,6 +680,24 @@ func (c *ChangesWidget) stageAll() {
 	c.Refresh()
 }
 
+func (c *ChangesWidget) openSelectedDiff(extended bool) {
+	g := c.SelectedGroup()
+	if g == nil {
+		return
+	}
+	if g.IsPR {
+		_, status, ok := c.SelectedFile()
+		if ok && c.OnOpenPRDiff != nil {
+			c.OnOpenPRDiff(g, status, extended)
+		}
+	} else {
+		dir, status, ok := c.SelectedFile()
+		if ok && c.OnOpenDiff != nil {
+			c.OnOpenDiff(dir, status, extended)
+		}
+	}
+}
+
 func (c *ChangesWidget) activateSelected() {
 	if c.Selected < 0 || c.Selected >= len(c.items) {
 		return
@@ -675,12 +722,12 @@ func (c *ChangesWidget) activateSelected() {
 		if g.IsPR {
 			_, status, ok := c.SelectedFile()
 			if ok && c.OnOpenPRDiff != nil {
-				c.OnOpenPRDiff(g, status)
+				c.OnOpenPRDiff(g, status, false)
 			}
 		} else {
 			dir, status, ok := c.SelectedFile()
 			if ok && c.OnOpenDiff != nil {
-				c.OnOpenDiff(dir, status)
+				c.OnOpenDiff(dir, status, false)
 			}
 		}
 	}
@@ -761,7 +808,7 @@ func (c *ChangesWidget) selectedInPR() bool {
 	return c.Groups[c.items[c.Selected].groupIndex].IsPR
 }
 
-func (c *ChangesWidget) AddPRGroup(name, url string, files []git.FileStatus, diffs map[string]string) {
+func (c *ChangesWidget) AddPRGroup(name, url, owner, repo, baseSHA, headSHA string, files []git.FileStatus, diffs map[string]string) {
 	c.Groups = append(c.Groups, ChangesGroup{
 		Dir:             "pr://" + name,
 		Name:            name,
@@ -771,6 +818,10 @@ func (c *ChangesWidget) AddPRGroup(name, url string, files []git.FileStatus, dif
 		IsPR:            true,
 		PRURL:           url,
 		PRDiffs:         diffs,
+		PROwner:         owner,
+		PRRepo:          repo,
+		PRBaseSHA:       baseSHA,
+		PRHeadSHA:       headSHA,
 	})
 	c.multiRoot = len(c.Groups) > 1
 	c.buildItems()

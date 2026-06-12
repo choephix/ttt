@@ -14,11 +14,13 @@ type PRFile struct {
 }
 
 type PRInfo struct {
-	Owner  string
-	Repo   string
-	Number int
-	Title  string
-	Files  []PRFile
+	Owner   string
+	Repo    string
+	Number  int
+	Title   string
+	BaseSHA string
+	HeadSHA string
+	Files   []PRFile
 }
 
 func IsGHInstalled() bool {
@@ -47,7 +49,9 @@ func ParsePRURL(url string) (owner, repo string, number int, err error) {
 
 func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 	repoArg := owner + "/" + repo
-	cmd := exec.Command("gh", "pr", "view", strconv.Itoa(number),
+	numStr := strconv.Itoa(number)
+
+	cmd := exec.Command("gh", "pr", "view", numStr,
 		"--repo", repoArg,
 		"--json", "title,number,files")
 	out, err := cmd.Output()
@@ -65,11 +69,30 @@ func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 	if err := json.Unmarshal(out, &result); err != nil {
 		return nil, fmt.Errorf("parse gh output: %w", err)
 	}
+
+	query := fmt.Sprintf(`query { repository(owner: %q, name: %q) { pullRequest(number: %d) { baseRefOid headRefOid } } }`,
+		owner, repo, number)
+	gqlCmd := exec.Command("gh", "api", "graphql", "-f", "query="+query,
+		"--jq", ".data.repository.pullRequest")
+	gqlOut, err := gqlCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gh graphql failed: %w", err)
+	}
+	var refs struct {
+		BaseRefOid string `json:"baseRefOid"`
+		HeadRefOid string `json:"headRefOid"`
+	}
+	if err := json.Unmarshal(gqlOut, &refs); err != nil {
+		return nil, fmt.Errorf("parse graphql output: %w", err)
+	}
+
 	info := &PRInfo{
-		Owner:  owner,
-		Repo:   repo,
-		Number: result.Number,
-		Title:  result.Title,
+		Owner:   owner,
+		Repo:    repo,
+		Number:  result.Number,
+		Title:   result.Title,
+		BaseSHA: refs.BaseRefOid,
+		HeadSHA: refs.HeadRefOid,
 	}
 	for _, f := range result.Files {
 		status := "M"
@@ -94,6 +117,18 @@ func FetchPRDiff(owner, repo string, number int) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("gh pr diff failed: %w", err)
+	}
+	return string(out), nil
+}
+
+func FetchFileContent(owner, repo, path, ref string) (string, error) {
+	repoArg := owner + "/" + repo
+	cmd := exec.Command("gh", "api",
+		fmt.Sprintf("repos/%s/contents/%s?ref=%s", repoArg, path, ref),
+		"-H", "Accept: application/vnd.github.raw+json")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("gh api contents failed: %w", err)
 	}
 	return string(out), nil
 }

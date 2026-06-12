@@ -60,12 +60,75 @@ type DiffViewWidget struct {
 	searchMergedRefs   []diffMergedRef
 	searchActiveRight  bool
 	searchActiveSideIdx int
+
+	// extended diff mode
+	extended  bool
+	fileDiff  diff.FileDiff
+	oldLines  []string
+	newLines  []string
+
+	OnFetchExtended func(dv *DiffViewWidget)
+	Loading         bool
 }
 
-func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
-	lines := fd.AllLines()
+func NewDiffViewWidget(filePath string, fd diff.FileDiff, oldLines, newLines []string, extended bool) *DiffViewWidget {
+	dv := &DiffViewWidget{
+		FilePath:            filePath,
+		Highlighter:         highlight.New(filePath),
+		searchActiveSideIdx: -1,
+		fileDiff:            fd,
+		oldLines:            oldLines,
+		newLines:            newLines,
+		extended:            extended,
+	}
+	dv.rebuildLines()
+	return dv
+}
+
+func (d *DiffViewWidget) SetOldLines(lines []string) {
+	d.oldLines = lines
+}
+
+func (d *DiffViewWidget) SetNewLines(lines []string) {
+	d.newLines = lines
+}
+
+func (d *DiffViewWidget) IsExtended() bool {
+	return d.extended
+}
+
+func (d *DiffViewWidget) SetExtended(extended bool) {
+	if extended && len(d.oldLines) == 0 && d.OnFetchExtended != nil {
+		d.Loading = true
+		d.extended = true
+		d.OnFetchExtended(d)
+		return
+	}
+	d.extended = extended
+	d.rebuildLines()
+	d.TopLine = 0
+	d.LeftCol = 0
+	d.ClearSearch()
+	d.ClearSelection()
+}
+
+func (d *DiffViewWidget) FinishLoading() {
+	d.Loading = false
+	d.rebuildLines()
+	d.TopLine = 0
+	d.LeftCol = 0
+	d.ClearSearch()
+	d.ClearSelection()
+}
+
+func (d *DiffViewWidget) rebuildLines() {
+	if d.extended && len(d.oldLines) > 0 {
+		d.Lines = diff.FullDiffLines(d.oldLines, d.newLines)
+	} else {
+		d.Lines = d.fileDiff.AllLines()
+	}
 	maxW := 0
-	for _, dl := range lines {
+	for _, dl := range d.Lines {
 		if lw := len([]rune(dl.Left.Text)); lw > maxW {
 			maxW = lw
 		}
@@ -73,13 +136,7 @@ func NewDiffViewWidget(filePath string, fd diff.FileDiff) *DiffViewWidget {
 			maxW = rw
 		}
 	}
-	return &DiffViewWidget{
-		FilePath:            filePath,
-		Lines:               lines,
-		Highlighter:         highlight.New(filePath),
-		maxLineW:            maxW,
-		searchActiveSideIdx: -1,
-	}
+	d.maxLineW = maxW
 }
 
 func (d *DiffViewWidget) Focusable() bool { return true }
@@ -215,6 +272,16 @@ func (d *DiffViewWidget) gutterWidth() int {
 func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 	r := d.GetRect()
+
+	if d.Loading {
+		msg := "Loading..."
+		for i, ch := range msg {
+			if i < w {
+				surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
+			}
+		}
+		return
+	}
 
 	gutterW := d.gutterWidth()
 

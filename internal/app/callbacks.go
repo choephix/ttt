@@ -9,6 +9,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
@@ -66,7 +67,7 @@ func (a *App) DiffSearchSources() []ui.DiffSearchSource {
 				continue
 			}
 			fd := diff.Parse(diffText)
-			dv := ui.NewDiffViewWidget(path, fd)
+			dv := ui.NewDiffViewWidget(path, fd, nil, nil, false)
 			sources = append(sources, ui.DiffSearchSource{TabName: tabName, Lines: dv.CombinedLines()})
 		}
 	}
@@ -82,7 +83,7 @@ func (a *App) NavigateToSearchMatch(path string, line, col int) {
 					continue
 				}
 				if diffText, ok := g.PRDiffs[filePath]; ok {
-					a.EditorGroup.OpenDiff(filePath, diff.Parse(diffText))
+					a.EditorGroup.OpenDiff(filePath, diff.Parse(diffText), nil, nil, false)
 					break
 				}
 			}
@@ -114,7 +115,7 @@ func (a *App) PreviewSearchReplace(filePath string, matches []ui.SearchMatch, re
 		lines = lines[:len(lines)-1]
 	}
 	fd := ui.BuildReplaceDiff(filepath.Base(filePath), lines, matches, replacement, opts)
-	a.EditorGroup.OpenDiff(filePath, fd)
+	a.EditorGroup.OpenDiff(filePath, fd, nil, nil, false)
 	a.Root.SetFocus(a.EditorGroup)
 }
 
@@ -170,7 +171,22 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 	})
 }
 
-func (a *App) OpenChangeDiff(dir string, status git.FileStatus) {
+func (a *App) openSelectedDiff(extended bool) {
+	g := a.Changes.SelectedGroup()
+	if g != nil && g.IsPR {
+		_, status, ok := a.Changes.SelectedFile()
+		if ok && a.Changes.OnOpenPRDiff != nil {
+			a.Changes.OnOpenPRDiff(g, status, extended)
+		}
+	} else {
+		dir, status, ok := a.Changes.SelectedFile()
+		if ok && a.Changes.OnOpenDiff != nil {
+			a.Changes.OnOpenDiff(dir, status, extended)
+		}
+	}
+}
+
+func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	fullPath := filepath.Join(dir, status.Path)
 	if status.Status == "?" {
 		a.EditorGroup.OpenFile(fullPath)
@@ -195,11 +211,26 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus) {
 		a.Root.SetFocus(a.EditorGroup)
 		return
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed)
+	var oldLines, newLines []string
+	oldContent, err := git.ShowFile(dir, status.Path, "HEAD")
+	if err == nil {
+		oldLines = strings.Split(oldContent, "\n")
+		if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
+			oldLines = oldLines[:len(oldLines)-1]
+		}
+	}
+	newData, err := os.ReadFile(fullPath)
+	if err == nil {
+		newLines = strings.Split(string(newData), "\n")
+		if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
+			newLines = newLines[:len(newLines)-1]
+		}
+	}
+	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, extended)
 	a.Root.SetFocus(a.EditorGroup)
 }
 
-func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
+func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
 	diffText, ok := group.PRDiffs[status.Path]
 	if !ok || diffText == "" {
 		a.StatusWarn("No diff available for " + status.Path)
@@ -210,8 +241,47 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
 		a.StatusWarn("Empty diff for " + status.Path)
 		return
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed)
+	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, extended)
+	if dv := a.EditorGroup.ActiveDiffWidget(); dv != nil {
+		dv.OnFetchExtended = func(dv *ui.DiffViewWidget) {
+			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
+		}
+	}
 	a.Root.SetFocus(a.EditorGroup)
+}
+
+func (a *App) fetchPRFileContent(dv *ui.DiffViewWidget, owner, repo, baseSHA, headSHA, path string) {
+	if owner == "" || baseSHA == "" {
+		dv.Loading = false
+		return
+	}
+	tabName := path + " (diff)"
+	go func() {
+		var oldLines, newLines []string
+		var fetchErr error
+		if content, err := github.FetchFileContent(owner, repo, path, baseSHA); err == nil {
+			oldLines = strings.Split(content, "\n")
+			if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
+				oldLines = oldLines[:len(oldLines)-1]
+			}
+		} else {
+			fetchErr = err
+		}
+		if content, err := github.FetchFileContent(owner, repo, path, headSHA); err == nil {
+			newLines = strings.Split(content, "\n")
+			if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
+				newLines = newLines[:len(newLines)-1]
+			}
+		} else if fetchErr == nil {
+			fetchErr = err
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&DiffContentResult{
+			TabName:  tabName,
+			OldLines: oldLines,
+			NewLines: newLines,
+			Err:      fetchErr,
+		}))
+	}()
 }
 
 func (a *App) ShowPRGroupMenu(group *ui.ChangesGroup, sx, sy int) {
@@ -368,6 +438,18 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
 		}
+		if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+			cmd := "diff.extendedView"
+			label := "Extended Diff"
+			if dv.IsExtended() {
+				cmd = "diff.compactView"
+				label = "Compact Diff"
+			}
+			tabContextMenu = append(tabContextMenu,
+				ui.MenuSep(),
+				ui.ContextMenuItem{Label: label, Command: cmd},
+			)
+		}
 		openContextMenu(app, tabContextMenu, sx, sy)
 	}
 
@@ -409,8 +491,16 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
-	app.Changes.OnOpenDiff = app.OpenChangeDiff
-	app.Changes.OnOpenPRDiff = app.OpenPRDiff
+	app.Changes.OnOpenFile = func(path string) {
+		app.EditorGroup.OpenFile(path)
+		app.Root.SetFocus(app.EditorGroup)
+	}
+	app.Changes.OnOpenDiff = func(dir string, status git.FileStatus, extended bool) {
+		app.OpenChangeDiff(dir, status, extended)
+	}
+	app.Changes.OnOpenPRDiff = func(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
+		app.OpenPRDiff(group, status, extended)
+	}
 	app.Changes.OnPRGroupMenu = app.ShowPRGroupMenu
 	app.Changes.OnRefreshPR = app.FetchAndOpenPR
 	app.Changes.OnGroupMenu = app.ShowGroupMenu

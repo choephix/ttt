@@ -226,6 +226,16 @@ func IgnoredFiles(dir string, paths []string) map[string]bool {
 	return result
 }
 
+func ShowFile(dir, path, ref string) (string, error) {
+	spec := ref + ":" + path
+	cmd := exec.Command("git", "-C", dir, "show", spec)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 func DiffFile(dir, path string) (string, error) {
 	absPath := filepath.Join(dir, path)
 	cmd := exec.Command("git", "-C", dir, "diff", "--", absPath)

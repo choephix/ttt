@@ -104,14 +104,16 @@ var diffContextMenu = []ui.ContextMenuItem{
 }
 
 var changesContextMenuStaged = []ui.ContextMenuItem{
-	{Label: "Open Diff", Command: "changes.openDiff"},
+	{Label: "Open Compact Diff", Command: "changes.openDiff"},
+	{Label: "Open Extended Diff", Command: "changes.openExtendedDiff"},
 	{Label: "Open File", Command: "changes.openFile"},
 	ui.MenuSep(),
 	{Label: "Unstage", Command: "changes.unstage"},
 }
 
 var changesContextMenuUnstaged = []ui.ContextMenuItem{
-	{Label: "Open Diff", Command: "changes.openDiff"},
+	{Label: "Open Compact Diff", Command: "changes.openDiff"},
+	{Label: "Open Extended Diff", Command: "changes.openExtendedDiff"},
 	{Label: "Open File", Command: "changes.openFile"},
 	ui.MenuSep(),
 	{Label: "Stage", Command: "changes.stage"},

@@ -50,6 +50,57 @@ func (f *FileDiff) AllLines() []DiffLine {
 	return lines
 }
 
+func FullDiffLines(oldLines, newLines []string) []DiffLine {
+	lcs := computeLCS(oldLines, newLines)
+	var lines []DiffLine
+	oi, ni, li := 0, 0, 0
+
+	for oi < len(oldLines) || ni < len(newLines) {
+		if li < len(lcs) && oi < len(oldLines) && ni < len(newLines) &&
+			oldLines[oi] == lcs[li] && newLines[ni] == lcs[li] {
+			lines = append(lines, DiffLine{
+				Left:  SideLine{Num: oi + 1, Text: oldLines[oi], Kind: Context},
+				Right: SideLine{Num: ni + 1, Text: newLines[ni], Kind: Context},
+			})
+			oi++
+			ni++
+			li++
+			continue
+		}
+
+		var delBuf []int
+		var addBuf []int
+		for oi < len(oldLines) && (li >= len(lcs) || oldLines[oi] != lcs[li]) {
+			delBuf = append(delBuf, oi)
+			oi++
+		}
+		for ni < len(newLines) && (li >= len(lcs) || newLines[ni] != lcs[li]) {
+			addBuf = append(addBuf, ni)
+			ni++
+		}
+
+		maxLen := len(delBuf)
+		if len(addBuf) > maxLen {
+			maxLen = len(addBuf)
+		}
+		for i := 0; i < maxLen; i++ {
+			dl := DiffLine{}
+			if i < len(delBuf) {
+				dl.Left = SideLine{Num: delBuf[i] + 1, Text: oldLines[delBuf[i]], Kind: Deleted}
+			} else {
+				dl.Left = SideLine{Kind: Blank}
+			}
+			if i < len(addBuf) {
+				dl.Right = SideLine{Num: addBuf[i] + 1, Text: newLines[addBuf[i]], Kind: Added}
+			} else {
+				dl.Right = SideLine{Kind: Blank}
+			}
+			lines = append(lines, dl)
+		}
+	}
+	return lines
+}
+
 func Parse(unified string) FileDiff {
 	var fd FileDiff
 	lines := strings.Split(unified, "\n")

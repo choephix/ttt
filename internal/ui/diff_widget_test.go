@@ -8,7 +8,7 @@ import (
 
 func TestDiffWidgetLeftRightLines(t *testing.T) {
 	fd := diff.Parse("--- a/test.go\n+++ b/test.go\n@@ -1,3 +1,3 @@\n hello world\n-old line\n+new line\n context\n")
-	dv := NewDiffViewWidget("test.go", fd)
+	dv := NewDiffViewWidget("test.go", fd, nil, nil, false)
 
 	left := dv.LeftLines()
 	right := dv.RightLines()
@@ -45,7 +45,7 @@ func TestDiffWidgetLeftRightLines(t *testing.T) {
 
 func TestDiffWidgetSearchFindsMatches(t *testing.T) {
 	fd := diff.Parse("--- a/test.go\n+++ b/test.go\n@@ -1,3 +1,3 @@\n hello world\n-old line\n+new line\n context\n")
-	dv := NewDiffViewWidget("test.go", fd)
+	dv := NewDiffViewWidget("test.go", fd, nil, nil, false)
 
 	leftMatches, err := FindInLines(dv.LeftLines(), "old", SearchOptions{})
 	if err != nil {
@@ -66,7 +66,7 @@ func TestDiffWidgetSearchFindsMatches(t *testing.T) {
 
 func TestDiffWidgetSetSearchMatches(t *testing.T) {
 	fd := diff.Parse("--- a/test.go\n+++ b/test.go\n@@ -1,3 +1,3 @@\n hello world\n-old line\n+new line\n context\n")
-	dv := NewDiffViewWidget("test.go", fd)
+	dv := NewDiffViewWidget("test.go", fd, nil, nil, false)
 
 	leftMatches, _ := FindInLines(dv.LeftLines(), "line", SearchOptions{})
 	rightMatches, _ := FindInLines(dv.RightLines(), "line", SearchOptions{})
@@ -86,9 +86,35 @@ func TestDiffWidgetSetSearchMatches(t *testing.T) {
 	}
 }
 
+func TestDiffWidgetExtendedMode(t *testing.T) {
+	fd := diff.Parse("--- a/test.go\n+++ b/test.go\n@@ -2,3 +2,3 @@\n hello world\n-old line\n+new line\n context\n")
+	oldLines := []string{"first", "hello world", "old line", "context", "last line", "another"}
+	newLines := []string{"first", "hello world", "new line", "context", "last line", "another"}
+	dv := NewDiffViewWidget("test.go", fd, oldLines, newLines, false)
+
+	compactCount := len(dv.Lines)
+
+	dv.SetExtended(true)
+	if !dv.IsExtended() {
+		t.Error("expected extended mode to be true")
+	}
+	extendedCount := len(dv.Lines)
+	if extendedCount <= compactCount {
+		t.Errorf("extended should have more lines than compact: %d vs %d", extendedCount, compactCount)
+	}
+
+	dv.SetExtended(false)
+	if dv.IsExtended() {
+		t.Error("expected extended mode to be false")
+	}
+	if len(dv.Lines) != compactCount {
+		t.Errorf("compact line count changed: %d vs %d", len(dv.Lines), compactCount)
+	}
+}
+
 func TestDiffWidgetSearchContext(t *testing.T) {
 	fd := diff.Parse("--- a/test.go\n+++ b/test.go\n@@ -1,3 +1,3 @@\n hello world\n-old line\n+new line\n context\n")
-	dv := NewDiffViewWidget("test.go", fd)
+	dv := NewDiffViewWidget("test.go", fd, nil, nil, false)
 
 	leftMatches, _ := FindInLines(dv.LeftLines(), "hello", SearchOptions{})
 	rightMatches, _ := FindInLines(dv.RightLines(), "hello", SearchOptions{})
