@@ -23,7 +23,6 @@ func RunEventLoop(
 	renderer *render.Renderer,
 	app *App,
 	running *bool,
-	quitPending *bool,
 	closeTerminal func(panelID string),
 ) {
 	if app.Watcher != nil {
@@ -132,10 +131,6 @@ func RunEventLoop(
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
 		case *tcell.EventKey:
-			if *quitPending && !(tev.Key() == tcell.KeyCtrlQ) {
-				*quitPending = false
-				app.Status.DismissNotification()
-			}
 			if app.EditorGroup.SignatureHelp != nil {
 				switch tev.Key() {
 				case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,

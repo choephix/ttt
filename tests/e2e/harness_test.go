@@ -66,10 +66,8 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 
 	reg := command.NewRegistry()
 	editor.Reg = reg
-	quitPending := false
 	running := true
 	editor.Running = &running
-	editor.QuitPending = &quitPending
 	app.RegisterCommands(editor)
 	app.BindKeys(editor.Root, reg, cfg.Keybindings)
 
