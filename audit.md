@@ -1,95 +1,129 @@
 # ttt Feature Audit — Gaps to a Daily-Driver Professional Editor
 
-Audit date: 2026-06-10. Scope: essential quality-of-life features for daily professional use,
-compared against editors like VS Code. **Explicitly out of scope: LSP-depth features and DAP.**
+Audit date: 2026-06-10. Updated: 2026-06-11 with cross-reference against VS Code, Zed, Sublime
+Text, and developer community feedback (HN, Reddit, Lobsters).
+
+Scope: essential features for daily professional use. **Out of scope: DAP (debugger).**
 
 ## Verdict
 
-The foundation is strong: multi-cursor, find/replace (in-file and project-wide with ripgrep),
-fuzzy file open, command palette, git changes panel with PR review, integrated terminal with
-tabs, EditorConfig, themes, menus, and context menus all exist and work. The gaps cluster into
-three areas: **data safety** (no external-change detection, non-atomic saves, no session
-restore), **navigation memory** (no back/forward history, no recent files), and **git depth**
-(no gutter indicators, no branch switching, no conflict resolution).
+The foundation is strong: multi-cursor, find/replace (in-file + project-wide with ripgrep),
+fuzzy file open, command palette, LSP (completions, hover, go-to-def, references, rename, format,
+diagnostics), git integration (stage/unstage/commit/diff/blame/PR review), integrated terminal,
+EditorConfig, themes, menus, context menus, sidebar panels, and syntax highlighting all exist.
 
-## Priority 1 — Data safety & trust (blockers for daily driving)
+Since PR #55 was opened, several gaps have been closed:
+- Atomic save + permission/symlink preservation (PR #56)
+- External file change detection with silent reload (PR #58)
+- Line-ending detection/preservation with status bar toggle (PR #60)
+- Trim trailing whitespace on save (PR #61)
+- Toggle comment with Ctrl+/ and selection-aware multi-line support (PR #62)
 
-These are the features whose absence loses user data or breaks trust in the tool.
+The remaining gaps cluster into: **navigation & orientation** (no back/forward, no symbol outline,
+no code folding), **editor layout** (no split panes, no session restore), **LSP depth** (no code
+actions UI, no inlay hints, no snippets), and **visual polish** (no indent guides, no git gutter).
 
-| Feature | Status | Notes |
+## Feature Matrix
+
+Features are ranked by cross-source consensus (how many of VS Code, Zed, Sublime Text, HN/Reddit
+flagged them) and by impact in an **agent-driven workflow** where reviewing and navigating code
+matters more than writing it.
+
+### Tier 1 — High Impact (4-5 sources agree, transforms the editor)
+
+| Feature | Status | Consensus | Notes |
+|---|---|---|---|
+| Split editor panes | MISSING | VS Code, Zed, Sublime, HN, Reddit | Side-by-side viewing for comparing files, reviewing agent output. Fundamental layout feature. |
+| Code folding | MISSING | VS Code, Zed, Sublime, HN, Reddit | Collapse/expand code blocks. Indent-based works immediately; tree-sitter ideal long-term. |
+| Session restore | MISSING | VS Code, Zed, Sublime, HN, Reddit | Reopen with same tabs, cursors, scroll positions. `.ttt` workspace files are the persistence vehicle. |
+| Navigation history (back/forward) | MISSING | VS Code, Zed, Sublime, HN, Reddit | Alt+Left/Right after go-to-definition. Essential companion to existing LSP navigation. |
+| Go to Symbol (file + workspace) | MISSING | VS Code, Zed, Sublime, Reddit | Ctrl+Shift+O for file outline, Ctrl+T project-wide. Uses LSP `documentSymbol`/`workspace/symbol`. |
+| Code actions / lightbulb UI | MISSING | VS Code, Zed, HN, Reddit | Interactive quick-fix picker (Ctrl+.). LSP `textDocument/codeAction`. Have code actions on save, but no interactive UI. |
+
+### Tier 2 — Developer Expectations (3-4 sources, expected by power users)
+
+| Feature | Status | Consensus | Notes |
+|---|---|---|---|
+| Inlay hints | MISSING | VS Code, Zed, HN, Reddit | Inline type/parameter annotations via LSP `textDocument/inlayHint`. High value for Go/TS/Rust. |
+| Snippet expansion | MISSING | VS Code, Zed, Sublime, Reddit | LSP completions return snippets with tab stops/placeholders. Without this, many completions are degraded. |
+| Indent guides | MISSING | VS Code, Zed, Sublime, Reddit | Vertical lines at indent levels. Pure rendering, no AST needed. Quick win. |
+| Git gutter indicators | MISSING | VS Code, Zed, HN, Reddit | Green/blue/red marks in gutter for added/modified/deleted lines vs HEAD. High visibility. |
+| Outline / symbol sidebar | MISSING | VS Code, Zed, Reddit | Tree of functions/classes in sidebar panel. Leverages existing LSP + sidebar. |
+| Column/box selection | MISSING | VS Code, Sublime, HN, Reddit | Rectangular selection with Ctrl+Alt+Up/Down. Complements existing multi-cursor. |
+| Macro recording/playback | MISSING | Sublime, HN, Reddit | Record/replay editing sequences. Covers sequential cases multi-cursor can't. |
+
+### Tier 3 — Differentiators (2-3 sources, sets ttt apart)
+
+| Feature | Status | Consensus | Notes |
+|---|---|---|---|
+| Sticky scroll | MISSING | VS Code, Reddit | Pin enclosing scope headers at viewport top. No terminal editor has this. |
+| Breadcrumbs | MISSING | VS Code, Zed, Reddit | File > Class > Method path showing current location. |
+| Semantic tokens | MISSING | VS Code, Zed | LSP `textDocument/semanticTokens` for accurate syntax highlighting beyond regex. |
+| Bracket pair colorization | MISSING | VS Code, Zed | Color-code nested bracket pairs. Readability improvement. |
+| Bookmarks / marks | MISSING | Sublime, HN | Toggle bookmarks on lines, jump between them. Simple but useful in large files. |
+| Word wrap rendering | PARTIAL | VS Code, Sublime, HN | `wordWrap` setting exists but is a no-op. Important for markdown/prose/logs. |
+| Merge conflict resolution UI | MISSING | VS Code, Zed | Inline accept current/incoming/both above conflict markers. |
+
+### Tier 4 — Polish & Nice-to-Have
+
+| Feature | Status | Consensus | Notes |
+|---|---|---|---|
+| Minimap | MISSING | VS Code, Zed, Sublime | Character-based code overview. Polarizing — some love, some hide. |
+| Zen/distraction-free mode | MISSING | VS Code, Sublime | Hide all chrome, center text. Simple to implement. |
+| Sort/reverse/unique lines | MISSING | Sublime | Small text manipulation commands. Quick wins. |
+| Case transforms (upper/lower/title) | MISSING | Sublime | Ctrl+K Ctrl+U/L. Quick wins. |
+| Join lines | MISSING | VS Code, Sublime | Ctrl+J to merge next line up. |
+| Split selection into lines | MISSING | Sublime | Ctrl+Shift+L — selection to per-line cursors. |
+| Goto matching bracket | MISSING | VS Code, Sublime | `findMatchingBracket()` exists but no navigation command. |
+| Recent files / reopen closed tab | MISSING | VS Code, Zed | MRU list, Ctrl+Shift+T. |
+| Relative line numbers | MISSING | Zed, Sublime | Useful for vim-style workflows. |
+| Vim keybindings mode | MISSING | Zed, Sublime, HN | Large audience but massive implementation effort. |
+| Autosave | MISSING | VS Code, Zed | Save on focus change, timer, etc. |
+| Settings hot reload | MISSING | Zed, Reddit | Change settings without restart. |
+| Preview/transient tabs | MISSING | VS Code, Zed, Sublime | Single-click opens preview; editing pins the tab. |
+| Task runner | MISSING | VS Code, Zed | Run build/test commands with error parsing. Terminal covers most of this. |
+| Plugin/extension system | MISSING | HN, Reddit | Long-term multiplier but massive effort. |
+| AI inline completion (ghost text) | MISSING | HN, Reddit | Growing expectation; integration point for Ollama/OpenAI. |
+| Tree-sitter integration | MISSING | HN, Reddit | Architectural investment. Unlocks accurate highlighting, text objects, structural editing. |
+
+### Completed (since original audit)
+
+| Feature | Status | PR |
 |---|---|---|
-| External file change detection | MISSING | No fsnotify/polling. `git checkout`, formatters, or other tools editing a file silently desync the buffer. Editing then saving overwrites external changes. |
-| Atomic save + permission preservation | MISSING | `SaveFile()` uses `os.Create()` directly (`internal/core/buffer/io.go:39`) — truncate-then-write loses data on crash mid-save, and resets file permissions to 0644. |
-| Hot exit / session restore | MISSING | Open tabs, cursor positions, and unsaved changes are lost on quit/crash. Only workspace folder paths persist (`.ttt` files). |
-| Line-ending preservation | MISSING | Loader strips endings via `bufio.Scanner`, saver always writes LF. Opening and saving a CRLF file silently rewrites every line. Status bar hardcodes "LF". |
-| Read-only file handling | MISSING | No permission check before save; failure surfaces as a raw error. |
-| Crash recovery / backup files | PARTIAL | Crash stack trace logged to `crash.log`, but no buffer recovery. |
-| Autosave | MISSING | No setting, no timer, no focus-loss save. |
-| Large file handling | RISK | Whole file loaded into `[]string`; no guard or special casing for very large files. |
+| Atomic save + permission/symlink preservation | DONE | #56 |
+| External file change detection + silent reload | DONE | #58 |
+| Line-ending detection/preservation + status bar toggle | DONE | #60 |
+| Trim trailing whitespace on save | DONE | #61 |
+| Toggle comment (Ctrl+/, selection-aware, multi-language) | DONE | #62 |
 
-## Priority 2 — Navigation memory (the "feels slow without it" tier)
+### Already Existed (confirmed working)
 
-| Feature | Status | Notes |
-|---|---|---|
-| Back/forward cursor history (Alt+Left/Right) | MISSING | No location stack. After go-to-definition or a search jump, there is no way back. |
-| Recent files / reopen closed tab | MISSING | No MRU list, no Ctrl+Shift+T equivalent. |
-| Reveal active file in tree | PARTIAL | Active file highlights if visible, but parent folders don't auto-expand; no explicit "reveal" command. |
-| Bookmarks / marks | MISSING | |
-| Outline / symbol list | MISSING | No outline view, even regex-based. |
-| Breadcrumbs | MISSING | |
+Multi-cursor (Ctrl+D, Alt+Click, select all occurrences), find/replace (in-file + project-wide),
+fuzzy file open, command palette, LSP suite, git (stage/unstage/commit/diff/blame/PR review),
+integrated terminal, EditorConfig, themes, auto-indent, auto-pair, smart home, move/dup/delete
+line, indent/dedent selection, double/triple-click, menus, context menus, sidebar panels,
+problems panel, bracket highlighting.
 
-## Priority 3 — Editing polish
+## Recommended Next Steps
 
-| Feature | Status | Notes |
-|---|---|---|
-| Toggle line comment keybinding | PARTIAL | `ToggleLineComment()` exists (`internal/ui/editor_widget.go:1167`) with per-language prefixes, but is **unbound** (no Ctrl+/) and only handles a single line, not a selection. |
-| Trim trailing whitespace on save | PARTIAL | EditorConfig `trim_trailing_whitespace` is parsed but never applied on save. |
-| Word wrap | PARTIAL | `wordWrap` setting exists but rendering never wraps — setting is a no-op. |
-| Whole-word toggle in find | MISSING | Find bar has case + regex toggles, but no whole-word. |
-| Jump to matching bracket | MISSING | Highlighting exists (`findMatchingBracket()`), but no navigation command. |
-| Add cursor above/below | MISSING | Alt+Click, Ctrl+D, select-all-occurrences exist; column-wise cursor stacking does not. |
-| Column/block selection | MISSING | Selection model is linear anchor-to-cursor only. |
-| Wrap selection in quotes/brackets | MISSING | Typing `"` with a selection replaces it instead of surrounding it. |
-| Case transforms / join lines / sort lines | MISSING | None of the classic text commands exist. |
-| Per-language indent settings | MISSING | Only global settings + EditorConfig. |
-| Smart-home, auto-indent, auto-pair, indent/dedent selection, move/dup/delete line, double/triple-click selection | EXISTS | Solid coverage. |
+Prioritized for an agent-driven workflow (reviewing and navigating > writing):
 
-## Priority 4 — Git depth
+1. **Split editor panes** — side-by-side review of agent output vs existing code
+2. **Code folding** (indent-based) — collapse irrelevant sections in large files
+3. **Session restore** — resume context between sessions via `.ttt` workspace files
+4. **Navigation history** (back/forward) — jump around code without losing position
+5. **Go to Symbol** — quickly orient in unfamiliar/generated code
+6. **Indent guides** — quick visual win, pure rendering
+7. **Git gutter indicators** — high-visibility improvement, diff infra exists
+8. **Code actions UI** (Ctrl+.) — interactive quick-fix picker
+9. **Inlay hints** — inline type/parameter annotations
+10. **Snippet expansion** — fix degraded LSP completions
 
-| Feature | Status | Notes |
-|---|---|---|
-| Gutter change indicators | MISSING | No modified/added/deleted marks next to line numbers — one of the most-looked-at signals in VS Code. |
-| Branch switching / creation UI | MISSING | Branch shows in status bar but isn't clickable; no checkout/create commands. |
-| Merge conflict detection & resolution | MISSING | No conflict marker highlighting, no accept ours/theirs. |
-| Commit history / log view | MISSING | |
-| Stash support | MISSING | |
-| Stage/unstage/discard/commit, push/pull/sync, diff views, PR review, inline blame | EXISTS | Comprehensive. |
+## Sources
 
-## Priority 5 — Workbench
-
-| Feature | Status | Notes |
-|---|---|---|
-| Side-by-side editor splits | DEFERRED | Current splits are sidebar/editor and editor/terminal only. As a terminal editor, side-by-side is well served by tmux/multiplexer panes running separate instances. More fundamentally, terminal real estate doesn't support it: a typical 80–120 column window split in half leaves ~40–60 columns per side — below readable code width, before subtracting the sidebar. Not worth the structural lift. |
-| Tab drag-reorder / move between splits | MISSING | Tabs scroll and pin, but can't be reordered. |
-| Move files in explorer | MISSING | Create/rename/delete exist; no move (and delete is permanent — `os.RemoveAll`, no trash). |
-| Settings hot reload | MISSING | `settings.json` edits require restart. |
-| Zen / distraction-free mode | MISSING | Terminal has fullscreen; editor doesn't. |
-| Minimap | MISSING | Arguably optional in a terminal editor. |
-| Explorer file watching | MISSING | Tree only updates on manual refresh. |
-| Menus, context menus, command palette, sidebar panels, problems panel, terminal tabs+selection | EXISTS | Comprehensive. |
-
-## Suggested attack order
-
-1. **Atomic save + permission preservation** — small, contained (`internal/core/buffer/io.go`), eliminates the worst data-loss risk.
-2. **External change detection** (fsnotify or stat-on-focus) with reload prompt — the other half of data trust.
-3. **Line-ending detection/preservation** — quiet correctness fix; status bar already has the slot.
-4. **Bind Ctrl+/ and make toggle-comment selection-aware** — the code is 90% there.
-5. **Back/forward navigation history** — touches cursor/jump paths but is self-contained state.
-6. **Session restore (open tabs + cursor positions)** — workspace files already provide the persistence vehicle.
-7. **Recent files / reopen closed tab** — small, pairs with quick-open.
-8. **Git gutter indicators** — high visibility payoff; diff infrastructure already exists.
-9. **Trim trailing whitespace on save** — parser already reads the flag; just apply it.
-
-Editor side-by-side splits are intentionally deferred: tmux panes with separate instances cover
-the terminal-native workflow, typical terminal widths can't fit two readable code columns anyway,
-and the structural cost inside the editor is the highest on this list.
+- VS Code official documentation and feature comparison
+- Zed editor documentation and blog posts
+- Sublime Text documentation and feature pages
+- Hacker News discussions on terminal editors (2024-2026)
+- Reddit, Lobsters, and developer blog posts on editor wishlists
+- Helix, Kakoune, and Micro editor comparisons
