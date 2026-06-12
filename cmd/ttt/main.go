@@ -128,10 +128,8 @@ Docs: https://tttedit.dev
 
 	editor.Keybindings = cfg.Keybindings
 	editor.Reg = cmdRegistry
-	quitPending := false
 	running := true
 	editor.Running = &running
-	editor.QuitPending = &quitPending
 	app.RegisterCommands(editor)
 	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
 
@@ -150,5 +148,5 @@ Docs: https://tttedit.dev
 	w, h := screen.Size()
 	editor.Root.SetSize(w, h)
 
-	app.RunEventLoop(screen, renderer, editor, &running, &quitPending, editor.CloseTerminal)
+	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)
 }

@@ -69,7 +69,7 @@ type App struct {
 	LspNotified        map[string]bool
 	Reg                *command.Registry
 	Running            *bool
-	QuitPending        *bool
+	quitPending        bool
 	Watcher            *watcher.Watcher
 }
 

@@ -155,16 +155,23 @@ func (a *App) doSaveFile() {
 	}
 }
 
+func (a *App) forceQuit() {
+	for _, tt := range a.Terminals {
+		tt.Term.Close()
+	}
+	*a.Running = false
+}
+
 func (a *App) Quit() {
-	if !a.EditorGroup.AnyDirty() || *a.QuitPending {
-		for _, tt := range a.Terminals {
-			tt.Term.Close()
-		}
-		*a.Running = false
+	if a.quitPending || !a.EditorGroup.AnyDirty() {
+		a.forceQuit()
 		return
 	}
-	*a.QuitPending = true
-	a.StatusWarn("Unsaved changes. Press Ctrl+Q again to quit.")
+	a.quitPending = true
+	a.ShowConfirmDialog("Unsaved changes! Press Ctrl+Q to force quit", []string{"Cancel", "Quit"}, []func(){
+		func() { a.quitPending = false; a.DismissDialog() },
+		func() { a.forceQuit() },
+	})
 }
 
 func registerEditorCommands(app *App) {
