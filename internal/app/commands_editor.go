@@ -270,10 +270,19 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "diff.toggleExtended", Title: "Toggle Extended Diff",
+		ID: "diff.extendedView", Title: "Git: Extended Diff",
 		Handler: func() {
 			if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
-				dv.SetExtended(!dv.IsExtended())
+				dv.SetExtended(true)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "diff.compactView", Title: "Git: Compact Diff",
+		Handler: func() {
+			if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+				dv.SetExtended(false)
 			}
 		},
 	})

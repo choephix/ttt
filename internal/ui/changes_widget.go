@@ -54,8 +54,8 @@ type ChangesWidget struct {
 	multiRoot        bool
 	inputFocused     bool
 	Loading          bool
-	OnOpenDiff       func(dir string, status git.FileStatus)
-	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus)
+	OnOpenDiff       func(dir string, status git.FileStatus, extended bool)
+	OnOpenPRDiff     func(group *ChangesGroup, status git.FileStatus, extended bool)
 	OnRightClick     func(dir string, status git.FileStatus, screenX, screenY int)
 	OnCommit         func(dir string, message string)
 	OnGroupMenu      func(dir string, screenX, screenY int)
@@ -217,6 +217,17 @@ func (c *ChangesWidget) SelectedFile() (dir string, status git.FileStatus, ok bo
 		return g.Dir, g.Staged[item.fileIndex], true
 	}
 	return g.Dir, g.Unstaged[item.fileIndex], true
+}
+
+func (c *ChangesWidget) SelectedGroup() *ChangesGroup {
+	if c.Selected < 0 || c.Selected >= len(c.items) {
+		return nil
+	}
+	item := c.items[c.Selected]
+	if item.groupIndex < 0 || item.groupIndex >= len(c.Groups) {
+		return nil
+	}
+	return &c.Groups[item.groupIndex]
 }
 
 func (c *ChangesWidget) SelectedFullPath() string {
@@ -679,12 +690,12 @@ func (c *ChangesWidget) activateSelected() {
 		if g.IsPR {
 			_, status, ok := c.SelectedFile()
 			if ok && c.OnOpenPRDiff != nil {
-				c.OnOpenPRDiff(g, status)
+				c.OnOpenPRDiff(g, status, false)
 			}
 		} else {
 			dir, status, ok := c.SelectedFile()
 			if ok && c.OnOpenDiff != nil {
-				c.OnOpenDiff(dir, status)
+				c.OnOpenDiff(dir, status, false)
 			}
 		}
 	}

@@ -171,7 +171,22 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 	})
 }
 
-func (a *App) OpenChangeDiff(dir string, status git.FileStatus) {
+func (a *App) openSelectedDiff(extended bool) {
+	g := a.Changes.SelectedGroup()
+	if g != nil && g.IsPR {
+		_, status, ok := a.Changes.SelectedFile()
+		if ok && a.Changes.OnOpenPRDiff != nil {
+			a.Changes.OnOpenPRDiff(g, status, extended)
+		}
+	} else {
+		dir, status, ok := a.Changes.SelectedFile()
+		if ok && a.Changes.OnOpenDiff != nil {
+			a.Changes.OnOpenDiff(dir, status, extended)
+		}
+	}
+}
+
+func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	fullPath := filepath.Join(dir, status.Path)
 	if status.Status == "?" {
 		a.EditorGroup.OpenFile(fullPath)
@@ -211,11 +226,11 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus) {
 			newLines = newLines[:len(newLines)-1]
 		}
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, a.Settings.DiffView == "extended")
+	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, extended)
 	a.Root.SetFocus(a.EditorGroup)
 }
 
-func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
+func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
 	diffText, ok := group.PRDiffs[status.Path]
 	if !ok || diffText == "" {
 		a.StatusWarn("No diff available for " + status.Path)
@@ -226,7 +241,7 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
 		a.StatusWarn("Empty diff for " + status.Path)
 		return
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, false)
+	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, extended)
 	if dv := a.EditorGroup.ActiveDiffWidget(); dv != nil {
 		dv.OnFetchExtended = func(dv *ui.DiffViewWidget) {
 			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
@@ -424,13 +439,15 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
 		}
 		if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+			cmd := "diff.extendedView"
 			label := "Extended Diff"
 			if dv.IsExtended() {
+				cmd = "diff.compactView"
 				label = "Compact Diff"
 			}
 			tabContextMenu = append(tabContextMenu,
 				ui.MenuSep(),
-				ui.ContextMenuItem{Label: label, Command: "diff.toggleExtended"},
+				ui.ContextMenuItem{Label: label, Command: cmd},
 			)
 		}
 		openContextMenu(app, tabContextMenu, sx, sy)
@@ -474,8 +491,12 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
-	app.Changes.OnOpenDiff = app.OpenChangeDiff
-	app.Changes.OnOpenPRDiff = app.OpenPRDiff
+	app.Changes.OnOpenDiff = func(dir string, status git.FileStatus, extended bool) {
+		app.OpenChangeDiff(dir, status, extended)
+	}
+	app.Changes.OnOpenPRDiff = func(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
+		app.OpenPRDiff(group, status, extended)
+	}
 	app.Changes.OnPRGroupMenu = app.ShowPRGroupMenu
 	app.Changes.OnRefreshPR = app.FetchAndOpenPR
 	app.Changes.OnGroupMenu = app.ShowGroupMenu
