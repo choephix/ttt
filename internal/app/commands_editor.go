@@ -270,6 +270,15 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "diff.toggleExtended", Title: "Toggle Extended Diff",
+		Handler: func() {
+			if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+				dv.SetExtended(!dv.IsExtended())
+			}
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "file.new", Title: "New File",
 		Handler: app.NewFile,
 	})

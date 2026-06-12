@@ -66,7 +66,7 @@ func (a *App) DiffSearchSources() []ui.DiffSearchSource {
 				continue
 			}
 			fd := diff.Parse(diffText)
-			dv := ui.NewDiffViewWidget(path, fd)
+			dv := ui.NewDiffViewWidget(path, fd, nil, nil, false)
 			sources = append(sources, ui.DiffSearchSource{TabName: tabName, Lines: dv.CombinedLines()})
 		}
 	}
@@ -82,7 +82,7 @@ func (a *App) NavigateToSearchMatch(path string, line, col int) {
 					continue
 				}
 				if diffText, ok := g.PRDiffs[filePath]; ok {
-					a.EditorGroup.OpenDiff(filePath, diff.Parse(diffText))
+					a.EditorGroup.OpenDiff(filePath, diff.Parse(diffText), nil, nil, false)
 					break
 				}
 			}
@@ -114,7 +114,7 @@ func (a *App) PreviewSearchReplace(filePath string, matches []ui.SearchMatch, re
 		lines = lines[:len(lines)-1]
 	}
 	fd := ui.BuildReplaceDiff(filepath.Base(filePath), lines, matches, replacement, opts)
-	a.EditorGroup.OpenDiff(filePath, fd)
+	a.EditorGroup.OpenDiff(filePath, fd, nil, nil, false)
 	a.Root.SetFocus(a.EditorGroup)
 }
 
@@ -195,7 +195,22 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus) {
 		a.Root.SetFocus(a.EditorGroup)
 		return
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed)
+	var oldLines, newLines []string
+	oldContent, err := git.ShowFile(dir, status.Path, "HEAD")
+	if err == nil {
+		oldLines = strings.Split(oldContent, "\n")
+		if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
+			oldLines = oldLines[:len(oldLines)-1]
+		}
+	}
+	newData, err := os.ReadFile(fullPath)
+	if err == nil {
+		newLines = strings.Split(string(newData), "\n")
+		if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
+			newLines = newLines[:len(newLines)-1]
+		}
+	}
+	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, a.Settings.DiffView == "extended")
 	a.Root.SetFocus(a.EditorGroup)
 }
 
@@ -210,7 +225,7 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
 		a.StatusWarn("Empty diff for " + status.Path)
 		return
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed)
+	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, false)
 	a.Root.SetFocus(a.EditorGroup)
 }
 
@@ -367,6 +382,16 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Close", Shortcut: app.KeyFor("tab.close"), Command: "tab.close"},
 			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
+		}
+		if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
+			label := "Extended Diff"
+			if dv.IsExtended() {
+				label = "Compact Diff"
+			}
+			tabContextMenu = append(tabContextMenu,
+				ui.MenuSep(),
+				ui.ContextMenuItem{Label: label, Command: "diff.toggleExtended"},
+			)
 		}
 		openContextMenu(app, tabContextMenu, sx, sy)
 	}

@@ -103,6 +103,7 @@ type Settings struct {
 	FormatOnSave       bool             `json:"formatOnSave"`
 	InsertFinalNewline     bool         `json:"insertFinalNewline"`
 	TrimTrailingWhitespace bool       `json:"trimTrailingWhitespace"`
+	DiffView       string               `json:"diffView,omitempty"`
 	Search         SearchSettings       `json:"search,omitzero"`
 	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`
