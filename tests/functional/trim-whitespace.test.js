@@ -35,7 +35,7 @@ describe("trim trailing whitespace on save", () => {
   it("trims trailing whitespace when --config enables it", () => {
     dir = createTempDir();
     const configFile = join(dir, "settings.json");
-    writeFileSync(configFile, JSON.stringify({ trimTrailingWhitespace: true }));
+    writeFileSync(configFile, JSON.stringify({ editor: { trimTrailingWhitespace: true } }));
     const file = join(dir, "code.txt");
     writeFileSync(file, "foo   \nbar\t\nclean\n");
 

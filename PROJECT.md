@@ -8,6 +8,7 @@ With AI-driven development, developers spend less time in editors manually. When
 
 ---
 
+
 ## Layout
 
 The target screen layout mirrors VS Code:

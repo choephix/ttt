@@ -190,7 +190,7 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	fullPath := filepath.Join(dir, status.Path)
 	if status.Status == "?" {
 		a.EditorGroup.OpenFile(fullPath)
-		a.Root.SetFocus(a.EditorGroup)
+		a.FocusEditorIfEnabled()
 		return
 	}
 	var diffText string
@@ -202,13 +202,13 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	}
 	if err != nil || diffText == "" {
 		a.EditorGroup.OpenFile(fullPath)
-		a.Root.SetFocus(a.EditorGroup)
+		a.FocusEditorIfEnabled()
 		return
 	}
 	parsed := diff.Parse(diffText)
 	if len(parsed.Hunks) == 0 {
 		a.EditorGroup.OpenFile(fullPath)
-		a.Root.SetFocus(a.EditorGroup)
+		a.FocusEditorIfEnabled()
 		return
 	}
 	var oldLines, newLines []string
@@ -227,7 +227,7 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 		}
 	}
 	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, extended)
-	a.Root.SetFocus(a.EditorGroup)
+	a.FocusEditorIfEnabled()
 }
 
 func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
@@ -247,7 +247,7 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended
 			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
 		}
 	}
-	a.Root.SetFocus(a.EditorGroup)
+	a.FocusEditorIfEnabled()
 }
 
 func (a *App) fetchPRFileContent(dv *ui.DiffViewWidget, owner, repo, baseSHA, headSHA, path string) {
@@ -455,7 +455,7 @@ func registerWidgetCallbacks(app *App) {
 
 	app.Explorer.OnOpenFile = func(path string) {
 		app.EditorGroup.OpenFile(path)
-		app.Root.SetFocus(app.EditorGroup)
+		app.FocusEditorIfEnabled()
 	}
 
 	app.Search.OnClear = func() {
@@ -493,7 +493,7 @@ func registerWidgetCallbacks(app *App) {
 
 	app.Changes.OnOpenFile = func(path string) {
 		app.EditorGroup.OpenFile(path)
-		app.Root.SetFocus(app.EditorGroup)
+		app.FocusEditorIfEnabled()
 	}
 	app.Changes.OnOpenDiff = func(dir string, status git.FileStatus, extended bool) {
 		app.OpenChangeDiff(dir, status, extended)
