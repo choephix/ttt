@@ -65,7 +65,8 @@ type EditorGroupWidget struct {
 	active       int
 	TabSize            int
 	LineNumbers        bool
-	InsertFinalNewline bool
+	InsertFinalNewline     bool
+	TrimTrailingWhitespace bool
 	Borders      *term.BorderSet
 	OnFileOpen   func(path, lang, text string)
 	OnFileChange func(path, lang, text string)
@@ -146,10 +147,13 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 			return
 		}
 	}
-	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline}
+	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline, TrimTrailingWhitespace: g.TrimTrailingWhitespace}
 	ec := config.LoadEditorConfig(path)
 	if ec.InsertFinalNLSet {
 		newBuf.InsertFinalNewline = ec.InsertFinalNewline
+	}
+	if ec.TrimTrailingWSSet {
+		newBuf.TrimTrailingWhitespace = ec.TrimTrailingWS
 	}
 	if err := newBuf.LoadFile(path); err != nil {
 		g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))

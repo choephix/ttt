@@ -83,6 +83,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.TabSize, cfg.Settings.LineNumbers)
 	editorGroup.InsertFinalNewline = cfg.Settings.InsertFinalNewline
+	editorGroup.TrimTrailingWhitespace = cfg.Settings.TrimTrailingWhitespace
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f)
 		editorGroup.PinActiveTab()
