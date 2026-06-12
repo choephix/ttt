@@ -16,7 +16,9 @@ type StatusBarWidget struct {
 	BaseWidget
 	Status         *view.StatusBar
 	OnIndentClick  func()
+	OnEolClick     func()
 	indentSpan     statusBarSpan
+	eolSpan        statusBarSpan
 	okSpan         statusBarSpan
 	actionSpan     statusBarSpan
 	secondarySpan  statusBarSpan
@@ -67,7 +69,11 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 		right = append(right, segment{fmt.Sprintf("Spaces: %d", st.TabSize), "indent"})
 	}
 	right = append(right, segment{"UTF-8", "encoding"})
-	right = append(right, segment{"LF", "eol"})
+	eolLabel := "LF"
+	if st.LineEnding == "\r\n" {
+		eolLabel = "CRLF"
+	}
+	right = append(right, segment{eolLabel, "eol"})
 	if st.Language != "" {
 		lang := st.Language
 		if st.LSP {
@@ -97,6 +103,9 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 			segLen := len([]rune(seg.text))
 			if seg.id == "indent" {
 				s.indentSpan = statusBarSpan{r.X + pos, r.X + pos + segLen}
+			}
+			if seg.id == "eol" {
+				s.eolSpan = statusBarSpan{r.X + pos, r.X + pos + segLen}
 			}
 			s.drawText(surface, pos, seg.text, term.StyleStatusBar)
 			pos += segLen
@@ -188,6 +197,10 @@ func (s *StatusBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 	if mx >= s.indentSpan.start && mx < s.indentSpan.end && s.OnIndentClick != nil {
 		s.OnIndentClick()
+		return EventConsumed
+	}
+	if mx >= s.eolSpan.start && mx < s.eolSpan.end && s.OnEolClick != nil {
+		s.OnEolClick()
 		return EventConsumed
 	}
 	return EventIgnored

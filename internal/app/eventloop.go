@@ -45,6 +45,11 @@ func RunEventLoop(
 		app.Status.Col = col
 		app.Status.Dirty = app.EditorGroup.IsDirty()
 		app.Status.CursorCount = app.EditorGroup.MultiCursorCount()
+		if buf := app.EditorGroup.ActiveBuffer(); buf != nil {
+			app.Status.LineEnding = buf.LineEnding
+		} else {
+			app.Status.LineEnding = "\n"
+		}
 		app.Explorer.ActiveFile = filePath
 		app.SyncWatched()
 

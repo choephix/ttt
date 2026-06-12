@@ -73,6 +73,7 @@ type Buffer struct {
 	Lines              []string
 	Dirty              bool
 	InsertFinalNewline bool
+	LineEnding         string // "\n" (LF) or "\r\n" (CRLF); defaults to "\n"
 
 	// diskModTime and diskSize record the state of the file on disk the last
 	// time we loaded or saved it, so we can detect external modifications

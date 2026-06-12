@@ -90,6 +90,16 @@ Language server support lives in `internal/lsp/`. Servers are configured per-lan
 
 Async completions and signature help use the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document (not incremental). Auto-completion triggers on every text change with a configurable debounce timer (`autocomplete.debounce` in settings.json, default 150ms). Signature help triggers on `(` and `,` characters, dismissed on `)`.
 
+### Testing
+
+The project has three levels of testing:
+
+**Unit tests** (`internal/*/`) — Standard Go tests for individual packages. The core layer is fully testable without any terminal dependency. Run with `go test ./internal/core/buffer/` or `make test` for all.
+
+**E2E tests** (`tests/e2e/`) — Go tests that wire up the full `App` with a `tcell.SimulationScreen`. The `testHarness` (`harness_test.go`) creates a temp directory with sample files, builds the complete app (config, commands, keybindings, renderer), and provides helpers: `pressKey()`, `pressRune()`, `click()`, `exec()`, `screenText()`, `assertContains()`. The watcher-aware `waitForFileChange()` helper blocks on `PollEvent` to receive real fsnotify events and dispatches them through the reconciliation path. These tests run single-threaded (no event loop goroutine) — the test drives events and redraws manually.
+
+**Functional blackbox tests** (`tests/functional/`) — JavaScript tests using vitest + `tui-use` CLI that drive the real compiled `bin/ttt` binary in a real terminal. The `tui.js` wrapper provides: `start()` (launches the binary), `snapshot()` (captures screen), `type()` / `press()` / `pressChord()` (input), `waitFor()` (poll until text appears), `waitStable()` (wait for screen to settle), `exec()` (open command palette and run a command). These tests catch integration issues that the Go-level tests miss (e.g., launch-time watcher sync was caught here). Run with `cd tests/functional && pnpm test`. The binary must be built first (`make build`). Tests run sequentially (`fileParallelism: false`) and each test kills any leftover tui-use sessions in `beforeEach`.
+
 ### Dependencies
 
 Key external dependencies beyond the Go standard library:
