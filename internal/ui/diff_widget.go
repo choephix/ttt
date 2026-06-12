@@ -274,15 +274,10 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	r := d.GetRect()
 
 	if d.Loading {
-		msg := "Loading full file..."
-		x := (w - len(msg)) / 2
-		y := h / 2
-		if x < 0 {
-			x = 0
-		}
+		msg := "Loading..."
 		for i, ch := range msg {
-			if x+i < w {
-				surface.SetCell(x+i, y, term.Cell{Ch: ch, Style: term.StyleDefault})
+			if i < w {
+				surface.SetCell(i, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
 			}
 		}
 		return
