@@ -17,6 +17,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/terminal"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/watcher"
 	"github.com/eugenioenko/ttt/internal/workspace"
 
 	"github.com/gdamore/tcell/v2"
@@ -69,6 +70,7 @@ type App struct {
 	Reg                *command.Registry
 	Running            *bool
 	QuitPending        *bool
+	Watcher            *watcher.Watcher
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -353,6 +355,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.Screen = screen
 	a.Renderer = renderer
 	a.LspManager = lspManager
+	a.StartWatcher()
 
 	a.EditorGroup.OnError = func(msg string) {
 		a.StatusError(msg)
