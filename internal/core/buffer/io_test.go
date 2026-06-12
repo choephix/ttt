@@ -123,6 +123,71 @@ func TestDiskChangedNewBuffer(t *testing.T) {
 	}
 }
 
+func TestLoadDetectsLF(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "lf.txt")
+	os.WriteFile(fname, []byte("line1\nline2\nline3\n"), 0644)
+	b := &Buffer{}
+	if err := b.LoadFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if b.LineEnding != "\n" {
+		t.Errorf("expected LF, got %q", b.LineEnding)
+	}
+}
+
+func TestLoadDetectsCRLF(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "crlf.txt")
+	os.WriteFile(fname, []byte("line1\r\nline2\r\nline3\r\n"), 0644)
+	b := &Buffer{}
+	if err := b.LoadFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if b.LineEnding != "\r\n" {
+		t.Errorf("expected CRLF, got %q", b.LineEnding)
+	}
+}
+
+func TestSavePreservesLF(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "lf.txt")
+	os.WriteFile(fname, []byte("a\nb"), 0644)
+	b := &Buffer{}
+	b.LoadFile(fname)
+	b.Lines[0] = "edited"
+	b.SaveFile(fname)
+	data, _ := os.ReadFile(fname)
+	if string(data) != "edited\nb" {
+		t.Errorf("expected LF preserved, got %q", string(data))
+	}
+}
+
+func TestSavePreservesCRLF(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "crlf.txt")
+	os.WriteFile(fname, []byte("a\r\nb"), 0644)
+	b := &Buffer{}
+	b.LoadFile(fname)
+	b.Lines[0] = "edited"
+	b.SaveFile(fname)
+	data, _ := os.ReadFile(fname)
+	if string(data) != "edited\r\nb" {
+		t.Errorf("expected CRLF preserved, got %q", string(data))
+	}
+}
+
+func TestNewBufferDefaultsToLF(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "new.txt")
+	b := &Buffer{Lines: []string{"hello", "world"}}
+	b.SaveFile(fname)
+	data, _ := os.ReadFile(fname)
+	if string(data) != "hello\nworld" {
+		t.Errorf("expected LF default, got %q", string(data))
+	}
+}
+
 func TestSaveDoesNotLeaveTempFiles(t *testing.T) {
 	dir := t.TempDir()
 	fname := filepath.Join(dir, "file.txt")

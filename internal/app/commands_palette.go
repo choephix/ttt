@@ -105,6 +105,26 @@ func (a *App) ShowIndentPicker() {
 	})
 }
 
+func (a *App) ShowEolPicker() {
+	cmds := []command.Command{
+		{ID: "lf", Title: "LF"},
+		{ID: "crlf", Title: "CRLF"},
+	}
+	a.ShowPicker(cmds, func(id string) {
+		buf := a.EditorGroup.ActiveBuffer()
+		if buf == nil {
+			return
+		}
+		switch id {
+		case "lf":
+			buf.LineEnding = "\n"
+		case "crlf":
+			buf.LineEnding = "\r\n"
+		}
+		buf.Dirty = true
+	})
+}
+
 func registerPaletteCommands(app *App) {
 	reg := app.Reg
 
@@ -129,10 +149,16 @@ func registerPaletteCommands(app *App) {
 	})
 
 	app.StatusBar.OnIndentClick = app.ShowIndentPicker
+	app.StatusBar.OnEolClick = app.ShowEolPicker
 
 	reg.Register(command.Command{
 		ID: "editor.indentation", Title: "Change Indentation",
 		Handler: app.ShowIndentPicker,
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.lineEnding", Title: "Change Line Ending",
+		Handler: app.ShowEolPicker,
 	})
 
 	reg.Register(command.Command{

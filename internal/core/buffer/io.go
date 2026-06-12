@@ -2,6 +2,7 @@ package buffer
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,10 @@ func (b *Buffer) LoadFile(filename string) error {
 		return err
 	}
 	defer f.Close()
+
+	b.LineEnding = detectLineEnding(f)
+	f.Seek(0, io.SeekStart)
+
 	var lines []string
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -34,6 +39,17 @@ func (b *Buffer) LoadFile(filename string) error {
 		b.recordDiskInfo(info)
 	}
 	return nil
+}
+
+// detectLineEnding reads up to 64KB of a file to determine its line ending.
+// Returns "\r\n" if CRLF is found, "\n" otherwise.
+func detectLineEnding(r io.Reader) string {
+	buf := make([]byte, 64*1024)
+	n, _ := r.Read(buf)
+	if n > 0 && bytes.Contains(buf[:n], []byte("\r\n")) {
+		return "\r\n"
+	}
+	return "\n"
 }
 
 // recordDiskInfo stores the file's modification time and size so a later save
@@ -121,12 +137,16 @@ func (b *Buffer) SaveFile(filename string) error {
 }
 
 func (b *Buffer) writeLines(w io.Writer) error {
+	eol := b.LineEnding
+	if eol == "" {
+		eol = "\n"
+	}
 	for i, line := range b.Lines {
 		if _, err := io.WriteString(w, line); err != nil {
 			return err
 		}
 		if i < len(b.Lines)-1 {
-			if _, err := io.WriteString(w, "\n"); err != nil {
+			if _, err := io.WriteString(w, eol); err != nil {
 				return err
 			}
 		}
