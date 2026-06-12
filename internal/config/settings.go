@@ -101,7 +101,8 @@ type Settings struct {
 	Theme          string           `json:"theme,omitempty"`
 	DebugMode      bool             `json:"debugMode,omitempty"`
 	FormatOnSave       bool             `json:"formatOnSave"`
-	InsertFinalNewline bool             `json:"insertFinalNewline"`
+	InsertFinalNewline     bool         `json:"insertFinalNewline"`
+	TrimTrailingWhitespace bool       `json:"trimTrailingWhitespace"`
 	Search         SearchSettings       `json:"search,omitzero"`
 	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
 	Terminal       TerminalSettings     `json:"terminal,omitzero"`

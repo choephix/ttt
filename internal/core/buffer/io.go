@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // LoadFile loads a file into the buffer, replacing its contents.
@@ -81,6 +82,11 @@ func (b *Buffer) DiskChanged(filename string) bool {
 // or complete new content, never a truncated partial write. The target's
 // permissions are preserved; symlinks are followed so the link is kept intact.
 func (b *Buffer) SaveFile(filename string) error {
+	if b.TrimTrailingWhitespace {
+		for i, line := range b.Lines {
+			b.Lines[i] = strings.TrimRight(line, " \t")
+		}
+	}
 	if b.InsertFinalNewline && (len(b.Lines) == 0 || b.Lines[len(b.Lines)-1] != "") {
 		b.Lines = append(b.Lines, "")
 	}

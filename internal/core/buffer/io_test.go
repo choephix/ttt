@@ -188,6 +188,33 @@ func TestNewBufferDefaultsToLF(t *testing.T) {
 	}
 }
 
+func TestSaveTrimsTrailingWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "trim.txt")
+	b := &Buffer{
+		Lines:                  []string{"hello   ", "world\t\t", "clean"},
+		TrimTrailingWhitespace: true,
+	}
+	b.SaveFile(fname)
+	data, _ := os.ReadFile(fname)
+	if string(data) != "hello\nworld\nclean" {
+		t.Errorf("expected trimmed output, got %q", string(data))
+	}
+}
+
+func TestSaveWithoutTrimPreservesWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "notrim.txt")
+	b := &Buffer{
+		Lines: []string{"hello   ", "world\t\t"},
+	}
+	b.SaveFile(fname)
+	data, _ := os.ReadFile(fname)
+	if string(data) != "hello   \nworld\t\t" {
+		t.Errorf("expected whitespace preserved, got %q", string(data))
+	}
+}
+
 func TestSaveDoesNotLeaveTempFiles(t *testing.T) {
 	dir := t.TempDir()
 	fname := filepath.Join(dir, "file.txt")
