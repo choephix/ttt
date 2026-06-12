@@ -21,6 +21,10 @@ type ChangesGroup struct {
 	IsPR            bool
 	PRURL           string
 	PRDiffs         map[string]string
+	PROwner         string
+	PRRepo          string
+	PRBaseSHA       string
+	PRHeadSHA       string
 }
 
 type changesItemKind int
@@ -761,7 +765,7 @@ func (c *ChangesWidget) selectedInPR() bool {
 	return c.Groups[c.items[c.Selected].groupIndex].IsPR
 }
 
-func (c *ChangesWidget) AddPRGroup(name, url string, files []git.FileStatus, diffs map[string]string) {
+func (c *ChangesWidget) AddPRGroup(name, url, owner, repo, baseSHA, headSHA string, files []git.FileStatus, diffs map[string]string) {
 	c.Groups = append(c.Groups, ChangesGroup{
 		Dir:             "pr://" + name,
 		Name:            name,
@@ -771,6 +775,10 @@ func (c *ChangesWidget) AddPRGroup(name, url string, files []git.FileStatus, dif
 		IsPR:            true,
 		PRURL:           url,
 		PRDiffs:         diffs,
+		PROwner:         owner,
+		PRRepo:          repo,
+		PRBaseSHA:       baseSHA,
+		PRHeadSHA:       headSHA,
 	})
 	c.multiRoot = len(c.Groups) > 1
 	c.buildItems()

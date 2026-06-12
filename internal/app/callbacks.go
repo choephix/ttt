@@ -9,6 +9,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v2"
@@ -226,7 +227,32 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus) {
 		return
 	}
 	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, false)
+	if dv := a.EditorGroup.ActiveDiffWidget(); dv != nil {
+		dv.OnFetchExtended = func(dv *ui.DiffViewWidget) {
+			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
+		}
+	}
 	a.Root.SetFocus(a.EditorGroup)
+}
+
+func (a *App) fetchPRFileContent(dv *ui.DiffViewWidget, owner, repo, baseSHA, headSHA, path string) {
+	if owner == "" || baseSHA == "" {
+		return
+	}
+	if content, err := github.FetchFileContent(owner, repo, path, baseSHA); err == nil {
+		lines := strings.Split(content, "\n")
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		dv.SetOldLines(lines)
+	}
+	if content, err := github.FetchFileContent(owner, repo, path, headSHA); err == nil {
+		lines := strings.Split(content, "\n")
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		dv.SetNewLines(lines)
+	}
 }
 
 func (a *App) ShowPRGroupMenu(group *ui.ChangesGroup, sx, sy int) {

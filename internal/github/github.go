@@ -14,11 +14,13 @@ type PRFile struct {
 }
 
 type PRInfo struct {
-	Owner  string
-	Repo   string
-	Number int
-	Title  string
-	Files  []PRFile
+	Owner   string
+	Repo    string
+	Number  int
+	Title   string
+	BaseSHA string
+	HeadSHA string
+	Files   []PRFile
 }
 
 func IsGHInstalled() bool {
@@ -49,15 +51,17 @@ func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 	repoArg := owner + "/" + repo
 	cmd := exec.Command("gh", "pr", "view", strconv.Itoa(number),
 		"--repo", repoArg,
-		"--json", "title,number,files")
+		"--json", "title,number,files,baseRefOid,headRefOid")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("gh pr view failed: %w", err)
 	}
 	var result struct {
-		Title  string `json:"title"`
-		Number int    `json:"number"`
-		Files  []struct {
+		Title      string `json:"title"`
+		Number     int    `json:"number"`
+		BaseRefOid string `json:"baseRefOid"`
+		HeadRefOid string `json:"headRefOid"`
+		Files      []struct {
 			Path   string `json:"path"`
 			Status string `json:"status"`
 		} `json:"files"`
@@ -66,10 +70,12 @@ func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 		return nil, fmt.Errorf("parse gh output: %w", err)
 	}
 	info := &PRInfo{
-		Owner:  owner,
-		Repo:   repo,
-		Number: result.Number,
-		Title:  result.Title,
+		Owner:   owner,
+		Repo:    repo,
+		Number:  result.Number,
+		Title:   result.Title,
+		BaseSHA: result.BaseRefOid,
+		HeadSHA: result.HeadRefOid,
 	}
 	for _, f := range result.Files {
 		status := "M"
@@ -94,6 +100,20 @@ func FetchPRDiff(owner, repo string, number int) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("gh pr diff failed: %w", err)
+	}
+	return string(out), nil
+}
+
+func FetchFileContent(owner, repo, path, ref string) (string, error) {
+	repoArg := owner + "/" + repo
+	cmd := exec.Command("gh", "api",
+		fmt.Sprintf("repos/%s/contents/%s", repoArg, path),
+		"-H", "Accept: application/vnd.github.raw+json",
+		"--jq", ".",
+		"-f", "ref="+ref)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("gh api contents failed: %w", err)
 	}
 	return string(out), nil
 }

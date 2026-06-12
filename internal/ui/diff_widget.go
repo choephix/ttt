@@ -66,6 +66,8 @@ type DiffViewWidget struct {
 	fileDiff  diff.FileDiff
 	oldLines  []string
 	newLines  []string
+
+	OnFetchExtended func(dv *DiffViewWidget)
 }
 
 func NewDiffViewWidget(filePath string, fd diff.FileDiff, oldLines, newLines []string, extended bool) *DiffViewWidget {
@@ -82,11 +84,22 @@ func NewDiffViewWidget(filePath string, fd diff.FileDiff, oldLines, newLines []s
 	return dv
 }
 
+func (d *DiffViewWidget) SetOldLines(lines []string) {
+	d.oldLines = lines
+}
+
+func (d *DiffViewWidget) SetNewLines(lines []string) {
+	d.newLines = lines
+}
+
 func (d *DiffViewWidget) IsExtended() bool {
 	return d.extended
 }
 
 func (d *DiffViewWidget) SetExtended(extended bool) {
+	if extended && len(d.oldLines) == 0 && d.OnFetchExtended != nil {
+		d.OnFetchExtended(d)
+	}
 	d.extended = extended
 	d.rebuildLines()
 	d.TopLine = 0
