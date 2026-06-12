@@ -179,6 +179,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "alt+shift+up", Command: "editor.duplicateLine"},
 		{Key: "alt+shift+down", Command: "editor.duplicateLine"},
 		{Key: "ctrl+k k", Command: "editor.deleteLine"},
+		{Key: "ctrl+/", Command: "editor.toggleComment"},
 		{Key: "ctrl+enter", Command: "editor.insertLineBelow"},
 		{Key: "ctrl+left", Command: "editor.moveWordLeft"},
 		{Key: "ctrl+right", Command: "editor.moveWordRight"},

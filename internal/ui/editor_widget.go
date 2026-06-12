@@ -1164,7 +1164,7 @@ func (e *EditorPaneWidget) InsertLineAbove() {
 	e.scrollViewport()
 }
 
-func (e *EditorPaneWidget) ToggleLineComment() {
+func (e *EditorPaneWidget) commentPrefix() string {
 	prefix := "//"
 	if e.Highlighter != nil {
 		lang := strings.ToLower(e.Highlighter.Language())
@@ -1177,27 +1177,80 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 			prefix = "<!--"
 		}
 	}
-	line := e.Cursor.Line
-	runes := []rune(e.Buf.Lines[line])
-	trimmed := strings.TrimLeft(string(runes), " \t")
-	if strings.HasPrefix(trimmed, prefix) {
-		indent := len(runes) - len([]rune(trimmed))
-		removeLen := len([]rune(prefix))
-		if indent+removeLen < len(runes) && runes[indent+removeLen] == ' ' {
-			removeLen++
+	return prefix
+}
+
+func (e *EditorPaneWidget) ToggleLineComment() {
+	prefix := e.commentPrefix()
+
+	startLine, endLine := e.Cursor.Line, e.Cursor.Line
+	if e.Selection != nil && e.Selection.Active {
+		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+		startLine = start.Line
+		endLine = end.Line
+		if end.Col == 0 && endLine > startLine {
+			endLine--
 		}
-		e.exec(&undo.DeleteSelectionCommand{
-			StartLine: line, StartCol: indent,
-			EndLine: line, EndCol: indent + removeLen,
-		})
-		e.Cursor.Col -= removeLen
-		if e.Cursor.Col < 0 {
-			e.Cursor.Col = 0
+	}
+
+	allCommented := true
+	for l := startLine; l <= endLine; l++ {
+		trimmed := strings.TrimLeft(e.Buf.Lines[l], " \t")
+		if trimmed == "" {
+			continue
 		}
-	} else {
+		if !strings.HasPrefix(trimmed, prefix) {
+			allCommented = false
+			break
+		}
+	}
+
+	var cmds []undo.EditCommand
+	cursorDelta := 0
+
+	for l := startLine; l <= endLine; l++ {
+		runes := []rune(e.Buf.Lines[l])
+		trimmed := strings.TrimLeft(string(runes), " \t")
+		if trimmed == "" {
+			continue
+		}
 		indent := len(runes) - len([]rune(trimmed))
-		e.exec(&undo.InsertStringCommand{Line: line, Col: indent, Text: prefix + " "})
-		e.Cursor.Col += len([]rune(prefix)) + 1
+
+		if allCommented {
+			removeLen := len([]rune(prefix))
+			if indent+removeLen < len(runes) && runes[indent+removeLen] == ' ' {
+				removeLen++
+			}
+			cmd := &undo.DeleteSelectionCommand{
+				StartLine: l, StartCol: indent,
+				EndLine: l, EndCol: indent + removeLen,
+			}
+			cmd.Apply(e.Buf)
+			cmds = append(cmds, cmd)
+			if l == e.Cursor.Line {
+				cursorDelta = -removeLen
+			}
+		} else {
+			cmd := &undo.InsertStringCommand{Line: l, Col: indent, Text: prefix + " "}
+			cmd.Apply(e.Buf)
+			cmds = append(cmds, cmd)
+			if l == e.Cursor.Line {
+				cursorDelta = len([]rune(prefix)) + 1
+			}
+		}
+	}
+
+	if len(cmds) > 0 && e.Undo != nil {
+		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+		e.maxLineWidthDirty = true
+		if e.OnChange != nil {
+			e.OnChange()
+		}
+	}
+
+	e.Cursor.Col += cursorDelta
+	if e.Cursor.Col < 0 {
+		e.Cursor.Col = 0
 	}
 	e.clampCursor()
 	e.scrollViewport()
