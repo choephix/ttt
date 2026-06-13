@@ -446,6 +446,23 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "editor.sortLinesAsc", Title: "Sort Lines Ascending",
+		Handler: func() { app.EditorGroup.SortLinesAsc() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.sortLinesDesc", Title: "Sort Lines Descending",
+		Handler: func() { app.EditorGroup.SortLinesDesc() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.reverseLines", Title: "Reverse Lines",
+		Handler: func() { app.EditorGroup.ReverseLines() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.uniqueLines", Title: "Unique Lines",
+		Handler: func() { app.EditorGroup.UniqueLines() },
+	})
+
+	reg.Register(command.Command{
 		ID: "editor.quit", Title: "Quit",
 		Handler: app.Quit,
 	})

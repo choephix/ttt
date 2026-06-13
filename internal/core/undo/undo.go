@@ -547,6 +547,48 @@ func (c *BatchCommand) Undo(b *buffer.Buffer) {
 	}
 }
 
+// ReplaceLinesCommand replaces a contiguous range of buffer lines with new content.
+// Used by sort, reverse, and unique line operations.
+// The caller must set OldLines to the current buffer content being replaced
+// and NewLines to the desired replacement.
+type ReplaceLinesCommand struct {
+	Start    int      // first line index (inclusive)
+	OldLines []string // original lines (caller must populate before exec)
+	NewLines []string // replacement lines
+}
+
+func (c *ReplaceLinesCommand) Apply(b *buffer.Buffer) {
+	if c.Start < 0 || c.Start >= len(b.Lines) {
+		return
+	}
+	end := c.Start + len(c.OldLines)
+	if end > len(b.Lines) {
+		end = len(b.Lines)
+	}
+	newBuf := make([]string, 0, len(b.Lines)-len(c.OldLines)+len(c.NewLines))
+	newBuf = append(newBuf, b.Lines[:c.Start]...)
+	newBuf = append(newBuf, c.NewLines...)
+	newBuf = append(newBuf, b.Lines[end:]...)
+	b.Lines = newBuf
+	b.Dirty = true
+}
+
+func (c *ReplaceLinesCommand) Undo(b *buffer.Buffer) {
+	if c.Start < 0 || c.Start >= len(b.Lines) {
+		return
+	}
+	end := c.Start + len(c.NewLines)
+	if end > len(b.Lines) {
+		end = len(b.Lines)
+	}
+	newBuf := make([]string, 0, len(b.Lines)-len(c.NewLines)+len(c.OldLines))
+	newBuf = append(newBuf, b.Lines[:c.Start]...)
+	newBuf = append(newBuf, c.OldLines...)
+	newBuf = append(newBuf, b.Lines[end:]...)
+	b.Lines = newBuf
+	b.Dirty = true
+}
+
 func splitLines(s string) []string {
 	var lines []string
 	start := 0
