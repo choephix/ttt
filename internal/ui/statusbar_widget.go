@@ -52,7 +52,7 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 	}
 
 	if st.Blame != "" {
-		x += s.drawText(surface, x, st.Blame, term.StyleMuted)
+		x += s.drawText(surface, x, st.Blame, term.StyleStatusBar)
 	}
 
 	type segment struct {
