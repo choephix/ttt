@@ -68,16 +68,23 @@ func (e *EditorPaneWidget) Focusable() bool { return true }
 
 func (e *EditorPaneWidget) GutterWidth() int {
 	if !e.LineNumbers {
+		if e.GutterStyle != "minimal" {
+			return 1
+		}
 		return 0
 	}
 	digits := len(strconv.Itoa(len(e.Buf.Lines)))
 	if digits < 2 {
 		digits = 2
 	}
-	if e.GutterStyle == "compact" {
+	switch e.GutterStyle {
+	case "minimal":
+		return digits + 1
+	case "compact":
 		return digits + 3
+	default:
+		return digits + 5
 	}
-	return digits + 5
 }
 
 func (e *EditorPaneWidget) computeMaxLineWidth() int {
@@ -209,16 +216,22 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			if lineIdx < totalLines && lineIdx == e.Cursor.Line {
 				gutterStyle = term.StyleActiveLine
 			}
-			numStr := ""
-			if lineIdx < totalLines {
-				numStr = strconv.Itoa(lineIdx + 1)
-			}
-			compact := e.GutterStyle == "compact"
 			var padded string
-			if compact {
-				padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
+			if !e.LineNumbers {
+				padded = strings.Repeat(" ", gutterW)
 			} else {
-				padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
+				numStr := ""
+				if lineIdx < totalLines {
+					numStr = strconv.Itoa(lineIdx + 1)
+				}
+				switch e.GutterStyle {
+				case "minimal":
+					padded = strings.Repeat(" ", gutterW-1-len(numStr)) + numStr + " "
+				case "compact":
+					padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
+				default:
+					padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
+				}
 			}
 			for i, ch := range padded {
 				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
@@ -226,10 +239,17 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			if e.Folds != nil && lineIdx < totalLines {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
 					chevronCol := gutterW - 2
+					collapsedCh := '▶'
+					expandedCh := '▼'
+					if e.GutterStyle == "minimal" {
+						chevronCol = gutterW - 1
+						collapsedCh = '▸'
+						expandedCh = '▾'
+					}
 					if e.Folds.IsCollapsed(lineIdx) {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '▶', Style: gutterStyle})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: collapsedCh, Style: gutterStyle})
 					} else if e.gutterHover {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '▼', Style: gutterStyle})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: expandedCh, Style: gutterStyle})
 					}
 				}
 			}
