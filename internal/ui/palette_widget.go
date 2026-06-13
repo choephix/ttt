@@ -170,7 +170,18 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 		}
 
 		surface.ClearRect(boxX+1, y, contentRight-boxX-1, 1, style)
-		surface.DrawText(boxX+2, y, item.Label, contentRight-1, style)
+		if colonIdx := strings.Index(item.Label, ": "); colonIdx >= 0 {
+			prefix := item.Label[:colonIdx+2]
+			rest := item.Label[colonIdx+2:]
+			prefixStyle := term.StyleMuted
+			if idx == p.Selected {
+				prefixStyle = style
+			}
+			surface.DrawText(boxX+2, y, prefix, contentRight-1, prefixStyle)
+			surface.DrawText(boxX+2+len([]rune(prefix)), y, rest, contentRight-1, style)
+		} else {
+			surface.DrawText(boxX+2, y, item.Label, contentRight-1, style)
+		}
 
 		if item.Detail != "" {
 			detailStyle := term.StyleMuted

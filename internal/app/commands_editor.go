@@ -218,7 +218,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.rename", Title: "Editor: Rename Symbol",
+		ID: "editor.rename", Title: "Source: Rename Symbol",
 		Handler: app.RenameSymbol,
 	})
 
@@ -295,7 +295,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "fold.toggle", Title: "Fold: Toggle Fold",
+		ID: "fold.toggle", Title: "Editor: Toggle Fold",
 		Handler: func() {
 			if !app.EditorGroup.IsEditorActive() {
 				return
@@ -308,7 +308,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "fold.collapseAll", Title: "Fold: Fold All",
+		ID: "fold.collapseAll", Title: "Editor: Fold All",
 		Handler: func() {
 			if !app.EditorGroup.IsEditorActive() {
 				return
@@ -322,7 +322,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "fold.expandAll", Title: "Fold: Unfold All",
+		ID: "fold.expandAll", Title: "Editor: Unfold All",
 		Handler: func() {
 			if !app.EditorGroup.IsEditorActive() {
 				return
