@@ -22,6 +22,7 @@ type HelpDialogWidget struct {
 	OnDismiss func()
 
 	scrollTop int
+	btnHit    HitRegion
 }
 
 func NewHelpDialogWidget(title string, entries []HelpEntry) *HelpDialogWidget {
@@ -77,7 +78,7 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		visibleEntries = 1
 	}
 
-	boxH := visibleEntries + 5 // top border + title + separator + entries + close hint + bottom border
+	boxH := visibleEntries + 5 // top border + title + separator + entries + button row + bottom border
 	boxX := (sw - boxW) / 2
 	boxY := (sh - boxH) / 2
 	if boxY < 1 {
@@ -93,8 +94,9 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
 
 	// Title
+	surface.ClearRect(boxX+1, boxY+1, boxW-2, 1, term.StylePaletteItem)
 	titleX := boxX + (boxW-len([]rune(d.Title)))/2
-	surface.DrawText(titleX, boxY+1, d.Title, boxX+boxW-2, term.StylePaletteSelected)
+	surface.DrawText(titleX, boxY+1, d.Title, boxX+boxW-2, term.StylePaletteItem)
 
 	// Separator line
 	sepY := boxY + 2
@@ -126,11 +128,11 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		if kx < boxX+2 {
 			kx = boxX + 2
 		}
-		surface.DrawText(kx, y, entry.Key, boxX+2+kw, term.StylePaletteSelected)
+		surface.DrawText(kx, y, entry.Key, boxX+2+kw, term.StylePaletteItem)
 
 		// Description column
 		descX := boxX + 2 + kw + 2
-		surface.DrawText(descX, y, entry.Desc, boxX+boxW-2, term.StylePaletteItem)
+		surface.DrawText(descX, y, entry.Desc, boxX+boxW-2, term.StyleMuted)
 	}
 
 	// Scroll indicators
@@ -141,11 +143,17 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		surface.SetCell(boxX+boxW-2, boxY+3+visibleEntries-1, term.Cell{Ch: 'v', Style: term.StyleMuted})
 	}
 
-	// Close hint
-	closeY := boxY + boxH - 1
-	closeText := " Press Esc to close "
-	closeX := boxX + (boxW-len([]rune(closeText)))/2
-	surface.DrawText(closeX, closeY, closeText, boxX+boxW-1, term.StyleMuted)
+	// Close button
+	btnY := boxY + boxH - 2
+	btnLabel := " Close "
+	btnRunes := []rune(btnLabel)
+	btnX := boxX + (boxW-len(btnRunes))/2
+	surface.ClearRect(boxX+1, btnY, boxW-2, 1, term.StylePaletteItem)
+	for j, ch := range btnRunes {
+		cell := term.Cell{Ch: ch, Style: term.StylePaletteSelected}
+		surface.SetCell(btnX+j, btnY, cell)
+	}
+	d.btnHit = HitRegion{X: btnX, Y: btnY, W: len(btnRunes)}
 
 	// Scrollbar if needed
 	if len(d.Entries) > visibleEntries && visibleEntries > 1 {
@@ -167,10 +175,13 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 func (d *HelpDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
 		btn := mev.Buttons()
+		mx, my := mev.Position()
 		if btn&tcell.Button1 != 0 {
-			// Click anywhere dismisses
-			if d.OnDismiss != nil {
-				d.OnDismiss()
+			if d.btnHit.Contains(mx, my) {
+				if d.OnDismiss != nil {
+					d.OnDismiss()
+				}
+				return EventConsumed
 			}
 			return EventConsumed
 		}
