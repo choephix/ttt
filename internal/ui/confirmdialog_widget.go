@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"unicode"
+
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -8,13 +10,13 @@ import (
 
 type ConfirmDialogWidget struct {
 	BaseWidget
-	Message    string
-	Buttons    []string
-	Selected   int
-	Borders    *term.BorderSet
-	OnButton   []func()
-	OnDismiss  func()
-	btnHits []HitRegion
+	Message   string
+	Buttons   []string
+	Selected  int
+	Borders   *term.BorderSet
+	OnButton  []func()
+	OnDismiss func()
+	btnHits   []HitRegion
 }
 
 func NewConfirmDialogWidget(message string) *ConfirmDialogWidget {
@@ -54,15 +56,16 @@ func (d *ConfirmDialogWidget) Render(surface *RenderSurface) {
 	for _, btn := range d.Buttons {
 		btnW += len([]rune(btn)) + 4
 	}
-	boxW := 30
-	if msgW > boxW {
-		boxW = msgW
-	}
+	boxW := msgW
 	if btnW > boxW {
 		boxW = btnW
 	}
-	if boxW > sw-4 {
-		boxW = sw - 4
+	maxW := 60
+	if sw-4 < maxW {
+		maxW = sw - 4
+	}
+	if boxW > maxW {
+		boxW = maxW
 	}
 	boxX := (sw - boxW) / 2
 	boxY := 2
@@ -157,7 +160,8 @@ func (d *ConfirmDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	case tcell.KeyRune:
 		for i, btn := range d.Buttons {
-			if len(btn) > 0 && (kev.Rune() == rune(btn[0]) || kev.Rune() == rune(btn[0]+32)) {
+			first := []rune(btn)
+			if len(first) > 0 && unicode.ToLower(kev.Rune()) == unicode.ToLower(first[0]) {
 				d.Selected = i
 				if d.OnButton[i] != nil {
 					d.OnButton[i]()

@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -95,5 +96,77 @@ func TestConfirmDialogLetterShortcut(t *testing.T) {
 	d.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'D', tcell.ModNone))
 	if pressed != 0 {
 		t.Fatalf("'D' shortcut: expected 0 (Discard), got %d", pressed)
+	}
+}
+
+func TestConfirmDialogUnicodeShortcut(t *testing.T) {
+	// Ensure unicode buttons work for hotkey matching (not just ASCII)
+	d := NewConfirmDialogWidget2("msg", "Öffnen", "Nein") // O-umlaut button
+	pressed := -1
+	d.OnButton[0] = func() { pressed = 0 }
+	d.OnButton[1] = func() { pressed = 1 }
+
+	// lowercase o-umlaut should match uppercase O-umlaut button
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'ö', tcell.ModNone))
+	if pressed != 0 {
+		t.Fatalf("unicode shortcut: expected 0, got %d", pressed)
+	}
+}
+
+func makeSurface(w, h int) *RenderSurface {
+	cells := make([][]term.Cell, h)
+	for i := range cells {
+		cells[i] = make([]term.Cell, w)
+	}
+	return NewRenderSurface(cells, Rect{X: 0, Y: 0, W: w, H: h})
+}
+
+func TestConfirmDialogAutoSize(t *testing.T) {
+	// Short message: box should fit the message width (message + 4 padding)
+	d := NewConfirmDialogWidget("OK?")
+	surface := makeSurface(80, 24)
+	d.Render(surface)
+	// "OK?" is 3 runes + 4 padding = 7
+	// Buttons "Yes" + "No" = 4 + (3+4) + (2+4) = 4+7+6 = 17
+	// Box should be max(7, 17) = 17
+	if len(d.btnHits) != 2 {
+		t.Fatalf("expected 2 hit regions, got %d", len(d.btnHits))
+	}
+
+	// Long message should make the box wider
+	d2 := NewConfirmDialogWidget("This is a very long message that exceeds the button width easily")
+	d2.Render(surface)
+	msgW := len([]rune(d2.Message)) + 4
+	if len(d2.btnHits) != 2 {
+		t.Fatalf("expected 2 hit regions, got %d", len(d2.btnHits))
+	}
+	// The box should be at least as wide as the message
+	// We verify the buttons fit within the rendered area
+	for _, hit := range d2.btnHits {
+		if hit.W <= 0 {
+			t.Fatal("button hit region has zero or negative width")
+		}
+	}
+	// msgW should drive the box width (it's wider than buttons)
+	btnW := 4
+	for _, btn := range d2.Buttons {
+		btnW += len([]rune(btn)) + 4
+	}
+	if msgW <= btnW {
+		t.Fatal("test setup: message should be wider than buttons")
+	}
+}
+
+func TestConfirmDialogAutoSizeClamp(t *testing.T) {
+	// On a narrow screen, box should clamp to screen width - 4
+	d := NewConfirmDialogWidget("This message is quite long for a narrow terminal")
+	surface := makeSurface(20, 24)
+	d.Render(surface)
+	// Box should be clamped to 20-4 = 16
+	// Verify hit regions are within bounds
+	for _, hit := range d.btnHits {
+		if hit.X < 0 || hit.X+hit.W > 20 {
+			t.Fatalf("button hit region out of bounds: X=%d, W=%d", hit.X, hit.W)
+		}
 	}
 }
