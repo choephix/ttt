@@ -49,6 +49,8 @@ func Load(settingsFile string) AppConfig {
 		}
 	}
 
+	normalizeSettings(&cfg.Settings)
+
 	cfg.Theme.ResolveColors()
 
 	return cfg

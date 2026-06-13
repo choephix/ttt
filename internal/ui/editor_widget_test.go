@@ -26,15 +26,16 @@ func TestEditorRender(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 10})
 	e.Render(surface)
 
-	if grid[0][0].Ch != 'H' {
-		t.Fatalf("expected 'H' at (0,0), got '%c'", grid[0][0].Ch)
+	g := e.GutterWidth()
+	if grid[0][g].Ch != 'H' {
+		t.Fatalf("expected 'H' at (%d,0), got '%c'", g, grid[0][g].Ch)
 	}
-	if grid[1][0].Ch != 'W' {
-		t.Fatalf("expected 'W' at (0,1), got '%c'", grid[1][0].Ch)
+	if grid[1][g].Ch != 'W' {
+		t.Fatalf("expected 'W' at (%d,1), got '%c'", g, grid[1][g].Ch)
 	}
 	// Line past buffer should be empty
-	if grid[3][0].Ch != ' ' {
-		t.Fatalf("expected ' ' at (0,3), got '%c'", grid[3][0].Ch)
+	if grid[3][g].Ch != ' ' {
+		t.Fatalf("expected ' ' at (%d,3), got '%c'", g, grid[3][g].Ch)
 	}
 }
 
@@ -81,8 +82,9 @@ func TestEditorCursorPosition(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 5, Y: 3, W: 20, H: 10})
 	e.Render(surface)
 
-	if e.CursorX != 7 {
-		t.Fatalf("expected CursorX 7, got %d", e.CursorX)
+	expectedX := 5 + e.GutterWidth() + 2
+	if e.CursorX != expectedX {
+		t.Fatalf("expected CursorX %d, got %d", expectedX, e.CursorX)
 	}
 	if e.CursorY != 4 {
 		t.Fatalf("expected CursorY 4, got %d", e.CursorY)
@@ -156,17 +158,18 @@ func TestEditorSelectionHighlight(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 10})
 	e.Render(surface)
 
-	// Cols 1,2,3 should have BgStyle=StyleSelection (syntax fg preserved)
+	// Cols 1,2,3 (offset by gutter) should have BgStyle=StyleSelection
+	g := e.GutterWidth()
 	for col := 1; col <= 3; col++ {
-		if grid[0][col].BgStyle != term.StyleSelection {
-			t.Errorf("col %d: expected BgStyle=StyleSelection, got %d", col, grid[0][col].BgStyle)
+		if grid[0][g+col].BgStyle != term.StyleSelection {
+			t.Errorf("col %d: expected BgStyle=StyleSelection, got %d", col, grid[0][g+col].BgStyle)
 		}
 	}
 	// Col 0 and col 4 should NOT be selected
-	if grid[0][0].BgStyle == term.StyleSelection {
+	if grid[0][g+0].BgStyle == term.StyleSelection {
 		t.Error("col 0 should not be selected")
 	}
-	if grid[0][4].BgStyle == term.StyleSelection {
+	if grid[0][g+4].BgStyle == term.StyleSelection {
 		t.Error("col 4 should not be selected")
 	}
 }
@@ -180,28 +183,31 @@ func TestEditorLineNumbers(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 10})
 	e.Render(surface)
 
-	// 3 lines → 2-digit minimum → gutter width 7: 2 left pad + 2 digits + 3 right pad (extended)
+	g := e.GutterWidth()
+	// First col should be gutter padding
 	if grid[0][0].Ch != ' ' {
 		t.Fatalf("expected left pad space at (0,0), got '%c'", grid[0][0].Ch)
 	}
-	if grid[0][3].Ch != '1' {
-		t.Fatalf("expected '1' at (0,3), got '%c'", grid[0][3].Ch)
+	// Line number "1" is right-aligned before the right padding
+	numCol := g - 3 // 1 left pad + digits, number ends at gutterW - 2 (right pad)
+	if grid[0][numCol].Ch != '1' {
+		t.Fatalf("expected '1' at (0,%d), got '%c'", numCol, grid[0][numCol].Ch)
 	}
-	// Text starts at col 7
-	if grid[0][7].Ch != 'H' {
-		t.Fatalf("expected 'H' at (0,7), got '%c'", grid[0][7].Ch)
+	// Text starts after gutter
+	if grid[0][g].Ch != 'H' {
+		t.Fatalf("expected 'H' at (0,%d), got '%c'", g, grid[0][g].Ch)
 	}
 	// Line 2
-	if grid[1][3].Ch != '2' {
-		t.Fatalf("expected '2' at (1,3), got '%c'", grid[1][3].Ch)
+	if grid[1][numCol].Ch != '2' {
+		t.Fatalf("expected '2' at (1,%d), got '%c'", numCol, grid[1][numCol].Ch)
 	}
 	// Gutter style on non-active line
-	if grid[1][3].Style != term.StyleLineNumber {
-		t.Errorf("expected StyleLineNumber for gutter, got %d", grid[1][3].Style)
+	if grid[1][numCol].Style != term.StyleLineNumber {
+		t.Errorf("expected StyleLineNumber for gutter, got %d", grid[1][numCol].Style)
 	}
 	// Active line gutter gets StyleActiveLine
-	if grid[0][3].Style != term.StyleActiveLine {
-		t.Errorf("expected StyleActiveLine for active line gutter, got %d", grid[0][3].Style)
+	if grid[0][numCol].Style != term.StyleActiveLine {
+		t.Errorf("expected StyleActiveLine for active line gutter, got %d", grid[0][numCol].Style)
 	}
 }
 
@@ -216,9 +222,9 @@ func TestEditorLineNumbersCursorOffset(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 5, Y: 3, W: 20, H: 10})
 	e.Render(surface)
 
-	// gutter width = 7, so CursorX = 5 (rect X) + 7 (gutter) + 2 (col) = 14
-	if e.CursorX != 14 {
-		t.Fatalf("expected CursorX 14, got %d", e.CursorX)
+	expectedX := 5 + e.GutterWidth() + 2
+	if e.CursorX != expectedX {
+		t.Fatalf("expected CursorX %d, got %d", expectedX, e.CursorX)
 	}
 }
 

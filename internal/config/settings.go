@@ -137,6 +137,14 @@ func DefaultSettings() Settings {
 	}
 }
 
+func normalizeSettings(s *Settings) {
+	switch s.Editor.GutterStyle {
+	case "minimal", "compact", "extended":
+	default:
+		s.Editor.GutterStyle = "compact"
+	}
+}
+
 func SaveSettings(s Settings) error {
 	path := ConfigFilePath("settings.json")
 	data, err := json.MarshalIndent(s, "", "  ")

@@ -80,10 +80,10 @@ func (e *EditorPaneWidget) GutterWidth() int {
 	switch e.GutterStyle {
 	case "minimal":
 		return digits + 1
-	case "compact":
-		return digits + 3
-	default:
+	case "extended":
 		return digits + 5
+	default:
+		return digits + 3
 	}
 }
 
@@ -227,10 +227,10 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				switch e.GutterStyle {
 				case "minimal":
 					padded = strings.Repeat(" ", gutterW-1-len(numStr)) + numStr + " "
-				case "compact":
-					padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
-				default:
+				case "extended":
 					padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
+				default:
+					padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
 				}
 			}
 			for i, ch := range padded {
