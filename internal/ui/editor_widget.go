@@ -68,6 +68,9 @@ func (e *EditorPaneWidget) Focusable() bool { return true }
 
 func (e *EditorPaneWidget) GutterWidth() int {
 	if !e.LineNumbers {
+		if e.GutterStyle != "minimal" {
+			return 1
+		}
 		return 0
 	}
 	digits := len(strconv.Itoa(len(e.Buf.Lines)))
@@ -213,18 +216,22 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			if lineIdx < totalLines && lineIdx == e.Cursor.Line {
 				gutterStyle = term.StyleActiveLine
 			}
-			numStr := ""
-			if lineIdx < totalLines {
-				numStr = strconv.Itoa(lineIdx + 1)
-			}
 			var padded string
-			switch e.GutterStyle {
-			case "minimal":
-				padded = strings.Repeat(" ", gutterW-1-len(numStr)) + numStr + " "
-			case "compact":
-				padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
-			default:
-				padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
+			if !e.LineNumbers {
+				padded = strings.Repeat(" ", gutterW)
+			} else {
+				numStr := ""
+				if lineIdx < totalLines {
+					numStr = strconv.Itoa(lineIdx + 1)
+				}
+				switch e.GutterStyle {
+				case "minimal":
+					padded = strings.Repeat(" ", gutterW-1-len(numStr)) + numStr + " "
+				case "compact":
+					padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
+				default:
+					padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
+				}
 			}
 			for i, ch := range padded {
 				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
