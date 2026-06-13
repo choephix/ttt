@@ -74,10 +74,14 @@ func (e *EditorPaneWidget) GutterWidth() int {
 	if digits < 2 {
 		digits = 2
 	}
-	if e.GutterStyle == "compact" {
+	switch e.GutterStyle {
+	case "minimal":
+		return digits + 1
+	case "compact":
 		return digits + 3
+	default:
+		return digits + 5
 	}
-	return digits + 5
 }
 
 func (e *EditorPaneWidget) computeMaxLineWidth() int {
@@ -213,11 +217,13 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			if lineIdx < totalLines {
 				numStr = strconv.Itoa(lineIdx + 1)
 			}
-			compact := e.GutterStyle == "compact"
 			var padded string
-			if compact {
+			switch e.GutterStyle {
+			case "minimal":
+				padded = strings.Repeat(" ", gutterW-1-len(numStr)) + numStr + " "
+			case "compact":
 				padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
-			} else {
+			default:
 				padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
 			}
 			for i, ch := range padded {
@@ -226,10 +232,17 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			if e.Folds != nil && lineIdx < totalLines {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
 					chevronCol := gutterW - 2
+					collapsedCh := '▶'
+					expandedCh := '▼'
+					if e.GutterStyle == "minimal" {
+						chevronCol = gutterW - 1
+						collapsedCh = '▸'
+						expandedCh = '▾'
+					}
 					if e.Folds.IsCollapsed(lineIdx) {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '▶', Style: gutterStyle})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: collapsedCh, Style: gutterStyle})
 					} else if e.gutterHover {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '▼', Style: gutterStyle})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: expandedCh, Style: gutterStyle})
 					}
 				}
 			}

@@ -87,7 +87,7 @@ func DefaultEditorSettings() EditorSettings {
 		InsertSpaces:       true,
 		LineNumbers:        true,
 		InsertFinalNewline: true,
-		GutterStyle:        "extended",
+		GutterStyle:        "compact",
 	}
 }
 
