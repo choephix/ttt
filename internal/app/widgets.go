@@ -90,6 +90,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	}
 
 	terminalPanel := ui.NewTerminalPanelWidget()
+	terminalPanel.Borders = borders
 	problems := ui.NewProblemsWidget()
 	references := ui.NewReferencesWidget()
 	bottomPanel := ui.NewBottomPanelWidget(borders)
