@@ -2,20 +2,21 @@ package ui
 
 import (
 	"fmt"
-	"log/slog"
-	"path/filepath"
-	"strings"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/core/cursor"
 	"github.com/eugenioenko/ttt/internal/core/diff"
+	"github.com/eugenioenko/ttt/internal/core/fold"
 	"github.com/eugenioenko/ttt/internal/core/highlight"
 	"github.com/eugenioenko/ttt/internal/core/multicursor"
 	"github.com/eugenioenko/ttt/internal/core/selection"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"log/slog"
+	"path/filepath"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -49,6 +50,7 @@ type editorTab struct {
 	Multi       *multicursor.MultiCursor
 	Highlighter *highlight.Highlighter
 	Diagnostics []Diagnostic
+	Folds       *fold.State
 	TabSize     int
 	Content     Widget
 	Pinned      bool
@@ -56,25 +58,26 @@ type editorTab struct {
 
 type EditorGroupWidget struct {
 	BaseWidget
-	TabBar       *TabBarWidget
-	Editor       *EditorPaneWidget
-	Autocomplete  *AutocompleteWidget
-	Hover         *HoverWidget
-	SignatureHelp *SignatureHelpWidget
-	tabs         []editorTab
-	active       int
-	TabSize            int
-	LineNumbers        bool
+	TabBar                 *TabBarWidget
+	Editor                 *EditorPaneWidget
+	Autocomplete           *AutocompleteWidget
+	Hover                  *HoverWidget
+	SignatureHelp          *SignatureHelpWidget
+	tabs                   []editorTab
+	active                 int
+	TabSize                int
+	LineNumbers            bool
+	GutterStyle            string
 	InsertFinalNewline     bool
 	TrimTrailingWhitespace bool
-	Borders      *term.BorderSet
-	OnFileOpen   func(path, lang, text string)
-	OnFileChange func(path, lang, text string)
-	OnFileClose  func(path, lang string)
-	OnError      func(msg string)
+	Borders                *term.BorderSet
+	OnFileOpen             func(path, lang, text string)
+	OnFileChange           func(path, lang, text string)
+	OnFileClose            func(path, lang string)
+	OnError                func(msg string)
 }
 
-func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
+func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
 	editor := NewEditorPaneWidget(
 		&buffer.Buffer{Lines: []string{""}},
 		&cursor.Cursor{},
@@ -82,6 +85,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	)
 	editor.TabSize = tabSize
 	editor.LineNumbers = lineNumbers
+	editor.GutterStyle = gutterStyle
 
 	tabBar := NewTabBarWidget()
 	tabBar.Borders = borders
@@ -92,6 +96,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 		Editor:      editor,
 		TabSize:     tabSize,
 		LineNumbers: lineNumbers,
+		GutterStyle: gutterStyle,
 		Borders:     borders,
 	}
 	tabBar.OnTabClick = func(index int) {
@@ -165,6 +170,8 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 {
 		tabSize = detected.Size
 	}
+	folds := fold.NewState()
+	folds.SetRanges(fold.ComputeIndentRanges(newBuf.Lines))
 	newTab := editorTab{
 		FilePath:    path,
 		Buf:         newBuf,
@@ -173,6 +180,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Undo:        &undo.UndoStack{},
 		Sel:         &selection.Selection{},
 		Highlighter: highlight.New(path),
+		Folds:       folds,
 		TabSize:     tabSize,
 	}
 	if t := g.activeTab(); t != nil && !t.Pinned && t.Content == nil && t.Buf != nil && !t.Buf.Dirty {
@@ -194,6 +202,8 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 			return
 		}
 	}
+	folds := fold.NewState()
+	folds.SetRanges(fold.ComputeIndentRanges(buf.Lines))
 	g.tabs = append(g.tabs, editorTab{
 		FilePath: path,
 		Buf:      buf,
@@ -201,6 +211,7 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 		Vp:       &view.Viewport{},
 		Undo:     &undo.UndoStack{},
 		Sel:      &selection.Selection{},
+		Folds:    folds,
 	})
 	g.SwitchTab(len(g.tabs) - 1)
 }
@@ -228,6 +239,9 @@ func (g *EditorGroupWidget) ReloadFile(path string) {
 		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
 			g.tabs[i].Buf.LoadFile(path)
 			g.tabs[i].Buf.Dirty = false
+			if g.tabs[i].Folds != nil {
+				g.tabs[i].Folds.SetRanges(fold.ComputeIndentRanges(g.tabs[i].Buf.Lines))
+			}
 			g.clampCursor(&g.tabs[i])
 			if i == g.active {
 				g.syncTabs()
@@ -515,6 +529,14 @@ func (g *EditorGroupWidget) AnyDirty() bool {
 	return false
 }
 
+func (g *EditorGroupWidget) undoRedoPostProcess() {
+	g.Editor.InvalidateMaxLineWidth()
+	if g.Editor.Folds != nil {
+		g.Editor.Folds.SetRanges(fold.ComputeIndentRanges(g.Editor.Buf.Lines))
+		g.Editor.ExpandFoldContaining(g.Editor.Cursor.Line)
+	}
+}
+
 func (g *EditorGroupWidget) Undo() {
 	t := g.activeTab()
 	if t == nil || t.Content != nil {
@@ -525,7 +547,7 @@ func (g *EditorGroupWidget) Undo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
-		g.Editor.InvalidateMaxLineWidth()
+		g.undoRedoPostProcess()
 	}
 }
 
@@ -539,7 +561,7 @@ func (g *EditorGroupWidget) Redo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
-		g.Editor.InvalidateMaxLineWidth()
+		g.undoRedoPostProcess()
 	}
 }
 
@@ -581,7 +603,9 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	if line > len(g.Editor.Buf.Lines) {
 		line = len(g.Editor.Buf.Lines)
 	}
-	g.Editor.Cursor.Line = line - 1
+	bufLine := line - 1
+	g.Editor.ExpandFoldContaining(bufLine)
+	g.Editor.Cursor.Line = bufLine
 	g.Editor.Cursor.Col = 0
 	g.Editor.scrollViewport()
 }
@@ -615,6 +639,7 @@ func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
 	}
 }
 
+
 func (g *EditorGroupWidget) FindNext() {
 	if !g.IsEditorActive() || len(g.Editor.SearchMatches) == 0 {
 		return
@@ -623,6 +648,7 @@ func (g *EditorGroupWidget) FindNext() {
 	cur = (cur + 1) % len(g.Editor.SearchMatches)
 	g.Editor.SearchActive = cur
 	m := g.Editor.SearchMatches[cur]
+	g.Editor.ExpandFoldContaining(m.Line)
 	g.Editor.Cursor.Line = m.Line
 	g.Editor.Cursor.Col = m.Col
 	g.Editor.scrollViewport()
@@ -669,6 +695,7 @@ func (g *EditorGroupWidget) FindPrev() {
 	cur = (cur - 1 + len(g.Editor.SearchMatches)) % len(g.Editor.SearchMatches)
 	g.Editor.SearchActive = cur
 	m := g.Editor.SearchMatches[cur]
+	g.Editor.ExpandFoldContaining(m.Line)
 	g.Editor.Cursor.Line = m.Line
 	g.Editor.Cursor.Col = m.Col
 	g.Editor.scrollViewport()
@@ -832,6 +859,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Multi = t.Multi
 		g.Editor.Highlighter = t.Highlighter
 		g.Editor.Diagnostics = t.Diagnostics
+		g.Editor.Folds = t.Folds
 		g.Editor.buildDiagIndex()
 		g.Editor.InvalidateMaxLineWidth()
 		if t.TabSize > 0 {

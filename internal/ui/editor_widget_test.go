@@ -180,28 +180,28 @@ func TestEditorLineNumbers(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 20, H: 10})
 	e.Render(surface)
 
-	// 3 lines → 2-digit minimum → gutter width 5: 1 left pad + 2 digits + 2 right pad
+	// 3 lines → 2-digit minimum → gutter width 7: 2 left pad + 2 digits + 3 right pad (extended)
 	if grid[0][0].Ch != ' ' {
 		t.Fatalf("expected left pad space at (0,0), got '%c'", grid[0][0].Ch)
 	}
-	if grid[0][2].Ch != '1' {
-		t.Fatalf("expected '1' at (0,2), got '%c'", grid[0][2].Ch)
+	if grid[0][3].Ch != '1' {
+		t.Fatalf("expected '1' at (0,3), got '%c'", grid[0][3].Ch)
 	}
-	// Text starts at col 5
-	if grid[0][5].Ch != 'H' {
-		t.Fatalf("expected 'H' at (0,5), got '%c'", grid[0][5].Ch)
+	// Text starts at col 7
+	if grid[0][7].Ch != 'H' {
+		t.Fatalf("expected 'H' at (0,7), got '%c'", grid[0][7].Ch)
 	}
 	// Line 2
-	if grid[1][2].Ch != '2' {
-		t.Fatalf("expected '2' at (1,2), got '%c'", grid[1][2].Ch)
+	if grid[1][3].Ch != '2' {
+		t.Fatalf("expected '2' at (1,3), got '%c'", grid[1][3].Ch)
 	}
 	// Gutter style on non-active line
-	if grid[1][2].Style != term.StyleLineNumber {
-		t.Errorf("expected StyleLineNumber for gutter, got %d", grid[1][2].Style)
+	if grid[1][3].Style != term.StyleLineNumber {
+		t.Errorf("expected StyleLineNumber for gutter, got %d", grid[1][3].Style)
 	}
 	// Active line gutter gets StyleActiveLine
-	if grid[0][2].Style != term.StyleActiveLine {
-		t.Errorf("expected StyleActiveLine for active line gutter, got %d", grid[0][2].Style)
+	if grid[0][3].Style != term.StyleActiveLine {
+		t.Errorf("expected StyleActiveLine for active line gutter, got %d", grid[0][3].Style)
 	}
 }
 
@@ -216,9 +216,9 @@ func TestEditorLineNumbersCursorOffset(t *testing.T) {
 	surface := NewRenderSurface(grid, Rect{X: 5, Y: 3, W: 20, H: 10})
 	e.Render(surface)
 
-	// gutter width = 5, so CursorX = 5 (rect X) + 5 (gutter) + 2 (col) = 12
-	if e.CursorX != 12 {
-		t.Fatalf("expected CursorX 12, got %d", e.CursorX)
+	// gutter width = 7, so CursorX = 5 (rect X) + 7 (gutter) + 2 (col) = 14
+	if e.CursorX != 14 {
+		t.Fatalf("expected CursorX 14, got %d", e.CursorX)
 	}
 }
 

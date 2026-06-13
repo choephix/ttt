@@ -295,6 +295,46 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "fold.toggle", Title: "Toggle Fold",
+		Handler: func() {
+			if !app.EditorGroup.IsEditorActive() {
+				return
+			}
+			e := app.EditorGroup.Editor
+			if e.Folds != nil {
+				e.Folds.Toggle(e.Cursor.Line)
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "fold.collapseAll", Title: "Fold All",
+		Handler: func() {
+			if !app.EditorGroup.IsEditorActive() {
+				return
+			}
+			e := app.EditorGroup.Editor
+			if e.Folds != nil {
+				e.Folds.CollapseAll()
+				e.EnsureCursorVisible()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "fold.expandAll", Title: "Unfold All",
+		Handler: func() {
+			if !app.EditorGroup.IsEditorActive() {
+				return
+			}
+			e := app.EditorGroup.Editor
+			if e.Folds != nil {
+				e.Folds.ExpandAll()
+			}
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "file.new", Title: "New File",
 		Handler: app.NewFile,
 	})
