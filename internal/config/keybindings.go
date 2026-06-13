@@ -27,10 +27,10 @@ func (kb *KeyBinding) IsChord() bool {
 var ForceKeyCommands = map[string]bool{
 	"terminal.toggle":     true,
 	"terminal.fullscreen": true,
-	"editor.quit":     true,
-	"command.palette": true,
-	"file.quickOpen":  true,
-	"sidebar.toggle":  true,
+	"editor.quit":         true,
+	"command.palette":     true,
+	"file.quickOpen":      true,
+	"sidebar.toggle":      true,
 }
 
 func ParseKeyBindings(bindings []KeyBinding) error {
@@ -188,6 +188,9 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "alt+backspace", Command: "editor.deleteWordLeft"},
 		{Key: "alt+delete", Command: "editor.deleteWordRight"},
 		{Key: "ctrl+delete", Command: "editor.deleteWordRight"},
+		{Key: "ctrl+k [", Command: "fold.toggle"},
+		{Key: "ctrl+k 0", Command: "fold.collapseAll"},
+		{Key: "ctrl+k 9", Command: "fold.expandAll"},
 		{Key: "ctrl+k j", Command: "panel.toggle"},
 		{Key: "ctrl+t", Command: "terminal.toggle"},
 		{Key: "alt+t", Command: "terminal.fullscreen"},
