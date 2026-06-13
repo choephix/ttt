@@ -17,6 +17,7 @@ func RegisterCommands(app *App) {
 	registerGitCommands(app)
 	registerWorkspaceCommands(app)
 	registerPRCommands(app)
+	registerHelpCommands(app)
 	registerWidgetCallbacks(app)
 	RegisterEscapeDismissers(app)
 }

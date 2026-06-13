@@ -1,0 +1,225 @@
+package ui
+
+import (
+	"github.com/eugenioenko/ttt/internal/term"
+
+	"github.com/gdamore/tcell/v2"
+)
+
+// HelpEntry represents a single key-description pair in the help dialog.
+type HelpEntry struct {
+	Key  string
+	Desc string
+}
+
+// HelpDialogWidget shows a scrollable list of keyboard shortcuts for a panel.
+type HelpDialogWidget struct {
+	BaseWidget
+	Title   string
+	Entries []HelpEntry
+	Borders *term.BorderSet
+
+	OnDismiss func()
+
+	scrollTop int
+}
+
+func NewHelpDialogWidget(title string, entries []HelpEntry) *HelpDialogWidget {
+	return &HelpDialogWidget{
+		Title:   title,
+		Entries: entries,
+	}
+}
+
+func (d *HelpDialogWidget) Focusable() bool { return true }
+
+func (d *HelpDialogWidget) Render(surface *RenderSurface) {
+	sw, sh := surface.Size()
+
+	// Compute box dimensions
+	keyColW := 0
+	for _, e := range d.Entries {
+		if len([]rune(e.Key)) > keyColW {
+			keyColW = len([]rune(e.Key))
+		}
+	}
+	keyColW += 2 // padding
+
+	descColW := 0
+	for _, e := range d.Entries {
+		if len([]rune(e.Desc)) > descColW {
+			descColW = len([]rune(e.Desc))
+		}
+	}
+
+	contentW := keyColW + descColW + 2
+	titleW := len([]rune(d.Title)) + 4
+	if titleW > contentW {
+		contentW = titleW
+	}
+
+	boxW := contentW + 4 // 2 border + 2 padding
+	if boxW > sw-4 {
+		boxW = sw - 4
+	}
+	if boxW < 20 {
+		boxW = 20
+	}
+
+	// Box height: title + separator + entries + bottom border + close hint
+	maxEntries := len(d.Entries)
+	visibleEntries := maxEntries
+	maxVisibleH := sh - 8 // leave room for border + title + close hint
+	if visibleEntries > maxVisibleH {
+		visibleEntries = maxVisibleH
+	}
+	if visibleEntries < 1 {
+		visibleEntries = 1
+	}
+
+	boxH := visibleEntries + 5 // top border + title + separator + entries + close hint + bottom border
+	boxX := (sw - boxW) / 2
+	boxY := (sh - boxH) / 2
+	if boxY < 1 {
+		boxY = 1
+	}
+
+	b := term.DoubleBorderSet()
+	if d.Borders != nil {
+		b = *d.Borders
+	}
+
+	surface.ClearRect(boxX, boxY, boxW, boxH, term.StylePaletteItem)
+	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
+
+	// Title
+	titleX := boxX + (boxW-len([]rune(d.Title)))/2
+	surface.DrawText(titleX, boxY+1, d.Title, boxX+boxW-2, term.StylePaletteSelected)
+
+	// Separator line
+	sepY := boxY + 2
+	for x := boxX + 1; x < boxX+boxW-1; x++ {
+		surface.SetCell(x, sepY, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
+	}
+
+	// Clamp scroll
+	if d.scrollTop > len(d.Entries)-visibleEntries {
+		d.scrollTop = len(d.Entries) - visibleEntries
+	}
+	if d.scrollTop < 0 {
+		d.scrollTop = 0
+	}
+
+	// Entries
+	innerW := boxW - 4
+	for i := 0; i < visibleEntries && d.scrollTop+i < len(d.Entries); i++ {
+		entry := d.Entries[d.scrollTop+i]
+		y := boxY + 3 + i
+
+		// Key column (right-aligned in its space, using selected style for emphasis)
+		keyRunes := []rune(entry.Key)
+		kw := keyColW
+		if kw > innerW/2 {
+			kw = innerW / 2
+		}
+		kx := boxX + 2 + kw - len(keyRunes)
+		if kx < boxX+2 {
+			kx = boxX + 2
+		}
+		surface.DrawText(kx, y, entry.Key, boxX+2+kw, term.StylePaletteSelected)
+
+		// Description column
+		descX := boxX + 2 + kw + 2
+		surface.DrawText(descX, y, entry.Desc, boxX+boxW-2, term.StylePaletteItem)
+	}
+
+	// Scroll indicators
+	if d.scrollTop > 0 {
+		surface.SetCell(boxX+boxW-2, boxY+3, term.Cell{Ch: '^', Style: term.StyleMuted})
+	}
+	if d.scrollTop+visibleEntries < len(d.Entries) {
+		surface.SetCell(boxX+boxW-2, boxY+3+visibleEntries-1, term.Cell{Ch: 'v', Style: term.StyleMuted})
+	}
+
+	// Close hint
+	closeY := boxY + boxH - 1
+	closeText := " Press Esc to close "
+	closeX := boxX + (boxW-len([]rune(closeText)))/2
+	surface.DrawText(closeX, closeY, closeText, boxX+boxW-1, term.StyleMuted)
+
+	// Scrollbar if needed
+	if len(d.Entries) > visibleEntries && visibleEntries > 1 {
+		sbX := boxX + boxW - 2
+		sbTop := boxY + 3
+		ratio := float64(d.scrollTop) / float64(len(d.Entries)-visibleEntries)
+		thumbY := sbTop + int(ratio*float64(visibleEntries-1))
+		for y := sbTop; y < sbTop+visibleEntries; y++ {
+			ch := ' '
+			style := term.StyleScrollbar
+			if y == thumbY {
+				style = term.StyleScrollbarThumb
+			}
+			surface.SetCell(sbX, y, term.Cell{Ch: rune(ch), Style: style})
+		}
+	}
+}
+
+func (d *HelpDialogWidget) HandleEvent(ev tcell.Event) EventResult {
+	if mev, ok := ev.(*tcell.EventMouse); ok {
+		btn := mev.Buttons()
+		if btn&tcell.Button1 != 0 {
+			// Click anywhere dismisses
+			if d.OnDismiss != nil {
+				d.OnDismiss()
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelUp != 0 {
+			d.scrollTop -= 3
+			if d.scrollTop < 0 {
+				d.scrollTop = 0
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelDown != 0 {
+			max := len(d.Entries) - 5
+			if max < 0 {
+				max = 0
+			}
+			d.scrollTop += 3
+			if d.scrollTop > max {
+				d.scrollTop = max
+			}
+			return EventConsumed
+		}
+		return EventConsumed
+	}
+
+	kev, ok := ev.(*tcell.EventKey)
+	if !ok {
+		return EventConsumed
+	}
+
+	switch kev.Key() {
+	case tcell.KeyEscape, tcell.KeyEnter:
+		if d.OnDismiss != nil {
+			d.OnDismiss()
+		}
+	case tcell.KeyUp:
+		d.scrollTop--
+		if d.scrollTop < 0 {
+			d.scrollTop = 0
+		}
+	case tcell.KeyDown:
+		d.scrollTop++
+		max := len(d.Entries) - 5
+		if max < 0 {
+			max = 0
+		}
+		if d.scrollTop > max {
+			d.scrollTop = max
+		}
+	}
+
+	return EventConsumed
+}
