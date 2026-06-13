@@ -22,6 +22,7 @@ type ProblemsWidget struct {
 	Items      []ProblemItem
 	selected   int
 	scrollTop  int
+	scrollbar  Scrollbar
 	OnNavigate func(file string, line, col int)
 }
 
@@ -73,6 +74,18 @@ func (p *ProblemsWidget) Render(surface *RenderSurface) {
 		p.scrollTop = p.selected - h + 1
 	}
 
+	r := p.GetRect()
+	p.scrollbar.X = r.X + w - 1
+	p.scrollbar.Y = r.Y
+	p.scrollbar.Height = h
+	p.scrollbar.TotalItems = len(p.Items)
+	p.scrollbar.TopItem = p.scrollTop
+
+	contentW := w
+	if p.scrollbar.Visible() {
+		contentW = w - 1
+	}
+
 	for y := 0; y < h; y++ {
 		idx := p.scrollTop + y
 		if idx >= len(p.Items) {
@@ -85,7 +98,7 @@ func (p *ProblemsWidget) Render(surface *RenderSurface) {
 			style = term.StyleSidebarSelected
 		}
 
-		for x := 0; x < w; x++ {
+		for x := 0; x < contentW; x++ {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 		}
 
@@ -110,7 +123,7 @@ func (p *ProblemsWidget) Render(surface *RenderSurface) {
 		// File:line
 		loc := fmt.Sprintf("%s:%d", filepath.Base(item.File), item.Line+1)
 		for _, ch := range loc {
-			if x >= w {
+			if x >= contentW {
 				break
 			}
 			surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
@@ -124,16 +137,25 @@ func (p *ProblemsWidget) Render(surface *RenderSurface) {
 			msgStyle = term.StyleMuted
 		}
 		for _, ch := range item.Message {
-			if x >= w-1 {
+			if x >= contentW {
 				break
 			}
 			surface.SetCell(x, y, term.Cell{Ch: ch, Style: msgStyle})
 			x++
 		}
 	}
+
+	p.scrollbar.Render(surface, w-1, 0)
 }
 
 func (p *ProblemsWidget) HandleEvent(ev tcell.Event) EventResult {
+	if newTop, consumed := p.scrollbar.HandleEvent(ev); consumed {
+		p.scrollTop = newTop
+		if p.scrollbar.IsDragging() {
+			return EventCaptured
+		}
+		return EventConsumed
+	}
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		switch tev.Key() {
