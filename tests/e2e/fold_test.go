@@ -159,10 +159,10 @@ func TestCursorUp_SkipsFold(t *testing.T) {
 	}
 }
 
-func TestFoldAnnotation_Singular(t *testing.T) {
+func TestFoldAnnotation_Ellipsis(t *testing.T) {
 	h := newTestHarness(t, 80, 30)
 	goFile := filepath.Join(h.dir, "main.go")
-	os.WriteFile(goFile, []byte("package main\n\nfunc main() {\n\ta()\n}\n"), 0644)
+	os.WriteFile(goFile, []byte("package main\n\nfunc main() {\n\ta()\n\tb()\n}\n"), 0644)
 
 	h.app.EditorGroup.OpenFile(goFile)
 	h.redraw()
@@ -170,27 +170,7 @@ func TestFoldAnnotation_Singular(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Line = 2
 	h.exec("fold.toggle")
 
-	screen := h.screenText()
-	if !strings.Contains(screen, "+1 line)") {
-		t.Errorf("expected singular '+1 line)' in fold annotation, got:\n%s", screen)
-	}
-}
-
-func TestFoldAnnotation_Plural(t *testing.T) {
-	h := newTestHarness(t, 80, 30)
-	goFile := filepath.Join(h.dir, "main.go")
-	os.WriteFile(goFile, []byte("package main\n\nfunc main() {\n\ta()\n\tb()\n\tc()\n}\n"), 0644)
-
-	h.app.EditorGroup.OpenFile(goFile)
-	h.redraw()
-
-	h.app.EditorGroup.Editor.Cursor.Line = 2
-	h.exec("fold.toggle")
-
-	screen := h.screenText()
-	if !strings.Contains(screen, "+3 lines)") {
-		t.Errorf("expected plural '+3 lines)' in fold annotation, got:\n%s", screen)
-	}
+	h.assertContains("⋯")
 }
 
 func TestTypingOnCollapsedFold_ExpandsFold(t *testing.T) {

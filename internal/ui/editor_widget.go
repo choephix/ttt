@@ -244,14 +244,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			isCollapsedLine := e.Folds != nil && e.Folds.IsCollapsed(lineIdx)
 			var annRunes []rune
 			if isCollapsedLine {
-				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
-					hidden := fr.EndLine - fr.StartLine
-					suffix := " lines)"
-					if hidden == 1 {
-						suffix = " line)"
-					}
-					annRunes = []rune(" ⋯ (+" + strconv.Itoa(hidden) + suffix)
-				}
+				annRunes = []rune(" ⋯")
 			}
 
 			lineEnd := len(line)
