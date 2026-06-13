@@ -2121,3 +2121,95 @@ func (e *EditorPaneWidget) SplitSelectionToLines() {
 	e.syncFromMulti()
 	e.scrollViewport()
 }
+
+
+// transformSelection replaces the selected text with the result of applying fn.
+// It preserves the selection after transformation.
+func (e *EditorPaneWidget) transformSelection(fn func(string) string) {
+	if e.Selection == nil || !e.Selection.Active {
+		return
+	}
+	text := e.Selection.Text(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col)
+	if text == "" {
+		return
+	}
+	transformed := fn(text)
+	if transformed == text {
+		return
+	}
+
+	start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+
+	if e.Undo != nil {
+		e.Undo.BreakGroup()
+	}
+
+	// Delete the selection
+	delCmd := &undo.DeleteSelectionCommand{
+		StartLine: start.Line, StartCol: start.Col,
+		EndLine: end.Line, EndCol: end.Col,
+	}
+	e.exec(delCmd)
+
+	// Insert the transformed text
+	tLines := strings.Split(transformed, "\n")
+	if len(tLines) == 1 {
+		e.exec(&undo.InsertStringCommand{Line: start.Line, Col: start.Col, Text: tLines[0]})
+	} else {
+		currentLine := []rune(e.Buf.Lines[start.Line])
+		col := start.Col
+		if col > len(currentLine) {
+			col = len(currentLine)
+		}
+		suffix := string(currentLine[col:])
+		e.exec(&undo.PasteCommand{
+			Line:   start.Line,
+			Col:    col,
+			Text:   transformed,
+			Suffix: suffix,
+		})
+	}
+
+	// Restore the selection so the user sees the transformed range
+	newEndLine := start.Line + len(tLines) - 1
+	var newEndCol int
+	if len(tLines) == 1 {
+		newEndCol = start.Col + len([]rune(tLines[0]))
+	} else {
+		newEndCol = len([]rune(tLines[len(tLines)-1]))
+	}
+
+	e.Selection.Start(start.Line, start.Col)
+	e.Cursor.Line = newEndLine
+	e.Cursor.Col = newEndCol
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) UpperCase() {
+	e.transformSelection(strings.ToUpper)
+}
+
+func (e *EditorPaneWidget) LowerCase() {
+	e.transformSelection(strings.ToLower)
+}
+
+func (e *EditorPaneWidget) TitleCase() {
+	e.transformSelection(func(s string) string {
+		runes := []rune(s)
+		inWord := false
+		for i, r := range runes {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				if !inWord {
+					runes[i] = unicode.ToUpper(r)
+					inWord = true
+				} else {
+					runes[i] = unicode.ToLower(r)
+				}
+			} else if !(inWord && r == '\'') {
+				inWord = false
+			}
+		}
+		return string(runes)
+	})
+}

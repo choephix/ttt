@@ -639,7 +639,6 @@ func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
 	}
 }
 
-
 func (g *EditorGroupWidget) FindNext() {
 	if !g.IsEditorActive() || len(g.Editor.SearchMatches) == 0 {
 		return
@@ -816,6 +815,24 @@ func (g *EditorGroupWidget) SplitSelectionToLines() {
 	if g.IsEditorActive() {
 		g.Editor.SplitSelectionToLines()
 		g.saveMultiState()
+	}
+}
+
+func (g *EditorGroupWidget) UpperCase() {
+	if g.IsEditorActive() {
+		g.Editor.UpperCase()
+	}
+}
+
+func (g *EditorGroupWidget) LowerCase() {
+	if g.IsEditorActive() {
+		g.Editor.LowerCase()
+	}
+}
+
+func (g *EditorGroupWidget) TitleCase() {
+	if g.IsEditorActive() {
+		g.Editor.TitleCase()
 	}
 }
 
