@@ -226,9 +226,9 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
 					chevronCol := gutterW - 2
 					if e.Folds.IsCollapsed(lineIdx) {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '▶', Style: term.StyleLineNumber})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: '▶', Style: gutterStyle})
 					} else if e.gutterHover {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '▼', Style: term.StyleLineNumber})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: '▼', Style: gutterStyle})
 					}
 				}
 			}
