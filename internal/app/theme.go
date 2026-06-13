@@ -27,6 +27,7 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleActiveTab, theme.Tabs.Active)
 	applyStyleDef(&m, term.StyleInactiveTab, theme.Tabs.Inactive)
 	applyStyleDef(&m, term.StyleSidebarSelected, theme.Sidebar.Selected)
+	applyStyleDef(&m, term.StyleSidebarActive, theme.Sidebar.Active)
 	applyStyleDef(&m, term.StylePaletteItem, theme.Dialog.Item)
 	applyStyleDef(&m, term.StylePaletteSelected, theme.Dialog.Selected)
 	applyStyleDef(&m, term.StyleLineNumber, theme.Editor.LineNumber)

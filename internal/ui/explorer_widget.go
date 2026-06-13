@@ -187,11 +187,12 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 		node := e.FlatList[idx]
 		y := i
 
+		isActive := !node.IsDir && node.Path == e.ActiveFile
 		style := term.StyleDefault
 		if idx == e.Selected {
 			style = term.StyleSidebarSelected
-		} else if !node.IsDir && node.Path == e.ActiveFile {
-			style = term.StyleSidebarSelected
+		} else if isActive {
+			style = term.StyleSidebarActive
 		}
 
 		// Fill background for selected item
@@ -203,7 +204,7 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 		indent := node.Depth * 2
 		x := indent
 
-		// Chevron for dirs
+		// Chevron for dirs, icon for files
 		if node.IsDir {
 			chevron := '▶'
 			if node.Expanded {
@@ -218,7 +219,19 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 			}
 			x++
 		} else {
-			x += 2
+			icon := fileIcon(node.Name)
+			iconStyle := term.StyleMuted
+			if idx == e.Selected {
+				iconStyle = style
+			}
+			if x < w {
+				surface.SetCell(x, y, term.Cell{Ch: icon, Style: iconStyle})
+			}
+			x++
+			if x < w {
+				surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
+			}
+			x++
 		}
 
 		// Name
@@ -308,5 +321,60 @@ func (e *ExplorerWidget) expandSelected() {
 			e.loadChildren(node)
 		}
 		e.flatten()
+	}
+}
+
+// fileIcon returns a single-width Unicode character representing the file type.
+func fileIcon(name string) rune {
+	lower := strings.ToLower(name)
+
+	// Match by full filename first
+	switch lower {
+	case ".gitignore", ".gitattributes", ".gitmodules":
+		return '●'
+	case "makefile", "dockerfile", "rakefile":
+		return '⚙'
+	case "license", "licence":
+		return '§'
+	}
+
+	ext := strings.ToLower(filepath.Ext(name))
+	switch ext {
+	case ".go":
+		return '◆'
+	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
+		return '◇'
+	case ".py", ".pyw":
+		return '◆'
+	case ".rb":
+		return '◆'
+	case ".rs":
+		return '◆'
+	case ".c", ".cpp", ".cc", ".h", ".hpp":
+		return '◆'
+	case ".java", ".kt", ".scala":
+		return '◆'
+	case ".html", ".htm", ".css", ".scss", ".less":
+		return '◈'
+	case ".json", ".yaml", ".yml", ".toml", ".xml", ".ini", ".conf":
+		return '⚙'
+	case ".md", ".txt", ".rst", ".doc", ".docx":
+		return '≡'
+	case ".sh", ".bash", ".zsh", ".fish", ".ps1":
+		return '$'
+	case ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".bmp", ".webp":
+		return '◎'
+	case ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar":
+		return '◉'
+	case ".sql":
+		return '◇'
+	case ".log":
+		return '≡'
+	case ".env":
+		return '●'
+	case ".lock":
+		return '⚙'
+	default:
+		return '○'
 	}
 }

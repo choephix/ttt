@@ -28,6 +28,7 @@ type SidebarStyles struct {
 	Header   StyleDef `json:"header"`
 	Item     StyleDef `json:"item"`
 	Selected StyleDef `json:"selected"`
+	Active   StyleDef `json:"active"`
 }
 
 type DialogStyles struct {
@@ -184,6 +185,7 @@ func DefaultTheme() ThemeConfig {
 		Sidebar: SidebarStyles{
 			Header:   StyleDef{Fg: "#ffffff", Bold: true},
 			Selected: StyleDef{Fg: "#ffffff", Bg: "#37373d"},
+			Active:   StyleDef{Fg: "#ffffff", Bold: true},
 		},
 
 		Dialog: DialogStyles{

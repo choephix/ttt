@@ -98,6 +98,53 @@ func TestExplorerOpenFile(t *testing.T) {
 	}
 }
 
+func TestFileIcon(t *testing.T) {
+	tests := []struct {
+		name string
+		want rune
+	}{
+		{"main.go", '◆'},
+		{"app.ts", '◇'},
+		{"index.js", '◇'},
+		{"style.css", '◈'},
+		{"page.html", '◈'},
+		{"config.json", '⚙'},
+		{"data.yaml", '⚙'},
+		{"settings.toml", '⚙'},
+		{"README.md", '≡'},
+		{"notes.txt", '≡'},
+		{"build.sh", '$'},
+		{"deploy.bash", '$'},
+		{"photo.png", '◎'},
+		{"image.jpg", '◎'},
+		{"icon.svg", '◎'},
+		{".gitignore", '●'},
+		{".gitattributes", '●'},
+		{"Makefile", '⚙'},
+		{"Dockerfile", '⚙'},
+		{"archive.zip", '◉'},
+		{"backup.tar", '◉'},
+		{".env", '●'},
+		{"yarn.lock", '⚙'},
+		{"query.sql", '◇'},
+		{"server.log", '≡'},
+		{"unknown.xyz", '○'},
+		{"noext", '○'},
+		// Case insensitive
+		{"Main.GO", '◆'},
+		{"App.TS", '◇'},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fileIcon(tt.name)
+			if got != tt.want {
+				t.Errorf("fileIcon(%q) = %c, want %c", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSidebarPanelSwitching(t *testing.T) {
 	sidebar := NewSidebarWidget()
 	explorer := makeTestTree()

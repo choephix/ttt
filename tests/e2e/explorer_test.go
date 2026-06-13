@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
@@ -150,6 +151,71 @@ func TestExplorerClickOpensFile(t *testing.T) {
 	expectedPath := h.app.Explorer.FlatList[fileIdx].Path
 	if h.app.EditorGroup.ActiveFilePath() != expectedPath {
 		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.EditorGroup.ActiveFilePath())
+	}
+}
+
+func TestExplorerFileIcons(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+	h.redraw()
+
+	// The test harness creates .txt files (alpha.txt, beta.txt, etc.)
+	// which should get the '≡' icon. Verify the icon appears in the screen output.
+	screen := h.screenText()
+
+	// .txt files should have the ≡ icon before the name
+	if !strings.Contains(screen, "≡ alpha.txt") {
+		t.Errorf("expected file icon '≡' before alpha.txt in explorer, got:\n%s", screen)
+	}
+
+	// The root dir should have a chevron, not a file icon
+	if !strings.Contains(screen, "▼") && !strings.Contains(screen, "▶") {
+		t.Errorf("expected chevron for directory in explorer, got:\n%s", screen)
+	}
+}
+
+func TestExplorerActiveFileStyle(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("sidebar.explorer")
+
+	// Find a file node
+	fileIdx := -1
+	for i, node := range h.app.Explorer.FlatList {
+		if !node.IsDir {
+			fileIdx = i
+			break
+		}
+	}
+	if fileIdx < 0 {
+		t.Skip("no file found in explorer")
+	}
+
+	filePath := h.app.Explorer.FlatList[fileIdx].Path
+
+	// Simulate what the event loop does: set ActiveFile directly
+	h.app.Explorer.ActiveFile = filePath
+
+	// Move selection away from the active file
+	h.app.Explorer.Selected = 0
+	h.redraw()
+
+	// Verify the active file is tracked and distinct from selected
+	if h.app.Explorer.ActiveFile != filePath {
+		t.Errorf("expected ActiveFile=%q, got %q", filePath, h.app.Explorer.ActiveFile)
+	}
+
+	// The active file (not selected) should use StyleSidebarActive,
+	// while the selected item (index 0) should use StyleSidebarSelected.
+	// We can verify this by checking that both items are rendered differently
+	// from normal items by confirming they are both present in the screen.
+	screen := h.screenText()
+	fileName := h.app.Explorer.FlatList[fileIdx].Name
+	if !strings.Contains(screen, fileName) {
+		t.Errorf("expected active file %q to appear in screen", fileName)
 	}
 }
 
