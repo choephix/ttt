@@ -55,6 +55,15 @@ func NewContextMenuWidget(items []ContextMenuItem, x, y int) *ContextMenuWidget 
 
 func (c *ContextMenuWidget) Focusable() bool { return true }
 
+func (c *ContextMenuWidget) hasCheckedItems() bool {
+	for _, it := range c.Items {
+		if it.Checked != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ContextMenuWidget) menuWidth() int {
 	maxLabel := 0
 	maxShort := 0
@@ -71,7 +80,10 @@ func (c *ContextMenuWidget) menuWidth() int {
 			maxShort = sr
 		}
 	}
-	w := maxLabel + 4
+	w := maxLabel + 6
+	if c.hasCheckedItems() {
+		w += 2
+	}
 	if maxShort > 0 {
 		w += maxShort + 2
 	}
@@ -124,10 +136,14 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 		}
 
 		surface.ClearRect(x+1, row, menuW-2, 1, style)
-		if it.Checked == MenuChecked {
-			surface.SetCell(x+1, row, term.Cell{Ch: '●', Style: style})
+		labelX := x + 2
+		if c.hasCheckedItems() {
+			if it.Checked == MenuChecked {
+				surface.SetCell(x+1, row, term.Cell{Ch: '✓', Style: style})
+			}
+			labelX = x + 3
 		}
-		surface.DrawText(x+2, row, it.Label, x+menuW-1, style)
+		surface.DrawText(labelX, row, it.Label, x+menuW-1, style)
 
 		if it.Shortcut != "" {
 			shortStyle := term.StyleMuted
