@@ -145,6 +145,16 @@ func normalizeSettings(s *Settings) {
 	}
 }
 
+func LoadSettings() Settings {
+	s := DefaultSettings()
+	paths := configPaths()
+	if data, err := readFirst(paths, "settings.json"); err == nil {
+		json.Unmarshal(data, &s)
+	}
+	normalizeSettings(&s)
+	return s
+}
+
 func SaveSettings(s Settings) error {
 	path := ConfigFilePath("settings.json")
 	data, err := json.MarshalIndent(s, "", "  ")
