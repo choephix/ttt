@@ -6,17 +6,17 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// HelpEntry represents a single key-description pair in the help dialog.
-type HelpEntry struct {
+type InfoEntry struct {
 	Key  string
 	Desc string
 }
 
-// HelpDialogWidget shows a scrollable list of keyboard shortcuts for a panel.
-type HelpDialogWidget struct {
+type InfoDialogWidget struct {
 	BaseWidget
 	Title   string
-	Entries []HelpEntry
+	Entries []InfoEntry
+	Width   int
+	Height  int
 	Borders *term.BorderSet
 
 	OnDismiss func()
@@ -25,26 +25,25 @@ type HelpDialogWidget struct {
 	btnHit    HitRegion
 }
 
-func NewHelpDialogWidget(title string, entries []HelpEntry) *HelpDialogWidget {
-	return &HelpDialogWidget{
+func NewInfoDialogWidget(title string, entries []InfoEntry) *InfoDialogWidget {
+	return &InfoDialogWidget{
 		Title:   title,
 		Entries: entries,
 	}
 }
 
-func (d *HelpDialogWidget) Focusable() bool { return true }
+func (d *InfoDialogWidget) Focusable() bool { return true }
 
-func (d *HelpDialogWidget) Render(surface *RenderSurface) {
+func (d *InfoDialogWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
 
-	// Compute box dimensions
 	keyColW := 0
 	for _, e := range d.Entries {
 		if len([]rune(e.Key)) > keyColW {
 			keyColW = len([]rune(e.Key))
 		}
 	}
-	keyColW += 2 // padding
+	keyColW += 2
 
 	descColW := 0
 	for _, e := range d.Entries {
@@ -59,7 +58,10 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		contentW = titleW
 	}
 
-	boxW := contentW + 4 // 2 border + 2 padding
+	boxW := contentW + 14 // 2 border + 2 padding + 10 extra width
+	if d.Width > 0 {
+		boxW = d.Width
+	}
 	if boxW > sw-4 {
 		boxW = sw - 4
 	}
@@ -67,10 +69,13 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		boxW = 20
 	}
 
-	// Box height: title + separator + entries + bottom border + close hint
-	maxEntries := len(d.Entries)
-	visibleEntries := maxEntries
-	maxVisibleH := sh - 8 // leave room for border + title + close hint
+	visibleEntries := len(d.Entries)
+	if d.Height > 0 {
+		if visibleEntries > d.Height {
+			visibleEntries = d.Height
+		}
+	}
+	maxVisibleH := sh - 8
 	if visibleEntries > maxVisibleH {
 		visibleEntries = maxVisibleH
 	}
@@ -78,7 +83,8 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		visibleEntries = 1
 	}
 
-	boxH := visibleEntries + 5 // top border + title + separator + entries + button row + bottom border
+	// top border + title + separator + entries + gutter + button row + bottom border
+	boxH := visibleEntries + 6
 	boxX := (sw - boxW) / 2
 	boxY := (sh - boxH) / 2
 	if boxY < 1 {
@@ -93,18 +99,15 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 	surface.ClearRect(boxX, boxY, boxW, boxH, term.StylePaletteItem)
 	surface.DrawBorder(boxX, boxY, boxW, boxH, b, term.StyleBorder)
 
-	// Title
 	surface.ClearRect(boxX+1, boxY+1, boxW-2, 1, term.StylePaletteItem)
 	titleX := boxX + (boxW-len([]rune(d.Title)))/2
 	surface.DrawText(titleX, boxY+1, d.Title, boxX+boxW-2, term.StylePaletteItem)
 
-	// Separator line
 	sepY := boxY + 2
 	for x := boxX + 1; x < boxX+boxW-1; x++ {
 		surface.SetCell(x, sepY, term.Cell{Ch: b.Horizontal, Style: term.StyleBorder})
 	}
 
-	// Clamp scroll
 	if d.scrollTop > len(d.Entries)-visibleEntries {
 		d.scrollTop = len(d.Entries) - visibleEntries
 	}
@@ -112,13 +115,11 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		d.scrollTop = 0
 	}
 
-	// Entries
 	innerW := boxW - 4
 	for i := 0; i < visibleEntries && d.scrollTop+i < len(d.Entries); i++ {
 		entry := d.Entries[d.scrollTop+i]
 		y := boxY + 3 + i
 
-		// Key column (right-aligned in its space, using selected style for emphasis)
 		keyRunes := []rune(entry.Key)
 		kw := keyColW
 		if kw > innerW/2 {
@@ -130,12 +131,10 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		}
 		surface.DrawText(kx, y, entry.Key, boxX+2+kw, term.StylePaletteItem)
 
-		// Description column
 		descX := boxX + 2 + kw + 2
 		surface.DrawText(descX, y, entry.Desc, boxX+boxW-2, term.StyleMuted)
 	}
 
-	// Scroll indicators
 	if d.scrollTop > 0 {
 		surface.SetCell(boxX+boxW-2, boxY+3, term.Cell{Ch: '^', Style: term.StyleMuted})
 	}
@@ -143,19 +142,22 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 		surface.SetCell(boxX+boxW-2, boxY+3+visibleEntries-1, term.Cell{Ch: 'v', Style: term.StyleMuted})
 	}
 
-	// Close button
+	// Close button with 1 row gutter above
 	btnY := boxY + boxH - 2
-	btnLabel := " Close "
+	btnLabel := "Close"
 	btnRunes := []rune(btnLabel)
 	btnX := boxX + (boxW-len(btnRunes))/2
+	surface.ClearRect(boxX+1, btnY-1, boxW-2, 1, term.StylePaletteItem)
 	surface.ClearRect(boxX+1, btnY, boxW-2, 1, term.StylePaletteItem)
 	for j, ch := range btnRunes {
-		cell := term.Cell{Ch: ch, Style: term.StylePaletteSelected}
+		cell := term.Cell{Ch: ch, Style: term.StylePaletteItem}
+		if j == 0 {
+			cell.Underline = true
+		}
 		surface.SetCell(btnX+j, btnY, cell)
 	}
 	d.btnHit = HitRegion{X: btnX, Y: btnY, W: len(btnRunes)}
 
-	// Scrollbar if needed
 	if len(d.Entries) > visibleEntries && visibleEntries > 1 {
 		sbX := boxX + boxW - 2
 		sbTop := boxY + 3
@@ -172,7 +174,7 @@ func (d *HelpDialogWidget) Render(surface *RenderSurface) {
 	}
 }
 
-func (d *HelpDialogWidget) HandleEvent(ev tcell.Event) EventResult {
+func (d *InfoDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
 		btn := mev.Buttons()
 		mx, my := mev.Position()
@@ -229,6 +231,12 @@ func (d *HelpDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		if d.scrollTop > max {
 			d.scrollTop = max
+		}
+	case tcell.KeyRune:
+		if kev.Rune() == 'c' || kev.Rune() == 'C' {
+			if d.OnDismiss != nil {
+				d.OnDismiss()
+			}
 		}
 	}
 

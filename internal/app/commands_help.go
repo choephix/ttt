@@ -5,7 +5,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
-var explorerHelpEntries = []ui.HelpEntry{
+var explorerHelpEntries = []ui.InfoEntry{
 	{Key: "Enter", Desc: "Open file or toggle folder"},
 	{Key: "Space", Desc: "Open file or toggle folder"},
 	{Key: "Left", Desc: "Collapse folder"},
@@ -13,7 +13,7 @@ var explorerHelpEntries = []ui.HelpEntry{
 	{Key: "Up / Down", Desc: "Navigate items"},
 }
 
-var searchHelpEntries = []ui.HelpEntry{
+var searchHelpEntries = []ui.InfoEntry{
 	{Key: "Enter", Desc: "Activate selected result"},
 	{Key: "Up / Down", Desc: "Navigate results"},
 	{Key: "Tab", Desc: "Next input field"},
@@ -22,7 +22,7 @@ var searchHelpEntries = []ui.HelpEntry{
 	{Key: "Alt+r", Desc: "Toggle regex mode"},
 }
 
-var changesHelpEntries = []ui.HelpEntry{
+var changesHelpEntries = []ui.InfoEntry{
 	{Key: "Space", Desc: "Toggle stage/unstage file"},
 	{Key: "a", Desc: "Stage all files"},
 	{Key: "u", Desc: "Unstage all files"},
@@ -36,8 +36,8 @@ var changesHelpEntries = []ui.HelpEntry{
 	{Key: "Up / Down", Desc: "Navigate files"},
 }
 
-func (a *App) ShowPanelHelp(title string, entries []ui.HelpEntry) {
-	dialog := ui.NewHelpDialogWidget(title, entries)
+func (a *App) ShowPanelHelp(title string, entries []ui.InfoEntry) {
+	dialog := ui.NewInfoDialogWidget(title, entries)
 	dialog.Borders = a.Borders
 	dialog.OnDismiss = func() {
 		a.DismissDialog()
