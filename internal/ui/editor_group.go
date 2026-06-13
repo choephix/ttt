@@ -67,6 +67,7 @@ type EditorGroupWidget struct {
 	active                 int
 	TabSize                int
 	LineNumbers            bool
+	GutterStyle            string
 	InsertFinalNewline     bool
 	TrimTrailingWhitespace bool
 	Borders                *term.BorderSet
@@ -76,7 +77,7 @@ type EditorGroupWidget struct {
 	OnError                func(msg string)
 }
 
-func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool) *EditorGroupWidget {
+func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
 	editor := NewEditorPaneWidget(
 		&buffer.Buffer{Lines: []string{""}},
 		&cursor.Cursor{},
@@ -84,6 +85,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	)
 	editor.TabSize = tabSize
 	editor.LineNumbers = lineNumbers
+	editor.GutterStyle = gutterStyle
 
 	tabBar := NewTabBarWidget()
 	tabBar.Borders = borders
@@ -94,6 +96,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 		Editor:      editor,
 		TabSize:     tabSize,
 		LineNumbers: lineNumbers,
+		GutterStyle: gutterStyle,
 		Borders:     borders,
 	}
 	tabBar.OnTabClick = func(index int) {

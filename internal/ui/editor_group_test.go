@@ -7,7 +7,7 @@ import (
 )
 
 func TestEditorGroupOpenFileNotFound(t *testing.T) {
-	g := NewEditorGroupWidget(nil, 4, false)
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 
@@ -26,7 +26,7 @@ func TestEditorGroupOpenFileSuccess(t *testing.T) {
 	path := filepath.Join(tmp, "test.txt")
 	os.WriteFile(path, []byte("hello\nworld"), 0644)
 
-	g := NewEditorGroupWidget(nil, 4, false)
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 
@@ -41,7 +41,7 @@ func TestEditorGroupOpenFileSuccess(t *testing.T) {
 }
 
 func TestEditorGroupSaveError(t *testing.T) {
-	g := NewEditorGroupWidget(nil, 4, false)
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 
@@ -61,7 +61,7 @@ func TestEditorGroupSaveSuccess(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "out.txt")
 
-	g := NewEditorGroupWidget(nil, 4, false)
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 
@@ -83,7 +83,7 @@ func TestEditorGroupSaveSuccess(t *testing.T) {
 }
 
 func TestEditorGroupSaveAsError(t *testing.T) {
-	g := NewEditorGroupWidget(nil, 4, false)
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 
@@ -101,7 +101,7 @@ func TestEditorGroupSaveAsSuccess(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "saved.go")
 
-	g := NewEditorGroupWidget(nil, 4, false)
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 

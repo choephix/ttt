@@ -88,7 +88,7 @@ describe("code folding", () => {
     tui.waitStable();
 
     const snap = tui.snapshot();
-    expect(snap).toContain("⏵");
+    expect(snap).toContain("▶");
   });
 
   it("should use keybinding ctrl+k [ to toggle fold", () => {

@@ -29,6 +29,7 @@ type EditorPaneWidget struct {
 	CursorY            int
 	TabSize            int
 	LineNumbers        bool
+	GutterStyle        string
 	Highlighter        *highlight.Highlighter
 	SearchQuery        string
 	SearchMatches      []FindMatch
@@ -72,7 +73,10 @@ func (e *EditorPaneWidget) GutterWidth() int {
 	if digits < 2 {
 		digits = 2
 	}
-	return digits + 3
+	if e.GutterStyle == "compact" {
+		return digits + 3
+	}
+	return digits + 5
 }
 
 func (e *EditorPaneWidget) computeMaxLineWidth() int {
@@ -208,17 +212,23 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			if lineIdx < totalLines {
 				numStr = strconv.Itoa(lineIdx + 1)
 			}
-			padded := " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
+			compact := e.GutterStyle == "compact"
+			var padded string
+			if compact {
+				padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
+			} else {
+				padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
+			}
 			for i, ch := range padded {
 				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
 			}
 			if e.Folds != nil && lineIdx < totalLines {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
-					chevronCol := gutterW - 1
+					chevronCol := gutterW - 2
 					if e.Folds.IsCollapsed(lineIdx) {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '⏵', Style: term.StyleLineNumber})
-					} else if e.gutterHover && e.gutterHoverLine == lineIdx {
-						surface.SetCell(chevronCol, y, term.Cell{Ch: '⏷', Style: term.StyleLineNumber})
+						surface.SetCell(chevronCol, y, term.Cell{Ch: '▶', Style: term.StyleLineNumber})
+					} else if e.gutterHover {
+						surface.SetCell(chevronCol, y, term.Cell{Ch: '▼', Style: term.StyleLineNumber})
 					}
 				}
 			}
