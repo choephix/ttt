@@ -100,6 +100,27 @@ The project has three levels of testing:
 
 **Functional blackbox tests** (`tests/functional/`) — JavaScript tests using vitest + `tui-use` CLI that drive the real compiled `bin/ttt` binary in a real terminal. The `tui.js` wrapper provides: `start()` (launches the binary), `snapshot()` (captures screen), `type()` / `press()` / `pressChord()` (input), `waitFor()` (poll until text appears), `waitStable()` (wait for screen to settle), `exec()` (open command palette and run a command). These tests catch integration issues that the Go-level tests miss (e.g., launch-time watcher sync was caught here). Run with `cd tests/functional && pnpm test`. The binary must be built first (`make build`). Tests run sequentially (`fileParallelism: false`) and each test kills any leftover tui-use sessions in `beforeEach`.
 
+### Test expectations for new features
+
+Every new feature or bug fix should include tests at multiple levels:
+
+1. **Unit tests** — for core logic that lives in `internal/core/` or has non-trivial algorithms.
+2. **E2E tests** — when the feature involves editor state (cursor, buffer, selection, commands). Use the `testHarness` to wire up the app and verify behavior programmatically.
+3. **Functional tests** — when possible. These catch the most bugs because they exercise the real binary end-to-end. Cover the happy path at minimum; add a negative/edge case if there's an obvious one (e.g., no-op on last line for join lines, no-op with no selection for case transforms).
+
+Functional tests with `tui` are the highest-value tests. Use `tui.exec("Command Name")` for command palette, `tui.pressChord("ctrl+k", "x")` for keybindings, and `tui.snapshot()` to verify results.
+
+### Implementation patterns
+
+- **Undo contract**: all buffer mutations must go through the undo system via an `EditCommand` (in `internal/core/undo/`). Never modify `Buf.Lines` directly — create or reuse a command struct so undo/redo works.
+- **Command naming**: use `domain.verbNoun` — e.g. `editor.joinLines`, `fold.toggle`, `multicursor.selectAll`.
+- **Selection operations**: check `Selection.Active` first. Use `Selection.Range(cursor.Line, cursor.Col)` for bounds. Convention: if no selection, operate on all lines (for line-based commands) or no-op (for text transforms).
+- **Keybindings**: `ctrl+shift` combos are unreliable in terminals — avoid them. Use `ctrl+k <key>` chords for new commands. Check `DefaultKeybindings()` in `internal/config/keybindings.go` before assigning to avoid collisions. If no obvious binding exists, leave the command as command palette only — not every command needs a keybinding.
+
+### Post-implementation review
+
+After a feature is implemented and tests pass, review all changes for cleanup: dead code, unnecessary complexity, naming inconsistencies, or missing edge cases. Fix anything related to the feature in the same PR. If you spot something unrelated that needs attention, create a GitHub issue for it instead of fixing it in the current PR.
+
 ### Dependencies
 
 Key external dependencies beyond the Go standard library:
