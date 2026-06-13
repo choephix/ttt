@@ -725,6 +725,12 @@ func (g *EditorGroupWidget) DeleteLine() {
 	}
 }
 
+func (g *EditorGroupWidget) JoinLines() {
+	if g.IsEditorActive() {
+		g.Editor.JoinLines()
+	}
+}
+
 func (g *EditorGroupWidget) InsertLineBelow() {
 	if g.IsEditorActive() {
 		g.Editor.InsertLineBelow()
