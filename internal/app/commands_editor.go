@@ -467,15 +467,15 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.upperCase", Title: "Transform to Upper Case",
+		ID: "editor.upperCase", Title: "Transform to Uppercase",
 		Handler: func() { app.EditorGroup.UpperCase() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.lowerCase", Title: "Transform to Lower Case",
+		ID: "editor.lowerCase", Title: "Transform to Lowercase",
 		Handler: func() { app.EditorGroup.LowerCase() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.titleCase", Title: "Transform to Title Case",
+		ID: "editor.titleCase", Title: "Transform to Titlecase",
 		Handler: func() { app.EditorGroup.TitleCase() },
 	})
 
