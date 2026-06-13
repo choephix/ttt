@@ -9,11 +9,11 @@ import (
 
 type mockWidget struct {
 	BaseWidget
-	lastEvent    tcell.Event
-	eventCount   int
-	rendered     bool
-	focusable    bool
-	renderChar   rune
+	lastEvent  tcell.Event
+	eventCount int
+	rendered   bool
+	focusable  bool
+	renderChar rune
 }
 
 func (m *mockWidget) HandleEvent(ev tcell.Event) EventResult {
@@ -202,6 +202,55 @@ func TestChordSharedPrefix(t *testing.T) {
 	}
 	if !firedB {
 		t.Fatal("chord B should have fired")
+	}
+}
+
+func TestChordMatchesCaseInsensitive(t *testing.T) {
+	root := NewRoot(&mockWidget{})
+	root.SetSize(80, 24)
+	root.SetFocus(&mockWidget{focusable: true})
+
+	fired := false
+	// Register chord with lowercase rune second key: ctrl+k, j
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyRune, Rune: 'j'},
+	}, func() { fired = true })
+
+	// First step: ctrl+k
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
+	if fired {
+		t.Fatal("chord should not fire after first key")
+	}
+
+	// Second step: uppercase J (simulating caps lock)
+	ev := tcell.NewEventKey(tcell.KeyRune, 'J', tcell.ModNone)
+	root.HandleEvent(ev)
+	if !fired {
+		t.Fatal("chord should fire with uppercase second key (caps lock)")
+	}
+}
+
+func TestChordMatchesCaseInsensitiveReverse(t *testing.T) {
+	root := NewRoot(&mockWidget{})
+	root.SetSize(80, 24)
+	root.SetFocus(&mockWidget{focusable: true})
+
+	fired := false
+	// Register chord with uppercase rune second key: ctrl+k, J
+	root.AddChordKey([]GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyRune, Rune: 'J'},
+	}, func() { fired = true })
+
+	// First step: ctrl+k
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
+
+	// Second step: lowercase j (caps lock off)
+	ev := tcell.NewEventKey(tcell.KeyRune, 'j', tcell.ModNone)
+	root.HandleEvent(ev)
+	if !fired {
+		t.Fatal("chord should fire with lowercase second key when registered as uppercase")
 	}
 }
 

@@ -2,6 +2,8 @@ package ui
 
 import (
 	"log/slog"
+	"unicode"
+
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -13,10 +15,10 @@ type Overlay struct {
 }
 
 type GlobalKeyBinding struct {
-	Key      tcell.Key
-	Mod      tcell.ModMask
-	Rune     rune
-	Handler  func()
+	Key     tcell.Key
+	Mod     tcell.ModMask
+	Rune    rune
+	Handler func()
 }
 
 type ChordKeyBinding struct {
@@ -30,19 +32,19 @@ type chordState struct {
 }
 
 type Root struct {
-	Main              Widget
-	Overlays          []Overlay
-	Focused           Widget
-	Width             int
-	Height            int
-	GlobalKeys        []GlobalKeyBinding
-	ForceKeys         []GlobalKeyBinding // checked even when focused widget wants raw keys
-	ChordKeys         []ChordKeyBinding
-	chord             *chordState
-	OnRightClick      func(mx, my int)
-	EscapeDismissers  []func() bool
-	EscapeFallback    func()
-	capturedWidget    Widget
+	Main             Widget
+	Overlays         []Overlay
+	Focused          Widget
+	Width            int
+	Height           int
+	GlobalKeys       []GlobalKeyBinding
+	ForceKeys        []GlobalKeyBinding // checked even when focused widget wants raw keys
+	ChordKeys        []ChordKeyBinding
+	chord            *chordState
+	OnRightClick     func(mx, my int)
+	EscapeDismissers []func() bool
+	EscapeFallback   func()
+	capturedWidget   Widget
 }
 
 func NewRoot(main Widget) *Root {
@@ -72,6 +74,18 @@ func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
 	}
 	return kev.Key() == tcell.KeyRune && kev.Rune() == gk.Rune && kev.Modifiers() == gk.Mod
+}
+
+// matchKeyChord is like matchKey but compares rune keys case-insensitively.
+// This handles caps lock being on: e.g. chord "ctrl+k j" still matches when
+// caps lock sends uppercase "J" as the second key.
+func matchKeyChord(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
+	if gk.Key != tcell.KeyRune {
+		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
+	}
+	return kev.Key() == tcell.KeyRune &&
+		unicode.ToLower(kev.Rune()) == unicode.ToLower(gk.Rune) &&
+		kev.Modifiers() == gk.Mod
 }
 
 func (r *Root) HandleEvent(ev tcell.Event) EventResult {
@@ -189,7 +203,7 @@ func (r *Root) handleChord(kev *tcell.EventKey) EventResult {
 		var next []int
 		for _, ci := range r.chord.candidates {
 			chord := r.ChordKeys[ci]
-			if r.chord.stepIdx < len(chord.Steps) && matchKey(kev, chord.Steps[r.chord.stepIdx]) {
+			if r.chord.stepIdx < len(chord.Steps) && matchKeyChord(kev, chord.Steps[r.chord.stepIdx]) {
 				if r.chord.stepIdx+1 == len(chord.Steps) {
 					r.chord = nil
 					chord.Handler()
@@ -208,7 +222,7 @@ func (r *Root) handleChord(kev *tcell.EventKey) EventResult {
 
 	var candidates []int
 	for i, chord := range r.ChordKeys {
-		if len(chord.Steps) > 1 && matchKey(kev, chord.Steps[0]) {
+		if len(chord.Steps) > 1 && matchKeyChord(kev, chord.Steps[0]) {
 			candidates = append(candidates, i)
 		}
 	}
