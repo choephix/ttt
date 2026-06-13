@@ -1,0 +1,36 @@
+import { describe, it, expect, afterEach } from "vitest";
+import * as tui from "./tui.js";
+import { createTempDir, createTempFile, cleanupDir } from "./helpers.js";
+
+let dir;
+
+afterEach(() => {
+  tui.kill();
+  if (dir) cleanupDir(dir);
+});
+
+describe("go to matching bracket", () => {
+  it("should jump to matching bracket with ctrl+k m", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "test.go", "func main() {\n\tx()\n}\n");
+
+    tui.start(file);
+    tui.waitFor("main");
+
+    // Go to end of line 1 where '{' is the last character
+    tui.press("end");
+    tui.waitStable();
+
+    // Move one left to land on '{'
+    tui.press("arrow_left");
+    tui.waitStable();
+
+    // Now jump to matching bracket
+    tui.pressChord("ctrl+k", "m");
+    tui.waitStable();
+
+    // The status bar should show we're on line 3 (the } line)
+    const snap = tui.snapshot();
+    expect(snap).toContain("Ln 3");
+  });
+});

@@ -484,6 +484,11 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "editor.goToMatchingBracket", Title: "Go to Matching Bracket",
+		Handler: func() { app.EditorGroup.GoToMatchingBracket() },
+	})
+
+	reg.Register(command.Command{
 		ID: "editor.quit", Title: "Quit",
 		Handler: app.Quit,
 	})

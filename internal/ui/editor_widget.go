@@ -1219,6 +1219,18 @@ func (e *EditorPaneWidget) findMatchingBracket() (int, int, bool) {
 	}
 }
 
+func (e *EditorPaneWidget) GoToMatchingBracket() {
+	line, col, ok := e.findMatchingBracket()
+	if ok {
+		e.Cursor.Line = line
+		e.Cursor.Col = col
+		if e.Selection != nil && e.Selection.Active {
+			e.Selection.Clear()
+		}
+		e.scrollViewport()
+	}
+}
+
 func (e *EditorPaneWidget) clampCursor() {
 	if e.Cursor.Line < 0 {
 		e.Cursor.Line = 0
