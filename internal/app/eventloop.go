@@ -31,6 +31,7 @@ func RunEventLoop(
 
 	lastBlameLine := -1
 	lastBlameFile := ""
+	lastGutterFile := ""
 	lastBranchDir := app.Workspace.Primary()
 	blameGen := 0
 	app.Status.Branch = git.BranchName(lastBranchDir)
@@ -88,6 +89,12 @@ func RunEventLoop(
 			} else {
 				app.Status.Branch = ""
 			}
+		}
+
+		// Trigger git gutter computation when switching to a new file
+		if filePath != lastGutterFile {
+			lastGutterFile = filePath
+			app.RequestGitGutterForActiveFile()
 		}
 
 		if filePath != lastBlameFile || line != lastBlameLine {
@@ -178,6 +185,12 @@ func RunEventLoop(
 					app.Status.Blame = fmt.Sprintf("%s, %s",
 						v.Info.Author, git.FormatRelativeTime(v.Info.Time))
 				}
+			case *GitGutterResult:
+				if v.Gen == app.GitGutterGen {
+					app.EditorGroup.SetLineChanges(v.Path, v.Changes)
+				}
+			case *GitGutterTrigger:
+				app.RequestGitGutterForActiveFile()
 			case *AutocompleteTrigger:
 				if !app.IsAutocompleteActive() {
 					prefix := app.currentPrefix()

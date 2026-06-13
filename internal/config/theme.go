@@ -67,9 +67,12 @@ type EditorStyles struct {
 }
 
 type DiffStyles struct {
-	Added    StyleDef `json:"added"`
-	Deleted  StyleDef `json:"deleted"`
-	Modified StyleDef `json:"modified"`
+	Added          StyleDef `json:"added"`
+	Deleted        StyleDef `json:"deleted"`
+	Modified       StyleDef `json:"modified"`
+	GutterAdded    StyleDef `json:"gutterAdded,omitempty"`
+	GutterDeleted  StyleDef `json:"gutterDeleted,omitempty"`
+	GutterModified StyleDef `json:"gutterModified,omitempty"`
 }
 
 type SyntaxStyles struct {
@@ -183,37 +186,37 @@ type HoverStyles struct {
 }
 
 type ThemeConfig struct {
-	Default StyleDef `json:"default"`
-	Muted   StyleDef `json:"muted"`
-	Success StyleDef `json:"success"`
-	Danger  StyleDef `json:"danger"`
-	Warning StyleDef `json:"warning"`
-	StatusBar       StyleDef    `json:"statusBar"`
-	Tabs            TabStyles   `json:"tabs"`
-	Sidebar         SidebarStyles `json:"sidebar"`
-	Dialog          DialogStyles  `json:"dialog"`
-	Editor          EditorStyles `json:"editor"`
-	Menu            MenuStyles  `json:"menu"`
-	Input           InputStyles `json:"input"`
-	Hover           HoverStyles `json:"hover"`
-	Border          StyleDef    `json:"border"`
-	Diff            DiffStyles  `json:"diff"`
-	Scrollbar       StyleDef    `json:"scrollbar"`
-	Syntax          SyntaxStyles `json:"syntax"`
-	Borders         BorderChars `json:"borders"`
-	Terminal        TerminalColors `json:"terminal,omitempty"`
+	Default   StyleDef       `json:"default"`
+	Muted     StyleDef       `json:"muted"`
+	Success   StyleDef       `json:"success"`
+	Danger    StyleDef       `json:"danger"`
+	Warning   StyleDef       `json:"warning"`
+	StatusBar StyleDef       `json:"statusBar"`
+	Tabs      TabStyles      `json:"tabs"`
+	Sidebar   SidebarStyles  `json:"sidebar"`
+	Dialog    DialogStyles   `json:"dialog"`
+	Editor    EditorStyles   `json:"editor"`
+	Menu      MenuStyles     `json:"menu"`
+	Input     InputStyles    `json:"input"`
+	Hover     HoverStyles    `json:"hover"`
+	Border    StyleDef       `json:"border"`
+	Diff      DiffStyles     `json:"diff"`
+	Scrollbar StyleDef       `json:"scrollbar"`
+	Syntax    SyntaxStyles   `json:"syntax"`
+	Borders   BorderChars    `json:"borders"`
+	Terminal  TerminalColors `json:"terminal,omitempty"`
 }
 
 func DefaultTheme() ThemeConfig {
 	t := ThemeConfig{
 		Terminal: DefaultTerminalColors(),
-		Default: StyleDef{Fg: "#fafafa", Bg: "#1f1f1f"},
-		Muted:   StyleDef{Fg: "#888888"},
+		Default:  StyleDef{Fg: "#fafafa", Bg: "#1f1f1f"},
+		Muted:    StyleDef{Fg: "#888888"},
 
 		Menu: MenuStyles{
 			Active: StyleDef{Fg: "#ffffff", Bg: "#505050", Bold: true},
 		},
-		StatusBar:     StyleDef{},
+		StatusBar: StyleDef{},
 
 		Tabs: TabStyles{
 			Active:   StyleDef{Fg: "#ffffff", Bold: true},
@@ -282,6 +285,9 @@ func (t *ThemeConfig) ResolveColors() {
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")
 	fillBg(&t.Diff.Modified, "#2e2e1e")
+	fillFg(&t.Diff.GutterAdded, "#73c991")
+	fillFg(&t.Diff.GutterDeleted, "#f14c4c")
+	fillFg(&t.Diff.GutterModified, "#e2c08d")
 	fillFg(&t.Success, "#73c991")
 	fillFg(&t.Danger, "#f14c4c")
 	fillFg(&t.Warning, "#e2c08d")

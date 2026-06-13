@@ -78,8 +78,15 @@ type EditorSettings struct {
 	TrimTrailingWhitespace bool   `json:"trimTrailingWhitespace"`
 	DiffView               string `json:"diffView,omitempty"`
 	FocusOnOpen            bool   `json:"focusOnOpen"`
+	GitGutter               *bool  `json:"gitGutter,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`
+}
+
+// IsGitGutterEnabled returns whether git gutter indicators are enabled.
+// Defaults to true when the setting is not explicitly set.
+func (e EditorSettings) IsGitGutterEnabled() bool {
+	return e.GitGutter == nil || *e.GitGutter
 }
 
 func DefaultEditorSettings() EditorSettings {
@@ -116,26 +123,26 @@ func DefaultExplorerSettings() ExplorerSettings {
 }
 
 type Settings struct {
-	Version        int                  `json:"version"`
-	Theme          string               `json:"theme,omitempty"`
-	DebugMode      bool                 `json:"debugMode,omitempty"`
-	Editor         EditorSettings       `json:"editor,omitzero"`
-	Search         SearchSettings       `json:"search,omitzero"`
-	Explorer       ExplorerSettings     `json:"explorer,omitzero"`
-	Terminal       TerminalSettings     `json:"terminal,omitzero"`
-	LSP            LSPSettings          `json:"lsp,omitzero"`
-	Autocomplete   AutocompleteSettings `json:"autocomplete,omitzero"`
+	Version      int                  `json:"version"`
+	Theme        string               `json:"theme,omitempty"`
+	DebugMode    bool                 `json:"debugMode,omitempty"`
+	Editor       EditorSettings       `json:"editor,omitzero"`
+	Search       SearchSettings       `json:"search,omitzero"`
+	Explorer     ExplorerSettings     `json:"explorer,omitzero"`
+	Terminal     TerminalSettings     `json:"terminal,omitzero"`
+	LSP          LSPSettings          `json:"lsp,omitzero"`
+	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
 }
 
 func DefaultSettings() Settings {
 	return Settings{
-		Version:        1,
-		Editor:         DefaultEditorSettings(),
-		Search:         DefaultSearchSettings(),
-		Explorer:       DefaultExplorerSettings(),
-		Terminal:       DefaultTerminalSettings(),
-		LSP:            DefaultLSPSettings(),
-		Autocomplete:   DefaultAutocompleteSettings(),
+		Version:      1,
+		Editor:       DefaultEditorSettings(),
+		Search:       DefaultSearchSettings(),
+		Explorer:     DefaultExplorerSettings(),
+		Terminal:     DefaultTerminalSettings(),
+		LSP:          DefaultLSPSettings(),
+		Autocomplete: DefaultAutocompleteSettings(),
 	}
 }
 
