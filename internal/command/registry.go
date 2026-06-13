@@ -4,6 +4,7 @@ type Command struct {
 	ID       string
 	Title    string
 	Shortcut string
+	Keywords []string
 	Handler  func()
 }
 

@@ -183,6 +183,7 @@ func registerGitCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "changes.openDiff", Title: "Git: Open Compact Diff",
+		Keywords: []string{"git", "changes", "diff", "compare"},
 		Handler: func() {
 			app.openSelectedDiff(false)
 		},
@@ -190,6 +191,7 @@ func registerGitCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "changes.openExtendedDiff", Title: "Git: Open Extended Diff",
+		Keywords: []string{"git", "changes", "diff", "compare"},
 		Handler: func() {
 			app.openSelectedDiff(true)
 		},
@@ -197,6 +199,7 @@ func registerGitCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "changes.openFile", Title: "Git: Open File",
+		Keywords: []string{"git", "changes"},
 		Handler: func() {
 			fullPath := app.Changes.SelectedFullPath()
 			if fullPath != "" {
@@ -208,11 +211,13 @@ func registerGitCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "changes.refresh", Title: "Git: Refresh Changes",
-		Handler: func() { app.Changes.Refresh() },
+		Keywords: []string{"git", "changes", "reload"},
+		Handler:  func() { app.Changes.Refresh() },
 	})
 
 	reg.Register(command.Command{
 		ID: "changes.stage", Title: "Git: Stage File",
+		Keywords: []string{"git", "changes", "add"},
 		Handler: func() {
 			dir, status, ok := app.Changes.SelectedFile()
 			if ok && !status.Staged {
@@ -224,6 +229,7 @@ func registerGitCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "changes.unstage", Title: "Git: Unstage File",
+		Keywords: []string{"git", "changes", "remove"},
 		Handler: func() {
 			dir, status, ok := app.Changes.SelectedFile()
 			if ok && status.Staged {
@@ -235,12 +241,14 @@ func registerGitCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "changes.discard", Title: "Git: Discard Changes",
-		Handler: app.DiscardSelected,
+		Keywords: []string{"git", "changes", "revert", "undo"},
+		Handler:  app.DiscardSelected,
 	})
 
-	registerGitCmd := func(id, title string, ops []func(string) error, verb string) {
+	registerGitCmd := func(id, title string, keywords []string, ops []func(string) error, verb string) {
 		reg.Register(command.Command{
 			ID: id, Title: title,
+			Keywords: keywords,
 			Handler: func() {
 				for _, dir := range app.Changes.Dirs {
 					for _, op := range ops {
@@ -255,9 +263,9 @@ func registerGitCommands(app *App) {
 			},
 		})
 	}
-	registerGitCmd("git.pull", "Git: Pull", []func(string) error{git.Pull}, "Pulled")
-	registerGitCmd("git.push", "Git: Push", []func(string) error{git.Push}, "Pushed")
-	registerGitCmd("git.sync", "Git: Sync", []func(string) error{git.Pull, git.Push}, "Synced")
+	registerGitCmd("git.pull", "Git: Pull", []string{"git", "fetch", "download"}, []func(string) error{git.Pull}, "Pulled")
+	registerGitCmd("git.push", "Git: Push", []string{"git", "upload", "publish"}, []func(string) error{git.Push}, "Pushed")
+	registerGitCmd("git.sync", "Git: Sync", []string{"git", "fetch", "upload"}, []func(string) error{git.Pull, git.Push}, "Synced")
 }
 
 func registerWorkspaceCommands(app *App) {
@@ -265,27 +273,32 @@ func registerWorkspaceCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "workspace.openFolder", Title: "Open Folder",
-		Handler: app.OpenFolder,
+		Keywords: []string{"file", "directory", "project"},
+		Handler:  app.OpenFolder,
 	})
 
 	reg.Register(command.Command{
 		ID: "workspace.addFolder", Title: "Add Folder",
-		Handler: app.AddWorkspaceFolder,
+		Keywords: []string{"file", "directory", "project"},
+		Handler:  app.AddWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
 		ID: "workspace.removeFolder", Title: "Remove Folder",
-		Handler: app.RemoveWorkspaceFolder,
+		Keywords: []string{"file", "directory", "project"},
+		Handler:  app.RemoveWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
 		ID: "workspace.open", Title: "Open Workspace",
-		Handler: app.OpenWorkspace,
+		Keywords: []string{"file", "project"},
+		Handler:  app.OpenWorkspace,
 	})
 
 	reg.Register(command.Command{
 		ID: "workspace.save", Title: "Save Workspace",
-		Handler: app.SaveWorkspace,
+		Keywords: []string{"file", "project"},
+		Handler:  app.SaveWorkspace,
 	})
 }
 
@@ -294,10 +307,12 @@ func registerPRCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "pr.review", Title: "Git: Review PR",
-		Handler: app.OpenPullRequestDialog,
+		Keywords: []string{"git", "pull request", "github"},
+		Handler:  app.OpenPullRequestDialog,
 	})
 	reg.Register(command.Command{
 		ID: "pr.close", Title: "Git: Close PR",
-		Handler: func() { app.Changes.RemovePRGroups() },
+		Keywords: []string{"git", "pull request", "github"},
+		Handler:  func() { app.Changes.RemovePRGroups() },
 	})
 }

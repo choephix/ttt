@@ -49,24 +49,27 @@ func registerHelpCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID:    "explorer.help",
-		Title: "Explorer: Keyboard Shortcuts",
+		ID:       "explorer.help",
+		Title:    "Explorer: Keyboard Shortcuts",
+		Keywords: []string{"view", "help", "keybindings"},
 		Handler: func() {
 			app.ShowPanelHelp("Explorer Shortcuts", explorerHelpEntries)
 		},
 	})
 
 	reg.Register(command.Command{
-		ID:    "search.help",
-		Title: "Search: Keyboard Shortcuts",
+		ID:       "search.help",
+		Title:    "Search: Keyboard Shortcuts",
+		Keywords: []string{"search", "help", "keybindings"},
 		Handler: func() {
 			app.ShowPanelHelp("Search Shortcuts", searchHelpEntries)
 		},
 	})
 
 	reg.Register(command.Command{
-		ID:    "changes.help",
-		Title: "Changes: Keyboard Shortcuts",
+		ID:       "changes.help",
+		Title:    "Changes: Keyboard Shortcuts",
+		Keywords: []string{"git", "help", "keybindings"},
 		Handler: func() {
 			app.ShowPanelHelp("Changes Shortcuts", changesHelpEntries)
 		},

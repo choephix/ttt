@@ -83,41 +83,49 @@ func registerSearchCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "search.find", Title: "Find",
-		Handler: app.OpenFind,
+		Keywords: []string{"search", "find", "locate"},
+		Handler:  app.OpenFind,
 	})
 
 	reg.Register(command.Command{
 		ID: "search.findNext", Title: "Find Next",
-		Handler: func() { app.EditorGroup.FindNext() },
+		Keywords: []string{"search", "find"},
+		Handler:  func() { app.EditorGroup.FindNext() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.findPrev", Title: "Find Previous",
-		Handler: func() { app.EditorGroup.FindPrev() },
+		Keywords: []string{"search", "find"},
+		Handler:  func() { app.EditorGroup.FindPrev() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.clearFind", Title: "Clear Find Highlights",
-		Handler: func() { app.EditorGroup.ClearSearch() },
+		Keywords: []string{"search", "find"},
+		Handler:  func() { app.EditorGroup.ClearSearch() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.replace", Title: "Find and Replace",
-		Handler: app.OpenFindReplace,
+		Keywords: []string{"search", "find", "replace", "substitute"},
+		Handler:  app.OpenFindReplace,
 	})
 
 	reg.Register(command.Command{
 		ID: "search.expandAll", Title: "Expand All Search Results",
-		Handler: func() { app.Search.ExpandAll() },
+		Keywords: []string{"search"},
+		Handler:  func() { app.Search.ExpandAll() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.collapseAll", Title: "Collapse All Search Results",
-		Handler: func() { app.Search.CollapseAll() },
+		Keywords: []string{"search"},
+		Handler:  func() { app.Search.CollapseAll() },
 	})
 
 	reg.Register(command.Command{
 		ID: "search.clear", Title: "Clear Search Results",
-		Handler: app.ClearGlobalSearch,
+		Keywords: []string{"search"},
+		Handler:  app.ClearGlobalSearch,
 	})
 }
