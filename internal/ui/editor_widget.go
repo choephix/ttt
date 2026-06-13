@@ -1222,6 +1222,7 @@ func (e *EditorPaneWidget) findMatchingBracket() (int, int, bool) {
 func (e *EditorPaneWidget) GoToMatchingBracket() {
 	line, col, ok := e.findMatchingBracket()
 	if ok {
+		e.ExpandFoldContaining(line)
 		e.Cursor.Line = line
 		e.Cursor.Col = col
 		if e.Selection != nil && e.Selection.Active {

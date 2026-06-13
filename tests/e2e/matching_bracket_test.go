@@ -42,6 +42,31 @@ func TestGoToMatchingBracket_Backward(t *testing.T) {
 	}
 }
 
+func TestGoToMatchingBracket_ExpandsFold(t *testing.T) {
+	h := newTestHarness(t, 80, 30)
+	defer h.stop()
+	f := filepath.Join(h.dir, "test.go")
+	// Closing paren is on an indented line, so it gets hidden when line 0 is folded
+	os.WriteFile(f, []byte("result := calc(\n\ta,\n\tb)\nnext := 0\n"), 0644)
+	h.app.EditorGroup.OpenFile(f)
+	h.redraw()
+	// Fold at line 0 hides lines 1-2 (indented)
+	h.app.EditorGroup.Editor.Cursor.Line = 0
+	h.exec("fold.toggle")
+	h.assertNotContains("a,")
+	// Position cursor at '(' on line 0
+	h.app.EditorGroup.Editor.Cursor.Line = 0
+	h.app.EditorGroup.Editor.Cursor.Col = 14
+	h.redraw()
+	h.exec("editor.goToMatchingBracket")
+	// The fold should be expanded and cursor at closing paren
+	h.assertContains("a,")
+	c := h.app.EditorGroup.Editor.Cursor
+	if c.Line != 2 || c.Col != 2 {
+		t.Errorf("expected cursor at (2,2), got (%d,%d)", c.Line, c.Col)
+	}
+}
+
 func TestGoToMatchingBracket_NoMatch(t *testing.T) {
 	h := newTestHarness(t, 80, 30)
 	defer h.stop()
