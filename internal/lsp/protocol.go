@@ -67,12 +67,24 @@ type InitializeResult struct {
 type ServerCapabilities struct {
 	CompletionProvider              *CompletionOptions       `json:"completionProvider,omitempty"`
 	TextDocumentSync                *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
-	DocumentFormattingProvider      bool                     `json:"documentFormattingProvider,omitempty"`
-	DocumentRangeFormattingProvider bool                     `json:"documentRangeFormattingProvider,omitempty"`
+	DocumentFormattingProvider      BoolOrObject `json:"documentFormattingProvider,omitempty"`
+	DocumentRangeFormattingProvider BoolOrObject `json:"documentRangeFormattingProvider,omitempty"`
 }
 
 type CompletionOptions struct {
 	TriggerCharacters []string `json:"triggerCharacters,omitempty"`
+}
+
+type BoolOrObject bool
+
+func (b *BoolOrObject) UnmarshalJSON(data []byte) error {
+	var v bool
+	if err := json.Unmarshal(data, &v); err == nil {
+		*b = BoolOrObject(v)
+		return nil
+	}
+	*b = true
+	return nil
 }
 
 type TextDocumentSyncOptions struct {
