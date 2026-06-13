@@ -67,6 +67,7 @@ type EditorGroupWidget struct {
 	active                 int
 	TabSize                int
 	LineNumbers            bool
+	IndentGuides           bool
 	GutterStyle            string
 	InsertFinalNewline     bool
 	TrimTrailingWhitespace bool
@@ -77,7 +78,7 @@ type EditorGroupWidget struct {
 	OnError                func(msg string)
 }
 
-func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
+func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string, indentGuides bool) *EditorGroupWidget {
 	editor := NewEditorPaneWidget(
 		&buffer.Buffer{Lines: []string{""}},
 		&cursor.Cursor{},
@@ -85,6 +86,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	)
 	editor.TabSize = tabSize
 	editor.LineNumbers = lineNumbers
+	editor.IndentGuides = indentGuides
 	editor.GutterStyle = gutterStyle
 
 	tabBar := NewTabBarWidget()
@@ -92,12 +94,13 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	tabBar.MoreButton = NewMoreButtonWidget()
 
 	g := &EditorGroupWidget{
-		TabBar:      tabBar,
-		Editor:      editor,
-		TabSize:     tabSize,
-		LineNumbers: lineNumbers,
-		GutterStyle: gutterStyle,
-		Borders:     borders,
+		TabBar:       tabBar,
+		Editor:       editor,
+		TabSize:      tabSize,
+		LineNumbers:  lineNumbers,
+		IndentGuides: indentGuides,
+		GutterStyle:  gutterStyle,
+		Borders:      borders,
 	}
 	tabBar.OnTabClick = func(index int) {
 		g.SwitchTab(index)
@@ -371,6 +374,11 @@ func (g *EditorGroupWidget) SetTabSize(size int) {
 		t.TabSize = size
 	}
 	g.Editor.TabSize = size
+}
+
+func (g *EditorGroupWidget) ToggleIndentGuides() {
+	g.IndentGuides = !g.IndentGuides
+	g.Editor.IndentGuides = g.IndentGuides
 }
 
 func (g *EditorGroupWidget) SwitchTab(idx int) {

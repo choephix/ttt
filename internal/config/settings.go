@@ -79,6 +79,7 @@ type EditorSettings struct {
 	DiffView               string `json:"diffView,omitempty"`
 	FocusOnOpen            bool   `json:"focusOnOpen"`
 	GutterStyle            string `json:"gutterStyle,omitempty"`
+	IndentGuides           bool   `json:"indentGuides"`
 }
 
 func DefaultEditorSettings() EditorSettings {
@@ -88,6 +89,7 @@ func DefaultEditorSettings() EditorSettings {
 		LineNumbers:        true,
 		InsertFinalNewline: true,
 		GutterStyle:        "compact",
+		IndentGuides:       true,
 	}
 }
 

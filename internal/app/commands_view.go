@@ -161,6 +161,13 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "view.toggleIndentGuides", Title: "Toggle Indent Guides",
+		Handler: func() {
+			app.EditorGroup.ToggleIndentGuides()
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
 		Handler: func() {
 			OpenURL("https://github.com/eugenioenko/ttt")

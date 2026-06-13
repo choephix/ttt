@@ -62,6 +62,7 @@ type EditorStyles struct {
 	SearchMatch  StyleDef         `json:"searchMatch"`
 	SearchActive StyleDef         `json:"searchActive"`
 	BracketMatch StyleDef         `json:"bracketMatch"`
+	IndentGuide  StyleDef         `json:"indentGuide"`
 	Diagnostics  DiagnosticStyles `json:"diagnostics"`
 }
 
@@ -199,6 +200,7 @@ func DefaultTheme() ThemeConfig {
 			SearchMatch:  StyleDef{Bg: "#623800"},
 			SearchActive: StyleDef{Bg: "#9e6a03"},
 			BracketMatch: StyleDef{Bg: "#3a3a3a"},
+			IndentGuide:  StyleDef{Fg: "#404040"},
 		},
 		Scrollbar: StyleDef{Fg: "#999999", Bg: "#555555"},
 
@@ -254,6 +256,7 @@ func (t *ThemeConfig) ResolveColors() {
 	}
 	fillFg(&t.Hover.Bold, t.Default.Fg)
 	fillFg(&t.Hover.Code, t.Syntax.String.Fg)
+	fillFg(&t.Editor.IndentGuide, t.Border.Fg)
 }
 
 func fillFg(s *StyleDef, color string) {

@@ -30,6 +30,7 @@ type EditorPaneWidget struct {
 	CursorY            int
 	TabSize            int
 	LineNumbers        bool
+	IndentGuides       bool
 	GutterStyle        string
 	Highlighter        *highlight.Highlighter
 	SearchQuery        string
@@ -153,11 +154,55 @@ func (e *EditorPaneWidget) screenToBufferLine(y int) int {
 	return e.cachedVisibleLines[idx]
 }
 
+// lineIndentCols returns the number of leading whitespace columns for a line.
+// Returns -1 for blank/whitespace-only lines to signal "inherit from neighbors".
+func lineIndentCols(line string) int {
+	cols := 0
+	for _, r := range line {
+		if r == ' ' {
+			cols++
+		} else if r == '\t' {
+			cols += 4 // treated as 4 spaces for indent detection
+		} else {
+			return cols
+		}
+	}
+	return -1 // blank or whitespace-only line
+}
+
+// blankLineIndent computes the effective indent for a blank line by looking
+// at the nearest non-blank lines above and below and taking the minimum.
+// This makes indent guides extend through blank lines, matching VS Code behavior.
+func (e *EditorPaneWidget) blankLineIndent(lineIdx, totalLines, tabSize int) int {
+	above := 0
+	for i := lineIdx - 1; i >= 0; i-- {
+		if ind := lineIndentCols(e.Buf.Lines[i]); ind >= 0 {
+			above = ind
+			break
+		}
+	}
+	below := 0
+	for i := lineIdx + 1; i < totalLines; i++ {
+		if ind := lineIndentCols(e.Buf.Lines[i]); ind >= 0 {
+			below = ind
+			break
+		}
+	}
+	if above < below {
+		return above
+	}
+	return below
+}
+
 func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)
 	gutterW := e.GutterWidth()
+	tabSize := e.TabSize
+	if tabSize <= 0 {
+		tabSize = 4
+	}
 
 	maxLineW := e.computeMaxLineWidth()
 
@@ -347,6 +392,20 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 							bgStyle = 0
 							break
 						}
+					}
+				}
+				// Indent guides: draw a thin vertical line at tab-stop columns
+				// within leading whitespace.
+				if e.IndentGuides && ch == ' ' && colIdx > 0 && colIdx%tabSize == 0 {
+					// Check if this column is within the indent area.
+					indent := lineIndentCols(e.Buf.Lines[lineIdx])
+					if indent < 0 {
+						// Blank line: bridge through by checking neighbors.
+						indent = e.blankLineIndent(lineIdx, totalLines, tabSize)
+					}
+					if colIdx < indent {
+						ch = '│'
+						style = term.StyleIndentGuide
 					}
 				}
 				ulStyle := e.diagStyleAt(lineIdx, colIdx)
