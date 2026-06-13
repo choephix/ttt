@@ -78,7 +78,13 @@ func (r *ReplaceBarWidget) syncActions() {
 
 func (r *ReplaceBarWidget) barLayout() (barX, barY, barW, barH int) {
 	rect := r.GetRect()
-	barW = 40
+	barW = rect.W / 2
+	if barW > 80 {
+		barW = 80
+	}
+	if barW < 30 {
+		barW = 30
+	}
 	if barW > rect.W-4 {
 		barW = rect.W - 4
 	}
@@ -108,7 +114,13 @@ func (r *ReplaceBarWidget) CursorPosition() (int, int, bool) {
 func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
 
-	barW := 40
+	barW := sw / 2
+	if barW > 80 {
+		barW = 80
+	}
+	if barW < 30 {
+		barW = 30
+	}
 	if barW > sw-4 {
 		barW = sw - 4
 	}
@@ -139,9 +151,13 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 	r.SearchInput.Render(surface, barX+1, findRow, searchInputW)
 
 	cx := barX + 1 + searchInputW
+	infoStyle := term.StyleMuted
+	if r.SearchInput.Text != "" && len(r.Matches) == 0 {
+		infoStyle = term.StyleDanger
+	}
 	for _, ch := range info {
 		if cx < barX+barW-1 {
-			surface.SetCell(cx, findRow, term.Cell{Ch: ch, Style: term.StyleMuted})
+			surface.SetCell(cx, findRow, term.Cell{Ch: ch, Style: infoStyle})
 			cx++
 		}
 	}
@@ -153,9 +169,9 @@ func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
 			cx++
 		}
 	}
-	r.btnPrev = HitRegion{X: navStart + 1, Y: findRow, W: 1}
-	r.btnNext = HitRegion{X: navStart + 3, Y: findRow, W: 1}
-	r.btnClose = HitRegion{X: navStart + 5, Y: findRow, W: 1}
+	r.btnPrev = HitRegion{X: navStart, Y: findRow, W: 3}
+	r.btnNext = HitRegion{X: navStart + 2, Y: findRow, W: 3}
+	r.btnClose = HitRegion{X: navStart + 4, Y: findRow, W: 3}
 
 	replInputW := barW - 2
 	r.ReplaceInput.Render(surface, barX+1, replRow, replInputW)

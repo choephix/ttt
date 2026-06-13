@@ -63,7 +63,13 @@ func (f *FindBarWidget) syncActions() {
 
 func (f *FindBarWidget) barLayout() (barX, barY, barW, barH int) {
 	r := f.GetRect()
-	barW = 40
+	barW = r.W / 2
+	if barW > 80 {
+		barW = 80
+	}
+	if barW < 30 {
+		barW = 30
+	}
 	if barW > r.W-4 {
 		barW = r.W - 4
 	}
@@ -92,7 +98,13 @@ func (f *FindBarWidget) CursorPosition() (int, int, bool) {
 func (f *FindBarWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
 
-	barW := 40
+	barW := sw / 2
+	if barW > 80 {
+		barW = 80
+	}
+	if barW < 30 {
+		barW = 30
+	}
 	if barW > sw-4 {
 		barW = sw - 4
 	}
@@ -127,9 +139,13 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	f.Input.Render(surface, barX+1, row, inputW)
 
 	cx := barX + 1 + inputW
+	infoStyle := term.StyleMuted
+	if f.Input.Text != "" && len(f.Matches) == 0 {
+		infoStyle = term.StyleDanger
+	}
 	for _, ch := range info {
 		if cx < barX+barW-1 {
-			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: term.StyleMuted})
+			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: infoStyle})
 			cx++
 		}
 	}
@@ -144,8 +160,8 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	f.btnPrev = HitRegion{}
 	f.btnNext = HitRegion{}
 	if hasMatches {
-		f.btnPrev = HitRegion{X: navStart + 1, Y: row, W: 1}
-		f.btnNext = HitRegion{X: navStart + 3, Y: row, W: 1}
+		f.btnPrev = HitRegion{X: navStart, Y: row, W: 3}
+		f.btnNext = HitRegion{X: navStart + 2, Y: row, W: 3}
 	}
 	closeStart := cx
 	for _, ch := range closeBtn {
@@ -154,7 +170,7 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 			cx++
 		}
 	}
-	f.btnClose = HitRegion{X: closeStart + 1, Y: row, W: 1}
+	f.btnClose = HitRegion{X: closeStart, Y: row, W: 3}
 }
 
 func (f *FindBarWidget) currentDisplay() int {

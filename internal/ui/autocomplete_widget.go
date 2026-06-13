@@ -23,7 +23,30 @@ const (
 	CompletionModule
 )
 
-func (k CompletionKind) Symbol() rune { return '■' }
+func (k CompletionKind) Symbol() rune {
+	switch k {
+	case CompletionFunction:
+		return 'f'
+	case CompletionMethod:
+		return 'm'
+	case CompletionVariable:
+		return 'v'
+	case CompletionConstant:
+		return 'c'
+	case CompletionType:
+		return 'C'
+	case CompletionField:
+		return 'p'
+	case CompletionKeyword:
+		return 'k'
+	case CompletionSnippet:
+		return 'S'
+	case CompletionModule:
+		return 'M'
+	default:
+		return '■'
+	}
+}
 
 func (k CompletionKind) Style() term.Style {
 	switch k {
