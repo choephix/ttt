@@ -115,13 +115,19 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	navButtons := " ▲ ▼ ✕"
 	suffixW := len([]rune(info)) + len([]rune(navButtons))
 
-	inputW := barW - 2 - suffixW
+	rightPad := 1
+	inputW := barW - 2 - suffixW - rightPad
 	if inputW < 4 {
 		inputW = 4
 	}
 	f.Input.Render(surface, barX+1, row, inputW)
 
 	cx := barX + 1 + inputW
+	// right padding between input and info/nav suffix
+	for i := 0; i < rightPad; i++ {
+		surface.SetCell(cx, row, term.Cell{Ch: ' ', Style: term.StyleInput})
+		cx++
+	}
 	for _, ch := range info {
 		if cx < barX+barW-1 {
 			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: term.StyleMuted})
