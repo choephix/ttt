@@ -444,6 +444,10 @@ func registerEditorCommands(app *App) {
 		ID: "multicursor.undoCursor", Title: "Undo Last Cursor",
 		Handler: func() { app.EditorGroup.UndoLastCursor() },
 	})
+	reg.Register(command.Command{
+		ID: "editor.splitSelectionToLines", Title: "Split Selection into Lines",
+		Handler: func() { app.EditorGroup.SplitSelectionToLines() },
+	})
 
 	reg.Register(command.Command{
 		ID: "editor.quit", Title: "Quit",

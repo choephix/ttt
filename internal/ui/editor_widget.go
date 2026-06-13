@@ -2001,3 +2001,48 @@ func (e *EditorPaneWidget) UndoLastCursor() {
 	}
 	e.scrollViewport()
 }
+
+func (e *EditorPaneWidget) SplitSelectionToLines() {
+	if e.Selection == nil || !e.Selection.Active {
+		return
+	}
+	start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+	if start.Line == end.Line {
+		return
+	}
+	// If the selection ends at column 0 of the last line,
+	// exclude that line (cursor sits at the start, nothing selected there)
+	if end.Col == 0 && end.Line > start.Line {
+		end.Line--
+		end.Col = len([]rune(e.Buf.Lines[end.Line]))
+	}
+	if start.Line == end.Line {
+		e.Selection.Clear()
+		return
+	}
+	e.ensureMulti()
+	e.syncToMulti()
+	// Place the primary cursor at the end of the first selected line
+	firstLineLen := len([]rune(e.Buf.Lines[start.Line]))
+	col := firstLineLen
+	e.Multi.Cursors[e.Multi.Primary] = multicursor.CursorState{
+		Line: start.Line,
+		Col:  col,
+	}
+	// Add a cursor at the end of each subsequent line in the selection
+	for line := start.Line + 1; line <= end.Line; line++ {
+		lineLen := len([]rune(e.Buf.Lines[line]))
+		c := lineLen
+		if line == end.Line && end.Col < c {
+			c = end.Col
+		}
+		e.Multi.Add(line, c)
+	}
+	e.Selection.Clear()
+	// Clear selections on all cursors
+	for i := range e.Multi.Cursors {
+		e.Multi.Cursors[i].Sel.Clear()
+	}
+	e.syncFromMulti()
+	e.scrollViewport()
+}

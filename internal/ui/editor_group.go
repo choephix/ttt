@@ -788,6 +788,13 @@ func (g *EditorGroupWidget) UndoLastCursor() {
 	}
 }
 
+func (g *EditorGroupWidget) SplitSelectionToLines() {
+	if g.IsEditorActive() {
+		g.Editor.SplitSelectionToLines()
+		g.saveMultiState()
+	}
+}
+
 func (g *EditorGroupWidget) IsMultiCursorActive() bool {
 	return g.IsEditorActive() && g.Editor.isMultiActive()
 }
