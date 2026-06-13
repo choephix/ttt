@@ -25,7 +25,6 @@
   "tabs": {
     "active": {
       "fg": "#e2e6ed",
-      "bg": "#2c313a",
       "bold": true
     },
     "inactive": {

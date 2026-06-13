@@ -19,7 +19,6 @@
   "tabs": {
     "active": {
       "fg": "#f8f8f2",
-      "bg": "#3e3d32",
       "bold": true
     },
     "inactive": {
@@ -147,15 +146,15 @@
     "brightWhite": "#f9f8f5"
   },
   "borders": {
-    "horizontal": "\u2500",
-    "vertical": "\u2502",
-    "topLeft": "\u250c",
-    "topRight": "\u2510",
-    "bottomLeft": "\u2514",
-    "bottomRight": "\u2518",
-    "topTee": "\u252c",
-    "bottomTee": "\u2534",
-    "leftTee": "\u251c",
-    "rightTee": "\u2524"
+    "horizontal": "─",
+    "vertical": "│",
+    "topLeft": "┌",
+    "topRight": "┐",
+    "bottomLeft": "└",
+    "bottomRight": "┘",
+    "topTee": "┬",
+    "bottomTee": "┴",
+    "leftTee": "├",
+    "rightTee": "┤"
   }
 }
