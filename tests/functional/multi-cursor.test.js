@@ -46,7 +46,7 @@ describe("multi-cursor", () => {
     tui.press("ctrl+d");
     tui.waitStable();
 
-    tui.exec("Select All Occurrences");
+    tui.exec("Editor: Select All Occurrences");
     tui.waitStable();
 
     tui.type("pet");

@@ -20,7 +20,7 @@ describe("word delete", () => {
     tui.press("end");
     tui.waitStable();
 
-    tui.exec("Delete Word Left");
+    tui.exec("Editor: Delete Word Left");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -40,7 +40,7 @@ describe("word delete", () => {
     tui.press("home");
     tui.waitStable();
 
-    tui.exec("Delete Word Right");
+    tui.exec("Editor: Delete Word Right");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -60,7 +60,7 @@ describe("word delete", () => {
     tui.press("end");
     tui.waitStable();
 
-    tui.exec("Delete Word Left");
+    tui.exec("Editor: Delete Word Left");
     tui.waitStable();
 
     tui.press("ctrl+z");

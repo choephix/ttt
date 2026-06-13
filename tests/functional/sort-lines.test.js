@@ -20,7 +20,7 @@ describe("sort lines", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Sort Lines Ascending");
+    tui.exec("Editor: Sort Lines Ascending");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -41,7 +41,7 @@ describe("sort lines", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Sort Lines Descending");
+    tui.exec("Editor: Sort Lines Descending");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -62,7 +62,7 @@ describe("sort lines", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Reverse Lines");
+    tui.exec("Editor: Reverse Lines");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -87,7 +87,7 @@ describe("sort lines", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Unique Lines");
+    tui.exec("Editor: Unique Lines");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -129,7 +129,7 @@ describe("sort lines", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Sort Lines Ascending");
+    tui.exec("Editor: Sort Lines Ascending");
     tui.waitStable();
 
     // Undo

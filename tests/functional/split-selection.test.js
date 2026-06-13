@@ -21,7 +21,7 @@ describe("split selection into lines", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Split Selection into Lines");
+    tui.exec("Editor: Split Selection into Lines");
     tui.waitStable();
 
     // Type 'X' — should appear on each of the 3 lines with cursors
@@ -44,7 +44,7 @@ describe("split selection into lines", () => {
     tui.start(file);
     tui.waitFor("hello");
 
-    tui.exec("Split Selection into Lines");
+    tui.exec("Editor: Split Selection into Lines");
     tui.waitStable();
 
     // Type 'Z' — should only appear once (single cursor)

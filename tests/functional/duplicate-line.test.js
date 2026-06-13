@@ -20,7 +20,7 @@ describe("duplicate line", () => {
     tui.press("arrow_down");
     tui.waitStable();
 
-    tui.exec("Duplicate Line");
+    tui.exec("Editor: Duplicate Line");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -40,7 +40,7 @@ describe("duplicate line", () => {
     tui.press("arrow_down");
     tui.waitStable();
 
-    tui.exec("Duplicate Line");
+    tui.exec("Editor: Duplicate Line");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -57,7 +57,7 @@ describe("duplicate line", () => {
     tui.start(file);
     tui.waitFor("Only");
 
-    tui.exec("Duplicate Line");
+    tui.exec("Editor: Duplicate Line");
     tui.waitStable();
 
     tui.press("ctrl+z");

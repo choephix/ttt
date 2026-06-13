@@ -35,14 +35,14 @@ describe("code folding", () => {
     tui.press("enter");
     tui.waitStable();
 
-    tui.exec("Toggle Fold");
+    tui.exec("Fold: Toggle Fold");
     tui.waitStable();
 
     let snap = tui.snapshot();
     expect(snap).not.toContain("hello");
     expect(snap).toContain("⋯");
 
-    tui.exec("Toggle Fold");
+    tui.exec("Fold: Toggle Fold");
     tui.waitStable();
 
     snap = tui.snapshot();
@@ -84,7 +84,7 @@ describe("code folding", () => {
     tui.press("enter");
     tui.waitStable();
 
-    tui.exec("Toggle Fold");
+    tui.exec("Fold: Toggle Fold");
     tui.waitStable();
 
     const snap = tui.snapshot();

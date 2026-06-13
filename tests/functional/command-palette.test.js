@@ -31,11 +31,29 @@ describe("command palette", () => {
     tui.start(dir);
     tui.waitFor("Explore");
 
-    tui.exec("Toggle Sidebar");
+    tui.exec("View: Toggle Sidebar");
     tui.waitStable();
 
     const snap = tui.snapshot();
     expect(snap).not.toContain("Explore");
+  });
+
+  it("should filter commands by category prefix", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "prefix.txt", "Prefix test");
+
+    tui.start(file);
+    tui.waitFor("prefix.txt");
+
+    tui.press("ctrl+p");
+    tui.waitStable();
+
+    tui.type("Editor:");
+    tui.waitStable();
+
+    const snap = tui.snapshot();
+    expect(snap).toContain("Editor:");
+    expect(snap).toContain("Undo");
   });
 
   it("should dismiss palette with escape", () => {

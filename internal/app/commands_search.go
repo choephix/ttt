@@ -82,42 +82,42 @@ func registerSearchCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "search.find", Title: "Find",
+		ID: "search.find", Title: "Search: Find",
 		Handler: app.OpenFind,
 	})
 
 	reg.Register(command.Command{
-		ID: "search.findNext", Title: "Find Next",
+		ID: "search.findNext", Title: "Search: Find Next",
 		Handler: func() { app.EditorGroup.FindNext() },
 	})
 
 	reg.Register(command.Command{
-		ID: "search.findPrev", Title: "Find Previous",
+		ID: "search.findPrev", Title: "Search: Find Previous",
 		Handler: func() { app.EditorGroup.FindPrev() },
 	})
 
 	reg.Register(command.Command{
-		ID: "search.clearFind", Title: "Clear Find Highlights",
+		ID: "search.clearFind", Title: "Search: Clear Find Highlights",
 		Handler: func() { app.EditorGroup.ClearSearch() },
 	})
 
 	reg.Register(command.Command{
-		ID: "search.replace", Title: "Find and Replace",
+		ID: "search.replace", Title: "Search: Find and Replace",
 		Handler: app.OpenFindReplace,
 	})
 
 	reg.Register(command.Command{
-		ID: "search.expandAll", Title: "Expand All Search Results",
+		ID: "search.expandAll", Title: "Search: Expand All Search Results",
 		Handler: func() { app.Search.ExpandAll() },
 	})
 
 	reg.Register(command.Command{
-		ID: "search.collapseAll", Title: "Collapse All Search Results",
+		ID: "search.collapseAll", Title: "Search: Collapse All Search Results",
 		Handler: func() { app.Search.CollapseAll() },
 	})
 
 	reg.Register(command.Command{
-		ID: "search.clear", Title: "Clear Search Results",
+		ID: "search.clear", Title: "Search: Clear Search Results",
 		Handler: app.ClearGlobalSearch,
 	})
 }

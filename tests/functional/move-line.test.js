@@ -17,7 +17,7 @@ describe("move line", () => {
     tui.start(file);
     tui.waitFor("AAA");
 
-    tui.exec("Move Line Down");
+    tui.exec("Editor: Move Line Down");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -38,7 +38,7 @@ describe("move line", () => {
     tui.press("arrow_down");
     tui.waitStable();
 
-    tui.exec("Move Line Up");
+    tui.exec("Editor: Move Line Up");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -55,7 +55,7 @@ describe("move line", () => {
     tui.start(file);
     tui.waitFor("First");
 
-    tui.exec("Move Line Up");
+    tui.exec("Editor: Move Line Up");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -72,7 +72,7 @@ describe("move line", () => {
     tui.start(file);
     tui.waitFor("One");
 
-    tui.exec("Move Line Down");
+    tui.exec("Editor: Move Line Down");
     tui.waitStable();
 
     tui.press("ctrl+z");

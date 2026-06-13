@@ -264,27 +264,27 @@ func registerWorkspaceCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "workspace.openFolder", Title: "Open Folder",
+		ID: "workspace.openFolder", Title: "File: Open Folder",
 		Handler: app.OpenFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.addFolder", Title: "Add Folder",
+		ID: "workspace.addFolder", Title: "File: Add Folder",
 		Handler: app.AddWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.removeFolder", Title: "Remove Folder",
+		ID: "workspace.removeFolder", Title: "File: Remove Folder",
 		Handler: app.RemoveWorkspaceFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.open", Title: "Open Workspace",
+		ID: "workspace.open", Title: "File: Open Workspace",
 		Handler: app.OpenWorkspace,
 	})
 
 	reg.Register(command.Command{
-		ID: "workspace.save", Title: "Save Workspace",
+		ID: "workspace.save", Title: "File: Save Workspace",
 		Handler: app.SaveWorkspace,
 	})
 }

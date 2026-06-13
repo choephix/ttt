@@ -71,7 +71,7 @@ describe("line ending detection and preservation", () => {
     let snap = tui.snapshot();
     expect(snap).not.toContain("CRLF");
 
-    tui.exec("Change Line Ending");
+    tui.exec("Preferences: Change Line Ending");
     tui.waitStable();
     tui.type("CRLF");
     tui.waitStable();
@@ -97,7 +97,7 @@ describe("line ending detection and preservation", () => {
     tui.waitFor("aaa");
     tui.waitFor("CRLF");
 
-    tui.exec("Change Line Ending");
+    tui.exec("Preferences: Change Line Ending");
     tui.waitStable();
     tui.type("LF");
     tui.waitStable();

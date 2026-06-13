@@ -130,22 +130,22 @@ func registerPaletteCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "command.palette", Title: "Command Palette",
+		ID: "command.palette", Title: "View: Command Palette",
 		Handler: func() { app.OpenCommandPalette(false) },
 	})
 
 	reg.Register(command.Command{
-		ID: "file.quickOpen", Title: "Go to File",
+		ID: "file.quickOpen", Title: "File: Go to File",
 		Handler: func() { app.OpenCommandPalette(true) },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.goToLine", Title: "Go to Line",
+		ID: "editor.goToLine", Title: "Navigate: Go to Line",
 		Handler: func() { app.OpenCommandPalette(false, ":") },
 	})
 
 	reg.Register(command.Command{
-		ID: "theme.switch", Title: "Switch Theme",
+		ID: "theme.switch", Title: "Preferences: Switch Theme",
 		Handler: app.ShowThemePicker,
 	})
 
@@ -153,12 +153,12 @@ func registerPaletteCommands(app *App) {
 	app.StatusBar.OnEolClick = app.ShowEolPicker
 
 	reg.Register(command.Command{
-		ID: "editor.indentation", Title: "Change Indentation",
+		ID: "editor.indentation", Title: "Preferences: Change Indentation",
 		Handler: app.ShowIndentPicker,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.lineEnding", Title: "Change Line Ending",
+		ID: "editor.lineEnding", Title: "Preferences: Change Line Ending",
 		Handler: app.ShowEolPicker,
 	})
 

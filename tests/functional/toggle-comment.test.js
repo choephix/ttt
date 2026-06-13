@@ -20,7 +20,7 @@ describe("toggle line comment", () => {
     tui.start(file);
     tui.waitFor("package main");
 
-    tui.exec("Toggle Line Comment");
+    tui.exec("Editor: Toggle Line Comment");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -38,7 +38,7 @@ describe("toggle line comment", () => {
     tui.start(file);
     tui.waitFor("// package main");
 
-    tui.exec("Toggle Line Comment");
+    tui.exec("Editor: Toggle Line Comment");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -60,7 +60,7 @@ describe("toggle line comment", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Toggle Line Comment");
+    tui.exec("Editor: Toggle Line Comment");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -83,7 +83,7 @@ describe("toggle line comment", () => {
     tui.press("ctrl+a");
     tui.waitStable();
 
-    tui.exec("Toggle Line Comment");
+    tui.exec("Editor: Toggle Line Comment");
     tui.waitStable();
 
     tui.press("ctrl+s");
@@ -104,7 +104,7 @@ describe("toggle line comment", () => {
     tui.start(file);
     tui.waitFor("print");
 
-    tui.exec("Toggle Line Comment");
+    tui.exec("Editor: Toggle Line Comment");
     tui.waitStable();
 
     tui.press("ctrl+s");

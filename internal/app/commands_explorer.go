@@ -92,32 +92,32 @@ func registerExplorerCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "explorer.refresh", Title: "Refresh Explorer",
+		ID: "explorer.refresh", Title: "Explorer: Refresh Explorer",
 		Handler: func() { app.Explorer.Reload() },
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.open", Title: "Open",
+		ID: "explorer.open", Title: "Explorer: Open",
 		Handler: func() { app.Explorer.ActivateSelected() },
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.newFile", Title: "New File",
+		ID: "explorer.newFile", Title: "Explorer: New File",
 		Handler: app.ExplorerNewFile,
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.newFolder", Title: "New Folder",
+		ID: "explorer.newFolder", Title: "Explorer: New Folder",
 		Handler: app.ExplorerNewFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.rename", Title: "Rename",
+		ID: "explorer.rename", Title: "Explorer: Rename",
 		Handler: app.ExplorerRename,
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.delete", Title: "Delete",
+		ID: "explorer.delete", Title: "Explorer: Delete",
 		Handler: app.ExplorerDelete,
 	})
 }

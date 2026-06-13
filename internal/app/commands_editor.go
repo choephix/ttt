@@ -178,17 +178,17 @@ func registerEditorCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "editor.focus", Title: "Focus Editor",
+		ID: "editor.focus", Title: "View: Focus Editor",
 		Handler: app.FocusEditor,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.autocomplete", Title: "Trigger Autocomplete",
+		ID: "editor.autocomplete", Title: "Editor: Trigger Autocomplete",
 		Handler: app.TriggerAutocomplete,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.hover", Title: "Show Hover",
+		ID: "editor.hover", Title: "Editor: Show Hover",
 		Handler: func() {
 			path, lang := app.editorPathLang()
 			line, col := app.EditorGroup.ActiveCursor()
@@ -198,32 +198,32 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.goToDefinition", Title: "Go to Definition",
+		ID: "editor.goToDefinition", Title: "Navigate: Go to Definition",
 		Handler: func() { app.withEditorLSP(app.RequestDefinition) },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.goToImplementation", Title: "Go to Implementation",
+		ID: "editor.goToImplementation", Title: "Navigate: Go to Implementation",
 		Handler: func() { app.withEditorLSP(app.RequestImplementation) },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.goToTypeDefinition", Title: "Go to Type Definition",
+		ID: "editor.goToTypeDefinition", Title: "Navigate: Go to Type Definition",
 		Handler: func() { app.withEditorLSP(app.RequestTypeDefinition) },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.findReferences", Title: "Find All References",
+		ID: "editor.findReferences", Title: "Navigate: Find All References",
 		Handler: func() { app.withEditorLSP(app.RequestReferences) },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.rename", Title: "Rename Symbol",
+		ID: "editor.rename", Title: "Editor: Rename Symbol",
 		Handler: app.RenameSymbol,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.organizeImports", Title: "Source Action: Organize Imports",
+		ID: "editor.organizeImports", Title: "Source: Organize Imports",
 		Handler: func() {
 			path, lang := app.editorPathLang()
 			app.RequestCodeAction(path, lang, "source.organizeImports")
@@ -231,7 +231,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.fixAll", Title: "Source Action: Fix All",
+		ID: "editor.fixAll", Title: "Source: Fix All",
 		Handler: func() {
 			path, lang := app.editorPathLang()
 			app.RequestCodeAction(path, lang, "source.fixAll")
@@ -239,7 +239,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.formatDocument", Title: "Source Action: Format Document",
+		ID: "editor.formatDocument", Title: "Source: Format Document",
 		Handler: func() {
 			path, lang := app.editorPathLang()
 			app.RequestFormatting(path, lang)
@@ -247,32 +247,32 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.formatSelection", Title: "Source Action: Format Selection",
+		ID: "editor.formatSelection", Title: "Source: Format Selection",
 		Handler: app.FormatSelection,
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.next", Title: "Next Tab",
+		ID: "tab.next", Title: "Tab: Next Tab",
 		Handler: func() { app.EditorGroup.NextTab() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.prev", Title: "Previous Tab",
+		ID: "tab.prev", Title: "Tab: Previous Tab",
 		Handler: func() { app.EditorGroup.PrevTab() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.close", Title: "Close Tab",
+		ID: "tab.close", Title: "Tab: Close Tab",
 		Handler: app.CloseTab,
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.closeOthers", Title: "Close Other Tabs",
+		ID: "tab.closeOthers", Title: "Tab: Close Other Tabs",
 		Handler: func() { app.EditorGroup.CloseOtherTabs() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.closeAll", Title: "Close All Tabs",
+		ID: "tab.closeAll", Title: "Tab: Close All Tabs",
 		Handler: func() { app.EditorGroup.CloseAllTabs() },
 	})
 
@@ -295,7 +295,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "fold.toggle", Title: "Toggle Fold",
+		ID: "fold.toggle", Title: "Fold: Toggle Fold",
 		Handler: func() {
 			if !app.EditorGroup.IsEditorActive() {
 				return
@@ -308,7 +308,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "fold.collapseAll", Title: "Fold All",
+		ID: "fold.collapseAll", Title: "Fold: Fold All",
 		Handler: func() {
 			if !app.EditorGroup.IsEditorActive() {
 				return
@@ -322,7 +322,7 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "fold.expandAll", Title: "Unfold All",
+		ID: "fold.expandAll", Title: "Fold: Unfold All",
 		Handler: func() {
 			if !app.EditorGroup.IsEditorActive() {
 				return
@@ -335,156 +335,156 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "file.new", Title: "New File",
+		ID: "file.new", Title: "File: New File",
 		Handler: app.NewFile,
 	})
 
 	reg.Register(command.Command{
-		ID: "file.save", Title: "Save File",
+		ID: "file.save", Title: "File: Save File",
 		Handler: app.SaveFile,
 	})
 
 	reg.Register(command.Command{
-		ID: "file.saveAs", Title: "Save As...",
+		ID: "file.saveAs", Title: "File: Save As...",
 		Handler: app.SaveFileAs,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.undo", Title: "Undo",
+		ID: "editor.undo", Title: "Editor: Undo",
 		Handler: func() { app.EditorGroup.Undo() },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.redo", Title: "Redo",
+		ID: "editor.redo", Title: "Editor: Redo",
 		Handler: func() { app.EditorGroup.Redo() },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.selectAll", Title: "Select All",
+		ID: "editor.selectAll", Title: "Editor: Select All",
 		Handler: func() { app.EditorGroup.SelectAll() },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.copy", Title: "Copy",
+		ID: "editor.copy", Title: "Editor: Copy",
 		Handler: app.Copy,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.cut", Title: "Cut",
+		ID: "editor.cut", Title: "Editor: Cut",
 		Handler: app.Cut,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.paste", Title: "Paste",
+		ID: "editor.paste", Title: "Editor: Paste",
 		Handler: app.Paste,
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.moveLineUp", Title: "Move Line Up",
+		ID: "editor.moveLineUp", Title: "Editor: Move Line Up",
 		Handler: func() { app.EditorGroup.MoveLineUp() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.moveLineDown", Title: "Move Line Down",
+		ID: "editor.moveLineDown", Title: "Editor: Move Line Down",
 		Handler: func() { app.EditorGroup.MoveLineDown() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.duplicateLine", Title: "Duplicate Line",
+		ID: "editor.duplicateLine", Title: "Editor: Duplicate Line",
 		Handler: func() { app.EditorGroup.DuplicateLine() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.deleteLine", Title: "Delete Line",
+		ID: "editor.deleteLine", Title: "Editor: Delete Line",
 		Handler: func() { app.EditorGroup.DeleteLine() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.joinLines", Title: "Join Lines",
+		ID: "editor.joinLines", Title: "Editor: Join Lines",
 		Handler: func() { app.EditorGroup.JoinLines() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.insertLineBelow", Title: "Insert Line Below",
+		ID: "editor.insertLineBelow", Title: "Editor: Insert Line Below",
 		Handler: func() { app.EditorGroup.InsertLineBelow() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.insertLineAbove", Title: "Insert Line Above",
+		ID: "editor.insertLineAbove", Title: "Editor: Insert Line Above",
 		Handler: func() { app.EditorGroup.InsertLineAbove() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.toggleComment", Title: "Toggle Line Comment",
+		ID: "editor.toggleComment", Title: "Editor: Toggle Line Comment",
 		Handler: func() { app.EditorGroup.ToggleLineComment() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.moveWordLeft", Title: "Move Word Left",
+		ID: "editor.moveWordLeft", Title: "Editor: Move Word Left",
 		Handler: func() { app.EditorGroup.MoveWordLeft(false) },
 	})
 	reg.Register(command.Command{
-		ID: "editor.moveWordRight", Title: "Move Word Right",
+		ID: "editor.moveWordRight", Title: "Editor: Move Word Right",
 		Handler: func() { app.EditorGroup.MoveWordRight(false) },
 	})
 	reg.Register(command.Command{
-		ID: "editor.selectWordLeft", Title: "Select Word Left",
+		ID: "editor.selectWordLeft", Title: "Editor: Select Word Left",
 		Handler: func() { app.EditorGroup.MoveWordLeft(true) },
 	})
 	reg.Register(command.Command{
-		ID: "editor.selectWordRight", Title: "Select Word Right",
+		ID: "editor.selectWordRight", Title: "Editor: Select Word Right",
 		Handler: func() { app.EditorGroup.MoveWordRight(true) },
 	})
 	reg.Register(command.Command{
-		ID: "editor.deleteWordLeft", Title: "Delete Word Left",
+		ID: "editor.deleteWordLeft", Title: "Editor: Delete Word Left",
 		Handler: func() { app.EditorGroup.DeleteWordLeft() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.deleteWordRight", Title: "Delete Word Right",
+		ID: "editor.deleteWordRight", Title: "Editor: Delete Word Right",
 		Handler: func() { app.EditorGroup.DeleteWordRight() },
 	})
 
 	reg.Register(command.Command{
-		ID: "multicursor.selectNext", Title: "Add Next Occurrence",
+		ID: "multicursor.selectNext", Title: "Editor: Add Next Occurrence",
 		Handler: func() { app.EditorGroup.SelectNextOccurrence() },
 	})
 	reg.Register(command.Command{
-		ID: "multicursor.selectAll", Title: "Select All Occurrences",
+		ID: "multicursor.selectAll", Title: "Editor: Select All Occurrences",
 		Handler: func() { app.EditorGroup.SelectAllOccurrences() },
 	})
 	reg.Register(command.Command{
-		ID: "multicursor.undoCursor", Title: "Undo Last Cursor",
+		ID: "multicursor.undoCursor", Title: "Editor: Undo Last Cursor",
 		Handler: func() { app.EditorGroup.UndoLastCursor() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.splitSelectionToLines", Title: "Split Selection into Lines",
+		ID: "editor.splitSelectionToLines", Title: "Editor: Split Selection into Lines",
 		Handler: func() { app.EditorGroup.SplitSelectionToLines() },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.sortLinesAsc", Title: "Sort Lines Ascending",
+		ID: "editor.sortLinesAsc", Title: "Editor: Sort Lines Ascending",
 		Handler: func() { app.EditorGroup.SortLinesAsc() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.sortLinesDesc", Title: "Sort Lines Descending",
+		ID: "editor.sortLinesDesc", Title: "Editor: Sort Lines Descending",
 		Handler: func() { app.EditorGroup.SortLinesDesc() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.reverseLines", Title: "Reverse Lines",
+		ID: "editor.reverseLines", Title: "Editor: Reverse Lines",
 		Handler: func() { app.EditorGroup.ReverseLines() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.uniqueLines", Title: "Unique Lines",
+		ID: "editor.uniqueLines", Title: "Editor: Unique Lines",
 		Handler: func() { app.EditorGroup.UniqueLines() },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.upperCase", Title: "Transform to Uppercase",
+		ID: "editor.upperCase", Title: "Editor: Transform to Uppercase",
 		Handler: func() { app.EditorGroup.UpperCase() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.lowerCase", Title: "Transform to Lowercase",
+		ID: "editor.lowerCase", Title: "Editor: Transform to Lowercase",
 		Handler: func() { app.EditorGroup.LowerCase() },
 	})
 	reg.Register(command.Command{
-		ID: "editor.titleCase", Title: "Transform to Titlecase",
+		ID: "editor.titleCase", Title: "Editor: Transform to Titlecase",
 		Handler: func() { app.EditorGroup.TitleCase() },
 	})
 
 	reg.Register(command.Command{
-		ID: "editor.quit", Title: "Quit",
+		ID: "editor.quit", Title: "File: Quit",
 		Handler: app.Quit,
 	})
 }
