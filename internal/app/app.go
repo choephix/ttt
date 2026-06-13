@@ -99,6 +99,9 @@ func formatKeyDisplay(key string) string {
 func (a *App) ShowSidebar() {
 	a.Sidebar.Visible = true
 	a.SplitPanel.ShowLeft = true
+	if a.SplitPanel.DividerPos < ui.MinSidebarWidth {
+		a.SplitPanel.DividerPos = ui.DefaultSidebarWidth
+	}
 	a.applySearchHighlights()
 }
 

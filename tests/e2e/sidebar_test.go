@@ -3,6 +3,8 @@ package e2e
 import (
 	"strings"
 	"testing"
+
+	"github.com/eugenioenko/ttt/internal/ui"
 )
 
 func TestSidebarTabClick(t *testing.T) {
@@ -134,5 +136,41 @@ func TestSidebarTabOverflow(t *testing.T) {
 
 	if len(h.app.Sidebar.TabBar.HiddenTabs) != 0 {
 		t.Errorf("expected 0 hidden tabs with default sidebar, got %d", len(h.app.Sidebar.TabBar.HiddenTabs))
+	}
+}
+
+func TestSidebarCollapseWidthReset(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	// Simulate dragging sidebar to a very small width (below MinSidebarWidth)
+	h.app.SetSidebarWidth(2)
+	if h.app.SplitPanel.DividerPos != 2 {
+		t.Fatalf("expected divider at 2, got %d", h.app.SplitPanel.DividerPos)
+	}
+
+	// Toggle sidebar off
+	h.exec("sidebar.toggle")
+	if h.app.Sidebar.Visible {
+		t.Fatal("sidebar should be hidden after toggle")
+	}
+
+	// Toggle sidebar back on — width should reset to default
+	h.exec("sidebar.toggle")
+	if !h.app.Sidebar.Visible {
+		t.Fatal("sidebar should be visible after second toggle")
+	}
+	if h.app.SplitPanel.DividerPos != ui.DefaultSidebarWidth {
+		t.Errorf("expected sidebar width to reset to %d after collapse, got %d",
+			ui.DefaultSidebarWidth, h.app.SplitPanel.DividerPos)
+	}
+
+	// Verify a width at or above the minimum is preserved
+	h.app.SetSidebarWidth(ui.MinSidebarWidth)
+	h.exec("sidebar.toggle")
+	h.exec("sidebar.toggle")
+	if h.app.SplitPanel.DividerPos != ui.MinSidebarWidth {
+		t.Errorf("expected sidebar width %d to be preserved, got %d",
+			ui.MinSidebarWidth, h.app.SplitPanel.DividerPos)
 	}
 }
