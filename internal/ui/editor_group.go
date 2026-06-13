@@ -842,6 +842,12 @@ func (g *EditorGroupWidget) TitleCase() {
 	}
 }
 
+func (g *EditorGroupWidget) GoToMatchingBracket() {
+	if g.IsEditorActive() {
+		g.Editor.GoToMatchingBracket()
+	}
+}
+
 func (g *EditorGroupWidget) IsMultiCursorActive() bool {
 	return g.IsEditorActive() && g.Editor.isMultiActive()
 }
