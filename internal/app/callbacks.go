@@ -23,6 +23,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "New File", Command: "file.new"},
 			{Label: "Add Folder", Command: "workspace.addFolder"},
 			{Label: "Refresh", Command: "explorer.refresh"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "explorer.help"},
 		}
 	case "search":
 		replaceLabel := "Replace"
@@ -36,6 +38,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "Collapse All", Command: "search.collapseAll"},
 			ui.MenuSep(),
 			{Label: "Clear Results", Command: "search.clear"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "search.help"},
 		}
 	case "changes":
 		items = []ui.ContextMenuItem{
@@ -44,6 +48,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "Pull", Command: "git.pull"},
 			{Label: "Push", Command: "git.push"},
 			{Label: "Sync", Command: "git.sync"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "changes.help"},
 		}
 	}
 	if len(items) > 0 {
