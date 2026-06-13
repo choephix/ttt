@@ -7,6 +7,13 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const DefaultSidebarWidth = 30
+
+// MinSidebarWidth is the minimum width below which the sidebar resets to
+// DefaultSidebarWidth when toggled back on. This prevents the sidebar from
+// reopening at an unusably small width after being dragged nearly closed.
+const MinSidebarWidth = 10
+
 type SplitPanelWidget struct {
 	BaseWidget
 	Left              Widget
@@ -25,7 +32,7 @@ type SplitPanelWidget struct {
 
 func NewSplitPanelWidget() *SplitPanelWidget {
 	return &SplitPanelWidget{
-		DividerPos: 30,
+		DividerPos: DefaultSidebarWidth,
 		ShowLeft:   true,
 	}
 }
