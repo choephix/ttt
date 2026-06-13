@@ -139,6 +139,44 @@ func (tc TerminalColors) ANSIPalette() [16]string {
 	}
 }
 
+func (tc TerminalColors) ColorByName(name string) string {
+	switch name {
+	case "black":
+		return tc.Black
+	case "red":
+		return tc.Red
+	case "green":
+		return tc.Green
+	case "yellow":
+		return tc.Yellow
+	case "blue":
+		return tc.Blue
+	case "magenta":
+		return tc.Magenta
+	case "cyan":
+		return tc.Cyan
+	case "white":
+		return tc.White
+	case "brightBlack":
+		return tc.BrightBlack
+	case "brightRed":
+		return tc.BrightRed
+	case "brightGreen":
+		return tc.BrightGreen
+	case "brightYellow":
+		return tc.BrightYellow
+	case "brightBlue":
+		return tc.BrightBlue
+	case "brightMagenta":
+		return tc.BrightMagenta
+	case "brightCyan":
+		return tc.BrightCyan
+	case "brightWhite":
+		return tc.BrightWhite
+	}
+	return ""
+}
+
 type HoverStyles struct {
 	Bold StyleDef `json:"bold"`
 	Code StyleDef `json:"code"`
@@ -200,7 +238,7 @@ func DefaultTheme() ThemeConfig {
 			SearchMatch:  StyleDef{Bg: "#623800"},
 			SearchActive: StyleDef{Bg: "#9e6a03"},
 			BracketMatch:  StyleDef{Bg: "#3a3a3a"},
-			BracketColors: []string{"keyword", "function", "type"},
+			BracketColors: []string{"yellow", "magenta", "cyan"},
 		},
 		Scrollbar: StyleDef{Fg: "#999999", Bg: "#555555"},
 

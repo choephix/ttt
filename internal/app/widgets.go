@@ -90,7 +90,7 @@ var bracketColorSlots = []term.Style{
 
 func ResolveBracketColorStyles(colors []string) []term.Style {
 	if len(colors) == 0 {
-		colors = []string{"keyword", "function", "type"}
+		colors = []string{"yellow", "magenta", "cyan"}
 	}
 	n := len(colors)
 	if n > len(bracketColorSlots) {

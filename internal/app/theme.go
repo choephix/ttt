@@ -72,7 +72,7 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyDiagStyle(&m, term.StyleDiagInfo, theme.Editor.Diagnostics.Info)
 	applyDiagStyle(&m, term.StyleDiagHint, theme.Editor.Diagnostics.Hint)
 
-	applyBracketColors(&m, theme.Editor.BracketColors)
+	applyBracketColors(&m, theme.Editor.BracketColors, theme.Terminal)
 
 	return m
 }
@@ -92,7 +92,7 @@ var syntaxStyleNames = map[string]term.Style{
 	"attribute":   term.StyleSyntaxAttribute,
 }
 
-func applyBracketColors(m *term.StyleMap, colors []string) {
+func applyBracketColors(m *term.StyleMap, colors []string, tc config.TerminalColors) {
 	slots := []term.Style{
 		term.StyleBracketColor1, term.StyleBracketColor2, term.StyleBracketColor3,
 		term.StyleBracketColor4, term.StyleBracketColor5, term.StyleBracketColor6,
@@ -105,6 +105,8 @@ func applyBracketColors(m *term.StyleMap, colors []string) {
 			m[slots[i]] = m[slots[i]].Foreground(tcell.GetColor(c))
 		} else if ref, ok := syntaxStyleNames[c]; ok {
 			m[slots[i]] = m[ref]
+		} else if hex := tc.ColorByName(c); hex != "" {
+			m[slots[i]] = m[slots[i]].Foreground(tcell.GetColor(hex))
 		}
 	}
 }
