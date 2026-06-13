@@ -743,6 +743,30 @@ func (g *EditorGroupWidget) ToggleLineComment() {
 	}
 }
 
+func (g *EditorGroupWidget) SortLinesAsc() {
+	if g.IsEditorActive() {
+		g.Editor.SortLinesAsc()
+	}
+}
+
+func (g *EditorGroupWidget) SortLinesDesc() {
+	if g.IsEditorActive() {
+		g.Editor.SortLinesDesc()
+	}
+}
+
+func (g *EditorGroupWidget) ReverseLines() {
+	if g.IsEditorActive() {
+		g.Editor.ReverseLines()
+	}
+}
+
+func (g *EditorGroupWidget) UniqueLines() {
+	if g.IsEditorActive() {
+		g.Editor.UniqueLines()
+	}
+}
+
 func (g *EditorGroupWidget) MoveWordLeft(shift bool) {
 	if g.IsEditorActive() {
 		g.Editor.MoveWordLeft(shift)

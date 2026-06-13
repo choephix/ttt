@@ -10,6 +10,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1516,6 +1517,80 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 	e.Cursor.Col += cursorDelta
 	if e.Cursor.Col < 0 {
 		e.Cursor.Col = 0
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+// lineRange returns the start and end line indices for the current selection,
+// or the full buffer range if no selection is active.
+func (e *EditorPaneWidget) lineRange() (int, int) {
+	if e.Selection != nil && e.Selection.Active {
+		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+		endLine := end.Line
+		if end.Col == 0 && endLine > start.Line {
+			endLine--
+		}
+		return start.Line, endLine
+	}
+	return 0, len(e.Buf.Lines) - 1
+}
+
+// copyLines returns a copy of the buffer lines in the given range (inclusive).
+func (e *EditorPaneWidget) copyLines(start, end int) []string {
+	lines := make([]string, end-start+1)
+	copy(lines, e.Buf.Lines[start:end+1])
+	return lines
+}
+
+func (e *EditorPaneWidget) SortLinesAsc() {
+	start, end := e.lineRange()
+	old := e.copyLines(start, end)
+	sorted := make([]string, len(old))
+	copy(sorted, old)
+	sort.Strings(sorted)
+	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: sorted})
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) SortLinesDesc() {
+	start, end := e.lineRange()
+	old := e.copyLines(start, end)
+	sorted := make([]string, len(old))
+	copy(sorted, old)
+	sort.Sort(sort.Reverse(sort.StringSlice(sorted)))
+	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: sorted})
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) ReverseLines() {
+	start, end := e.lineRange()
+	old := e.copyLines(start, end)
+	reversed := make([]string, len(old))
+	for i, line := range old {
+		reversed[len(old)-1-i] = line
+	}
+	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: reversed})
+	e.clampCursor()
+	e.scrollViewport()
+}
+
+func (e *EditorPaneWidget) UniqueLines() {
+	start, end := e.lineRange()
+	old := e.copyLines(start, end)
+	seen := make(map[string]bool)
+	var unique []string
+	for _, line := range old {
+		if !seen[line] {
+			seen[line] = true
+			unique = append(unique, line)
+		}
+	}
+	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: unique})
+	if e.Cursor.Line >= len(e.Buf.Lines) {
+		e.Cursor.Line = len(e.Buf.Lines) - 1
 	}
 	e.clampCursor()
 	e.scrollViewport()

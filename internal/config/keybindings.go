@@ -188,6 +188,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "alt+backspace", Command: "editor.deleteWordLeft"},
 		{Key: "alt+delete", Command: "editor.deleteWordRight"},
 		{Key: "ctrl+delete", Command: "editor.deleteWordRight"},
+		{Key: "ctrl+k o", Command: "editor.sortLinesAsc"},
 		{Key: "ctrl+k [", Command: "fold.toggle"},
 		{Key: "ctrl+k 0", Command: "fold.collapseAll"},
 		{Key: "ctrl+k 9", Command: "fold.expandAll"},
