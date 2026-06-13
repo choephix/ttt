@@ -121,7 +121,8 @@ Below is a complete theme file showing every configurable section. All color val
     "searchActive": {
       "bg": "#f92672",
       "fg": "#f8f8f2"
-    }
+    },
+    "bracketColors": ["keyword", "function", "type"]
   },
   "menu": {
     "item": {},
@@ -228,7 +229,7 @@ Below is a complete theme file showing every configurable section. All color val
 | `tabs` | Active and inactive editor tab colors |
 | `sidebar` | File explorer sidebar: section headers, items, and selected item |
 | `dialog` | Command palette and dialog boxes: input field, items, selection, muted text |
-| `editor` | Editor pane: line numbers, active line highlight, selection, and search matches |
+| `editor` | Editor pane: line numbers, active line highlight, selection, search matches, and bracket pair colors. `bracketColors` accepts syntax style names (`keyword`, `function`, `type`, `comment`, `string`, `number`, `operator`, `builtin`, `variable`, `punctuation`, `tag`, `attribute`) or hex colors (`#rrggbb`). Up to 6 colors cycle by nesting depth. |
 | `menu` | Menu bar dropdown items and active/hovered item |
 | `diff` | Diff view background colors for added, deleted, and modified lines |
 | `scrollbar` | Scrollbar thumb (`fg`) and track (`bg`) colors |

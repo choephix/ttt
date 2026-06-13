@@ -56,13 +56,14 @@ type DiagnosticStyles struct {
 }
 
 type EditorStyles struct {
-	LineNumber   StyleDef         `json:"lineNumber"`
-	ActiveLine   StyleDef         `json:"activeLine"`
-	Selection    StyleDef         `json:"selection"`
-	SearchMatch  StyleDef         `json:"searchMatch"`
-	SearchActive StyleDef         `json:"searchActive"`
-	BracketMatch StyleDef         `json:"bracketMatch"`
-	Diagnostics  DiagnosticStyles `json:"diagnostics"`
+	LineNumber    StyleDef         `json:"lineNumber"`
+	ActiveLine    StyleDef         `json:"activeLine"`
+	Selection     StyleDef         `json:"selection"`
+	SearchMatch   StyleDef         `json:"searchMatch"`
+	SearchActive  StyleDef         `json:"searchActive"`
+	BracketMatch  StyleDef         `json:"bracketMatch"`
+	BracketColors []string         `json:"bracketColors,omitempty"`
+	Diagnostics   DiagnosticStyles `json:"diagnostics"`
 }
 
 type DiffStyles struct {
@@ -198,7 +199,8 @@ func DefaultTheme() ThemeConfig {
 			LineNumber:   StyleDef{Fg: "#999999"},
 			SearchMatch:  StyleDef{Bg: "#623800"},
 			SearchActive: StyleDef{Bg: "#9e6a03"},
-			BracketMatch: StyleDef{Bg: "#3a3a3a"},
+			BracketMatch:  StyleDef{Bg: "#3a3a3a"},
+			BracketColors: []string{"keyword", "function", "type"},
 		},
 		Scrollbar: StyleDef{Fg: "#999999", Bg: "#555555"},
 

@@ -79,11 +79,37 @@ func BuildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string) {
 	return BuildAppFromConfig(cfg, borders, ws, openFiles), prURLs
 }
 
+var bracketColorSlots = []term.Style{
+	term.StyleBracketColor1,
+	term.StyleBracketColor2,
+	term.StyleBracketColor3,
+	term.StyleBracketColor4,
+	term.StyleBracketColor5,
+	term.StyleBracketColor6,
+}
+
+func ResolveBracketColorStyles(colors []string) []term.Style {
+	if len(colors) == 0 {
+		colors = []string{"keyword", "function", "type"}
+	}
+	n := len(colors)
+	if n > len(bracketColorSlots) {
+		n = len(bracketColorSlots)
+	}
+	return bracketColorSlots[:n]
+}
+
 func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
+
+	bracketStyles := ResolveBracketColorStyles(cfg.Theme.Editor.BracketColors)
 
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.Editor.TabSize, cfg.Settings.Editor.LineNumbers, cfg.Settings.Editor.GutterStyle)
 	editorGroup.InsertFinalNewline = cfg.Settings.Editor.InsertFinalNewline
 	editorGroup.TrimTrailingWhitespace = cfg.Settings.Editor.TrimTrailingWhitespace
+	editorGroup.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
+	editorGroup.Editor.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
+	editorGroup.BracketColorStyles = bracketStyles
+	editorGroup.Editor.BracketColorStyles = bracketStyles
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f)
 		editorGroup.PinActiveTab()

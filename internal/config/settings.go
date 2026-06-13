@@ -78,7 +78,8 @@ type EditorSettings struct {
 	TrimTrailingWhitespace bool   `json:"trimTrailingWhitespace"`
 	DiffView               string `json:"diffView,omitempty"`
 	FocusOnOpen            bool   `json:"focusOnOpen"`
-	GutterStyle            string `json:"gutterStyle,omitempty"`
+	GutterStyle             string `json:"gutterStyle,omitempty"`
+	BracketPairColorization bool   `json:"bracketPairColorization"`
 }
 
 func DefaultEditorSettings() EditorSettings {
@@ -87,7 +88,8 @@ func DefaultEditorSettings() EditorSettings {
 		InsertSpaces:       true,
 		LineNumbers:        true,
 		InsertFinalNewline: true,
-		GutterStyle:        "compact",
+		GutterStyle:             "compact",
+		BracketPairColorization: false,
 	}
 }
 

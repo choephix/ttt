@@ -1,6 +1,8 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -70,7 +72,41 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyDiagStyle(&m, term.StyleDiagInfo, theme.Editor.Diagnostics.Info)
 	applyDiagStyle(&m, term.StyleDiagHint, theme.Editor.Diagnostics.Hint)
 
+	applyBracketColors(&m, theme.Editor.BracketColors)
+
 	return m
+}
+
+var syntaxStyleNames = map[string]term.Style{
+	"comment":     term.StyleSyntaxComment,
+	"string":      term.StyleSyntaxString,
+	"keyword":     term.StyleSyntaxKeyword,
+	"number":      term.StyleSyntaxNumber,
+	"operator":    term.StyleSyntaxOperator,
+	"function":    term.StyleSyntaxFunction,
+	"type":        term.StyleSyntaxType,
+	"builtin":     term.StyleSyntaxBuiltin,
+	"variable":    term.StyleSyntaxVariable,
+	"punctuation": term.StyleSyntaxPunctuation,
+	"tag":         term.StyleSyntaxTag,
+	"attribute":   term.StyleSyntaxAttribute,
+}
+
+func applyBracketColors(m *term.StyleMap, colors []string) {
+	slots := []term.Style{
+		term.StyleBracketColor1, term.StyleBracketColor2, term.StyleBracketColor3,
+		term.StyleBracketColor4, term.StyleBracketColor5, term.StyleBracketColor6,
+	}
+	for i, c := range colors {
+		if i >= len(slots) {
+			break
+		}
+		if strings.HasPrefix(c, "#") {
+			m[slots[i]] = m[slots[i]].Foreground(tcell.GetColor(c))
+		} else if ref, ok := syntaxStyleNames[c]; ok {
+			m[slots[i]] = m[ref]
+		}
+	}
 }
 
 func firstRune(s string, fallback rune) rune {

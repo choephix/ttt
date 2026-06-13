@@ -30,8 +30,10 @@ type EditorPaneWidget struct {
 	CursorY            int
 	TabSize            int
 	LineNumbers        bool
-	GutterStyle        string
-	Highlighter        *highlight.Highlighter
+	GutterStyle             string
+	BracketPairColorization bool
+	BracketColorStyles      []term.Style
+	Highlighter             *highlight.Highlighter
 	SearchQuery        string
 	SearchMatches      []FindMatch
 	SearchActive       int
@@ -208,6 +210,16 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	if e.Viewport.TopLine < 0 {
 		e.Viewport.TopLine = 0
 	}
+
+	var bracketColors bracketColorMap
+	if e.BracketPairColorization {
+		visEnd := e.screenToBufferLine(h - 1)
+		if visEnd >= totalLines {
+			visEnd = totalLines - 1
+		}
+		visStart := e.screenToBufferLine(0)
+		bracketColors = e.computeBracketColors(visStart, visEnd)
+	}
 	for y := 0; y < h; y++ {
 		lineIdx := e.screenToBufferLine(y)
 
@@ -286,6 +298,14 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 						if colIdx >= sp.Start && colIdx < sp.End {
 							style = sp.Style
 							break
+						}
+					}
+				}
+
+				if bracketColors != nil {
+					if cols, ok := bracketColors[lineIdx]; ok {
+						if bs, ok := cols[colIdx]; ok {
+							style = bs
 						}
 					}
 				}
@@ -1230,6 +1250,89 @@ func (e *EditorPaneWidget) GoToMatchingBracket() {
 		}
 		e.scrollViewport()
 	}
+}
+
+var openBrackets = map[rune]bool{'(': true, '[': true, '{': true}
+
+type bracketColorMap map[int]map[int]term.Style
+
+func isInStringOrComment(spans []highlight.Span, col int) bool {
+	for _, sp := range spans {
+		if col >= sp.Start && col < sp.End {
+			if sp.Style == term.StyleSyntaxString || sp.Style == term.StyleSyntaxComment {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (e *EditorPaneWidget) computeBracketColors(visibleStart, visibleEnd int) bracketColorMap {
+	result := make(bracketColorMap)
+	depth := 0
+	totalLines := len(e.Buf.Lines)
+
+	if len(e.BracketColorStyles) == 0 {
+		return result
+	}
+	bracketStyles := e.BracketColorStyles
+	numStyles := len(bracketStyles)
+
+	for lineIdx := 0; lineIdx < totalLines && lineIdx <= visibleEnd; lineIdx++ {
+		line := e.Buf.Lines[lineIdx]
+		runes := []rune(line)
+
+		var spans []highlight.Span
+		if e.Highlighter != nil && lineIdx >= visibleStart {
+			spans = e.Highlighter.HighlightLine(line)
+		}
+
+		var preSpans []highlight.Span
+		if e.Highlighter != nil && lineIdx < visibleStart {
+			preSpans = e.Highlighter.HighlightLine(line)
+		}
+
+		for col, ch := range runes {
+			_, isBracket := bracketPairs[ch]
+			if !isBracket {
+				continue
+			}
+
+			if lineIdx < visibleStart {
+				if isInStringOrComment(preSpans, col) {
+					continue
+				}
+			} else {
+				if isInStringOrComment(spans, col) {
+					continue
+				}
+			}
+
+			if openBrackets[ch] {
+				style := bracketStyles[depth%numStyles]
+				depth++
+				if lineIdx >= visibleStart {
+					if result[lineIdx] == nil {
+						result[lineIdx] = make(map[int]term.Style)
+					}
+					result[lineIdx][col] = style
+				}
+			} else if closingBrackets[ch] {
+				depth--
+				if depth < 0 {
+					depth = 0
+				}
+				style := bracketStyles[depth%numStyles]
+				if lineIdx >= visibleStart {
+					if result[lineIdx] == nil {
+						result[lineIdx] = make(map[int]term.Style)
+					}
+					result[lineIdx][col] = style
+				}
+			}
+		}
+	}
+	return result
 }
 
 func (e *EditorPaneWidget) clampCursor() {

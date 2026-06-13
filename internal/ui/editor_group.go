@@ -67,8 +67,10 @@ type EditorGroupWidget struct {
 	active                 int
 	TabSize                int
 	LineNumbers            bool
-	GutterStyle            string
-	InsertFinalNewline     bool
+	GutterStyle             string
+	BracketPairColorization bool
+	BracketColorStyles      []term.Style
+	InsertFinalNewline      bool
 	TrimTrailingWhitespace bool
 	Borders                *term.BorderSet
 	OnFileOpen             func(path, lang, text string)

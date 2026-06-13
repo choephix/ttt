@@ -24,6 +24,7 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
 | `debugMode` | bool | `false` | Enable debug logging |
 | `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
 | `insertFinalNewline` | bool | `true` | Ensure files end with a newline on load and save |
+| `bracketPairColorization` | bool | `false` | Colorize matching bracket pairs by nesting depth |
 
 ## Explorer
 
@@ -75,6 +76,7 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
   "theme": "default-dark",
   "formatOnSave": true,
   "insertFinalNewline": true,
+  "bracketPairColorization": false,
   "search": {
     "debounce": 350
   },

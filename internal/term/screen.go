@@ -49,6 +49,12 @@ const (
 	StyleInputAction
 	StyleHoverBold
 	StyleHoverCode
+	StyleBracketColor1
+	StyleBracketColor2
+	StyleBracketColor3
+	StyleBracketColor4
+	StyleBracketColor5
+	StyleBracketColor6
 )
 
 // DirectColor holds an RGBA color for terminal emulator output.
