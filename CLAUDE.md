@@ -110,6 +110,13 @@ Every new feature or bug fix should include tests at multiple levels:
 
 Functional tests with `tui` are the highest-value tests. Use `tui.exec("Command Name")` for command palette, `tui.pressChord("ctrl+k", "x")` for keybindings, and `tui.snapshot()` to verify results.
 
+### Implementation patterns
+
+- **Undo contract**: all buffer mutations must go through the undo system via an `EditCommand` (in `internal/core/undo/`). Never modify `Buf.Lines` directly — create or reuse a command struct so undo/redo works.
+- **Command naming**: use `domain.verbNoun` — e.g. `editor.joinLines`, `fold.toggle`, `multicursor.selectAll`.
+- **Selection operations**: check `Selection.Active` first. Use `Selection.Range(cursor.Line, cursor.Col)` for bounds. Convention: if no selection, operate on all lines (for line-based commands) or no-op (for text transforms).
+- **Keybindings**: `ctrl+shift` combos are unreliable in terminals — avoid them. Use `ctrl+k <key>` chords for new commands. Check `DefaultKeybindings()` in `internal/config/keybindings.go` before assigning to avoid collisions. If no obvious binding exists, leave the command as command palette only — not every command needs a keybinding.
+
 ### Post-implementation review
 
 After a feature is implemented and tests pass, review all changes for cleanup: dead code, unnecessary complexity, naming inconsistencies, or missing edge cases. Fix anything related to the feature in the same PR. If you spot something unrelated that needs attention, create a GitHub issue for it instead of fixing it in the current PR.
