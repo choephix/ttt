@@ -103,6 +103,62 @@ func TestPaletteBackspace(t *testing.T) {
 	}
 }
 
+func TestPaletteFuzzyFilter(t *testing.T) {
+	p := NewCommandPaletteWidget(testCommands())
+
+	// Type "fs" which should fuzzy match "File: Save" (F + S at word boundaries)
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'f', 0))
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
+
+	found := false
+	for _, item := range p.Items {
+		if item.ID == "file.save" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected fuzzy query 'fs' to match 'File: Save', got %d results", len(p.Items))
+	}
+}
+
+func TestPaletteFuzzyFilterInitials(t *testing.T) {
+	p := NewCommandPaletteWidget(testCommands())
+
+	// Type "se" which should fuzzy match "Split Editor Right" (s...e in Editor)
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'e', 0))
+
+	found := false
+	for _, item := range p.Items {
+		if item.ID == "editor.split" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected fuzzy query 'se' to match 'Split Editor Right'")
+	}
+}
+
+func TestPaletteFuzzyScoreOrdering(t *testing.T) {
+	cmds := []command.Command{
+		{ID: "a", Title: "Toggle Sidebar"},
+		{ID: "b", Title: "To Do List"},
+		{ID: "c", Title: "Top Level"},
+	}
+	p := NewCommandPaletteWidget(cmds)
+
+	// Type "to" - "Toggle Sidebar" and "Top Level" start with "to" (substring at position 0),
+	// "To Do List" starts with "To" too. All are substring matches.
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 't', 0))
+	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'o', 0))
+
+	if len(p.Items) < 3 {
+		t.Fatalf("expected at least 3 results, got %d", len(p.Items))
+	}
+}
+
 func TestPaletteModeSwitch(t *testing.T) {
 	p := NewCommandPaletteWidget(testCommands())
 

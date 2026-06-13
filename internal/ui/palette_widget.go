@@ -3,8 +3,10 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/term"
 
@@ -20,9 +22,9 @@ const (
 )
 
 type PaletteItem struct {
-	Label    string
-	Detail   string
-	ID       string
+	Label  string
+	Detail string
+	ID     string
 }
 
 type paletteFile struct {
@@ -32,21 +34,21 @@ type paletteFile struct {
 
 type CommandPaletteWidget struct {
 	BaseWidget
-	Commands     []command.Command
-	Items        []PaletteItem
-	Input        *InputWidget
-	Selected     int
-	scrollOffset int
-	inputX       int
-	inputY       int
-	mode         paletteMode
-	files        []paletteFile
-	OnExecute          func(id string)
-	OnOpenFile         func(path string)
-	OnGoToLine         func(line int)
-	OnDismiss          func()
-	OnSelectionChange  func(id string)
-	Borders            *term.BorderSet
+	Commands          []command.Command
+	Items             []PaletteItem
+	Input             *InputWidget
+	Selected          int
+	scrollOffset      int
+	inputX            int
+	inputY            int
+	mode              paletteMode
+	files             []paletteFile
+	OnExecute         func(id string)
+	OnOpenFile        func(path string)
+	OnGoToLine        func(line int)
+	OnDismiss         func()
+	OnSelectionChange func(id string)
+	Borders           *term.BorderSet
 }
 
 func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
@@ -104,7 +106,13 @@ func (p *CommandPaletteWidget) CursorPosition() (int, int, bool) {
 func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
 
-	boxW := 60
+	boxW := sw * 6 / 10 // 60% of terminal width
+	if boxW > 80 {
+		boxW = 80
+	}
+	if boxW < 40 {
+		boxW = 40
+	}
 	if boxW > sw-4 {
 		boxW = sw - 4
 	}
@@ -304,15 +312,28 @@ func (p *CommandPaletteWidget) filterCommands(query string) {
 			})
 		}
 	} else {
-		lower := strings.ToLower(query)
+		type scored struct {
+			item  PaletteItem
+			score int
+		}
+		var matches []scored
 		for _, cmd := range p.Commands {
-			if strings.Contains(strings.ToLower(cmd.Title), lower) {
-				p.Items = append(p.Items, PaletteItem{
-					Label:  cmd.Title,
-					Detail: cmd.Shortcut,
-					ID:     cmd.ID,
+			if ok, score := fuzzyMatch(query, cmd.Title); ok {
+				matches = append(matches, scored{
+					item: PaletteItem{
+						Label:  cmd.Title,
+						Detail: cmd.Shortcut,
+						ID:     cmd.ID,
+					},
+					score: score,
 				})
 			}
+		}
+		sort.Slice(matches, func(i, j int) bool {
+			return matches[i].score > matches[j].score
+		})
+		for _, m := range matches {
+			p.Items = append(p.Items, m.item)
 		}
 	}
 	p.Selected = 0
@@ -341,17 +362,30 @@ func (p *CommandPaletteWidget) filterFiles(query string) {
 			}
 		}
 	} else {
-		lower := strings.ToLower(query)
+		type scored struct {
+			item  PaletteItem
+			score int
+		}
+		var matches []scored
 		for _, f := range p.files {
-			if strings.Contains(strings.ToLower(f.Rel), lower) {
-				p.Items = append(p.Items, PaletteItem{
-					Label:  filepath.Base(f.Rel),
-					Detail: fileDetail(f.Rel),
-					ID:     f.Abs,
+			if ok, score := fuzzyMatch(query, f.Rel); ok {
+				matches = append(matches, scored{
+					item: PaletteItem{
+						Label:  filepath.Base(f.Rel),
+						Detail: fileDetail(f.Rel),
+						ID:     f.Abs,
+					},
+					score: score,
 				})
-				if len(p.Items) >= 100 {
-					break
-				}
+			}
+		}
+		sort.Slice(matches, func(i, j int) bool {
+			return matches[i].score > matches[j].score
+		})
+		for _, m := range matches {
+			p.Items = append(p.Items, m.item)
+			if len(p.Items) >= 100 {
+				break
 			}
 		}
 	}
