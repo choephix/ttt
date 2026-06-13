@@ -56,14 +56,14 @@ describe("code folding", () => {
     tui.start(file);
     tui.waitFor("hello");
 
-    tui.exec("Fold All");
+    tui.pressChord("ctrl+k", "0");
     tui.waitStable();
 
     let snap = tui.snapshot();
     expect(snap).not.toContain("hello");
     expect(snap).not.toContain("return");
 
-    tui.exec("Unfold All");
+    tui.pressChord("ctrl+k", "9");
     tui.waitStable();
 
     snap = tui.snapshot();
@@ -89,6 +89,35 @@ describe("code folding", () => {
 
     const snap = tui.snapshot();
     expect(snap).toContain("▶");
+  });
+
+  it("should expand fold when search finds match inside collapsed section", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "main.go", goContent);
+
+    tui.start(file);
+    tui.waitFor("hello");
+
+    // Collapse all folds using keybinding
+    tui.pressChord("ctrl+k", "0");
+    tui.waitStable();
+
+    let snap = tui.snapshot();
+    expect(snap).not.toContain("hello");
+    expect(snap).not.toContain("return");
+
+    // Search for text inside collapsed fold
+    tui.press("ctrl+f");
+    tui.waitStable();
+    tui.type("hello");
+    tui.waitStable();
+    tui.press("enter");
+    tui.waitStable();
+    tui.press("escape");
+    tui.waitStable();
+
+    snap = tui.snapshot();
+    expect(snap).toContain("hello");
   });
 
   it("should use keybinding ctrl+k [ to toggle fold", () => {

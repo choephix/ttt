@@ -24,6 +24,7 @@ func (a *App) OpenFind() {
 	}
 	findBar.OnNavigate = func(match ui.FindMatch) {
 		a.EditorGroup.SetSearchActive(findBar.Current)
+		a.EditorGroup.Editor.ExpandFoldContaining(match.Line)
 		a.EditorGroup.Editor.Cursor.Line = match.Line
 		a.EditorGroup.Editor.Cursor.Col = match.Col
 		a.EditorGroup.ScrollToCursor()
@@ -49,6 +50,7 @@ func (a *App) OpenFindReplace() {
 	}
 	bar.OnNavigate = func(match ui.FindMatch) {
 		a.EditorGroup.SetSearchActive(bar.Current)
+		a.EditorGroup.Editor.ExpandFoldContaining(match.Line)
 		a.EditorGroup.Editor.Cursor.Line = match.Line
 		a.EditorGroup.Editor.Cursor.Col = match.Col
 		a.EditorGroup.ScrollToCursor()
