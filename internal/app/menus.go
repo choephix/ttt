@@ -8,7 +8,7 @@ import (
 )
 
 var menuBarLabels = []string{
-	"menu.file", "menu.edit", "menu.selection", "menu.view", "menu.help",
+	"menu.file", "menu.edit", "menu.selection", "menu.view", "menu.options", "menu.help",
 }
 
 var menuBarMenus = [][]ui.ContextMenuItem{
@@ -63,10 +63,10 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Toggle Terminal", Command: "terminal.toggle"},
 		{Label: "New Terminal", Command: "terminal.new"},
 		ui.MenuSep(),
-		{Label: "Switch Theme", Command: "theme.switch"},
-		ui.MenuSep(),
 		{Label: "Keyboard Tester", Command: "view.keyboardTester"},
 	},
+	// Options (placeholder — replaced dynamically by openMenuBarDropdown)
+	nil,
 	// Help
 	{
 		{Label: "About", Command: "about"},
@@ -148,6 +148,8 @@ func openContextMenu(app *App, items []ui.ContextMenuItem, x, y int) {
 	app.Root.SetFocus(menu)
 }
 
+const menuOptionsIndex = 4
+
 func openMenuBarDropdown(app *App, index int) {
 	if index < 0 || index >= len(menuBarMenus) {
 		return
@@ -155,7 +157,11 @@ func openMenuBarDropdown(app *App, index int) {
 	reg := app.Reg
 	app.MenuBar.Selected = index
 	anchorX := app.MenuBar.ItemAnchorX(index)
-	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, menuBarMenus[index]), anchorX, 1)
+	items := menuBarMenus[index]
+	if index == menuOptionsIndex {
+		items = app.BuildOptionsMenu()
+	}
+	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), anchorX, 1)
 	menu.Borders = app.Borders
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()

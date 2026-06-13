@@ -11,7 +11,13 @@ type ContextMenuItem struct {
 	Shortcut string
 	Command  string
 	IsSep    bool
+	Checked  int // 0 = no indicator, 1 = unchecked, 2 = checked
 }
+
+const (
+	MenuUnchecked = 1
+	MenuChecked   = 2
+)
 
 func MenuSep() ContextMenuItem {
 	return ContextMenuItem{IsSep: true}
@@ -118,6 +124,9 @@ func (c *ContextMenuWidget) Render(surface *RenderSurface) {
 		}
 
 		surface.ClearRect(x+1, row, menuW-2, 1, style)
+		if it.Checked == MenuChecked {
+			surface.SetCell(x+1, row, term.Cell{Ch: '●', Style: style})
+		}
 		surface.DrawText(x+2, row, it.Label, x+menuW-1, style)
 
 		if it.Shortcut != "" {

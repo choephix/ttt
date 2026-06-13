@@ -111,6 +111,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		{Name: "Edit"},
 		{Name: "Selection"},
 		{Name: "View"},
+		{Name: "Options"},
 		{Name: "Help"},
 	})
 
