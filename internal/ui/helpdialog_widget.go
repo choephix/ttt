@@ -58,7 +58,7 @@ func (d *InfoDialogWidget) Render(surface *RenderSurface) {
 		contentW = titleW
 	}
 
-	boxW := contentW + 14 // 2 border + 2 padding + 10 extra width
+	boxW := contentW + 9 // 2 border + 2 padding + 5 extra width
 	if d.Width > 0 {
 		boxW = d.Width
 	}
@@ -144,17 +144,13 @@ func (d *InfoDialogWidget) Render(surface *RenderSurface) {
 
 	// Close button with 1 row gutter above
 	btnY := boxY + boxH - 2
-	btnLabel := "Close"
+	btnLabel := " Close "
 	btnRunes := []rune(btnLabel)
 	btnX := boxX + (boxW-len(btnRunes))/2
 	surface.ClearRect(boxX+1, btnY-1, boxW-2, 1, term.StylePaletteItem)
 	surface.ClearRect(boxX+1, btnY, boxW-2, 1, term.StylePaletteItem)
 	for j, ch := range btnRunes {
-		cell := term.Cell{Ch: ch, Style: term.StylePaletteItem}
-		if j == 0 {
-			cell.Underline = true
-		}
-		surface.SetCell(btnX+j, btnY, cell)
+		surface.SetCell(btnX+j, btnY, term.Cell{Ch: ch, Style: term.StylePaletteSelected})
 	}
 	d.btnHit = HitRegion{X: btnX, Y: btnY, W: len(btnRunes)}
 
@@ -231,12 +227,6 @@ func (d *InfoDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		if d.scrollTop > max {
 			d.scrollTop = max
-		}
-	case tcell.KeyRune:
-		if kev.Rune() == 'c' || kev.Rune() == 'C' {
-			if d.OnDismiss != nil {
-				d.OnDismiss()
-			}
 		}
 	}
 
