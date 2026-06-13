@@ -396,6 +396,10 @@ func registerEditorCommands(app *App) {
 		Handler: func() { app.EditorGroup.DeleteLine() },
 	})
 	reg.Register(command.Command{
+		ID: "editor.joinLines", Title: "Join Lines",
+		Handler: func() { app.EditorGroup.JoinLines() },
+	})
+	reg.Register(command.Command{
 		ID: "editor.insertLineBelow", Title: "Insert Line Below",
 		Handler: func() { app.EditorGroup.InsertLineBelow() },
 	})

@@ -1415,6 +1415,41 @@ func (e *EditorPaneWidget) DeleteLine() {
 	e.scrollViewport()
 }
 
+func (e *EditorPaneWidget) JoinLines() {
+	if e.Undo != nil {
+		e.Undo.BreakGroup()
+	}
+	hasSel := e.Selection != nil && e.Selection.Active
+	if hasSel {
+		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+		endLine := end.Line
+		if end.Col == 0 && endLine > start.Line {
+			endLine--
+		}
+		// Join all lines in the selection range from the first line
+		for endLine > start.Line {
+			cmd := &undo.JoinNextLineCommand{Line: start.Line}
+			e.exec(cmd)
+			endLine--
+		}
+		e.Selection.Active = false
+		e.Cursor.Line = start.Line
+		lineLen := len([]rune(e.Buf.Lines[start.Line]))
+		if e.Cursor.Col > lineLen {
+			e.Cursor.Col = lineLen
+		}
+	} else {
+		if e.Cursor.Line >= len(e.Buf.Lines)-1 {
+			return
+		}
+		cmd := &undo.JoinNextLineCommand{Line: e.Cursor.Line}
+		e.exec(cmd)
+		e.Cursor.Col = cmd.JoinCol
+	}
+	e.clampCursor()
+	e.scrollViewport()
+}
+
 func (e *EditorPaneWidget) InsertLineBelow() {
 	e.exec(&undo.InsertLineCommand{Idx: e.Cursor.Line + 1, Text: ""})
 	e.Cursor.Line++

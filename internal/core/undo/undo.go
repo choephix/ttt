@@ -1,6 +1,11 @@
 package undo
 
-import "github.com/eugenioenko/ttt/internal/core/buffer"
+import (
+	"strings"
+	"unicode"
+
+	"github.com/eugenioenko/ttt/internal/core/buffer"
+)
 
 // EditCommand defines the interface for undoable buffer edits.
 type EditCommand interface {
@@ -116,6 +121,8 @@ func cursorAfterUndo(cmd EditCommand) *CursorPos {
 		return &CursorPos{c.Line, c.Col}
 	case *JoinLineCommand:
 		return &CursorPos{c.Line - 1, c.PrevLen}
+	case *JoinNextLineCommand:
+		return &CursorPos{c.Line, c.JoinCol}
 	case *DeleteSelectionCommand:
 		return &CursorPos{c.EndLine, c.EndCol}
 	case *PasteCommand:
@@ -140,6 +147,8 @@ func cursorAfterRedo(cmd EditCommand) *CursorPos {
 		return &CursorPos{c.Line + 1, 0}
 	case *JoinLineCommand:
 		return &CursorPos{c.Line - 1, c.PrevLen}
+	case *JoinNextLineCommand:
+		return &CursorPos{c.Line, c.JoinCol}
 	case *DeleteSelectionCommand:
 		return &CursorPos{c.StartLine, c.StartCol}
 	case *PasteCommand:
@@ -281,6 +290,47 @@ func (c *JoinLineCommand) Undo(b *buffer.Buffer) {
 	right := string(combined[c.PrevLen:])
 	b.Lines[c.Line-1] = left
 	b.InsertLine(c.Line, right)
+}
+
+// JoinNextLineCommand implements EditCommand for joining the current line with the next one.
+// It trims leading whitespace from the next line and joins with a single space
+// (unless the current line ends with a space or the trimmed next line is empty).
+type JoinNextLineCommand struct {
+	Line     int    // the current line (joins with Line+1)
+	JoinCol  int    // column where the join happened (set by Apply)
+	NextText string // original text of the next line (for undo)
+}
+
+func (c *JoinNextLineCommand) Apply(b *buffer.Buffer) {
+	if c.Line < 0 || c.Line >= len(b.Lines)-1 {
+		return
+	}
+	currentLine := b.Lines[c.Line]
+	nextLine := b.Lines[c.Line+1]
+	c.NextText = nextLine
+
+	trimmed := strings.TrimLeftFunc(nextLine, unicode.IsSpace)
+	currentRunes := []rune(currentLine)
+	c.JoinCol = len(currentRunes)
+
+	separator := ""
+	if len(currentRunes) > 0 && trimmed != "" && currentRunes[len(currentRunes)-1] != ' ' {
+		separator = " "
+	}
+
+	b.Lines[c.Line] = currentLine + separator + trimmed
+	b.DeleteLine(c.Line + 1)
+	b.Dirty = true
+}
+
+func (c *JoinNextLineCommand) Undo(b *buffer.Buffer) {
+	if c.Line < 0 || c.Line >= len(b.Lines) {
+		return
+	}
+	// Restore the current line to its original length
+	currentRunes := []rune(b.Lines[c.Line])
+	b.Lines[c.Line] = string(currentRunes[:c.JoinCol])
+	b.InsertLine(c.Line+1, c.NextText)
 }
 
 // InsertLineCommand implements EditCommand for inserting a line.
