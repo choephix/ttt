@@ -109,25 +109,24 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 	row := barY + 1
 
 	info := ""
+	hasMatches := f.Input.Text != "" && len(f.Matches) > 0
 	if f.Input.Text != "" {
 		info = fmt.Sprintf(" %d/%d", f.currentDisplay(), len(f.Matches))
 	}
-	navButtons := " ▲ ▼ ✕"
-	suffixW := len([]rune(info)) + len([]rune(navButtons))
+	navButtons := ""
+	if hasMatches {
+		navButtons = " ▲ ▼"
+	}
+	closeBtn := " ✕ "
+	suffixW := len([]rune(info)) + len([]rune(navButtons)) + len([]rune(closeBtn))
 
-	rightPad := 1
-	inputW := barW - 2 - suffixW - rightPad
+	inputW := barW - 2 - suffixW
 	if inputW < 4 {
 		inputW = 4
 	}
 	f.Input.Render(surface, barX+1, row, inputW)
 
 	cx := barX + 1 + inputW
-	// right padding between input and info/nav suffix
-	for i := 0; i < rightPad; i++ {
-		surface.SetCell(cx, row, term.Cell{Ch: ' ', Style: term.StyleInput})
-		cx++
-	}
 	for _, ch := range info {
 		if cx < barX+barW-1 {
 			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: term.StyleMuted})
@@ -142,9 +141,20 @@ func (f *FindBarWidget) Render(surface *RenderSurface) {
 			cx++
 		}
 	}
-	f.btnPrev = HitRegion{X: navStart + 1, Y: row, W: 1}
-	f.btnNext = HitRegion{X: navStart + 3, Y: row, W: 1}
-	f.btnClose = HitRegion{X: navStart + 5, Y: row, W: 1}
+	f.btnPrev = HitRegion{}
+	f.btnNext = HitRegion{}
+	if hasMatches {
+		f.btnPrev = HitRegion{X: navStart + 1, Y: row, W: 1}
+		f.btnNext = HitRegion{X: navStart + 3, Y: row, W: 1}
+	}
+	closeStart := cx
+	for _, ch := range closeBtn {
+		if cx < barX+barW-1 {
+			surface.SetCell(cx, row, term.Cell{Ch: ch, Style: term.StyleMuted})
+			cx++
+		}
+	}
+	f.btnClose = HitRegion{X: closeStart + 1, Y: row, W: 1}
 }
 
 func (f *FindBarWidget) currentDisplay() int {
