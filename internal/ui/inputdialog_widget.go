@@ -18,6 +18,8 @@ type InputDialogWidget struct {
 	boxX         int
 	boxY         int
 	boxW         int
+	cancelHit    HitRegion
+	saveHit      HitRegion
 }
 
 func NewInputDialogWidget(title, placeholder, initial string) *InputDialogWidget {
@@ -83,42 +85,34 @@ func (d *InputDialogWidget) Render(surface *RenderSurface) {
 		saveStyle = term.StylePaletteSelected
 	}
 
-	saveX := d.boxX + d.boxW - 2 - len([]rune(saveLabel))
+	saveW := len([]rune(saveLabel))
+	saveX := d.boxX + d.boxW - 2 - saveW
 	surface.DrawText(saveX, btnY, saveLabel, 0, saveStyle)
-	cancelX := saveX - 1 - len([]rune(cancelLabel))
+	cancelW := len([]rune(cancelLabel))
+	cancelX := saveX - 1 - cancelW
 	surface.DrawText(cancelX, btnY, cancelLabel, 0, cancelStyle)
+
+	d.saveHit = HitRegion{X: saveX, Y: btnY, W: saveW}
+	d.cancelHit = HitRegion{X: cancelX, Y: btnY, W: cancelW}
 }
 
 func (d *InputDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
 		if mev.Buttons()&tcell.Button1 != 0 {
 			mx, my := mev.Position()
-			btnY := d.boxY + 5
-			if my == btnY {
-				confirmText := "Save"
-				if d.ConfirmLabel != "" {
-					confirmText = d.ConfirmLabel
+			if d.saveHit.Contains(mx, my) {
+				d.focusedBtn = 2
+				if d.OnSubmit != nil && d.Input.Text != "" {
+					d.OnSubmit(d.Input.Text)
 				}
-				saveLabel := " " + confirmText + " "
-				cancelLabel := " Cancel "
-				saveEnd := d.boxX + d.boxW - 2
-				saveStart := saveEnd - len([]rune(saveLabel))
-				cancelEnd := saveStart - 1
-				cancelStart := cancelEnd - len([]rune(cancelLabel))
-				if mx >= saveStart && mx < saveEnd {
-					d.focusedBtn = 2
-					if d.OnSubmit != nil && d.Input.Text != "" {
-						d.OnSubmit(d.Input.Text)
-					}
-					return EventConsumed
+				return EventConsumed
+			}
+			if d.cancelHit.Contains(mx, my) {
+				d.focusedBtn = 1
+				if d.OnDismiss != nil {
+					d.OnDismiss()
 				}
-				if mx >= cancelStart && mx < cancelEnd {
-					d.focusedBtn = 1
-					if d.OnDismiss != nil {
-						d.OnDismiss()
-					}
-					return EventConsumed
-				}
+				return EventConsumed
 			}
 			if my == d.boxY+3 {
 				d.focusedBtn = 0
