@@ -2206,7 +2206,7 @@ func (e *EditorPaneWidget) TitleCase() {
 				} else {
 					runes[i] = unicode.ToLower(r)
 				}
-			} else {
+			} else if !(inWord && r == '\'') {
 				inWord = false
 			}
 		}

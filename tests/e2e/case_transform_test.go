@@ -84,6 +84,44 @@ func TestCaseTransformNoSelection(t *testing.T) {
 	}
 }
 
+func TestTitleCaseApostrophe(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	f := filepath.Join(h.dir, "apostrophe.txt")
+	os.WriteFile(f, []byte("don't stop\n"), 0644)
+	h.app.EditorGroup.OpenFile(f)
+	h.redraw()
+
+	h.exec("editor.selectAll")
+	h.exec("editor.titleCase")
+	h.redraw()
+
+	got := h.app.EditorGroup.Editor.Buf.Lines[0]
+	if got != "Don't Stop" {
+		t.Errorf("expected \"Don't Stop\", got %q", got)
+	}
+}
+
+func TestTitleCaseHyphen(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	f := filepath.Join(h.dir, "hyphen.txt")
+	os.WriteFile(f, []byte("self-aware\n"), 0644)
+	h.app.EditorGroup.OpenFile(f)
+	h.redraw()
+
+	h.exec("editor.selectAll")
+	h.exec("editor.titleCase")
+	h.redraw()
+
+	got := h.app.EditorGroup.Editor.Buf.Lines[0]
+	if got != "Self-Aware" {
+		t.Errorf("expected \"Self-Aware\", got %q", got)
+	}
+}
+
 func TestUpperCaseMultiLine(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
