@@ -32,6 +32,17 @@ func (a *App) ToggleBracketPairColorization() {
 	config.SaveSettings(*a.Settings)
 }
 
+func (a *App) ToggleGitGutter() {
+	enabled := !a.Settings.Editor.IsGitGutterEnabled()
+	a.Settings.Editor.GitGutter = &enabled
+	config.SaveSettings(*a.Settings)
+	if enabled {
+		a.RequestGitGutterForActiveFile()
+	} else if a.EditorGroup.Editor != nil {
+		a.EditorGroup.Editor.LineChanges = nil
+	}
+}
+
 func (a *App) SetGutterStyle(style string) {
 	a.Settings.Editor.GutterStyle = style
 	a.EditorGroup.GutterStyle = style
@@ -89,10 +100,16 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		bracketColorChecked = ui.MenuChecked
 	}
 
+	gitGutterChecked := ui.MenuUnchecked
+	if a.Settings.Editor.IsGitGutterEnabled() {
+		gitGutterChecked = ui.MenuChecked
+	}
+
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
 		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
+		{Label: "Git Gutter", Command: "options.toggleGitGutter", Checked: gitGutterChecked},
 		ui.MenuSep(),
 		{Label: "Gutter Style", Command: "options.gutterStyle"},
 		{Label: "Tab Size", Command: "options.tabSize"},
@@ -122,6 +139,12 @@ func registerOptionsCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "options.toggleBracketColors", Title: "Toggle Bracket Pair Colorization",
 		Handler: app.ToggleBracketPairColorization,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleGitGutter", Title: "Toggle Git Gutter",
+		Keywords: []string{"preferences", "settings", "editor", "view", "git"},
+		Handler:  app.ToggleGitGutter,
 	})
 
 	reg.Register(command.Command{
