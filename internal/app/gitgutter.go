@@ -90,9 +90,6 @@ func (a *App) ScheduleGitGutter() {
 		a.GitGutterTimer.Stop()
 	}
 	a.GitGutterTimer = time.AfterFunc(500*time.Millisecond, func() {
-		// Post a nil interrupt to wake the event loop, which will trigger
-		// the gutter update on the main thread (avoids data races with
-		// buffer access).
 		a.Screen.PostEvent(tcell.NewEventInterrupt(&GitGutterTrigger{}))
 	})
 }
