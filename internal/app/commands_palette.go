@@ -99,7 +99,9 @@ func (a *App) ShowIndentPicker() {
 				}
 			}
 		} else if id == "tabs" {
-			a.EditorGroup.SetTabSize(4)
+			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.TabSize > 0 {
+				a.EditorGroup.SetTabSize(a.EditorGroup.Editor.TabSize)
+			}
 		} else if size, err := strconv.Atoi(id); err == nil {
 			a.EditorGroup.SetTabSize(size)
 		}
