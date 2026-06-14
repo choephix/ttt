@@ -20,10 +20,10 @@ func TestOnChangeRuneInsert(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Line = 0
 	h.app.EditorGroup.Editor.Cursor.Col = 2
 
-	changeFired := false
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -31,7 +31,7 @@ func TestOnChangeRuneInsert(t *testing.T) {
 
 	h.pressRune('c')
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on rune insert")
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "abc" {
@@ -39,6 +39,9 @@ func TestOnChangeRuneInsert(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != 3 {
 		t.Errorf("expected cursor col 3, got %d", h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	if cursorColDuringChange != 3 {
+		t.Errorf("cursor during OnChange should be 3, got %d", cursorColDuringChange)
 	}
 }
 
@@ -54,10 +57,10 @@ func TestOnChangeBackspace(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Line = 0
 	h.app.EditorGroup.Editor.Cursor.Col = 3
 
-	changeFired := false
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -65,7 +68,7 @@ func TestOnChangeBackspace(t *testing.T) {
 
 	h.pressKey(tcell.KeyBackspace2, tcell.ModNone)
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on backspace")
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "ab" {
@@ -73,6 +76,9 @@ func TestOnChangeBackspace(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != 2 {
 		t.Errorf("expected cursor col 2, got %d", h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	if cursorColDuringChange != 2 {
+		t.Errorf("cursor during OnChange should be 2, got %d", cursorColDuringChange)
 	}
 }
 
@@ -88,10 +94,10 @@ func TestOnChangeDelete(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Line = 0
 	h.app.EditorGroup.Editor.Cursor.Col = 1
 
-	changeFired := false
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -99,7 +105,7 @@ func TestOnChangeDelete(t *testing.T) {
 
 	h.pressKey(tcell.KeyDelete, tcell.ModNone)
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on delete")
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "ac" {
@@ -107,6 +113,9 @@ func TestOnChangeDelete(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != 1 {
 		t.Errorf("expected cursor col 1, got %d", h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	if cursorColDuringChange != 1 {
+		t.Errorf("cursor during OnChange should be 1, got %d", cursorColDuringChange)
 	}
 }
 
@@ -126,8 +135,20 @@ func TestOnChangeUndo(t *testing.T) {
 		t.Fatalf("expected 'hello!', got %q", got)
 	}
 
+	changeFired := false
+	orig := h.app.EditorGroup.Editor.OnChange
+	h.app.EditorGroup.Editor.OnChange = func() {
+		changeFired = true
+		if orig != nil {
+			orig()
+		}
+	}
+
 	h.exec("editor.undo")
 
+	if !changeFired {
+		t.Error("OnChange did not fire on undo")
+	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "hello" {
 		t.Errorf("expected 'hello' after undo, got %q", got)
 	}
@@ -145,10 +166,10 @@ func TestOnChangeToggleComment(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Line = 0
 	h.app.EditorGroup.Editor.Cursor.Col = 3
 
-	changeFired := false
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -156,11 +177,14 @@ func TestOnChangeToggleComment(t *testing.T) {
 
 	h.exec("editor.toggleComment")
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on toggle comment")
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "// hello" {
 		t.Errorf("expected '// hello', got %q", got)
+	}
+	if cursorColDuringChange != 6 {
+		t.Errorf("cursor during OnChange should be 6 (3 + '// ' prefix), got %d", cursorColDuringChange)
 	}
 }
 
@@ -175,10 +199,10 @@ func TestOnChangeMultipleRunes(t *testing.T) {
 
 	h.app.EditorGroup.Editor.Cursor.Col = 2
 
-	changeCount := 0
+	var cursorCols []int
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeCount++
+		cursorCols = append(cursorCols, h.app.EditorGroup.Editor.Cursor.Col)
 		if orig != nil {
 			orig()
 		}
@@ -188,14 +212,20 @@ func TestOnChangeMultipleRunes(t *testing.T) {
 	h.pressRune('d')
 	h.pressRune('e')
 
-	if changeCount != 3 {
-		t.Errorf("expected OnChange to fire 3 times, got %d", changeCount)
+	if len(cursorCols) != 3 {
+		t.Errorf("expected OnChange to fire 3 times, got %d", len(cursorCols))
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "abcde" {
 		t.Errorf("expected 'abcde', got %q", got)
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != 5 {
 		t.Errorf("expected cursor col 5, got %d", h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	expected := []int{3, 4, 5}
+	for i, want := range expected {
+		if i < len(cursorCols) && cursorCols[i] != want {
+			t.Errorf("cursor during OnChange[%d] should be %d, got %d", i, want, cursorCols[i])
+		}
 	}
 }
 
@@ -210,10 +240,10 @@ func TestOnChangeTab(t *testing.T) {
 
 	h.app.EditorGroup.Editor.Cursor.Col = 0
 
-	changeFired := false
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -221,7 +251,7 @@ func TestOnChangeTab(t *testing.T) {
 
 	h.pressKey(tcell.KeyTab, tcell.ModNone)
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on tab")
 	}
 	tabSize := h.app.EditorGroup.Editor.TabSize
@@ -230,6 +260,9 @@ func TestOnChangeTab(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != tabSize {
 		t.Errorf("expected cursor col %d, got %d", tabSize, h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	if cursorColDuringChange != tabSize {
+		t.Errorf("cursor during OnChange should be %d, got %d", tabSize, cursorColDuringChange)
 	}
 }
 
@@ -245,10 +278,12 @@ func TestOnChangeBackspaceJoinLine(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Line = 1
 	h.app.EditorGroup.Editor.Cursor.Col = 0
 
-	changeFired := false
+	cursorLineDuringChange := -1
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorLineDuringChange = h.app.EditorGroup.Editor.Cursor.Line
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -256,7 +291,7 @@ func TestOnChangeBackspaceJoinLine(t *testing.T) {
 
 	h.pressKey(tcell.KeyBackspace2, tcell.ModNone)
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on backspace join")
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "abcd" {
@@ -267,6 +302,12 @@ func TestOnChangeBackspaceJoinLine(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != 2 {
 		t.Errorf("expected cursor col 2, got %d", h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	if cursorLineDuringChange != 0 {
+		t.Errorf("cursor line during OnChange should be 0, got %d", cursorLineDuringChange)
+	}
+	if cursorColDuringChange != 2 {
+		t.Errorf("cursor col during OnChange should be 2, got %d", cursorColDuringChange)
 	}
 }
 
@@ -285,10 +326,10 @@ func TestOnChangeSelectionReplace(t *testing.T) {
 	h.app.EditorGroup.Editor.Cursor.Col = 4
 	h.app.EditorGroup.Editor.Selection.Active = true
 
-	changeFired := false
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -296,7 +337,7 @@ func TestOnChangeSelectionReplace(t *testing.T) {
 
 	h.pressRune('X')
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on selection replace")
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[0]; got != "hXo" {
@@ -304,6 +345,9 @@ func TestOnChangeSelectionReplace(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Cursor.Col != 2 {
 		t.Errorf("expected cursor col 2, got %d", h.app.EditorGroup.Editor.Cursor.Col)
+	}
+	if cursorColDuringChange != 2 {
+		t.Errorf("cursor during OnChange should be 2, got %d", cursorColDuringChange)
 	}
 }
 
@@ -318,10 +362,12 @@ func TestOnChangeEnter(t *testing.T) {
 
 	h.app.EditorGroup.Editor.Cursor.Col = 5
 
-	changeFired := false
+	cursorLineDuringChange := -1
+	cursorColDuringChange := -1
 	orig := h.app.EditorGroup.Editor.OnChange
 	h.app.EditorGroup.Editor.OnChange = func() {
-		changeFired = true
+		cursorLineDuringChange = h.app.EditorGroup.Editor.Cursor.Line
+		cursorColDuringChange = h.app.EditorGroup.Editor.Cursor.Col
 		if orig != nil {
 			orig()
 		}
@@ -329,7 +375,7 @@ func TestOnChangeEnter(t *testing.T) {
 
 	h.pressKey(tcell.KeyEnter, tcell.ModNone)
 
-	if !changeFired {
+	if cursorColDuringChange == -1 {
 		t.Error("OnChange did not fire on enter")
 	}
 	if len(h.app.EditorGroup.Editor.Buf.Lines) != 3 {
@@ -340,5 +386,11 @@ func TestOnChangeEnter(t *testing.T) {
 	}
 	if got := h.app.EditorGroup.Editor.Buf.Lines[1]; got != " world" {
 		t.Errorf("expected second line ' world', got %q", got)
+	}
+	if cursorLineDuringChange != 1 {
+		t.Errorf("cursor line during OnChange should be 1, got %d", cursorLineDuringChange)
+	}
+	if cursorColDuringChange != 0 {
+		t.Errorf("cursor col during OnChange should be 0, got %d", cursorColDuringChange)
 	}
 }
