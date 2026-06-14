@@ -238,7 +238,7 @@ func DefaultTheme() ThemeConfig {
 			SearchMatch:  StyleDef{Bg: "#623800"},
 			SearchActive: StyleDef{Bg: "#9e6a03"},
 			BracketMatch:  StyleDef{Bg: "#3a3a3a"},
-			BracketColors: []string{"yellow", "magenta", "cyan"},
+			BracketColors: []string{"yellow", "magenta", "blue"},
 		},
 		Scrollbar: StyleDef{Fg: "#999999", Bg: "#555555"},
 

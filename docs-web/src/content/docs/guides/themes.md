@@ -122,7 +122,7 @@ Below is a complete theme file showing every configurable section. All color val
       "bg": "#f92672",
       "fg": "#f8f8f2"
     },
-    "bracketColors": ["yellow", "magenta", "cyan"]
+    "bracketColors": ["yellow", "magenta", "blue"]
   },
   "menu": {
     "item": {},
