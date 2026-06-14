@@ -147,30 +147,48 @@ func (a *App) resolveAndInsert(item ui.CompletionItem) {
 		}
 	}
 
-	a.insertCompletion(item)
+	var textEdit *lsp.TextEdit
+	if lspItem != nil {
+		textEdit = lspItem.TextEdit
+	}
+	a.insertCompletion(item, textEdit)
 }
 
-func (a *App) insertCompletion(item ui.CompletionItem) {
+func (a *App) insertCompletion(item ui.CompletionItem, textEdit *lsp.TextEdit) {
 	if !a.EditorGroup.IsEditorActive() {
 		return
 	}
-	text := item.InsertText
-	if text == "" {
-		text = item.Label
-	}
 	editor := a.EditorGroup.Editor
-	line, start, col := a.identStart()
-	if start < col {
+
+	var text string
+	var startLine, startCol, endLine, endCol int
+
+	if textEdit != nil {
+		text = textEdit.NewText
+		startLine = textEdit.Range.Start.Line
+		startCol = textEdit.Range.Start.Character
+		endLine = textEdit.Range.End.Line
+		endCol = textEdit.Range.End.Character
+	} else {
+		text = item.InsertText
+		if text == "" {
+			text = item.Label
+		}
+		startLine, startCol, endCol = a.identStart()
+		endLine = startLine
+	}
+
+	if startLine != endLine || startCol != endCol {
 		editor.ExecCommand(&undo.DeleteSelectionCommand{
-			StartLine: line, StartCol: start,
-			EndLine: line, EndCol: col,
+			StartLine: startLine, StartCol: startCol,
+			EndLine: endLine, EndCol: endCol,
 		})
 	}
 	editor.ExecCommand(&undo.InsertStringCommand{
-		Line: line, Col: start, Text: text,
+		Line: startLine, Col: startCol, Text: text,
 	})
-	editor.Cursor.Line = line
-	editor.Cursor.Col = start + len([]rune(text))
+	editor.Cursor.Line = startLine
+	editor.Cursor.Col = startCol + len([]rune(text))
 
 	for i := len(item.AdditionalEdits) - 1; i >= 0; i-- {
 		edit := item.AdditionalEdits[i]
