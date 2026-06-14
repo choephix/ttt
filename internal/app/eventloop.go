@@ -71,8 +71,10 @@ func RunEventLoop(
 		}
 		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.TabSize > 0 {
 			app.Status.TabSize = app.EditorGroup.Editor.TabSize
+			app.Status.UseTabs = app.EditorGroup.Editor.UseTabs
 		} else {
 			app.Status.TabSize = app.Settings.Editor.TabSize
+			app.Status.UseTabs = !app.Settings.Editor.InsertSpaces
 		}
 
 		repoDir := ""

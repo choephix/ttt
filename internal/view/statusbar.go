@@ -35,6 +35,7 @@ type StatusBar struct {
 	Language     string
 	LSP          bool
 	TabSize      int
+	UseTabs      bool
 	LineEnding   string
 	CursorCount  int
 	Notification string

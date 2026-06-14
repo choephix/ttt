@@ -66,7 +66,11 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 	}
 	right = append(right, segment{posText, "pos"})
 	if st.TabSize > 0 {
-		right = append(right, segment{fmt.Sprintf("Spaces: %d", st.TabSize), "indent"})
+		indentLabel := "Spaces"
+		if st.UseTabs {
+			indentLabel = "Tab Size"
+		}
+		right = append(right, segment{fmt.Sprintf("%s: %d", indentLabel, st.TabSize), "indent"})
 	}
 	right = append(right, segment{"UTF-8", "encoding"})
 	eolLabel := "LF"

@@ -52,7 +52,7 @@ func DetectIndent(lines []string) IndentInfo {
 		prevIndent = indent
 	}
 	if tabs > spaces {
-		return IndentInfo{UseTabs: true, Size: 4}
+		return IndentInfo{UseTabs: true}
 	}
 	bestSize := 0
 	bestCount := 0

@@ -1,9 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/buffer"
@@ -82,29 +79,57 @@ func (a *App) ShowThemePicker() {
 	a.ShowDialog(picker)
 }
 
-func (a *App) ShowIndentPicker() {
-	var cmds []command.Command
-	sizes := []int{1, 2, 3, 4, 6, 8}
-	for _, s := range sizes {
-		label := fmt.Sprintf("Spaces: %d", s)
-		cmds = append(cmds, command.Command{ID: strconv.Itoa(s), Title: label})
+func (a *App) showIndentDialog(title string, onApply func(useTabs bool, tabSize int)) {
+	useTabs := false
+	tabSize := 4
+	if a.EditorGroup.Editor != nil {
+		useTabs = a.EditorGroup.Editor.UseTabs
+		tabSize = a.EditorGroup.Editor.TabSize
 	}
-	cmds = append(cmds, command.Command{ID: "tabs", Title: "Indent Using Tabs"})
-	cmds = append(cmds, command.Command{ID: "detect", Title: "Detect from Content"})
-	a.ShowPicker(cmds, func(id string) {
-		if id == "detect" {
-			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Buf != nil {
-				if info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines); info.Size > 0 {
-					a.EditorGroup.SetTabSize(info.Size)
-				}
+	if tabSize <= 0 {
+		tabSize = a.Settings.Editor.TabSize
+	}
+	dialog := ui.NewIndentDialogWidget(useTabs, tabSize)
+	dialog.Title = title
+	dialog.Borders = a.Borders
+	dialog.OnApply = func(ut bool, ts int) {
+		a.DismissDialog()
+		onApply(ut, ts)
+	}
+	dialog.OnAuto = func() {
+		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Buf != nil {
+			info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines)
+			useTabs := info.UseTabs
+			tabSize := dialog.TabSize
+			if info.Size > 0 {
+				tabSize = info.Size
 			}
-		} else if id == "tabs" {
-			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.TabSize > 0 {
-				a.EditorGroup.SetTabSize(a.EditorGroup.Editor.TabSize)
-			}
-		} else if size, err := strconv.Atoi(id); err == nil {
-			a.EditorGroup.SetTabSize(size)
+			a.DismissDialog()
+			onApply(useTabs, tabSize)
 		}
+	}
+	dialog.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(dialog)
+}
+
+func (a *App) ShowIndentPicker() {
+	a.showIndentDialog("File Indentation", func(useTabs bool, tabSize int) {
+		a.EditorGroup.SetTabSize(tabSize)
+		a.EditorGroup.SetUseTabs(useTabs)
+	})
+}
+
+func (a *App) ShowIndentSettings() {
+	a.showIndentDialog("Editor Indentation", func(useTabs bool, tabSize int) {
+		a.Settings.Editor.TabSize = tabSize
+		a.Settings.Editor.InsertSpaces = !useTabs
+		a.EditorGroup.TabSize = tabSize
+		a.EditorGroup.InsertSpaces = !useTabs
+		a.EditorGroup.SetTabSize(tabSize)
+		a.EditorGroup.SetUseTabs(useTabs)
+		config.SaveSettings(*a.Settings)
 	})
 }
 

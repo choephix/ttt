@@ -101,3 +101,18 @@ func TestGlobMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadEditorConfigMJS(t *testing.T) {
+	dir := t.TempDir()
+	ec := filepath.Join(dir, ".editorconfig")
+	os.WriteFile(ec, []byte("root = true\n\n[*]\nindent_style = tab\nindent_size = 4\n"), 0644)
+	f := filepath.Join(dir, "astro.config.mjs")
+	os.WriteFile(f, []byte(""), 0644)
+	props := LoadEditorConfig(f)
+	if props.IndentStyle != "tab" {
+		t.Errorf("expected indent_style=tab, got %q", props.IndentStyle)
+	}
+	if props.IndentSize != 4 {
+		t.Errorf("expected indent_size=4, got %d", props.IndentSize)
+	}
+}

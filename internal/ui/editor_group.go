@@ -52,6 +52,7 @@ type editorTab struct {
 	Diagnostics []Diagnostic
 	Folds       *fold.State
 	TabSize     int
+	UseTabs     bool
 	Content     Widget
 	Pinned      bool
 	LineChanges []diff.LineChangeKind
@@ -67,6 +68,7 @@ type EditorGroupWidget struct {
 	tabs                   []editorTab
 	active                 int
 	TabSize                int
+	InsertSpaces           bool
 	LineNumbers            bool
 	GutterStyle             string
 	BracketPairColorization bool
@@ -168,9 +170,18 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		return
 	}
 	tabSize := g.TabSize
+	useTabs := !g.InsertSpaces
+	detected := buffer.DetectIndent(newBuf.Lines)
+	if ec.IndentStyle == "tab" {
+		useTabs = true
+	} else if ec.IndentStyle == "space" {
+		useTabs = false
+	} else if detected.UseTabs || detected.Size > 0 {
+		useTabs = detected.UseTabs
+	}
 	if ec.IndentSize > 0 {
 		tabSize = ec.IndentSize
-	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 && !detected.UseTabs {
+	} else if detected.Size > 0 && !detected.UseTabs {
 		tabSize = detected.Size
 	}
 	folds := fold.NewState()
@@ -185,6 +196,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Highlighter: highlight.New(path),
 		Folds:       folds,
 		TabSize:     tabSize,
+		UseTabs:     useTabs,
 	}
 	if t := g.activeTab(); t != nil && !t.Pinned && t.Content == nil && t.Buf != nil && !t.Buf.Dirty {
 		g.tabs[g.active] = newTab
@@ -374,6 +386,13 @@ func (g *EditorGroupWidget) SetTabSize(size int) {
 		t.TabSize = size
 	}
 	g.Editor.TabSize = size
+}
+
+func (g *EditorGroupWidget) SetUseTabs(useTabs bool) {
+	if t := g.activeTab(); t != nil {
+		t.UseTabs = useTabs
+	}
+	g.Editor.UseTabs = useTabs
 }
 
 func (g *EditorGroupWidget) SwitchTab(idx int) {
@@ -942,6 +961,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
 		}
+		g.Editor.UseTabs = t.UseTabs
 	}
 	var uiTabs []Tab
 	for i, ts := range g.tabs {

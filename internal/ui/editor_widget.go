@@ -30,6 +30,7 @@ type EditorPaneWidget struct {
 	CursorX            int
 	CursorY            int
 	TabSize            int
+	UseTabs            bool
 	LineNumbers        bool
 	GutterStyle             string
 	BracketPairColorization bool
@@ -95,9 +96,11 @@ func (e *EditorPaneWidget) computeMaxLineWidth() int {
 	if !e.maxLineWidthDirty && e.maxLineWidth > 0 {
 		return e.maxLineWidth
 	}
+	tabW := e.resolveTabSize()
 	maxW := 0
 	for _, line := range e.Buf.Lines {
-		if lw := len([]rune(line)); lw > maxW {
+		lw := bufColToVisualCol(line, len([]rune(line)), tabW)
+		if lw > maxW {
 			maxW = lw
 		}
 	}
@@ -302,27 +305,12 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				annRunes = []rune(" ⋯")
 			}
 
-			lineEnd := len(line)
+			tabW := e.resolveTabSize()
+			screenCells := e.renderLineToScreen(line, syntaxSpans, isCollapsedLine, annRunes, tabW, e.Viewport.LeftCol, editorW)
 			for x := 0; x < editorW; x++ {
-				colIdx := e.Viewport.LeftCol + x
-				ch := ' '
-				style := term.StyleDefault
-
-				if isCollapsedLine && colIdx >= lineEnd && len(annRunes) > 0 {
-					annIdx := colIdx - lineEnd
-					if annIdx < len(annRunes) {
-						ch = annRunes[annIdx]
-						style = term.StyleLineNumber
-					}
-				} else if colIdx < len(line) {
-					ch = line[colIdx]
-					for _, sp := range syntaxSpans {
-						if colIdx >= sp.Start && colIdx < sp.End {
-							style = sp.Style
-							break
-						}
-					}
-				}
+				colIdx := screenCells[x].bufCol
+				ch := screenCells[x].ch
+				style := screenCells[x].style
 
 				if bracketColors != nil {
 					if cols, ok := bracketColors[lineIdx]; ok {
@@ -436,7 +424,8 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	}
 
 	r := e.GetRect()
-	e.CursorX = e.Cursor.Col - e.Viewport.LeftCol + gutterW + r.X
+	cursorVisCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, e.resolveTabSize())
+	e.CursorX = cursorVisCol - e.Viewport.LeftCol + gutterW + r.X
 	if foldsActive {
 		curVis := e.Folds.BufferToVisible(e.Cursor.Line)
 		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
@@ -926,13 +915,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
 			e.Cursor.Line++
 			e.Cursor.Col = 0
-			tabSize := e.TabSize
-			if tabSize <= 0 {
-				tabSize = 4
-			}
 			newIndent := indent
 			if extraIndent {
-				newIndent += strings.Repeat(" ", tabSize)
+				newIndent += e.indentUnit()
 			}
 			if len(newIndent) > 0 {
 				e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
@@ -962,10 +947,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 						break
 					}
 				}
-				tabSize := e.TabSize
-				if tabSize <= 0 {
-					tabSize = 4
-				}
+				tabSize := e.resolveTabSize()
 				if inLeadingWhitespace && e.Cursor.Col > 1 && runes[e.Cursor.Col-1] == ' ' {
 					target := ((e.Cursor.Col - 1) / tabSize) * tabSize
 					if target == e.Cursor.Col {
@@ -1026,18 +1008,11 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventIgnored
 		}
 	case tcell.KeyBacktab:
-		tabSize := e.TabSize
-		if tabSize <= 0 {
-			tabSize = 4
-		}
+		tabSize := e.resolveTabSize()
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
 			for line := start.Line; line <= end.Line; line++ {
-				runes := []rune(e.Buf.Lines[line])
-				remove := 0
-				for remove < tabSize && remove < len(runes) && runes[remove] == ' ' {
-					remove++
-				}
+				remove := leadingIndentWidth(e.Buf.Lines[line], tabSize)
 				if remove > 0 {
 					e.exec(&undo.DeleteSelectionCommand{
 						StartLine: line, StartCol: 0,
@@ -1046,11 +1021,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				}
 			}
 		} else {
-			runes := []rune(e.Buf.Lines[e.Cursor.Line])
-			remove := 0
-			for remove < tabSize && remove < len(runes) && runes[remove] == ' ' {
-				remove++
-			}
+			remove := leadingIndentWidth(e.Buf.Lines[e.Cursor.Line], tabSize)
 			if remove > 0 {
 				e.exec(&undo.DeleteSelectionCommand{
 					StartLine: e.Cursor.Line, StartCol: 0,
@@ -1063,19 +1034,15 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		}
 	case tcell.KeyTab:
-		tabSize := e.TabSize
-		if tabSize <= 0 {
-			tabSize = 4
-		}
+		indent := e.indentUnit()
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-			indent := strings.Repeat(" ", tabSize)
 			for line := start.Line; line <= end.Line; line++ {
 				e.exec(&undo.InsertStringCommand{Line: line, Col: 0, Text: indent})
 			}
 		} else {
-			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: strings.Repeat(" ", tabSize)})
-			e.Cursor.Col += tabSize
+			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: indent})
+			e.Cursor.Col += len([]rune(indent))
 		}
 	default:
 		return EventIgnored
@@ -1093,9 +1060,9 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 	gutterW := e.GutterWidth()
 	screenY := my - r.Y
 	line = e.screenToBufferLine(screenY)
-	col = mx - r.X - gutterW + e.Viewport.LeftCol
-	if col < 0 {
-		col = 0
+	visCol := mx - r.X - gutterW + e.Viewport.LeftCol
+	if visCol < 0 {
+		visCol = 0
 	}
 	if line < 0 {
 		line = 0
@@ -1103,6 +1070,7 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 	if line >= len(e.Buf.Lines) {
 		line = len(e.Buf.Lines) - 1
 	}
+	col = visualColToBufCol(e.Buf.Lines[line], visCol, e.resolveTabSize())
 	lineLen := len([]rune(e.Buf.Lines[line]))
 	if col > lineLen {
 		col = lineLen
@@ -1153,6 +1121,32 @@ func (e *EditorPaneWidget) selectLine(line int) {
 	}
 }
 
+func (e *EditorPaneWidget) resolveTabSize() int {
+	if e.TabSize > 0 {
+		return e.TabSize
+	}
+	return 4
+}
+
+func (e *EditorPaneWidget) indentUnit() string {
+	if e.UseTabs {
+		return "\t"
+	}
+	return strings.Repeat(" ", e.resolveTabSize())
+}
+
+func leadingIndentWidth(line string, tabSize int) int {
+	runes := []rune(line)
+	if len(runes) > 0 && runes[0] == '\t' {
+		return 1
+	}
+	remove := 0
+	for remove < tabSize && remove < len(runes) && runes[remove] == ' ' {
+		remove++
+	}
+	return remove
+}
+
 func leadingWhitespace(s string) string {
 	for i, r := range s {
 		if r != ' ' && r != '\t' {
@@ -1160,6 +1154,93 @@ func leadingWhitespace(s string) string {
 		}
 	}
 	return s
+}
+
+func bufColToVisualCol(line string, bufCol, tabW int) int {
+	visCol := 0
+	for i, ch := range line {
+		if i >= bufCol {
+			break
+		}
+		if ch == '\t' {
+			visCol = ((visCol / tabW) + 1) * tabW
+		} else {
+			visCol++
+		}
+	}
+	return visCol
+}
+
+func visualColToBufCol(line string, targetVisCol, tabW int) int {
+	visCol := 0
+	for i, ch := range line {
+		if visCol >= targetVisCol {
+			return i
+		}
+		if ch == '\t' {
+			nextStop := ((visCol / tabW) + 1) * tabW
+			if targetVisCol < nextStop {
+				return i
+			}
+			visCol = nextStop
+		} else {
+			visCol++
+		}
+	}
+	return len([]rune(line))
+}
+
+type screenCell struct {
+	ch     rune
+	style  term.Style
+	bufCol int
+}
+
+func (e *EditorPaneWidget) renderLineToScreen(line []rune, spans []highlight.Span, collapsed bool, ann []rune, tabW, leftCol, width int) []screenCell {
+	cells := make([]screenCell, width)
+	for i := range cells {
+		cells[i] = screenCell{ch: ' ', style: term.StyleDefault, bufCol: -1}
+	}
+	visCol := 0
+	lineLen := len(line)
+	for bufCol := 0; bufCol < lineLen; bufCol++ {
+		ch := line[bufCol]
+		style := term.StyleDefault
+		for _, sp := range spans {
+			if bufCol >= sp.Start && bufCol < sp.End {
+				style = sp.Style
+				break
+			}
+		}
+		if ch == '\t' {
+			nextStop := ((visCol / tabW) + 1) * tabW
+			for visCol < nextStop {
+				sx := visCol - leftCol
+				if sx >= 0 && sx < width {
+					cells[sx] = screenCell{ch: ' ', style: style, bufCol: bufCol}
+				}
+				visCol++
+			}
+		} else {
+			sx := visCol - leftCol
+			if sx >= 0 && sx < width {
+				cells[sx] = screenCell{ch: ch, style: style, bufCol: bufCol}
+			}
+			visCol++
+		}
+		if visCol-leftCol >= width {
+			break
+		}
+	}
+	if collapsed && len(ann) > 0 {
+		for i, ch := range ann {
+			sx := visCol + i - leftCol
+			if sx >= 0 && sx < width {
+				cells[sx] = screenCell{ch: ch, style: term.StyleLineNumber, bufCol: lineLen + i}
+			}
+		}
+	}
+	return cells
 }
 
 var bracketPairs = map[rune]rune{
@@ -1410,11 +1491,12 @@ func (e *EditorPaneWidget) scrollViewport() {
 			e.Viewport.TopLine = e.Cursor.Line - e.Viewport.Height + 1
 		}
 	}
-	if e.Cursor.Col < e.Viewport.LeftCol {
-		e.Viewport.LeftCol = e.Cursor.Col
+	visCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, e.resolveTabSize())
+	if visCol < e.Viewport.LeftCol {
+		e.Viewport.LeftCol = visCol
 	}
-	if e.Cursor.Col >= e.Viewport.LeftCol+e.Viewport.Width {
-		e.Viewport.LeftCol = e.Cursor.Col - e.Viewport.Width + 1
+	if visCol >= e.Viewport.LeftCol+e.Viewport.Width {
+		e.Viewport.LeftCol = visCol - e.Viewport.Width + 1
 	}
 }
 
@@ -2063,12 +2145,19 @@ func (e *EditorPaneWidget) multiExecEnter() {
 			cs.Sel.Clear()
 			e.adjustLaterCursors(i, start, end)
 		}
+		indent := leadingWhitespace(e.Buf.Lines[cs.Line])
 		cmd := &undo.SplitLineCommand{Line: cs.Line, Col: cs.Col}
 		cmd.Apply(e.Buf)
 		cmds = append(cmds, cmd)
 		e.shiftLaterLines(i, cs.Line, 1)
 		cs.Line++
 		cs.Col = 0
+		if len(indent) > 0 {
+			indCmd := &undo.InsertStringCommand{Line: cs.Line, Col: 0, Text: indent}
+			indCmd.Apply(e.Buf)
+			cmds = append(cmds, indCmd)
+			cs.Col = len([]rune(indent))
+		}
 	}
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
