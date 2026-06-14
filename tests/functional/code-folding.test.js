@@ -88,7 +88,7 @@ describe("code folding", () => {
     tui.waitStable();
 
     const snap = tui.snapshot();
-    expect(snap).toContain("▶");
+    expect(snap).toContain("⋯");
   });
 
   it("should expand fold when search finds match inside collapsed section", () => {

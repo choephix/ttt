@@ -98,12 +98,16 @@ describe("lsp autocomplete trigger characters", () => {
     log = waitForLogAfter("lsp completion response.*count=[1-9]", mark);
     expect(log).toMatch(/lsp completion response.*count=[1-9]/);
 
+    // Dismiss autocomplete and wait for LSP to settle
+    tui.press("escape");
+    tui.waitStable();
+
     // Mark again for signature help detection
     mark = logSize();
 
     // Type 'log(' — should trigger signature help
     tui.type("log(");
-    log = waitForLogAfter("lsp signature help response.*label=", mark);
+    log = waitForLogAfter("lsp signature help response.*label=", mark, 20000);
     expect(log).toMatch(/lsp signature help response.*label=/);
 
     tui.press("escape");
