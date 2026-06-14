@@ -150,10 +150,6 @@ func RunEventLoop(
 			slog.Debug("key", "key", tev.Key(), "rune", string(tev.Rune()), "mod", tev.Modifiers())
 			app.Root.HandleEvent(tev)
 			app.RefreshAutocomplete()
-			if app.BufferChanged {
-				app.BufferChanged = false
-				app.CheckSignatureHelpTrigger()
-			}
 			syncStatus()
 			redraw()
 
