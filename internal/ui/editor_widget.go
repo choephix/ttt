@@ -2145,12 +2145,19 @@ func (e *EditorPaneWidget) multiExecEnter() {
 			cs.Sel.Clear()
 			e.adjustLaterCursors(i, start, end)
 		}
+		indent := leadingWhitespace(e.Buf.Lines[cs.Line])
 		cmd := &undo.SplitLineCommand{Line: cs.Line, Col: cs.Col}
 		cmd.Apply(e.Buf)
 		cmds = append(cmds, cmd)
 		e.shiftLaterLines(i, cs.Line, 1)
 		cs.Line++
 		cs.Col = 0
+		if len(indent) > 0 {
+			indCmd := &undo.InsertStringCommand{Line: cs.Line, Col: 0, Text: indent}
+			indCmd.Apply(e.Buf)
+			cmds = append(cmds, indCmd)
+			cs.Col = len([]rune(indent))
+		}
 	}
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
