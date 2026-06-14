@@ -498,7 +498,6 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	if e.Undo != nil {
 		e.Undo.Push(cmd)
 	}
-	e.maxLineWidthDirty = true
 	e.bufferDirty = true
 	if e.Folds != nil && len(e.Buf.Lines) != prevLines {
 		e.Folds.SetRanges(fold.ComputeIndentRanges(e.Buf.Lines))
@@ -510,6 +509,7 @@ func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
 func (e *EditorPaneWidget) FlushOnChange() {
 	if e.bufferDirty {
 		e.bufferDirty = false
+		e.maxLineWidthDirty = true
 		e.bracketColorDirty = true
 		if e.OnChange != nil {
 			e.OnChange()
@@ -1748,7 +1748,6 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 
 	if len(cmds) > 0 && e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
-		e.maxLineWidthDirty = true
 		e.bufferDirty = true
 	}
 
@@ -2028,7 +2027,6 @@ func (e *EditorPaneWidget) multiExecRune(r rune) {
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 	}
-	e.maxLineWidthDirty = true
 	e.bufferDirty = true
 	e.syncFromMulti()
 }
@@ -2072,7 +2070,6 @@ func (e *EditorPaneWidget) multiExecBackspace() {
 		if e.Undo != nil {
 			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		}
-		e.maxLineWidthDirty = true
 		e.bufferDirty = true
 	}
 	e.Multi.Deduplicate()
@@ -2115,7 +2112,6 @@ func (e *EditorPaneWidget) multiExecDelete() {
 		if e.Undo != nil {
 			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		}
-		e.maxLineWidthDirty = true
 		e.bufferDirty = true
 	}
 	e.Multi.Deduplicate()
@@ -2157,7 +2153,6 @@ func (e *EditorPaneWidget) multiExecEnter() {
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 	}
-	e.maxLineWidthDirty = true
 	e.bufferDirty = true
 	e.syncFromMulti()
 }
