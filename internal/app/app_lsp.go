@@ -42,7 +42,9 @@ func (a *App) RefreshAutocomplete() {
 	}
 	prefix := a.currentPrefix()
 	if prefix == "" {
-		a.DismissAutocomplete()
+		if !a.isCompletionTrigger(a.charBeforeCursor()) {
+			a.DismissAutocomplete()
+		}
 		return
 	}
 	filtered := ui.FilterCompletions(a.CompletionItems, prefix)
@@ -51,6 +53,15 @@ func (a *App) RefreshAutocomplete() {
 		return
 	}
 	a.EditorGroup.Autocomplete.SetItems(filtered)
+}
+
+func (a *App) isCompletionTrigger(ch string) bool {
+	for _, tc := range a.CompletionTriggers {
+		if ch == tc {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) identStart() (line, start, col int) {
@@ -205,6 +216,23 @@ func (a *App) ScheduleAutocomplete() {
 	})
 }
 
+func (a *App) charBeforeCursor() string {
+	if !a.EditorGroup.IsEditorActive() {
+		return ""
+	}
+	editor := a.EditorGroup.Editor
+	line := editor.Cursor.Line
+	col := editor.Cursor.Col
+	if col <= 0 || line >= len(editor.Buf.Lines) {
+		return ""
+	}
+	runes := []rune(editor.Buf.Lines[line])
+	if col > len(runes) {
+		return ""
+	}
+	return string(runes[col-1])
+}
+
 func (a *App) CheckSignatureHelpTrigger() {
 	if !a.Settings.Autocomplete.Enabled || !a.Settings.Autocomplete.SignatureHelp {
 		return
@@ -222,16 +250,26 @@ func (a *App) CheckSignatureHelpTrigger() {
 	if col > len(runes) {
 		return
 	}
-	ch := runes[col-1]
-	if ch == '(' || ch == ',' {
-		path := a.EditorGroup.ActiveFilePath()
-		lang := ""
-		if editor.Highlighter != nil {
-			lang = editor.Highlighter.Language()
-		}
-		a.RequestSignatureHelp(path, lang, line, col)
-	} else if ch == ')' {
+	ch := string(runes[col-1])
+	if ch == ")" {
 		a.DismissSignatureHelp()
+		return
+	}
+	path := a.EditorGroup.ActiveFilePath()
+	lang := ""
+	if editor.Highlighter != nil {
+		lang = editor.Highlighter.Language()
+	}
+	serverKey, _, ok := a.lspResolve(path, lang)
+	if !ok {
+		return
+	}
+	triggers := a.LspManager.SignatureHelpTriggerCharacters(serverKey)
+	for _, tc := range triggers {
+		if ch == tc {
+			a.RequestSignatureHelp(path, lang, line, col)
+			return
+		}
 	}
 }
 
@@ -608,7 +646,7 @@ func (a *App) lspResolve(path, lang string) (serverKey, languageID string, ok bo
 	return a.LspManager.ResolveLanguage(path, lang)
 }
 
-func (a *App) RequestCompletions(path, lang string, line, col int) {
+func (a *App) RequestCompletions(path, lang string, line, col int, triggerChar string) {
 	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
 		return
@@ -620,8 +658,23 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 			slog.Error("lsp client", "err", err)
 			return
 		}
-		slog.Debug("lsp completion request", "path", path, "line", line, "col", col)
-		items, err := client.Completion(FileURI(path), line, col)
+		var ctx *lsp.CompletionContext
+		if triggerChar != "" {
+			for _, tc := range client.CompletionTriggerCharacters() {
+				if triggerChar == tc {
+					ctx = &lsp.CompletionContext{
+						TriggerKind:      lsp.CompletionTriggerTriggerCharacter,
+						TriggerCharacter: triggerChar,
+					}
+					break
+				}
+			}
+		}
+		if ctx == nil {
+			ctx = &lsp.CompletionContext{TriggerKind: lsp.CompletionTriggerInvoked}
+		}
+		slog.Debug("lsp completion request", "path", path, "line", line, "col", col, "triggerChar", triggerChar)
+		items, err := client.Completion(FileURI(path), line, col, ctx)
 		if err != nil {
 			slog.Error("lsp completion", "err", err)
 			return
@@ -629,7 +682,11 @@ func (a *App) RequestCompletions(path, lang string, line, col int) {
 		slog.Debug("lsp completion response", "count", len(items))
 		uiItems := LspToUICompletions(items)
 		if len(uiItems) > 0 {
-			a.Screen.PostEvent(tcell.NewEventInterrupt(&CompletionResult{Items: uiItems, LspItems: items}))
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&CompletionResult{
+				Items:        uiItems,
+				LspItems:     items,
+				TriggerChars: client.CompletionTriggerCharacters(),
+			}))
 		}
 	}()
 }
