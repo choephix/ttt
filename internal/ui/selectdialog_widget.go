@@ -394,9 +394,12 @@ func (p *SelectDialogWidget) filterCommands(query string) {
 		for _, cmd := range p.Commands {
 			bestOk, bestScore := fuzzyMatch(query, cmd.Title)
 			for _, kw := range cmd.Keywords {
-				if ok, score := fuzzyMatch(query, kw); ok && (!bestOk || score > bestScore) {
-					bestOk = true
-					bestScore = score
+				if ok, score := fuzzyMatch(query, kw); ok {
+					penalized := score / 2
+					if !bestOk || penalized > bestScore {
+						bestOk = true
+						bestScore = penalized
+					}
 				}
 			}
 			if bestOk {

@@ -326,3 +326,24 @@ func TestPaletteTitleMatchPreferredOverKeyword(t *testing.T) {
 		t.Fatalf("expected title match 'Find' (id=a) to rank first, got id=%s", p.Items[0].ID)
 	}
 }
+
+func TestPaletteTitleMatchRanksAboveKeywordOnly(t *testing.T) {
+	cmds := []command.Command{
+		{ID: "linenumbers", Title: "Toggle Line Numbers", Keywords: []string{"settings", "preferences"}},
+		{ID: "settings", Title: "Preferences: Open Settings", Keywords: []string{"preferences", "configuration"}},
+	}
+	p := NewSelectDialogWidget(cmds)
+
+	// "settings" is in the title of the second command, but only a keyword of the first.
+	// The title match should rank higher.
+	for _, r := range "settings" {
+		p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, r, 0))
+	}
+
+	if len(p.Items) < 2 {
+		t.Fatalf("expected at least 2 results, got %d", len(p.Items))
+	}
+	if p.Items[0].ID != "settings" {
+		t.Fatalf("expected title match 'Preferences: Open Settings' (id=settings) to rank first, got id=%s (%s)", p.Items[0].ID, p.Items[0].Label)
+	}
+}
