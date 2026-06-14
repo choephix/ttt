@@ -103,7 +103,7 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		return r.handleMouse(ev)
 	}
 
-	if res := r.handleOverlay(ev); res == EventConsumed {
+	if res := r.handleOverlay(ev); res != EventIgnored {
 		return EventConsumed
 	}
 

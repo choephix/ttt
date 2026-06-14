@@ -11,7 +11,7 @@ import (
 )
 
 func (a *App) OpenCommandPalette(fileMode bool, initialText ...string) {
-	palette := ui.NewCommandPaletteWidget(a.Reg.List())
+	palette := ui.NewSelectDialogWidget(a.Reg.List())
 	palette.Borders = a.Borders
 	palette.SetFiles(a.Workspace.Paths())
 	if len(initialText) > 0 {
@@ -46,7 +46,7 @@ func (a *App) ShowThemePicker() {
 	for _, name := range names {
 		cmds = append(cmds, command.Command{ID: name, Title: name})
 	}
-	picker := ui.NewCommandPaletteWidget(cmds)
+	picker := ui.NewSelectDialogWidget(cmds)
 	picker.Borders = a.Borders
 	originalStyleMap := a.Screen.GetStyleMap()
 	originalPalette := *a.Palette

@@ -32,7 +32,7 @@ type paletteFile struct {
 	Abs string
 }
 
-type CommandPaletteWidget struct {
+type SelectDialogWidget struct {
 	BaseWidget
 	Commands          []command.Command
 	Items             []PaletteItem
@@ -49,10 +49,18 @@ type CommandPaletteWidget struct {
 	OnDismiss         func()
 	OnSelectionChange func(id string)
 	Borders           *term.BorderSet
+
+	boxX         int
+	boxY         int
+	boxW         int
+	boxH         int
+	visibleItems int
+	showScroll   bool
+	scrollbar    Scrollbar
 }
 
-func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
-	p := &CommandPaletteWidget{
+func NewSelectDialogWidget(commands []command.Command) *SelectDialogWidget {
+	p := &SelectDialogWidget{
 		Commands: commands,
 	}
 	p.Input = NewInputWidget()
@@ -65,7 +73,7 @@ func NewCommandPaletteWidget(commands []command.Command) *CommandPaletteWidget {
 	return p
 }
 
-func (p *CommandPaletteWidget) SetFiles(workDirs []string) {
+func (p *SelectDialogWidget) SetFiles(workDirs []string) {
 	p.files = nil
 	multiRoot := len(workDirs) > 1
 	for _, workDir := range workDirs {
@@ -97,13 +105,13 @@ func (p *CommandPaletteWidget) SetFiles(workDirs []string) {
 	}
 }
 
-func (p *CommandPaletteWidget) Focusable() bool { return true }
+func (p *SelectDialogWidget) Focusable() bool { return true }
 
-func (p *CommandPaletteWidget) CursorPosition() (int, int, bool) {
+func (p *SelectDialogWidget) CursorPosition() (int, int, bool) {
 	return p.Input.CursorX(p.inputX), p.inputY, true
 }
 
-func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
+func (p *SelectDialogWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
 
 	boxW := sw * 6 / 10 // 60% of terminal width
@@ -133,6 +141,11 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	boxX := (sw - boxW) / 2
 	boxY := 2
 
+	p.boxX = boxX
+	p.boxY = boxY
+	p.boxW = boxW
+	p.boxH = boxH
+
 	b := term.DoubleBorderSet()
 	if p.Borders != nil {
 		b = *p.Borders
@@ -146,6 +159,8 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	p.Input.Render(surface, p.inputX, p.inputY, boxW-2)
 
 	if p.mode == paletteGoToLineMode {
+		p.visibleItems = 0
+		p.showScroll = false
 		return
 	}
 
@@ -154,17 +169,21 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 	}
 
 	visibleItems := boxH - 4
+	p.visibleItems = visibleItems
 	p.ensureVisible(visibleItems)
 	showScroll := len(p.Items) > visibleItems
+	p.showScroll = showScroll
 	contentRight := boxX + boxW - 1
 	if showScroll {
 		contentRight--
 	}
 
-	var thumbTop, thumbH int
 	if showScroll {
-		sb := Scrollbar{Height: visibleItems, TotalItems: len(p.Items), TopItem: p.scrollOffset}
-		thumbTop, thumbH = sb.ThumbPos()
+		p.scrollbar.Height = visibleItems
+		p.scrollbar.TotalItems = len(p.Items)
+		p.scrollbar.TopItem = p.scrollOffset
+		p.scrollbar.X = boxX + boxW - 2
+		p.scrollbar.Y = boxY + 3
 	}
 
 	for i := 0; i < visibleItems && p.scrollOffset+i < len(p.Items); i++ {
@@ -191,26 +210,81 @@ func (p *CommandPaletteWidget) Render(surface *RenderSurface) {
 				surface.DrawText(sx, y, item.Detail, contentRight-1, detailStyle)
 			}
 		}
+	}
 
-		if showScroll {
-			sx := boxX + boxW - 2
-			if i >= thumbTop && i < thumbTop+thumbH {
-				surface.SetCell(sx, y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
-			} else {
-				surface.SetCell(sx, y, term.Cell{Ch: ' ', Style: term.StyleScrollbar})
-			}
-		}
+	if showScroll {
+		p.scrollbar.Render(surface, p.scrollbar.X, p.scrollbar.Y)
 	}
 }
 
-func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
+func (p *SelectDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
-		if mev.Buttons()&tcell.Button1 != 0 {
-			mx, my := mev.Position()
-			if my == p.inputY {
-				p.Input.HandleClick(mx, my)
+		btn := mev.Buttons()
+		mx, my := mev.Position()
+
+		if p.showScroll {
+			if newTop, consumed := p.scrollbar.HandleEvent(ev); consumed {
+				p.scrollOffset = newTop
+				if p.Selected < p.scrollOffset {
+					p.Selected = p.scrollOffset
+					p.notifySelectionChange()
+				} else if p.visibleItems > 0 && p.Selected >= p.scrollOffset+p.visibleItems {
+					p.Selected = p.scrollOffset + p.visibleItems - 1
+					if p.Selected >= len(p.Items) {
+						p.Selected = len(p.Items) - 1
+					}
+					p.notifySelectionChange()
+				}
+				if p.scrollbar.IsDragging() {
+					return EventCaptured
+				}
+				return EventConsumed
+			}
+			if p.scrollbar.IsDragging() {
+				return EventCaptured
 			}
 		}
+
+		if btn&tcell.WheelUp != 0 {
+			if p.Selected > 0 {
+				p.Selected--
+				p.notifySelectionChange()
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelDown != 0 {
+			if p.Selected < len(p.Items)-1 {
+				p.Selected++
+				p.notifySelectionChange()
+			}
+			return EventConsumed
+		}
+
+		if btn&tcell.Button1 != 0 {
+			if my == p.inputY {
+				p.Input.HandleClick(mx, my)
+				return EventConsumed
+			}
+
+			itemsStartY := p.boxY + 3
+			if p.visibleItems > 0 && my >= itemsStartY && my < itemsStartY+p.visibleItems {
+				clickedIdx := p.scrollOffset + (my - itemsStartY)
+				if clickedIdx >= 0 && clickedIdx < len(p.Items) {
+					p.Selected = clickedIdx
+					item := p.Items[p.Selected]
+					if p.mode == paletteCommandMode {
+						if p.OnExecute != nil {
+							p.OnExecute(item.ID)
+						}
+					} else {
+						if p.OnOpenFile != nil {
+							p.OnOpenFile(item.ID)
+						}
+					}
+				}
+			}
+		}
+
 		return EventConsumed
 	}
 
@@ -265,7 +339,7 @@ func (p *CommandPaletteWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventConsumed
 }
 
-func (p *CommandPaletteWidget) ensureVisible(visibleItems int) {
+func (p *SelectDialogWidget) ensureVisible(visibleItems int) {
 	if visibleItems <= 0 {
 		return
 	}
@@ -277,13 +351,13 @@ func (p *CommandPaletteWidget) ensureVisible(visibleItems int) {
 	}
 }
 
-func (p *CommandPaletteWidget) notifySelectionChange() {
+func (p *SelectDialogWidget) notifySelectionChange() {
 	if p.OnSelectionChange != nil && p.Selected >= 0 && p.Selected < len(p.Items) {
 		p.OnSelectionChange(p.Items[p.Selected].ID)
 	}
 }
 
-func (p *CommandPaletteWidget) filter() {
+func (p *SelectDialogWidget) filter() {
 	text := p.Input.Text
 	if strings.HasPrefix(text, ">") {
 		p.mode = paletteCommandMode
@@ -301,7 +375,7 @@ func (p *CommandPaletteWidget) filter() {
 	p.notifySelectionChange()
 }
 
-func (p *CommandPaletteWidget) filterCommands(query string) {
+func (p *SelectDialogWidget) filterCommands(query string) {
 	p.Items = nil
 	if query == "" {
 		for _, cmd := range p.Commands {
@@ -355,7 +429,7 @@ func fileDetail(f string) string {
 	return dir
 }
 
-func (p *CommandPaletteWidget) filterFiles(query string) {
+func (p *SelectDialogWidget) filterFiles(query string) {
 	p.Items = nil
 	if query == "" {
 		for _, f := range p.files {
