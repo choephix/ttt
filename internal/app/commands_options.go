@@ -130,7 +130,7 @@ func registerOptionsCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "options.indentation", Title: "Change Editor Indentation",
+		ID: "options.indentation", Title: "Editor Indentation",
 		Keywords: []string{"preferences", "settings", "editor", "indentation", "tabs", "spaces"},
 		Handler:  app.ShowIndentSettings,
 	})
