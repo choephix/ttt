@@ -170,7 +170,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	tabSize := g.TabSize
 	if ec.IndentSize > 0 {
 		tabSize = ec.IndentSize
-	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 {
+	} else if detected := buffer.DetectIndent(newBuf.Lines); detected.Size > 0 && !detected.UseTabs {
 		tabSize = detected.Size
 	}
 	folds := fold.NewState()
