@@ -12,7 +12,7 @@ import (
 type CompletionKind int
 
 const (
-	CompletionFunction CompletionKind = iota
+	CompletionFunction   CompletionKind = iota
 	CompletionMethod
 	CompletionVariable
 	CompletionConstant
@@ -21,9 +21,53 @@ const (
 	CompletionKeyword
 	CompletionSnippet
 	CompletionModule
+	CompletionInterface
+	CompletionEnum
+	CompletionEnumMember
+	CompletionText
+	CompletionValue
+	CompletionFile
+	CompletionFolder
 )
 
-func (k CompletionKind) Symbol() rune { return '■' }
+func (k CompletionKind) Symbol() rune {
+	switch k {
+	case CompletionFunction:
+		return 'f'
+	case CompletionMethod:
+		return 'm'
+	case CompletionVariable:
+		return 'v'
+	case CompletionConstant:
+		return 'c'
+	case CompletionType:
+		return 'C'
+	case CompletionField:
+		return 'p'
+	case CompletionKeyword:
+		return 'k'
+	case CompletionSnippet:
+		return 'S'
+	case CompletionModule:
+		return 'M'
+	case CompletionInterface:
+		return 'I'
+	case CompletionEnum:
+		return 'E'
+	case CompletionEnumMember:
+		return 'e'
+	case CompletionText:
+		return 't'
+	case CompletionValue:
+		return 'V'
+	case CompletionFile:
+		return 'F'
+	case CompletionFolder:
+		return 'D'
+	default:
+		return '■'
+	}
+}
 
 func (k CompletionKind) Style() term.Style {
 	switch k {
@@ -45,6 +89,20 @@ func (k CompletionKind) Style() term.Style {
 		return term.StyleSyntaxString
 	case CompletionModule:
 		return term.StyleSyntaxComment
+	case CompletionInterface:
+		return term.StyleSyntaxType
+	case CompletionEnum:
+		return term.StyleSyntaxType
+	case CompletionEnumMember:
+		return term.StyleSyntaxNumber
+	case CompletionText:
+		return term.StyleSyntaxVariable
+	case CompletionValue:
+		return term.StyleSyntaxNumber
+	case CompletionFile:
+		return term.StyleSyntaxString
+	case CompletionFolder:
+		return term.StyleSyntaxString
 	default:
 		return term.StyleSyntaxVariable
 	}

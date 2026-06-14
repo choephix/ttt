@@ -111,11 +111,13 @@ func lspKindToUI(kind lsp.CompletionItemKind) ui.CompletionKind {
 		return ui.CompletionMethod
 	case lsp.CIKVariable:
 		return ui.CompletionVariable
-	case lsp.CIKConstant, lsp.CIKEnumMember:
+	case lsp.CIKConstant:
 		return ui.CompletionConstant
-	case lsp.CIKClass, lsp.CIKInterface, lsp.CIKStruct, lsp.CIKEnum, lsp.CIKTypeParameter:
+	case lsp.CIKClass, lsp.CIKStruct, lsp.CIKTypeParameter:
 		return ui.CompletionType
-	case lsp.CIKField, lsp.CIKProperty:
+	case lsp.CIKField:
+		return ui.CompletionField
+	case lsp.CIKProperty:
 		return ui.CompletionField
 	case lsp.CIKKeyword:
 		return ui.CompletionKeyword
@@ -123,6 +125,20 @@ func lspKindToUI(kind lsp.CompletionItemKind) ui.CompletionKind {
 		return ui.CompletionSnippet
 	case lsp.CIKModule:
 		return ui.CompletionModule
+	case lsp.CIKInterface:
+		return ui.CompletionInterface
+	case lsp.CIKEnum:
+		return ui.CompletionEnum
+	case lsp.CIKEnumMember:
+		return ui.CompletionEnumMember
+	case lsp.CIKText:
+		return ui.CompletionText
+	case lsp.CIKValue:
+		return ui.CompletionValue
+	case lsp.CIKFile:
+		return ui.CompletionFile
+	case lsp.CIKFolder:
+		return ui.CompletionFolder
 	default:
 		return ui.CompletionVariable
 	}
