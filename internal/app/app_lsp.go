@@ -201,6 +201,7 @@ func (a *App) insertCompletion(item ui.CompletionItem) {
 			editor.Cursor.Line += linesAdded
 		}
 	}
+	editor.FlushOnChange()
 }
 
 func (a *App) ScheduleAutocomplete() {
@@ -605,6 +606,7 @@ func (a *App) ApplyTextEdits(edits []lsp.TextEdit) {
 			})
 		}
 	}
+	editor.FlushOnChange()
 }
 
 func (a *App) wordAtCursor() string {

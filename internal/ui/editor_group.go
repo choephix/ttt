@@ -557,6 +557,9 @@ func (g *EditorGroupWidget) undoRedoPostProcess() {
 		g.Editor.Folds.SetRanges(fold.ComputeIndentRanges(g.Editor.Buf.Lines))
 		g.Editor.ExpandFoldContaining(g.Editor.Cursor.Line)
 	}
+	if g.Editor.OnChange != nil {
+		g.Editor.OnChange()
+	}
 }
 
 func (g *EditorGroupWidget) Undo() {
@@ -709,6 +712,7 @@ func (g *EditorGroupWidget) ReplaceMatch(match FindMatch, replacement string) {
 	g.Editor.Cursor.Line = match.Line
 	g.Editor.Cursor.Col = match.Col + len([]rune(replacement))
 	g.Editor.scrollViewport()
+	g.Editor.FlushOnChange()
 }
 
 func (g *EditorGroupWidget) ReplaceAll(query, replacement string) {
