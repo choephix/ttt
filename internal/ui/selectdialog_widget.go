@@ -115,8 +115,8 @@ func (p *SelectDialogWidget) Render(surface *RenderSurface) {
 	sw, sh := surface.Size()
 
 	boxW := sw * 6 / 10 // 60% of terminal width
-	if boxW > 80 {
-		boxW = 80
+	if boxW > 60 {
+		boxW = 60
 	}
 	if boxW < 40 {
 		boxW = 40
