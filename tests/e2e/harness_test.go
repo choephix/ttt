@@ -97,10 +97,17 @@ func (h *testHarness) redraw() {
 	h.renderer.Render(h.app.Screen)
 }
 
+func (h *testHarness) flushOnChange() {
+	if h.app.EditorGroup.Editor != nil {
+		h.app.EditorGroup.Editor.FlushOnChange()
+	}
+}
+
 func (h *testHarness) pressKey(key tcell.Key, mod tcell.ModMask) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(key, 0, mod)
 	h.app.Root.HandleEvent(ev)
+	h.flushOnChange()
 	h.redraw()
 }
 
@@ -108,6 +115,7 @@ func (h *testHarness) pressRune(r rune) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
 	h.app.Root.HandleEvent(ev)
+	h.flushOnChange()
 	h.redraw()
 }
 
@@ -122,12 +130,14 @@ func (h *testHarness) click(x, y int) {
 	h.app.Root.HandleEvent(down)
 	up := tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone)
 	h.app.Root.HandleEvent(up)
+	h.flushOnChange()
 	h.redraw()
 }
 
 func (h *testHarness) exec(cmdID string) {
 	h.t.Helper()
 	h.reg.Execute(cmdID)
+	h.flushOnChange()
 	h.redraw()
 }
 

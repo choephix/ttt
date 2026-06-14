@@ -567,7 +567,6 @@ func (e *EditorPaneWidget) pasteText(text string) {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
@@ -1059,7 +1058,6 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 	return EventConsumed
 }
 
@@ -1576,7 +1574,6 @@ func (e *EditorPaneWidget) MoveLineUp() {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) MoveLineDown() {
@@ -1600,7 +1597,6 @@ func (e *EditorPaneWidget) MoveLineDown() {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) DuplicateLine() {
@@ -1609,7 +1605,6 @@ func (e *EditorPaneWidget) DuplicateLine() {
 	e.Cursor.Line++
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) DeleteLine() {
@@ -1631,7 +1626,6 @@ func (e *EditorPaneWidget) DeleteLine() {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) JoinLines() {
@@ -1667,7 +1661,6 @@ func (e *EditorPaneWidget) JoinLines() {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) InsertLineBelow() {
@@ -1676,7 +1669,6 @@ func (e *EditorPaneWidget) InsertLineBelow() {
 	e.Cursor.Col = 0
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) InsertLineAbove() {
@@ -1684,7 +1676,6 @@ func (e *EditorPaneWidget) InsertLineAbove() {
 	e.Cursor.Col = 0
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) commentPrefix() string {
@@ -1775,7 +1766,6 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 // lineRange returns the start and end line indices for the current selection,
@@ -1808,7 +1798,6 @@ func (e *EditorPaneWidget) SortLinesAsc() {
 	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: sorted})
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) SortLinesDesc() {
@@ -1820,7 +1809,6 @@ func (e *EditorPaneWidget) SortLinesDesc() {
 	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: sorted})
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) ReverseLines() {
@@ -1833,7 +1821,6 @@ func (e *EditorPaneWidget) ReverseLines() {
 	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: reversed})
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) UniqueLines() {
@@ -1853,7 +1840,6 @@ func (e *EditorPaneWidget) UniqueLines() {
 	}
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func wordBoundaryLeft(runes []rune, col int) int {
@@ -1944,7 +1930,6 @@ func (e *EditorPaneWidget) DeleteWordLeft() {
 	e.Cursor.Col = start
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) DeleteWordRight() {
@@ -1959,7 +1944,6 @@ func (e *EditorPaneWidget) DeleteWordRight() {
 	})
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) SmartHome() {
@@ -2448,7 +2432,6 @@ func (e *EditorPaneWidget) transformSelection(fn func(string) string) {
 	e.Cursor.Col = newEndCol
 	e.clampCursor()
 	e.scrollViewport()
-	e.FlushOnChange()
 }
 
 func (e *EditorPaneWidget) UpperCase() {

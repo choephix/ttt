@@ -444,6 +444,12 @@ func OpenURL(url string) {
 	cmd.Start()
 }
 
+func (a *App) FlushEditorOnChange() {
+	if a.EditorGroup.Editor != nil {
+		a.EditorGroup.Editor.FlushOnChange()
+	}
+}
+
 func (a *App) Copy() {
 	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
 		if inp := holder.FocusedInput(); inp != nil {
