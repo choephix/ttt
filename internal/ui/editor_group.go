@@ -959,6 +959,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.LineChanges = t.LineChanges
 		g.Editor.buildDiagIndex()
 		g.Editor.InvalidateMaxLineWidth()
+		g.Editor.InvalidateBracketColors()
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
 		}

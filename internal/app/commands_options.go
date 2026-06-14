@@ -25,6 +25,7 @@ func (a *App) ToggleBracketPairColorization() {
 	a.EditorGroup.BracketPairColorization = a.Settings.Editor.BracketPairColorization
 	if a.EditorGroup.Editor != nil {
 		a.EditorGroup.Editor.BracketPairColorization = a.Settings.Editor.BracketPairColorization
+		a.EditorGroup.Editor.InvalidateBracketColors()
 	}
 	config.SaveSettings(*a.Settings)
 }

@@ -60,14 +60,21 @@ type EditorPaneWidget struct {
 	searchByLine       map[int][]int
 	diagByLine         map[int][]int
 	LineChanges        []diff.LineChangeKind
+	bracketColorCache  bracketColorMap
+	bracketColorDirty  bool
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
 	return &EditorPaneWidget{
-		Buf:      buf,
-		Cursor:   cur,
-		Viewport: vp,
+		Buf:               buf,
+		Cursor:            cur,
+		Viewport:          vp,
+		bracketColorDirty: true,
 	}
+}
+
+func (e *EditorPaneWidget) InvalidateBracketColors() {
+	e.bracketColorDirty = true
 }
 
 func (e *EditorPaneWidget) Focusable() bool { return true }
@@ -219,12 +226,11 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	var bracketColors bracketColorMap
 	if e.BracketPairColorization {
-		visEnd := e.screenToBufferLine(h - 1)
-		if visEnd >= totalLines {
-			visEnd = totalLines - 1
+		if e.bracketColorDirty {
+			e.bracketColorCache = e.computeBracketColors()
+			e.bracketColorDirty = false
 		}
-		visStart := e.screenToBufferLine(0)
-		bracketColors = e.computeBracketColors(visStart, visEnd)
+		bracketColors = e.bracketColorCache
 	}
 	for y := 0; y < h; y++ {
 		lineIdx := e.screenToBufferLine(y)
@@ -504,6 +510,7 @@ func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
 func (e *EditorPaneWidget) FlushOnChange() {
 	if e.bufferDirty {
 		e.bufferDirty = false
+		e.bracketColorDirty = true
 		if e.OnChange != nil {
 			e.OnChange()
 		}
@@ -1343,7 +1350,7 @@ func isInStringOrComment(spans []highlight.Span, col int) bool {
 	return false
 }
 
-func (e *EditorPaneWidget) computeBracketColors(visibleStart, visibleEnd int) bracketColorMap {
+func (e *EditorPaneWidget) computeBracketColors() bracketColorMap {
 	result := make(bracketColorMap)
 	depth := 0
 	totalLines := len(e.Buf.Lines)
@@ -1354,18 +1361,13 @@ func (e *EditorPaneWidget) computeBracketColors(visibleStart, visibleEnd int) br
 	bracketStyles := e.BracketColorStyles
 	numStyles := len(bracketStyles)
 
-	for lineIdx := 0; lineIdx < totalLines && lineIdx <= visibleEnd; lineIdx++ {
+	for lineIdx := 0; lineIdx < totalLines; lineIdx++ {
 		line := e.Buf.Lines[lineIdx]
 		runes := []rune(line)
 
 		var spans []highlight.Span
-		if e.Highlighter != nil && lineIdx >= visibleStart {
+		if e.Highlighter != nil {
 			spans = e.Highlighter.HighlightLine(line)
-		}
-
-		var preSpans []highlight.Span
-		if e.Highlighter != nil && lineIdx < visibleStart {
-			preSpans = e.Highlighter.HighlightLine(line)
 		}
 
 		for col, ch := range runes {
@@ -1374,37 +1376,27 @@ func (e *EditorPaneWidget) computeBracketColors(visibleStart, visibleEnd int) br
 				continue
 			}
 
-			if lineIdx < visibleStart {
-				if isInStringOrComment(preSpans, col) {
-					continue
-				}
-			} else {
-				if isInStringOrComment(spans, col) {
-					continue
-				}
+			if isInStringOrComment(spans, col) {
+				continue
 			}
 
 			if openBrackets[ch] {
 				style := bracketStyles[depth%numStyles]
 				depth++
-				if lineIdx >= visibleStart {
-					if result[lineIdx] == nil {
-						result[lineIdx] = make(map[int]term.Style)
-					}
-					result[lineIdx][col] = style
+				if result[lineIdx] == nil {
+					result[lineIdx] = make(map[int]term.Style)
 				}
+				result[lineIdx][col] = style
 			} else if closingBrackets[ch] {
 				depth--
 				if depth < 0 {
 					depth = 0
 				}
 				style := bracketStyles[depth%numStyles]
-				if lineIdx >= visibleStart {
-					if result[lineIdx] == nil {
-						result[lineIdx] = make(map[int]term.Style)
-					}
-					result[lineIdx][col] = style
+				if result[lineIdx] == nil {
+					result[lineIdx] = make(map[int]term.Style)
 				}
+				result[lineIdx][col] = style
 			}
 		}
 	}
