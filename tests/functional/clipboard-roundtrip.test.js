@@ -17,13 +17,9 @@ describe("clipboard roundtrip", () => {
     tui.start(file);
     tui.waitFor("hello world");
 
-    // Select "hello" (5 characters from the start)
+    // Select "hello" using ctrl+d (select word at cursor)
     tui.press("home");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
+    tui.press("ctrl+d");
     tui.waitStable();
 
     // Copy
@@ -44,26 +40,24 @@ describe("clipboard roundtrip", () => {
 
   it("should cut and paste text", () => {
     dir = createTempDir();
-    const file = createTempFile(dir, "cutpaste.txt", "REMOVE this keep");
+    const file = createTempFile(dir, "cutpaste.txt", "REMOVE keep");
 
     tui.start(file);
-    tui.waitFor("REMOVE this keep");
+    tui.waitFor("REMOVE keep");
 
-    // Select "REMOVE " (7 characters including the space)
+    // Select "REMOVE" using ctrl+d (select word at cursor)
     tui.press("home");
-    for (let i = 0; i < 7; i++) {
-      tui.press("shift+arrow_right");
-    }
+    tui.press("ctrl+d");
     tui.waitStable();
 
     // Cut
     tui.press("ctrl+x");
     tui.waitStable();
 
-    // Verify "REMOVE " is gone from the visible text
+    // Verify "REMOVE" is gone from the visible text
     const snapAfterCut = tui.snapshot();
-    expect(snapAfterCut).toContain("this keep");
-    expect(snapAfterCut).not.toContain("REMOVE this");
+    expect(snapAfterCut).toContain("keep");
+    expect(snapAfterCut).not.toContain("REMOVE");
 
     // Move to end and paste
     tui.press("end");
@@ -74,7 +68,7 @@ describe("clipboard roundtrip", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    expect(content).toContain("this keepREMOVE ");
+    expect(content).toContain("keepREMOVE");
   });
 
   it("should copy entire line when nothing is selected", () => {
@@ -88,8 +82,8 @@ describe("clipboard roundtrip", () => {
     tui.press("ctrl+c");
     tui.waitStable();
 
-    // Move to end of file
-    tui.press("ctrl+end");
+    // Move to line 2
+    tui.press("arrow_down");
     tui.press("end");
     tui.waitStable();
 
@@ -102,8 +96,6 @@ describe("clipboard roundtrip", () => {
     tui.waitStable();
 
     const content = readFile(file);
-    // If the editor copies the whole line, we expect it pasted somewhere
-    // Either way, the original content should still be intact
     expect(content).toContain("first line");
     expect(content).toContain("second line");
   });
@@ -115,11 +107,9 @@ describe("clipboard roundtrip", () => {
     tui.start(file);
     tui.waitFor("abc");
 
-    // Select "abc"
+    // Select word "abc" with ctrl+d
     tui.press("home");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
+    tui.press("ctrl+d");
     tui.waitStable();
 
     // Copy

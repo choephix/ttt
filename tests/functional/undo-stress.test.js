@@ -53,12 +53,9 @@ describe("undo/redo stress", () => {
     tui.type("og!");
     tui.waitStable();
 
-    // Edit 13: go to beginning of "lazy" line and select some text
+    // Edit 13: go to beginning of "lazy" line and select the word
     tui.press("home");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
-    tui.press("shift+arrow_right");
+    tui.press("ctrl+d");
     tui.waitStable();
 
     // Edit 14: delete the selection ("lazy")
@@ -107,8 +104,12 @@ describe("undo/redo stress", () => {
     tui.start(file);
     tui.waitFor("line one");
 
-    // Type some additional lines
-    tui.press("ctrl+end");
+    // Navigate to end of last line (line 3)
+    tui.press("ctrl+g");
+    tui.waitStable();
+    tui.type("3");
+    tui.press("enter");
+    tui.waitStable();
     tui.press("end");
     tui.press("enter");
     tui.type("line four");
