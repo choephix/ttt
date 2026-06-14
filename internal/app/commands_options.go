@@ -23,6 +23,15 @@ func (a *App) ToggleWordWrap() {
 	config.SaveSettings(*a.Settings)
 }
 
+func (a *App) ToggleBracketPairColorization() {
+	a.Settings.Editor.BracketPairColorization = !a.Settings.Editor.BracketPairColorization
+	a.EditorGroup.BracketPairColorization = a.Settings.Editor.BracketPairColorization
+	if a.EditorGroup.Editor != nil {
+		a.EditorGroup.Editor.BracketPairColorization = a.Settings.Editor.BracketPairColorization
+	}
+	config.SaveSettings(*a.Settings)
+}
+
 func (a *App) SetGutterStyle(style string) {
 	a.Settings.Editor.GutterStyle = style
 	a.EditorGroup.GutterStyle = style
@@ -75,9 +84,15 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		wordWrapChecked = ui.MenuChecked
 	}
 
+	bracketColorChecked := ui.MenuUnchecked
+	if a.Settings.Editor.BracketPairColorization {
+		bracketColorChecked = ui.MenuChecked
+	}
+
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
+		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
 		ui.MenuSep(),
 		{Label: "Gutter Style", Command: "options.gutterStyle"},
 		{Label: "Tab Size", Command: "options.tabSize"},
@@ -100,6 +115,11 @@ func registerOptionsCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "options.toggleWordWrap", Title: "Toggle Word Wrap",
 		Handler: app.ToggleWordWrap,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleBracketColors", Title: "Toggle Bracket Pair Colorization",
+		Handler: app.ToggleBracketPairColorization,
 	})
 
 	reg.Register(command.Command{
