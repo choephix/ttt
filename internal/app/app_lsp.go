@@ -276,6 +276,7 @@ func (a *App) editorTabSize() (int, bool) {
 	insertSpaces := a.Settings.Editor.InsertSpaces
 	if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.TabSize > 0 {
 		tabSize = a.EditorGroup.Editor.TabSize
+		insertSpaces = !a.EditorGroup.Editor.UseTabs
 	}
 	return tabSize, insertSpaces
 }

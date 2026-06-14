@@ -94,16 +94,17 @@ func (a *App) ShowIndentPicker() {
 	a.ShowPicker(cmds, func(id string) {
 		if id == "detect" {
 			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Buf != nil {
-				if info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines); info.Size > 0 {
+				info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines)
+				if info.Size > 0 {
 					a.EditorGroup.SetTabSize(info.Size)
+					a.EditorGroup.SetUseTabs(info.UseTabs)
 				}
 			}
 		} else if id == "tabs" {
-			if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.TabSize > 0 {
-				a.EditorGroup.SetTabSize(a.EditorGroup.Editor.TabSize)
-			}
+			a.EditorGroup.SetUseTabs(true)
 		} else if size, err := strconv.Atoi(id); err == nil {
 			a.EditorGroup.SetTabSize(size)
+			a.EditorGroup.SetUseTabs(false)
 		}
 	})
 }
