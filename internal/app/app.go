@@ -71,6 +71,8 @@ type App struct {
 	Running            *bool
 	quitPending        bool
 	Watcher            *watcher.Watcher
+	GitGutterGen       int
+	GitGutterTimer     *time.Timer
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -371,6 +373,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	}
 	a.EditorGroup.OnFileOpen = func(path, lang, text string) {
 		a.NotifyLSPOpen(path, lang, text)
+		a.RequestGitGutterForActiveFile()
 	}
 	a.EditorGroup.OnFileClose = func(path, lang string) {
 		a.NotifyLSPClose(path, lang)
@@ -402,6 +405,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		a.NotifyLSPChange(path, lang, text)
 		a.ScheduleAutocomplete()
 		a.CheckSignatureHelpTrigger()
+		a.ScheduleGitGutter()
 	}
 
 	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {

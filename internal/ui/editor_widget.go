@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/core/cursor"
+	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/core/fold"
 	"github.com/eugenioenko/ttt/internal/core/highlight"
 	"github.com/eugenioenko/ttt/internal/core/multicursor"
@@ -56,6 +57,7 @@ type EditorPaneWidget struct {
 	cachedVisibleLines []int
 	searchByLine       map[int][]int
 	diagByLine         map[int][]int
+	LineChanges        []diff.LineChangeKind
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -263,6 +265,26 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					} else if e.gutterHover {
 						surface.SetCell(chevronCol, y, term.Cell{Ch: expandedCh, Style: gutterStyle})
 					}
+				}
+			}
+			// Git gutter indicators
+			if lineIdx < totalLines && lineIdx < len(e.LineChanges) {
+				change := e.LineChanges[lineIdx]
+				if change != diff.LineUnchanged {
+					var ch rune
+					var style term.Style
+					switch change {
+					case diff.LineAdded:
+						ch = '▎'
+						style = term.StyleGutterAdded
+					case diff.LineModified:
+						ch = '▎'
+						style = term.StyleGutterModified
+					case diff.LineDeleted:
+						ch = '▾'
+						style = term.StyleGutterDeleted
+					}
+					surface.SetCell(0, y, term.Cell{Ch: ch, Style: style})
 				}
 			}
 		}
@@ -2257,7 +2279,6 @@ func (e *EditorPaneWidget) SplitSelectionToLines() {
 	e.syncFromMulti()
 	e.scrollViewport()
 }
-
 
 // transformSelection replaces the selected text with the result of applying fn.
 // It preserves the selection after transformation.

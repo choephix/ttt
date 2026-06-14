@@ -55,6 +55,9 @@ const (
 	StyleBracketColor4
 	StyleBracketColor5
 	StyleBracketColor6
+	StyleGutterAdded
+	StyleGutterModified
+	StyleGutterDeleted
 )
 
 // DirectColor holds an RGBA color for terminal emulator output.
@@ -68,7 +71,7 @@ type DirectColor struct {
 type CellAttr byte
 
 const (
-	CellAttrBold      CellAttr = 1 << iota
+	CellAttrBold CellAttr = 1 << iota
 	CellAttrUnderline
 	CellAttrItalic
 	CellAttrReverse
@@ -85,17 +88,17 @@ type Cell struct {
 
 	// Direct-style fields for terminal emulator cells.
 	// When Direct is true, Fg/Bg/Attrs are used instead of Style.
-	Direct   bool
-	Fg       DirectColor
-	Bg       DirectColor
-	Attrs    CellAttr
+	Direct bool
+	Fg     DirectColor
+	Bg     DirectColor
+	Attrs  CellAttr
 }
 
 // CursorStyle represents the shape of the text cursor.
 type CursorStyle int
 
 const (
-	CursorStyleBlinkingBar       CursorStyle = iota // default
+	CursorStyleBlinkingBar CursorStyle = iota // default
 	CursorStyleSteadyBar
 	CursorStyleBlinkingBlock
 	CursorStyleSteadyBlock
@@ -155,8 +158,8 @@ func (m *MockScreen) SetCell(x, y int, c Cell) {
 	m.Cells[[2]int{x, y}] = c
 }
 
-func (m *MockScreen) Show()               {}
-func (m *MockScreen) Clear()              { m.Cells = make(map[[2]int]Cell) }
-func (m *MockScreen) ShowCursor(x, y int)         {}
-func (m *MockScreen) HideCursor()                  {}
+func (m *MockScreen) Show()                      {}
+func (m *MockScreen) Clear()                     { m.Cells = make(map[[2]int]Cell) }
+func (m *MockScreen) ShowCursor(x, y int)        {}
+func (m *MockScreen) HideCursor()                {}
 func (m *MockScreen) SetCursorStyle(CursorStyle) {}

@@ -153,6 +153,7 @@ func (a *App) doSaveFile() {
 		text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
 		a.NotifyLSPSave(path, lang, text)
 	}
+	a.RequestGitGutterForActiveFile()
 }
 
 func (a *App) forceQuit() {

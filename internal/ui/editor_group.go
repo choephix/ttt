@@ -54,6 +54,7 @@ type editorTab struct {
 	TabSize     int
 	Content     Widget
 	Pinned      bool
+	LineChanges []diff.LineChangeKind
 }
 
 type EditorGroupWidget struct {
@@ -641,6 +642,19 @@ func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
 	}
 }
 
+// SetLineChanges updates the git gutter indicators for the tab with the given path.
+func (g *EditorGroupWidget) SetLineChanges(path string, changes []diff.LineChangeKind) {
+	for i := range g.tabs {
+		if g.tabs[i].FilePath == path {
+			g.tabs[i].LineChanges = changes
+			if i == g.active {
+				g.Editor.LineChanges = changes
+			}
+			return
+		}
+	}
+}
+
 func (g *EditorGroupWidget) FindNext() {
 	if !g.IsEditorActive() || len(g.Editor.SearchMatches) == 0 {
 		return
@@ -922,6 +936,7 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Highlighter = t.Highlighter
 		g.Editor.Diagnostics = t.Diagnostics
 		g.Editor.Folds = t.Folds
+		g.Editor.LineChanges = t.LineChanges
 		g.Editor.buildDiagIndex()
 		g.Editor.InvalidateMaxLineWidth()
 		if t.TabSize > 0 {
