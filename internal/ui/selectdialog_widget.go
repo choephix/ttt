@@ -186,11 +186,6 @@ func (p *SelectDialogWidget) Render(surface *RenderSurface) {
 		p.scrollbar.Y = boxY + 3
 	}
 
-	var thumbTop, thumbH int
-	if showScroll {
-		thumbTop, thumbH = p.scrollbar.ThumbPos()
-	}
-
 	for i := 0; i < visibleItems && p.scrollOffset+i < len(p.Items); i++ {
 		y := boxY + 3 + i
 		idx := p.scrollOffset + i
@@ -215,15 +210,10 @@ func (p *SelectDialogWidget) Render(surface *RenderSurface) {
 				surface.DrawText(sx, y, item.Detail, contentRight-1, detailStyle)
 			}
 		}
+	}
 
-		if showScroll {
-			sx := boxX + boxW - 2
-			if i >= thumbTop && i < thumbTop+thumbH {
-				surface.SetCell(sx, y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
-			} else {
-				surface.SetCell(sx, y, term.Cell{Ch: ' ', Style: term.StyleScrollbar})
-			}
-		}
+	if showScroll {
+		p.scrollbar.Render(surface, p.scrollbar.X, p.scrollbar.Y)
 	}
 }
 
