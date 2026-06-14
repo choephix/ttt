@@ -60,14 +60,21 @@ type EditorPaneWidget struct {
 	searchByLine       map[int][]int
 	diagByLine         map[int][]int
 	LineChanges        []diff.LineChangeKind
+	bracketColorCache  bracketColorMap
+	bracketColorDirty  bool
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
 	return &EditorPaneWidget{
-		Buf:      buf,
-		Cursor:   cur,
-		Viewport: vp,
+		Buf:               buf,
+		Cursor:            cur,
+		Viewport:          vp,
+		bracketColorDirty: true,
 	}
+}
+
+func (e *EditorPaneWidget) InvalidateBracketColors() {
+	e.bracketColorDirty = true
 }
 
 func (e *EditorPaneWidget) Focusable() bool { return true }
@@ -219,12 +226,11 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 	var bracketColors bracketColorMap
 	if e.BracketPairColorization {
-		visEnd := e.screenToBufferLine(h - 1)
-		if visEnd >= totalLines {
-			visEnd = totalLines - 1
+		if e.bracketColorDirty {
+			e.bracketColorCache = e.computeBracketColors()
+			e.bracketColorDirty = false
 		}
-		visStart := e.screenToBufferLine(0)
-		bracketColors = e.computeBracketColors(visStart, visEnd)
+		bracketColors = e.bracketColorCache
 	}
 	for y := 0; y < h; y++ {
 		lineIdx := e.screenToBufferLine(y)
@@ -308,16 +314,19 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 			tabW := e.resolveTabSize()
 			screenCells := e.renderLineToScreen(line, syntaxSpans, isCollapsedLine, annRunes, tabW, e.Viewport.LeftCol, editorW)
+			var lineBrackets []bracketColorEntry
+			if bracketColors != nil && lineIdx < len(bracketColors) {
+				lineBrackets = bracketColors[lineIdx]
+			}
 			for x := 0; x < editorW; x++ {
 				colIdx := screenCells[x].bufCol
 				ch := screenCells[x].ch
 				style := screenCells[x].style
 
-				if bracketColors != nil {
-					if cols, ok := bracketColors[lineIdx]; ok {
-						if bs, ok := cols[colIdx]; ok {
-							style = bs
-						}
+				for _, bc := range lineBrackets {
+					if bc.col == colIdx {
+						style = bc.style
+						break
 					}
 				}
 
@@ -492,7 +501,6 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	if e.Undo != nil {
 		e.Undo.Push(cmd)
 	}
-	e.maxLineWidthDirty = true
 	e.bufferDirty = true
 	if e.Folds != nil && len(e.Buf.Lines) != prevLines {
 		e.Folds.SetRanges(fold.ComputeIndentRanges(e.Buf.Lines))
@@ -504,6 +512,8 @@ func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
 func (e *EditorPaneWidget) FlushOnChange() {
 	if e.bufferDirty {
 		e.bufferDirty = false
+		e.maxLineWidthDirty = true
+		e.bracketColorDirty = true
 		if e.OnChange != nil {
 			e.OnChange()
 		}
@@ -1330,82 +1340,96 @@ func (e *EditorPaneWidget) GoToMatchingBracket() {
 
 var openBrackets = map[rune]bool{'(': true, '[': true, '{': true}
 
-type bracketColorMap map[int]map[int]term.Style
-
-func isInStringOrComment(spans []highlight.Span, col int) bool {
-	for _, sp := range spans {
-		if col >= sp.Start && col < sp.End {
-			if sp.Style == term.StyleSyntaxString || sp.Style == term.StyleSyntaxComment {
-				return true
-			}
-		}
-	}
-	return false
+type bracketColorEntry struct {
+	col   int
+	style term.Style
 }
 
-func (e *EditorPaneWidget) computeBracketColors(visibleStart, visibleEnd int) bracketColorMap {
-	result := make(bracketColorMap)
-	depth := 0
-	totalLines := len(e.Buf.Lines)
+type bracketColorMap [][]bracketColorEntry
 
-	if len(e.BracketColorStyles) == 0 {
-		return result
+func (e *EditorPaneWidget) computeBracketColors() bracketColorMap {
+	totalLines := len(e.Buf.Lines)
+	if len(e.BracketColorStyles) == 0 || totalLines == 0 {
+		return nil
 	}
+
+	result := make(bracketColorMap, totalLines)
 	bracketStyles := e.BracketColorStyles
 	numStyles := len(bracketStyles)
+	depth := 0
 
-	for lineIdx := 0; lineIdx < totalLines && lineIdx <= visibleEnd; lineIdx++ {
-		line := e.Buf.Lines[lineIdx]
-		runes := []rune(line)
+	inLineComment := false
+	inBlockComment := false
+	inString := false
+	var stringChar rune
 
-		var spans []highlight.Span
-		if e.Highlighter != nil && lineIdx >= visibleStart {
-			spans = e.Highlighter.HighlightLine(line)
-		}
+	for lineIdx := 0; lineIdx < totalLines; lineIdx++ {
+		runes := []rune(e.Buf.Lines[lineIdx])
+		inLineComment = false
+		n := len(runes)
 
-		var preSpans []highlight.Span
-		if e.Highlighter != nil && lineIdx < visibleStart {
-			preSpans = e.Highlighter.HighlightLine(line)
-		}
+		for i := 0; i < n; i++ {
+			ch := runes[i]
+			next := rune(0)
+			if i+1 < n {
+				next = runes[i+1]
+			}
 
-		for col, ch := range runes {
-			_, isBracket := bracketPairs[ch]
-			if !isBracket {
+			if inBlockComment {
+				if ch == '*' && next == '/' {
+					inBlockComment = false
+					i++
+				}
+				continue
+			}
+			if inLineComment {
+				continue
+			}
+			if inString {
+				if ch == '\\' {
+					i++
+					continue
+				}
+				if ch == stringChar {
+					inString = false
+				}
 				continue
 			}
 
-			if lineIdx < visibleStart {
-				if isInStringOrComment(preSpans, col) {
-					continue
+			if ch == '/' && next == '/' {
+				inLineComment = true
+				continue
+			}
+			if ch == '/' && next == '*' {
+				inBlockComment = true
+				i++
+				continue
+			}
+			if ch == '"' || ch == '\'' || ch == '`' {
+				inString = true
+				stringChar = ch
+				if ch == '`' {
+					// backtick strings can span lines; handled by not resetting inString
 				}
-			} else {
-				if isInStringOrComment(spans, col) {
-					continue
-				}
+				continue
 			}
 
 			if openBrackets[ch] {
 				style := bracketStyles[depth%numStyles]
 				depth++
-				if lineIdx >= visibleStart {
-					if result[lineIdx] == nil {
-						result[lineIdx] = make(map[int]term.Style)
-					}
-					result[lineIdx][col] = style
-				}
+				result[lineIdx] = append(result[lineIdx], bracketColorEntry{col: i, style: style})
 			} else if closingBrackets[ch] {
 				depth--
 				if depth < 0 {
 					depth = 0
 				}
 				style := bracketStyles[depth%numStyles]
-				if lineIdx >= visibleStart {
-					if result[lineIdx] == nil {
-						result[lineIdx] = make(map[int]term.Style)
-					}
-					result[lineIdx][col] = style
-				}
+				result[lineIdx] = append(result[lineIdx], bracketColorEntry{col: i, style: style})
 			}
+		}
+
+		if inString && stringChar != '`' {
+			inString = false
 		}
 	}
 	return result
@@ -1756,7 +1780,6 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 
 	if len(cmds) > 0 && e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
-		e.maxLineWidthDirty = true
 		e.bufferDirty = true
 	}
 
@@ -2036,7 +2059,6 @@ func (e *EditorPaneWidget) multiExecRune(r rune) {
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 	}
-	e.maxLineWidthDirty = true
 	e.bufferDirty = true
 	e.syncFromMulti()
 }
@@ -2080,7 +2102,6 @@ func (e *EditorPaneWidget) multiExecBackspace() {
 		if e.Undo != nil {
 			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		}
-		e.maxLineWidthDirty = true
 		e.bufferDirty = true
 	}
 	e.Multi.Deduplicate()
@@ -2123,7 +2144,6 @@ func (e *EditorPaneWidget) multiExecDelete() {
 		if e.Undo != nil {
 			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		}
-		e.maxLineWidthDirty = true
 		e.bufferDirty = true
 	}
 	e.Multi.Deduplicate()
@@ -2165,7 +2185,6 @@ func (e *EditorPaneWidget) multiExecEnter() {
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 	}
-	e.maxLineWidthDirty = true
 	e.bufferDirty = true
 	e.syncFromMulti()
 }
