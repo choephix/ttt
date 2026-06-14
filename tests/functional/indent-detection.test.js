@@ -84,12 +84,12 @@ describe("indent detection", () => {
       "        return",
     ].join("\n");
     const file = createTempFile(dir, "app.py", content);
+    const configFile = createTempFile(dir, "settings.json", JSON.stringify({
+      lsp: { notifyAvailability: false },
+    }));
 
-    tui.start(file);
+    tui.start("--config", configFile, file);
     tui.waitFor("app.py");
-    tui.waitStable();
-    // Dismiss LSP notification if present
-    tui.press("Escape");
     tui.waitStable();
 
     const snap = tui.snapshot();

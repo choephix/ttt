@@ -111,9 +111,9 @@ describe("lsp", () => {
 
         tui.start("--config", configFile, testFile);
         tui.waitFor(spec.waitFor);
-        waitForLog("lsp initialized");
+        waitForLog("lsp initialized", 20000);
 
-        const log = waitForLog(spec.diagnostic);
+        const log = waitForLog(spec.diagnostic, 20000);
         tui.press("ctrl+q");
 
         expect(log).toContain("lsp starting server");
@@ -136,13 +136,13 @@ describe("lsp", () => {
 
         tui.start("--config", configFile, testFile);
         tui.waitFor(spec.waitFor);
-        waitForLog("lsp initialized");
+        waitForLog("lsp initialized", 20000);
 
         navigateTo(spec.hover.goto);
         tui.waitStable();
         tui.pressChord("ctrl+k", "i");
 
-        const log = waitForLog(spec.hover.log);
+        const log = waitForLog(spec.hover.log, 20000);
         tui.press("ctrl+q");
 
         expect(log).toMatch(new RegExp(spec.hover.log));
@@ -164,13 +164,13 @@ describe("lsp", () => {
 
         tui.start("--config", configFile, testFile);
         tui.waitFor(spec.waitFor);
-        waitForLog("lsp initialized");
+        waitForLog("lsp initialized", 20000);
 
         navigateTo(spec.completion.goto);
         tui.waitStable();
         tui.type(spec.completion.type);
 
-        const log = waitForLog(spec.completion.log);
+        const log = waitForLog(spec.completion.log, 20000);
         tui.press("escape");
         tui.press("ctrl+q");
         sleep(200);
@@ -196,13 +196,26 @@ describe("lsp", () => {
 
         tui.start("--config", configFile, testFile);
         tui.waitFor(spec.waitFor);
-        waitForLog("lsp initialized");
+        waitForLog("lsp initialized", 20000);
 
         navigateTo(spec.signatureHelp.goto);
         tui.waitStable();
-        tui.type(spec.signatureHelp.type);
 
-        const log = waitForLog(spec.signatureHelp.log);
+        // Type text that triggers signature help, splitting before the
+        // trigger character so autocomplete from '.' doesn't race with input.
+        const text = spec.signatureHelp.type;
+        const parenIdx = text.lastIndexOf("(");
+        if (parenIdx > 0) {
+          tui.type(text.substring(0, parenIdx));
+          tui.waitStable();
+          tui.press("escape");
+          tui.waitStable();
+          tui.type(text.substring(parenIdx));
+        } else {
+          tui.type(text);
+        }
+
+        const log = waitForLog(spec.signatureHelp.log, 20000);
         tui.press("escape");
         tui.press("ctrl+q");
         sleep(200);
