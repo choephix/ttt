@@ -47,11 +47,8 @@ func (d *IndentDialogWidget) Focusable() bool { return true }
 func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
 
-	boxW := 34
-	if boxW > sw-4 {
-		boxW = sw - 4
-	}
-	boxH := 9
+	boxW := min(34, sw-4)
+	boxH := 10
 	boxX := (sw - boxW) / 2
 	boxY := 2
 
@@ -64,6 +61,13 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 
 	innerW := boxW - 2
 	cx := boxX + 1
+
+	// Title: Indent Style
+	titleStyleLabel := "Indent Style"
+	titleStyleX := cx + (innerW-len(titleStyleLabel))/2
+	for i, ch := range titleStyleLabel {
+		surface.SetCell(titleStyleX+i, boxY+1, term.Cell{Ch: ch, Style: term.StylePaletteItem})
+	}
 
 	// Row 0: Spaces / Tabs toggle
 	styleY := boxY + 2
@@ -79,6 +83,13 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 	} else {
 		tabsStyle = term.StyleActiveTab
 	}
+	if d.focusRow == 0 {
+		if d.focusCol == 0 {
+			spacesStyle = term.StylePaletteSelected
+		} else {
+			tabsStyle = term.StylePaletteSelected
+		}
+	}
 
 	d.spacesHit = HitRegion{X: toggleX, Y: styleY, W: len(spacesLabel)}
 	for i, ch := range spacesLabel {
@@ -90,8 +101,15 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 		surface.SetCell(tabsX+i, styleY, term.Cell{Ch: ch, Style: tabsStyle})
 	}
 
+	// Title: Indent Size
+	titleSizeLabel := "Indent Size"
+	titleSizeX := cx + (innerW-len(titleSizeLabel))/2
+	for i, ch := range titleSizeLabel {
+		surface.SetCell(titleSizeX+i, boxY+4, term.Cell{Ch: ch, Style: term.StylePaletteItem})
+	}
+
 	// Row 1: Size buttons
-	sizeY := boxY + 4
+	sizeY := boxY + 5
 	sizeLabels := [6]string{" 1 ", " 2 ", " 3 ", " 4 ", " 6 ", " 8 "}
 	totalSizeW := 0
 	for _, l := range sizeLabels {
@@ -106,6 +124,9 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 		if indentSizes[i] == d.TabSize {
 			style = term.StyleActiveTab
 		}
+		if d.focusRow == 1 && d.focusCol == i {
+			style = term.StylePaletteSelected
+		}
 		d.sizeHits[i] = HitRegion{X: sx, Y: sizeY, W: len(label)}
 		for j, ch := range label {
 			surface.SetCell(sx+j, sizeY, term.Cell{Ch: ch, Style: style})
@@ -114,7 +135,7 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 	}
 
 	// Row 2: Cancel / Auto / Apply buttons
-	btnY := boxY + 6
+	btnY := boxY + 7
 	cancelLabel := " Cancel "
 	autoLabel := " Auto "
 	applyLabel := " Apply "
