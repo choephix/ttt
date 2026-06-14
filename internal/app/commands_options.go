@@ -60,13 +60,6 @@ func (a *App) ShowGutterStylePicker() {
 	})
 }
 
-func (a *App) SetTabSizeOption(size int) {
-	a.Settings.Editor.TabSize = size
-	a.EditorGroup.TabSize = size
-	a.EditorGroup.SetTabSize(size)
-	config.SaveSettings(*a.Settings)
-}
-
 func (a *App) ShowTabSizePicker() {
 	a.ShowIndentSettings()
 }
