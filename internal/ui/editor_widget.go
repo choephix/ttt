@@ -992,23 +992,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				if multi {
 					e.multiExecRune(r)
 				} else if hasSel {
-					if closing, ok := autoPairs[r]; ok {
-						e.deleteSelection()
-						e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
-						e.Cursor.Col++
-						e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: closing})
-					} else {
-						e.deleteSelection()
-						e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
-						e.Cursor.Col++
-					}
-				} else if closing, skip := autoCloseSkip[r]; skip && e.charAtCursor() == r {
-					_ = closing
-					e.Cursor.Col++
-				} else if closing, ok := autoPairs[r]; ok {
+					e.deleteSelection()
 					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 					e.Cursor.Col++
-					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: closing})
 				} else {
 					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 					e.Cursor.Col++
@@ -1152,27 +1138,6 @@ func leadingWhitespace(s string) string {
 		}
 	}
 	return s
-}
-
-var autoPairs = map[rune]rune{
-	'(': ')', '{': '}', '[': ']',
-	'"': '"', '\'': '\'', '`': '`',
-}
-
-var autoCloseSkip = map[rune]bool{
-	')': true, '}': true, ']': true,
-	'"': true, '\'': true, '`': true,
-}
-
-func (e *EditorPaneWidget) charAtCursor() rune {
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		return 0
-	}
-	runes := []rune(e.Buf.Lines[e.Cursor.Line])
-	if e.Cursor.Col >= len(runes) {
-		return 0
-	}
-	return runes[e.Cursor.Col]
 }
 
 var bracketPairs = map[rune]rune{
