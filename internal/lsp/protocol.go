@@ -307,20 +307,11 @@ type PublishDiagnosticsParams struct {
 	Diagnostics []Diagnostic `json:"diagnostics"`
 }
 
-type DiagnosticSeverity int
-
-const (
-	SeverityError       DiagnosticSeverity = 1
-	SeverityWarning     DiagnosticSeverity = 2
-	SeverityInformation DiagnosticSeverity = 3
-	SeverityHint        DiagnosticSeverity = 4
-)
-
 type Diagnostic struct {
-	Range    Range              `json:"range"`
-	Severity DiagnosticSeverity `json:"severity,omitempty"`
-	Source   string             `json:"source,omitempty"`
-	Message  string             `json:"message"`
+	Range    Range  `json:"range"`
+	Severity int    `json:"severity,omitempty"`
+	Source   string `json:"source,omitempty"`
+	Message  string `json:"message"`
 }
 
 func (m *MarkupContent) UnmarshalJSON(data []byte) error {

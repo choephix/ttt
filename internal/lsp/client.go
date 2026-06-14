@@ -132,6 +132,10 @@ func (c *Client) notify(method string, params any) error {
 	})
 }
 
+func isNullResult(result json.RawMessage) bool {
+	return len(result) == 0 || string(result) == "null"
+}
+
 func (c *Client) Initialize(rootURI string) error {
 	result, err := c.call("initialize", InitializeParams{
 		ProcessID: os.Getpid(),
@@ -258,7 +262,7 @@ func (c *Client) SignatureHelp(uri string, line, col int) (*SignatureHelp, error
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var sig SignatureHelp
@@ -276,7 +280,7 @@ func (c *Client) Hover(uri string, line, col int) (*HoverResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var hover HoverResult
@@ -326,7 +330,7 @@ func (c *Client) CodeAction(uri string, r Range, kinds []string) ([]CodeAction, 
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var actions []CodeAction
@@ -345,7 +349,7 @@ func (c *Client) Rename(uri string, line, col int, newName string) (*WorkspaceEd
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var edit WorkspaceEdit
@@ -364,7 +368,7 @@ func (c *Client) References(uri string, line, col int, includeDeclaration bool) 
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var locs []Location
@@ -382,7 +386,7 @@ func (c *Client) Formatting(uri string, tabSize int, insertSpaces bool) ([]TextE
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var edits []TextEdit
@@ -401,7 +405,7 @@ func (c *Client) RangeFormatting(uri string, r Range, tabSize int, insertSpaces 
 	if err != nil {
 		return nil, err
 	}
-	if len(result) == 0 || string(result) == "null" {
+	if isNullResult(result) {
 		return nil, nil
 	}
 	var edits []TextEdit
