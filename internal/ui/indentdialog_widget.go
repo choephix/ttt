@@ -48,7 +48,7 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 	sw, _ := surface.Size()
 
 	boxW := min(34, sw-4)
-	boxH := 12
+	boxH := 10
 	boxX := (sw - boxW) / 2
 	boxY := 2
 
@@ -101,15 +101,8 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 		surface.SetCell(tabsX+i, styleY, term.Cell{Ch: ch, Style: tabsStyle})
 	}
 
-	// Title: Indent Size
-	titleSizeLabel := "Indent Size"
-	titleSizeX := cx + (innerW-len(titleSizeLabel))/2
-	for i, ch := range titleSizeLabel {
-		surface.SetCell(titleSizeX+i, boxY+5, term.Cell{Ch: ch, Style: term.StylePaletteItem})
-	}
-
 	// Row 1: Size buttons
-	sizeY := boxY + 7
+	sizeY := boxY + 5
 	sizeLabels := [6]string{" 1 ", " 2 ", " 3 ", " 4 ", " 6 ", " 8 "}
 	totalSizeW := 0
 	for _, l := range sizeLabels {
@@ -135,7 +128,7 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 	}
 
 	// Row 2: Cancel / Auto / Apply buttons
-	btnY := boxY + 9
+	btnY := boxY + 7
 	cancelLabel := " Cancel "
 	autoLabel := " Auto "
 	applyLabel := " Apply "
