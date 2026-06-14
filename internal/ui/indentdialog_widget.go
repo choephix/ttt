@@ -7,6 +7,7 @@ import (
 
 type IndentDialogWidget struct {
 	BaseWidget
+	Title     string
 	UseTabs   bool
 	TabSize   int
 	Borders   *term.BorderSet
@@ -62,8 +63,10 @@ func (d *IndentDialogWidget) Render(surface *RenderSurface) {
 	innerW := boxW - 2
 	cx := boxX + 1
 
-	// Title: Indent Style
-	titleStyleLabel := "Indent Style"
+	titleStyleLabel := d.Title
+	if titleStyleLabel == "" {
+		titleStyleLabel = "Indentation"
+	}
 	titleStyleX := cx + (innerW-len(titleStyleLabel))/2
 	for i, ch := range titleStyleLabel {
 		surface.SetCell(titleStyleX+i, boxY+1, term.Cell{Ch: ch, Style: term.StylePaletteItem})

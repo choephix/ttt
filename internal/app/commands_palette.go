@@ -79,7 +79,7 @@ func (a *App) ShowThemePicker() {
 	a.ShowDialog(picker)
 }
 
-func (a *App) showIndentDialog(onApply func(useTabs bool, tabSize int)) {
+func (a *App) showIndentDialog(title string, onApply func(useTabs bool, tabSize int)) {
 	useTabs := false
 	tabSize := 4
 	if a.EditorGroup.Editor != nil {
@@ -90,6 +90,7 @@ func (a *App) showIndentDialog(onApply func(useTabs bool, tabSize int)) {
 		tabSize = a.Settings.Editor.TabSize
 	}
 	dialog := ui.NewIndentDialogWidget(useTabs, tabSize)
+	dialog.Title = title
 	dialog.Borders = a.Borders
 	dialog.OnApply = func(ut bool, ts int) {
 		a.DismissDialog()
@@ -114,14 +115,14 @@ func (a *App) showIndentDialog(onApply func(useTabs bool, tabSize int)) {
 }
 
 func (a *App) ShowIndentPicker() {
-	a.showIndentDialog(func(useTabs bool, tabSize int) {
+	a.showIndentDialog("File Indentation", func(useTabs bool, tabSize int) {
 		a.EditorGroup.SetTabSize(tabSize)
 		a.EditorGroup.SetUseTabs(useTabs)
 	})
 }
 
 func (a *App) ShowIndentSettings() {
-	a.showIndentDialog(func(useTabs bool, tabSize int) {
+	a.showIndentDialog("Editor Indentation", func(useTabs bool, tabSize int) {
 		a.Settings.Editor.TabSize = tabSize
 		a.Settings.Editor.InsertSpaces = !useTabs
 		a.EditorGroup.TabSize = tabSize
