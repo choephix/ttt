@@ -49,6 +49,7 @@ type EditorPaneWidget struct {
 	Diagnostics        []Diagnostic
 	Folds              *fold.State
 	OnChange           func()
+	bufferDirty        bool
 	Multi              *multicursor.MultiCursor
 	multiSearchWord    string
 	maxLineWidth       int
@@ -492,15 +493,22 @@ func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 		e.Undo.Push(cmd)
 	}
 	e.maxLineWidthDirty = true
+	e.bufferDirty = true
 	if e.Folds != nil && len(e.Buf.Lines) != prevLines {
 		e.Folds.SetRanges(fold.ComputeIndentRanges(e.Buf.Lines))
-	}
-	if e.OnChange != nil {
-		e.OnChange()
 	}
 }
 
 func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
+
+func (e *EditorPaneWidget) FlushOnChange() {
+	if e.bufferDirty {
+		e.bufferDirty = false
+		if e.OnChange != nil {
+			e.OnChange()
+		}
+	}
+}
 
 func (e *EditorPaneWidget) deleteSelection() {
 	if e.Selection == nil || !e.Selection.Active {
@@ -1749,9 +1757,7 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 	if len(cmds) > 0 && e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		e.maxLineWidthDirty = true
-		if e.OnChange != nil {
-			e.OnChange()
-		}
+		e.bufferDirty = true
 	}
 
 	e.Cursor.Col += cursorDelta
@@ -2030,10 +2036,9 @@ func (e *EditorPaneWidget) multiExecRune(r rune) {
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 	}
+	e.maxLineWidthDirty = true
+	e.bufferDirty = true
 	e.syncFromMulti()
-	if e.OnChange != nil {
-		e.OnChange()
-	}
 }
 
 func (e *EditorPaneWidget) multiExecBackspace() {
@@ -2075,9 +2080,8 @@ func (e *EditorPaneWidget) multiExecBackspace() {
 		if e.Undo != nil {
 			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		}
-		if e.OnChange != nil {
-			e.OnChange()
-		}
+		e.maxLineWidthDirty = true
+		e.bufferDirty = true
 	}
 	e.Multi.Deduplicate()
 	e.syncFromMulti()
@@ -2119,9 +2123,8 @@ func (e *EditorPaneWidget) multiExecDelete() {
 		if e.Undo != nil {
 			e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 		}
-		if e.OnChange != nil {
-			e.OnChange()
-		}
+		e.maxLineWidthDirty = true
+		e.bufferDirty = true
 	}
 	e.Multi.Deduplicate()
 	e.syncFromMulti()
@@ -2162,10 +2165,9 @@ func (e *EditorPaneWidget) multiExecEnter() {
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
 	}
+	e.maxLineWidthDirty = true
+	e.bufferDirty = true
 	e.syncFromMulti()
-	if e.OnChange != nil {
-		e.OnChange()
-	}
 }
 
 func (e *EditorPaneWidget) adjustLaterCursors(editedIdx int, start, end selection.Position) {

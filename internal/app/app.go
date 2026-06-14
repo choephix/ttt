@@ -58,7 +58,6 @@ type App struct {
 	CompletionItems    []ui.CompletionItem
 	LspCompletionItems []lsp.CompletionItem
 	CompletionTriggers []string
-	BufferChanged      bool
 	AutocompleteTimer  *time.Timer
 	HoverTimer         *time.Timer
 	HoverGen           uint64
@@ -406,7 +405,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
 		a.NotifyLSPChange(path, lang, text)
 		a.ScheduleAutocomplete()
-		a.BufferChanged = true
+		a.CheckSignatureHelpTrigger()
 		a.ScheduleGitGutter()
 	}
 
@@ -443,6 +442,12 @@ func OpenURL(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	cmd.Start()
+}
+
+func (a *App) FlushEditorOnChange() {
+	if a.EditorGroup.Editor != nil {
+		a.EditorGroup.Editor.FlushOnChange()
+	}
 }
 
 func (a *App) Copy() {
