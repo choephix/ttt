@@ -71,11 +71,13 @@ func registerViewCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "sidebar.toggle", Title: "Toggle Sidebar",
-		Handler: app.ToggleSidebar,
+		Keywords: []string{"view", "panel", "show", "hide"},
+		Handler:  app.ToggleSidebar,
 	})
 
 	reg.Register(command.Command{
 		ID: "sidebar.explorer", Title: "Show Explorer",
+		Keywords: []string{"view", "file", "tree", "browser"},
 		Handler: func() {
 			app.Explorer.Reload()
 			app.ShowPanel("explorer", app.Explorer)
@@ -84,6 +86,7 @@ func registerViewCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "sidebar.search", Title: "Show Search",
+		Keywords: []string{"view", "search", "find", "grep"},
 		Handler: func() {
 			app.ShowPanel("search", app.Search)
 		},
@@ -91,11 +94,13 @@ func registerViewCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "sidebar.searchReplace", Title: "Search and Replace in Files",
-		Handler: app.ToggleSearchReplace,
+		Keywords: []string{"view", "search", "find", "replace", "substitute"},
+		Handler:  app.ToggleSearchReplace,
 	})
 
 	reg.Register(command.Command{
 		ID: "sidebar.changes", Title: "Show Changes",
+		Keywords: []string{"view", "git", "diff", "source control"},
 		Handler: func() {
 			app.Changes.Refresh()
 			app.ShowPanel("changes", app.Changes)
@@ -104,6 +109,7 @@ func registerViewCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
+		Keywords: []string{"view", "resize"},
 		Handler: func() {
 			if app.Sidebar.Visible {
 				app.SetSidebarWidth(app.SplitPanel.DividerPos + 1)
@@ -113,6 +119,7 @@ func registerViewCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
+		Keywords: []string{"view", "resize"},
 		Handler: func() {
 			if app.Sidebar.Visible {
 				app.SetSidebarWidth(app.SplitPanel.DividerPos - 1)
@@ -122,46 +129,55 @@ func registerViewCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "sidebar.focus", Title: "Focus Sidebar",
-		Handler: app.FocusSidebar,
+		Keywords: []string{"view"},
+		Handler:  app.FocusSidebar,
 	})
 
 	reg.Register(command.Command{
 		ID: "panel.toggle", Title: "Toggle Panel",
-		Handler: app.ToggleBottomPanel,
+		Keywords: []string{"view", "bottom", "show", "hide"},
+		Handler:  app.ToggleBottomPanel,
 	})
 
 	reg.Register(command.Command{
 		ID: "panel.focus", Title: "Focus Panel",
-		Handler: app.FocusPanel,
+		Keywords: []string{"view", "bottom"},
+		Handler:  app.FocusPanel,
 	})
 
 	reg.Register(command.Command{
 		ID: "terminal.new", Title: "New Terminal",
-		Handler: app.SpawnTerminal,
+		Keywords: []string{"terminal", "shell", "console", "bash"},
+		Handler:  app.SpawnTerminal,
 	})
 
 	reg.Register(command.Command{
 		ID: "terminal.toggle", Title: "Toggle Terminal",
-		Handler: app.ToggleTerminal,
+		Keywords: []string{"terminal", "shell", "console", "bash"},
+		Handler:  app.ToggleTerminal,
 	})
 
 	reg.Register(command.Command{
 		ID: "terminal.fullscreen", Title: "Toggle Terminal Fullscreen",
-		Handler: app.ToggleTerminalFullscreen,
+		Keywords: []string{"terminal", "shell", "maximize"},
+		Handler:  app.ToggleTerminalFullscreen,
 	})
 
 	reg.Register(command.Command{
 		ID: "terminal.closeAll", Title: "Close All Terminals",
-		Handler: app.CloseAllTerminals,
+		Keywords: []string{"terminal", "shell"},
+		Handler:  app.CloseAllTerminals,
 	})
 
 	reg.Register(command.Command{
 		ID: "view.keyboardTester", Title: "Keyboard Tester",
-		Handler: app.ShowKeyboardTester,
+		Keywords: []string{"view", "debug", "input"},
+		Handler:  app.ShowKeyboardTester,
 	})
 
 	reg.Register(command.Command{
 		ID: "about", Title: "About ttt",
+		Keywords: []string{"help", "version", "info"},
 		Handler: func() {
 			OpenURL("https://github.com/eugenioenko/ttt")
 		},

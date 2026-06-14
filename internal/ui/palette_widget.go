@@ -318,14 +318,21 @@ func (p *CommandPaletteWidget) filterCommands(query string) {
 		}
 		var matches []scored
 		for _, cmd := range p.Commands {
-			if ok, score := fuzzyMatch(query, cmd.Title); ok {
+			bestOk, bestScore := fuzzyMatch(query, cmd.Title)
+			for _, kw := range cmd.Keywords {
+				if ok, score := fuzzyMatch(query, kw); ok && (!bestOk || score > bestScore) {
+					bestOk = true
+					bestScore = score
+				}
+			}
+			if bestOk {
 				matches = append(matches, scored{
 					item: PaletteItem{
 						Label:  cmd.Title,
 						Detail: cmd.Shortcut,
 						ID:     cmd.ID,
 					},
-					score: score,
+					score: bestScore,
 				})
 			}
 		}

@@ -93,31 +93,37 @@ func registerExplorerCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "explorer.refresh", Title: "Refresh Explorer",
-		Handler: func() { app.Explorer.Reload() },
+		Keywords: []string{"view", "file", "reload"},
+		Handler:  func() { app.Explorer.Reload() },
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.open", Title: "Open",
-		Handler: func() { app.Explorer.ActivateSelected() },
+		Keywords: []string{"view", "file"},
+		Handler:  func() { app.Explorer.ActivateSelected() },
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.newFile", Title: "New File",
-		Handler: app.ExplorerNewFile,
+		Keywords: []string{"view", "file", "create"},
+		Handler:  app.ExplorerNewFile,
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.newFolder", Title: "New Folder",
-		Handler: app.ExplorerNewFolder,
+		Keywords: []string{"view", "file", "create", "directory"},
+		Handler:  app.ExplorerNewFolder,
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.rename", Title: "Rename",
-		Handler: app.ExplorerRename,
+		Keywords: []string{"view", "file"},
+		Handler:  app.ExplorerRename,
 	})
 
 	reg.Register(command.Command{
 		ID: "explorer.delete", Title: "Delete",
-		Handler: app.ExplorerDelete,
+		Keywords: []string{"view", "file", "remove"},
+		Handler:  app.ExplorerDelete,
 	})
 }

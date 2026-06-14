@@ -109,12 +109,14 @@ func registerOptionsCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "options.toggleLineNumbers", Title: "Toggle Line Numbers",
-		Handler: app.ToggleLineNumbers,
+		Keywords: []string{"preferences", "settings", "editor", "view"},
+		Handler:  app.ToggleLineNumbers,
 	})
 
 	reg.Register(command.Command{
 		ID: "options.toggleWordWrap", Title: "Toggle Word Wrap",
-		Handler: app.ToggleWordWrap,
+		Keywords: []string{"preferences", "settings", "editor", "view"},
+		Handler:  app.ToggleWordWrap,
 	})
 
 	reg.Register(command.Command{
@@ -124,11 +126,13 @@ func registerOptionsCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "options.gutterStyle", Title: "Change Gutter Style",
-		Handler: app.ShowGutterStylePicker,
+		Keywords: []string{"preferences", "settings", "editor", "view"},
+		Handler:  app.ShowGutterStylePicker,
 	})
 
 	reg.Register(command.Command{
 		ID: "options.tabSize", Title: "Change Tab Size",
-		Handler: app.ShowTabSizePicker,
+		Keywords: []string{"preferences", "settings", "editor", "indentation"},
+		Handler:  app.ShowTabSizePicker,
 	})
 }

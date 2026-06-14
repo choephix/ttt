@@ -136,17 +136,20 @@ func registerPaletteCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "file.quickOpen", Title: "Go to File",
-		Handler: func() { app.OpenCommandPalette(true) },
+		Keywords: []string{"file", "navigate", "open"},
+		Handler:  func() { app.OpenCommandPalette(true) },
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.goToLine", Title: "Go to Line",
-		Handler: func() { app.OpenCommandPalette(false, ":") },
+		Keywords: []string{"editor", "navigate", "jump"},
+		Handler:  func() { app.OpenCommandPalette(false, ":") },
 	})
 
 	reg.Register(command.Command{
 		ID: "theme.switch", Title: "Switch Theme",
-		Handler: app.ShowThemePicker,
+		Keywords: []string{"preferences", "settings", "colors", "appearance"},
+		Handler:  app.ShowThemePicker,
 	})
 
 	app.StatusBar.OnIndentClick = app.ShowIndentPicker
@@ -154,16 +157,19 @@ func registerPaletteCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "editor.indentation", Title: "Change Indentation",
-		Handler: app.ShowIndentPicker,
+		Keywords: []string{"editor", "preferences", "settings", "spaces", "tabs"},
+		Handler:  app.ShowIndentPicker,
 	})
 
 	reg.Register(command.Command{
 		ID: "editor.lineEnding", Title: "Change Line Ending",
-		Handler: app.ShowEolPicker,
+		Keywords: []string{"editor", "preferences", "settings", "eol", "crlf", "lf"},
+		Handler:  app.ShowEolPicker,
 	})
 
 	reg.Register(command.Command{
 		ID: "settings.open", Title: "Preferences: Open Settings",
+		Keywords: []string{"preferences", "settings", "configuration", "options"},
 		Handler: func() {
 			path := config.ConfigFilePath("settings.json")
 			config.EnsureConfigFile(path, "{}\n")
@@ -173,6 +179,7 @@ func registerPaletteCommands(app *App) {
 
 	reg.Register(command.Command{
 		ID: "keybindings.open", Title: "Preferences: Open Keyboard Shortcuts",
+		Keywords: []string{"preferences", "settings", "hotkeys", "keymap"},
 		Handler: func() {
 			path := config.ConfigFilePath("keybindings.json")
 			config.EnsureConfigFile(path, "{}\n")
