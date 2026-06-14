@@ -60,10 +60,6 @@ func (a *App) ShowGutterStylePicker() {
 	})
 }
 
-func (a *App) ShowTabSizePicker() {
-	a.ShowIndentSettings()
-}
-
 func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 	lineNumbersChecked := ui.MenuUnchecked
 	if a.Settings.Editor.LineNumbers {
@@ -92,7 +88,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		{Label: "Git Gutter", Command: "options.toggleGitGutter", Checked: gitGutterChecked},
 		ui.MenuSep(),
 		{Label: "Gutter Style", Command: "options.gutterStyle"},
-		{Label: "Tab Size", Command: "options.tabSize"},
+		{Label: "Indentation", Command: "options.indentation"},
 		ui.MenuSep(),
 		{Label: "Switch Theme", Command: "theme.switch"},
 		ui.MenuSep(),
@@ -134,8 +130,8 @@ func registerOptionsCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "options.tabSize", Title: "Change Tab Size",
-		Keywords: []string{"preferences", "settings", "editor", "indentation"},
-		Handler:  app.ShowTabSizePicker,
+		ID: "options.indentation", Title: "Change Editor Indentation",
+		Keywords: []string{"preferences", "settings", "editor", "indentation", "tabs", "spaces"},
+		Handler:  app.ShowIndentSettings,
 	})
 }
