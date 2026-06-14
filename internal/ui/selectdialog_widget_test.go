@@ -17,7 +17,7 @@ func testCommands() []command.Command {
 }
 
 func TestPaletteFilter(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 
 	if len(p.Items) != 4 {
 		t.Fatalf("empty query: expected 4, got %d", len(p.Items))
@@ -35,7 +35,7 @@ func TestPaletteFilter(t *testing.T) {
 }
 
 func TestPaletteNavigation(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0))
 	if p.Selected != 1 {
@@ -55,7 +55,7 @@ func TestPaletteNavigation(t *testing.T) {
 }
 
 func TestPaletteExecute(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 	executed := ""
 	p.OnExecute = func(id string) { executed = id }
 
@@ -68,7 +68,7 @@ func TestPaletteExecute(t *testing.T) {
 }
 
 func TestPaletteDismiss(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 	dismissed := false
 	p.OnDismiss = func() { dismissed = true }
 
@@ -80,7 +80,7 @@ func TestPaletteDismiss(t *testing.T) {
 }
 
 func TestPaletteAlwaysConsumes(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 	result := p.HandleEvent(tcell.NewEventKey(tcell.KeyF1, 0, 0))
 	if result != EventConsumed {
 		t.Fatal("palette should consume all events (modal)")
@@ -88,7 +88,7 @@ func TestPaletteAlwaysConsumes(t *testing.T) {
 }
 
 func TestPaletteBackspace(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 
 	// Initial text is ">", type "sp" → ">sp"
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
@@ -104,7 +104,7 @@ func TestPaletteBackspace(t *testing.T) {
 }
 
 func TestPaletteFuzzyFilter(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 
 	// Type "fs" which should fuzzy match "File: Save" (F + S at word boundaries)
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'f', 0))
@@ -123,7 +123,7 @@ func TestPaletteFuzzyFilter(t *testing.T) {
 }
 
 func TestPaletteFuzzyFilterInitials(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 
 	// Type "se" which should fuzzy match "Split Editor Right" (s...e in Editor)
 	p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 's', 0))
@@ -147,7 +147,7 @@ func TestPaletteFuzzyScoreOrdering(t *testing.T) {
 		{ID: "b", Title: "To Do List"},
 		{ID: "c", Title: "Top Level"},
 	}
-	p := NewCommandPaletteWidget(cmds)
+	p := NewSelectDialogWidget(cmds)
 
 	// Type "to" - "Toggle Sidebar" and "Top Level" start with "to" (substring at position 0),
 	// "To Do List" starts with "To" too. All are substring matches.
@@ -160,7 +160,7 @@ func TestPaletteFuzzyScoreOrdering(t *testing.T) {
 }
 
 func TestPaletteModeSwitch(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommands())
+	p := NewSelectDialogWidget(testCommands())
 
 	if p.mode != paletteCommandMode {
 		t.Fatal("expected command mode initially")
@@ -197,7 +197,7 @@ func testCommandsWithKeywords() []command.Command {
 }
 
 func TestPaletteKeywordMatch(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommandsWithKeywords())
+	p := NewSelectDialogWidget(testCommandsWithKeywords())
 
 	// Type "collapse" which should match fold commands via keywords
 	for _, r := range "collapse" {
@@ -217,7 +217,7 @@ func TestPaletteKeywordMatch(t *testing.T) {
 }
 
 func TestPaletteKeywordEditorCategory(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommandsWithKeywords())
+	p := NewSelectDialogWidget(testCommandsWithKeywords())
 
 	// Type "editor" which should return editor-related commands via keywords
 	for _, r := range "editor" {
@@ -248,7 +248,7 @@ func TestPaletteKeywordEditorCategory(t *testing.T) {
 }
 
 func TestPaletteKeywordNotDisplayed(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommandsWithKeywords())
+	p := NewSelectDialogWidget(testCommandsWithKeywords())
 
 	// Type "collapse" to trigger keyword match
 	for _, r := range "collapse" {
@@ -268,7 +268,7 @@ func TestPaletteKeywordNotDisplayed(t *testing.T) {
 }
 
 func TestPaletteKeywordCollapseMatchesFoldCommands(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommandsWithKeywords())
+	p := NewSelectDialogWidget(testCommandsWithKeywords())
 
 	for _, r := range "collapse" {
 		p.HandleEvent(tcell.NewEventKey(tcell.KeyRune, r, 0))
@@ -288,7 +288,7 @@ func TestPaletteKeywordCollapseMatchesFoldCommands(t *testing.T) {
 }
 
 func TestPaletteKeywordSubstitute(t *testing.T) {
-	p := NewCommandPaletteWidget(testCommandsWithKeywords())
+	p := NewSelectDialogWidget(testCommandsWithKeywords())
 
 	// "substitute" should match Find and Replace via keywords
 	for _, r := range "substitute" {
@@ -312,7 +312,7 @@ func TestPaletteTitleMatchPreferredOverKeyword(t *testing.T) {
 		{ID: "a", Title: "Find", Keywords: []string{"search"}},
 		{ID: "b", Title: "Search Panel", Keywords: []string{"find"}},
 	}
-	p := NewCommandPaletteWidget(cmds)
+	p := NewSelectDialogWidget(cmds)
 
 	// "find" should match both, but "a" has it in the title (exact substring = higher score)
 	for _, r := range "find" {

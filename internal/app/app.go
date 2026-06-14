@@ -541,7 +541,7 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 }
 
 func (a *App) ShowPicker(items []command.Command, onSelect func(id string)) {
-	picker := ui.NewCommandPaletteWidget(items)
+	picker := ui.NewSelectDialogWidget(items)
 	picker.Borders = a.Borders
 	picker.OnExecute = func(id string) {
 		a.DismissDialog()
