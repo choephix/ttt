@@ -140,3 +140,32 @@ func TestIndentPickerSetsTabs(t *testing.T) {
 		t.Error("expected UseTabs=false after SetUseTabs(false)")
 	}
 }
+
+func TestIndentPickerChangesTabSize(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	f := filepath.Join(h.dir, "size.go")
+	os.WriteFile(f, []byte("package main\n\nfunc main() {\n    fmt.Println()\n}\n"), 0644)
+	h.app.EditorGroup.OpenFile(f)
+	h.redraw()
+
+	if h.app.EditorGroup.Editor.TabSize != 4 {
+		t.Fatalf("expected initial TabSize=4, got %d", h.app.EditorGroup.Editor.TabSize)
+	}
+
+	// Simulate picking "Spaces: 2" from the indent picker
+	h.app.EditorGroup.SetTabSize(2)
+	h.app.EditorGroup.SetUseTabs(false)
+	h.redraw()
+
+	if h.app.EditorGroup.Editor.TabSize != 2 {
+		t.Errorf("expected TabSize=2 after SetTabSize(2), got %d", h.app.EditorGroup.Editor.TabSize)
+	}
+
+	// Verify it survives a render cycle (syncTabs doesn't overwrite)
+	h.redraw()
+	if h.app.EditorGroup.Editor.TabSize != 2 {
+		t.Errorf("expected TabSize=2 after redraw, got %d", h.app.EditorGroup.Editor.TabSize)
+	}
+}

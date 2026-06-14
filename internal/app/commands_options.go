@@ -68,7 +68,7 @@ func (a *App) SetTabSizeOption(size int) {
 }
 
 func (a *App) ShowTabSizePicker() {
-	a.ShowIndentPicker()
+	a.ShowIndentSettings()
 }
 
 func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
