@@ -1,9 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -71,17 +68,7 @@ func (a *App) SetTabSizeOption(size int) {
 }
 
 func (a *App) ShowTabSizePicker() {
-	sizes := []int{2, 4, 8}
-	var cmds []command.Command
-	for _, s := range sizes {
-		label := fmt.Sprintf("Tab Size: %d", s)
-		cmds = append(cmds, command.Command{ID: strconv.Itoa(s), Title: label})
-	}
-	a.ShowPicker(cmds, func(id string) {
-		if size, err := strconv.Atoi(id); err == nil {
-			a.SetTabSizeOption(size)
-		}
-	})
+	a.ShowIndentPicker()
 }
 
 func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
