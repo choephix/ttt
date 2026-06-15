@@ -2,6 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -253,5 +256,25 @@ func TestDefaultSettingsText(t *testing.T) {
 	// Should mention the *bool settings that default to true when omitted
 	if !strings.Contains(text, "omitted means true") {
 		t.Error("expected DefaultSettingsText to document *bool omit behavior")
+	}
+}
+
+func TestReferenceSettingsMatchesDefaults(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	refPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "config", "settings.json")
+	refData, err := os.ReadFile(refPath)
+	if err != nil {
+		t.Fatalf("failed to read config/settings.json: %v", err)
+	}
+
+	s := DefaultSettings()
+	s.Theme = "default-dark"
+	generated, _ := json.MarshalIndent(s, "", "  ")
+	generated = append(generated, '\n')
+
+	if string(generated) != string(refData) {
+		t.Errorf("config/settings.json is out of date with DefaultSettings().\n"+
+			"Regenerate it by running DefaultSettings() with theme='default-dark' and saving the output.\n"+
+			"Got %d bytes, want %d bytes", len(refData), len(generated))
 	}
 }

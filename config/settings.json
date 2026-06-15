@@ -1,13 +1,18 @@
 {
-  "tabSize": 4,
-  "insertSpaces": true,
-  "wordWrap": false,
-  "lineNumbers": true,
-  "sidebarVisible": true,
-  "sidebarWidth": 30,
+  "version": 1,
   "theme": "default-dark",
-  "formatOnSave": false,
-  "insertFinalNewline": true,
+  "editor": {
+    "tabSize": 4,
+    "insertSpaces": true,
+    "wordWrap": false,
+    "lineNumbers": true,
+    "formatOnSave": false,
+    "insertFinalNewline": true,
+    "trimTrailingWhitespace": false,
+    "focusOnOpen": false,
+    "gutterStyle": "compact",
+    "bracketPairColorization": false
+  },
   "search": {
     "debounce": 350
   },
@@ -16,23 +21,193 @@
     "showGitIgnored": true
   },
   "terminal": {
-    "shell": "",
     "scrollback": 1000
   },
   "lsp": {
-    "saveOnRename": false,
     "servers": {
-      "go": { "command": ["gopls"] },
-      "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
+      "bash": {
+        "command": [
+          "bash-language-server",
+          "start"
+        ],
         "languages": {
-          ".ts": "typescript",
-          ".tsx": "typescriptreact",
-          ".js": "javascript",
-          ".jsx": "javascriptreact"
+          ".bash": "bash",
+          ".sh": "sh"
         }
+      },
+      "c": {
+        "command": [
+          "clangd"
+        ],
+        "languages": {
+          ".c": "c",
+          ".cc": "cpp",
+          ".cpp": "cpp",
+          ".cxx": "cpp",
+          ".h": "c",
+          ".hpp": "cpp"
+        }
+      },
+      "css": {
+        "command": [
+          "vscode-css-language-server",
+          "--stdio"
+        ],
+        "languages": {
+          ".css": "css",
+          ".less": "less",
+          ".scss": "scss"
+        }
+      },
+      "dart": {
+        "command": [
+          "dart",
+          "language-server",
+          "--protocol=lsp"
+        ]
+      },
+      "docker": {
+        "command": [
+          "docker-langserver",
+          "--stdio"
+        ],
+        "languages": {
+          "Dockerfile": "dockerfile"
+        }
+      },
+      "elixir": {
+        "command": [
+          "elixir-ls"
+        ]
+      },
+      "go": {
+        "command": [
+          "gopls"
+        ]
+      },
+      "html": {
+        "command": [
+          "vscode-html-language-server",
+          "--stdio"
+        ]
+      },
+      "java": {
+        "command": [
+          "jdtls"
+        ]
+      },
+      "json": {
+        "command": [
+          "vscode-json-language-server",
+          "--stdio"
+        ],
+        "languages": {
+          ".json": "json",
+          ".jsonc": "jsonc"
+        }
+      },
+      "kotlin": {
+        "command": [
+          "kotlin-language-server"
+        ]
+      },
+      "lua": {
+        "command": [
+          "lua-language-server"
+        ]
+      },
+      "markdown": {
+        "command": [
+          "marksman",
+          "server"
+        ]
+      },
+      "php": {
+        "command": [
+          "phpactor",
+          "language-server"
+        ]
+      },
+      "python": {
+        "command": [
+          "pyright-langserver",
+          "--stdio"
+        ]
+      },
+      "ruby": {
+        "command": [
+          "ruby-lsp"
+        ]
+      },
+      "rust": {
+        "command": [
+          "rust-analyzer"
+        ]
+      },
+      "svelte": {
+        "command": [
+          "svelteserver",
+          "--stdio"
+        ],
+        "languages": {
+          ".svelte": "svelte"
+        }
+      },
+      "tailwindcss": {
+        "command": [
+          "tailwindcss-language-server",
+          "--stdio"
+        ]
+      },
+      "terraform": {
+        "command": [
+          "terraform-ls",
+          "serve"
+        ],
+        "languages": {
+          ".tf": "terraform",
+          ".tfvars": "terraform"
+        }
+      },
+      "typescript": {
+        "command": [
+          "typescript-language-server",
+          "--stdio"
+        ],
+        "languages": {
+          ".cjs": "javascript",
+          ".cts": "typescript",
+          ".js": "javascript",
+          ".jsx": "javascriptreact",
+          ".mjs": "javascript",
+          ".mts": "typescript",
+          ".ts": "typescript",
+          ".tsx": "typescriptreact"
+        }
+      },
+      "vue": {
+        "command": [
+          "vue-language-server",
+          "--stdio"
+        ],
+        "languages": {
+          ".vue": "vue"
+        }
+      },
+      "yaml": {
+        "command": [
+          "yaml-language-server",
+          "--stdio"
+        ]
+      },
+      "zig": {
+        "command": [
+          "zls"
+        ]
       }
-    }
+    },
+    "saveOnRename": false,
+    "hoverDelay": 400
   },
   "autocomplete": {
     "enabled": true,
