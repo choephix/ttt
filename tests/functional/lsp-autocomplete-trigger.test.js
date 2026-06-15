@@ -67,7 +67,7 @@ describe("lsp autocomplete trigger characters", () => {
 
   const testFn = available ? it : it.skip;
 
-  testFn("console. triggers completions, typing ( shows signature help", () => {
+  testFn("console. triggers completions after typing consol", () => {
     dir = createTempDir();
     cpSync(LSP_DIR, dir, { recursive: true });
 
@@ -98,16 +98,38 @@ describe("lsp autocomplete trigger characters", () => {
     log = waitForLogAfter("lsp completion response.*count=[1-9]", mark);
     expect(log).toMatch(/lsp completion response.*count=[1-9]/);
 
-    // Dismiss autocomplete and wait for LSP to settle
     tui.press("escape");
+    tui.press("ctrl+q");
+    sleep(200);
+    tui.press("arrow_right");
+    tui.press("enter");
+  });
+
+  testFn("typing ( after a function name triggers signature help", () => {
+    dir = createTempDir();
+    cpSync(LSP_DIR, dir, { recursive: true });
+
+    const testFile = resolve(dir, "sighelp.js");
+    writeFileSync(testFile, "// sig\nconsole.log\n", "utf8");
+    const configFile = resolve(LSP_DIR, "settings.json");
+
+    tui.start("--config", configFile, testFile);
+    tui.waitFor("console.log");
+    waitForLogAfter("lsp initialized", 0);
+
+    // Move to end of line 2 (after "console.log")
+    tui.press("ctrl+g");
     tui.waitStable();
+    tui.type("2");
+    tui.press("enter");
+    tui.waitStable();
+    tui.press("end");
 
-    // Mark again for signature help detection
-    mark = logSize();
+    const mark = logSize();
 
-    // Type 'log(' — should trigger signature help
-    tui.type("log(");
-    log = waitForLogAfter("lsp signature help response.*label=", mark, 20000);
+    // Type '(' — should trigger signature help
+    tui.type("(");
+    const log = waitForLogAfter("lsp signature help response.*label=", mark, 20000);
     expect(log).toMatch(/lsp signature help response.*label=/);
 
     tui.press("escape");
