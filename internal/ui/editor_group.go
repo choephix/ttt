@@ -71,6 +71,7 @@ type EditorGroupWidget struct {
 	InsertSpaces           bool
 	LineNumbers            bool
 	GutterStyle             string
+	WordWrap                bool
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	InsertFinalNewline      bool
