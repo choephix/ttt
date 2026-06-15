@@ -43,6 +43,7 @@ type LSPServerConfig struct {
 
 type LSPSettings struct {
 	Enabled            *bool                      `json:"enabled,omitempty"`
+	Hover              *bool                      `json:"hover,omitempty"`
 	Servers            map[string]LSPServerConfig `json:"servers,omitempty"`
 	SaveOnRename       bool                       `json:"saveOnRename"`
 	CodeActionsOnSave  []string                   `json:"codeActionsOnSave,omitempty"`
@@ -58,11 +59,15 @@ func (l LSPSettings) IsEnabled() bool {
 	return l.Enabled == nil || *l.Enabled
 }
 
+func (l LSPSettings) IsHoverEnabled() bool {
+	return l.Hover == nil || *l.Hover
+}
+
 func DefaultLSPSettings() LSPSettings {
 	var servers map[string]LSPServerConfig
 	json.Unmarshal(lspServersJSON, &servers)
 	return LSPSettings{
-		HoverDelay: 400,
+		HoverDelay: 500,
 		Servers:    servers,
 	}
 }

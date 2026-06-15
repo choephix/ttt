@@ -194,8 +194,8 @@ func TestDefaultExplorerSettings(t *testing.T) {
 
 func TestDefaultLSPSettings(t *testing.T) {
 	ls := DefaultLSPSettings()
-	if ls.HoverDelay != 400 {
-		t.Errorf("expected HoverDelay 400, got %d", ls.HoverDelay)
+	if ls.HoverDelay != 500 {
+		t.Errorf("expected HoverDelay 500, got %d", ls.HoverDelay)
 	}
 	if ls.Servers == nil {
 		t.Error("expected Servers to be loaded from embedded JSON")

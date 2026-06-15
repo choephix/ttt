@@ -140,6 +140,7 @@ func RunEventLoop(
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
 		case *tcell.EventKey:
+			app.DismissHover()
 			if app.EditorGroup.SignatureHelp != nil {
 				switch tev.Key() {
 				case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,

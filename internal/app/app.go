@@ -296,7 +296,7 @@ func (a *App) refreshProblems() {
 }
 
 func (a *App) checkMouseHover(mx, my int) {
-	if a.EditorGroup.Editor == nil {
+	if a.EditorGroup.Editor == nil || !a.Settings.LSP.IsHoverEnabled() {
 		return
 	}
 	r := a.EditorGroup.Editor.GetRect()
