@@ -225,9 +225,7 @@ func (c *ContextMenuWidget) HandleEvent(ev tcell.Event) EventResult {
 
 		if btn == tcell.ButtonNone {
 			if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
-				if c.OnDismiss != nil {
-					c.OnDismiss()
-				}
+				c.Selected = -1
 				return EventConsumed
 			}
 			itemIdx := my - r.Y - 1
