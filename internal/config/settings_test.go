@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -199,5 +200,58 @@ func TestDefaultLSPSettings(t *testing.T) {
 	}
 	if ls.Servers == nil {
 		t.Error("expected Servers to be loaded from embedded JSON")
+	}
+}
+
+func TestDefaultSettingsText(t *testing.T) {
+	text := DefaultSettingsText()
+
+	if text == "" {
+		t.Fatal("DefaultSettingsText() returned empty string")
+	}
+
+	// Should contain all major sections
+	sections := []string{
+		`"editor"`,
+		`"search"`,
+		`"explorer"`,
+		`"terminal"`,
+		`"lsp"`,
+		`"autocomplete"`,
+	}
+	for _, section := range sections {
+		if !strings.Contains(text, section) {
+			t.Errorf("expected DefaultSettingsText to contain section %s", section)
+		}
+	}
+
+	// Should contain key settings with their default values
+	defaults := []string{
+		`"tabSize": 4`,
+		`"insertSpaces": true`,
+		`"lineNumbers": true`,
+		`"insertFinalNewline": true`,
+		`"gutterStyle": "compact"`,
+		`"debounce": 350`,
+		`"showHidden": true`,
+		`"scrollback": 1000`,
+		`"hoverDelay": 400`,
+		`"enabled": true`,
+		`"signatureHelp": true`,
+	}
+	for _, d := range defaults {
+		if !strings.Contains(text, d) {
+			t.Errorf("expected DefaultSettingsText to contain %s", d)
+		}
+	}
+
+	// Should contain descriptive comments
+	if !strings.Contains(text, "//") {
+		t.Error("expected DefaultSettingsText to contain comments")
+	}
+
+	// Should mention the *bool settings that default to true when omitted
+	if !strings.Contains(text, "omitted means true") {
+		t.Error("expected DefaultSettingsText to document *bool omit behavior")
 	}
 }

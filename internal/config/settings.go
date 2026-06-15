@@ -169,6 +169,138 @@ func LoadSettings() Settings {
 	return s
 }
 
+// DefaultSettingsText returns a formatted reference document showing all
+// available settings with their default values and descriptions. The output
+// uses JSONC-style comments (// ...) so it can serve as inline documentation.
+func DefaultSettingsText() string {
+	return `// Default Settings Reference
+// This is a read-only reference of all available settings and their defaults.
+// To customize, open your settings file via "Preferences: Open Settings"
+// and override only the values you want to change.
+//
+// Settings file location: ~/.config/ttt/settings.json
+{
+  // Schema version (do not change)
+  "version": 1,
+
+  // Color theme name (string, empty = default theme)
+  // Use "Switch Theme" command to browse available themes.
+  "theme": "",
+
+  // Enable debug mode (bool, default: false)
+  "debugMode": false,
+
+  // ── Editor ──────────────────────────────────────────────
+  "editor": {
+    // Number of spaces per tab stop (int, default: 4)
+    "tabSize": 4,
+
+    // Use spaces instead of tabs for indentation (bool, default: true)
+    "insertSpaces": true,
+
+    // Wrap long lines to fit the viewport (bool, default: false)
+    "wordWrap": false,
+
+    // Show line numbers in the gutter (bool, default: true)
+    "lineNumbers": true,
+
+    // Cursor style: "block", "underline", or "bar" (string, default: "")
+    "cursorStyle": "",
+
+    // Automatically format the file on save (bool, default: false)
+    "formatOnSave": false,
+
+    // Ensure the file ends with a newline on save (bool, default: true)
+    "insertFinalNewline": true,
+
+    // Remove trailing whitespace on save (bool, default: false)
+    "trimTrailingWhitespace": false,
+
+    // Diff view layout: "inline" or "side-by-side" (string, default: "")
+    "diffView": "",
+
+    // Focus the editor when opening a file from the sidebar (bool, default: false)
+    "focusOnOpen": false,
+
+    // Show git change indicators in the gutter (bool, default: true)
+    // Uses *bool — omitted means true.
+    "gitGutter": true,
+
+    // Gutter style: "minimal", "compact", or "extended" (string, default: "compact")
+    "gutterStyle": "compact",
+
+    // Colorize matching bracket pairs (bool, default: false)
+    "bracketPairColorization": false
+  },
+
+  // ── Search ──────────────────────────────────────────────
+  "search": {
+    // Debounce delay in ms before triggering search (int, default: 350)
+    "debounce": 350
+  },
+
+  // ── Explorer ────────────────────────────────────────────
+  "explorer": {
+    // Show hidden files (dotfiles) in the file explorer (bool, default: true)
+    "showHidden": true,
+
+    // Show files ignored by .gitignore (bool, default: true)
+    "showGitIgnored": true
+  },
+
+  // ── Terminal ────────────────────────────────────────────
+  "terminal": {
+    // Shell command for the integrated terminal (string, default: "" = $SHELL or /bin/sh)
+    "shell": "",
+
+    // Number of scrollback lines in the terminal (int, default: 1000)
+    "scrollback": 1000
+  },
+
+  // ── LSP (Language Server Protocol) ──────────────────────
+  "lsp": {
+    // Enable LSP support (bool, default: true)
+    // Uses *bool — omitted means true.
+    "enabled": true,
+
+    // Auto-save files when renamed via LSP (bool, default: false)
+    "saveOnRename": false,
+
+    // Code actions to run automatically on save (string array, default: [])
+    "codeActionsOnSave": [],
+
+    // Delay in ms before showing hover information (int, default: 400)
+    "hoverDelay": 400,
+
+    // Show notification when an LSP server is available but not installed
+    // (bool, default: true). Uses *bool — omitted means true.
+    "notifyAvailability": true,
+
+    // LSP server configurations per language.
+    // Each entry maps a language key to a server config with "command" (string array)
+    // and optional "languages" (map of file extension to language ID).
+    // See ~/.config/ttt/extensions.json for additional configuration.
+    "servers": {}
+  },
+
+  // ── Autocomplete ────────────────────────────────────────
+  "autocomplete": {
+    // Enable autocomplete suggestions (bool, default: true)
+    "enabled": true,
+
+    // Automatically show suggestions as you type (bool, default: true)
+    "autoSuggest": true,
+
+    // Debounce delay in ms before triggering autocomplete (int, default: 150)
+    "debounce": 150,
+
+    // Show function signature help on ( and , characters (bool, default: true)
+    "signatureHelp": true
+  }
+}
+`
+}
+
 func SaveSettings(s Settings) error {
 	path := ConfigFilePath("settings.json")
 	data, err := json.MarshalIndent(s, "", "  ")
