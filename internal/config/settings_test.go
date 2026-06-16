@@ -2,6 +2,10 @@ package config
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -199,5 +203,78 @@ func TestDefaultLSPSettings(t *testing.T) {
 	}
 	if ls.Servers == nil {
 		t.Error("expected Servers to be loaded from embedded JSON")
+	}
+}
+
+func TestDefaultSettingsText(t *testing.T) {
+	text := DefaultSettingsText()
+
+	if text == "" {
+		t.Fatal("DefaultSettingsText() returned empty string")
+	}
+
+	// Should contain all major sections
+	sections := []string{
+		`"editor"`,
+		`"search"`,
+		`"explorer"`,
+		`"terminal"`,
+		`"lsp"`,
+		`"autocomplete"`,
+	}
+	for _, section := range sections {
+		if !strings.Contains(text, section) {
+			t.Errorf("expected DefaultSettingsText to contain section %s", section)
+		}
+	}
+
+	// Should contain key settings with their default values
+	defaults := []string{
+		`"tabSize": 4`,
+		`"insertSpaces": true`,
+		`"lineNumbers": true`,
+		`"insertFinalNewline": true`,
+		`"gutterStyle": "compact"`,
+		`"debounce": 350`,
+		`"showHidden": true`,
+		`"scrollback": 1000`,
+		`"hoverDelay": 500`,
+		`"enabled": true`,
+		`"signatureHelp": true`,
+	}
+	for _, d := range defaults {
+		if !strings.Contains(text, d) {
+			t.Errorf("expected DefaultSettingsText to contain %s", d)
+		}
+	}
+
+	// Should contain descriptive comments
+	if !strings.Contains(text, "//") {
+		t.Error("expected DefaultSettingsText to contain comments")
+	}
+
+	// Should mention the *bool settings that default to true when omitted
+	if !strings.Contains(text, "omitted means true") {
+		t.Error("expected DefaultSettingsText to document *bool omit behavior")
+	}
+}
+
+func TestReferenceSettingsMatchesDefaults(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	refPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "config", "settings.json")
+	refData, err := os.ReadFile(refPath)
+	if err != nil {
+		t.Fatalf("failed to read config/settings.json: %v", err)
+	}
+
+	s := DefaultSettings()
+	s.Theme = "default-dark"
+	generated, _ := json.MarshalIndent(s, "", "  ")
+	generated = append(generated, '\n')
+
+	if string(generated) != string(refData) {
+		t.Errorf("config/settings.json is out of date with DefaultSettings().\n"+
+			"Regenerate it by running DefaultSettings() with theme='default-dark' and saving the output.\n"+
+			"Got %d bytes, want %d bytes", len(refData), len(generated))
 	}
 }

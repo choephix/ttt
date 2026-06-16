@@ -94,6 +94,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		{Label: "Switch Theme", Command: "theme.switch"},
 		ui.MenuSep(),
 		{Label: "Open Settings", Command: "settings.open"},
+		{Label: "Open Default Settings", Command: "options.defaultSettings"},
 	}
 	return items
 }
