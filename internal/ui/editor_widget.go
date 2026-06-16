@@ -1141,6 +1141,9 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 	if e.WordWrap && e.wrapMap != nil && screenY >= 0 && screenY < len(e.wrapMap) {
 		entry := e.wrapMap[screenY]
 		line = entry.bufLine
+		if line >= len(e.Buf.Lines) {
+			line = len(e.Buf.Lines) - 1
+		}
 		segVisCol := mx - r.X - gutterW
 		if segVisCol < 0 {
 			segVisCol = 0
