@@ -17,6 +17,10 @@ func (a *App) ToggleLineNumbers() {
 
 func (a *App) ToggleWordWrap() {
 	a.Settings.Editor.WordWrap = !a.Settings.Editor.WordWrap
+	a.EditorGroup.WordWrap = a.Settings.Editor.WordWrap
+	if a.EditorGroup.Editor != nil {
+		a.EditorGroup.Editor.WordWrap = a.Settings.Editor.WordWrap
+	}
 	config.SaveSettings(*a.Settings)
 }
 

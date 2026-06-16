@@ -22,46 +22,49 @@ import (
 
 type EditorPaneWidget struct {
 	BaseWidget
-	Buf                *buffer.Buffer
-	Cursor             *cursor.Cursor
-	Viewport           *view.Viewport
-	Undo               *undo.UndoStack
-	Selection          *selection.Selection
-	CursorX            int
-	CursorY            int
-	TabSize            int
-	UseTabs            bool
-	LineNumbers        bool
+	Buf                     *buffer.Buffer
+	Cursor                  *cursor.Cursor
+	Viewport                *view.Viewport
+	Undo                    *undo.UndoStack
+	Selection               *selection.Selection
+	CursorX                 int
+	CursorY                 int
+	TabSize                 int
+	UseTabs                 bool
+	LineNumbers             bool
 	GutterStyle             string
+	WordWrap                bool
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	Highlighter             *highlight.Highlighter
-	SearchQuery        string
-	SearchMatches      []FindMatch
-	SearchActive       int
-	lastClickTime      int64
-	lastClickLine      int
-	lastClickCol       int
-	clickCount         int
-	mouseDown          bool
-	scrollbar          Scrollbar
-	hscrollbar         HScrollbar
-	Diagnostics        []Diagnostic
-	Folds              *fold.State
-	OnChange           func()
-	bufferDirty        bool
-	Multi              *multicursor.MultiCursor
-	multiSearchWord    string
-	maxLineWidth       int
-	maxLineWidthDirty  bool
-	gutterHover        bool
-	gutterHoverLine    int
-	cachedVisibleLines []int
-	searchByLine       map[int][]int
-	diagByLine         map[int][]int
-	LineChanges        []diff.LineChangeKind
-	bracketColorCache  bracketColorMap
-	bracketColorDirty  bool
+	SearchQuery             string
+	SearchMatches           []FindMatch
+	SearchActive            int
+	lastClickTime           int64
+	lastClickLine           int
+	lastClickCol            int
+	clickCount              int
+	mouseDown               bool
+	scrollbar               Scrollbar
+	hscrollbar              HScrollbar
+	Diagnostics             []Diagnostic
+	Folds                   *fold.State
+	OnChange                func()
+	bufferDirty             bool
+	Multi                   *multicursor.MultiCursor
+	multiSearchWord         string
+	maxLineWidth            int
+	maxLineWidthDirty       bool
+	gutterHover             bool
+	gutterHoverLine         int
+	cachedVisibleLines      []int
+	searchByLine            map[int][]int
+	diagByLine              map[int][]int
+	LineChanges             []diff.LineChangeKind
+	bracketColorCache       bracketColorMap
+	bracketColorDirty       bool
+	wrapMap                 []wrapEntry
+	wrapTopOffset           int
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -175,9 +178,10 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	gutterW := e.GutterWidth()
 
 	maxLineW := e.computeMaxLineWidth()
+	tabW := e.resolveTabSize()
 
 	editorW := w - gutterW
-	showHScrollbar := maxLineW > editorW
+	showHScrollbar := !e.WordWrap && maxLineW > editorW
 	if showHScrollbar {
 		h--
 	}
@@ -195,6 +199,10 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		visibleCount = len(e.cachedVisibleLines)
 	}
 
+	if e.WordWrap {
+		visibleCount = totalVisualLines(e.Buf.Lines, editorW, tabW)
+	}
+
 	showScrollbar := visibleCount > h
 	if showScrollbar {
 		editorW--
@@ -202,9 +210,25 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	if editorW < 1 {
 		editorW = 1
 	}
+	if e.WordWrap && editorW > 4 {
+		switch e.GutterStyle {
+		case "minimal":
+			editorW--
+		case "extended":
+			editorW -= 3
+		default:
+			editorW -= 2
+		}
+	}
 
 	e.Viewport.Width = editorW
 	e.Viewport.Height = h
+
+	if e.WordWrap {
+		e.Viewport.LeftCol = 0
+		visibleCount = totalVisualLines(e.Buf.Lines, editorW, tabW)
+		showScrollbar = visibleCount > h
+	}
 
 	sel := e.Selection
 	hasSel := sel != nil && sel.Active
@@ -232,8 +256,27 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		}
 		bracketColors = e.bracketColorCache
 	}
+
+	if e.WordWrap {
+		e.wrapMap = buildWrapMap(e.Buf.Lines, e.Viewport.TopLine, e.wrapTopOffset, h, editorW, tabW)
+	} else {
+		e.wrapMap = nil
+	}
+
 	for y := 0; y < h; y++ {
-		lineIdx := e.screenToBufferLine(y)
+		var lineIdx int
+		var segStartCol int
+		var isWrapContinuation bool
+
+		if e.WordWrap && e.wrapMap != nil {
+			entry := e.wrapMap[y]
+			lineIdx = entry.bufLine
+			segStartCol = entry.startCol
+			isWrapContinuation = segStartCol > 0
+		} else {
+			lineIdx = e.screenToBufferLine(y)
+			segStartCol = 0
+		}
 
 		if gutterW > 0 {
 			gutterStyle := term.StyleLineNumber
@@ -241,7 +284,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 				gutterStyle = term.StyleActiveLine
 			}
 			var padded string
-			if !e.LineNumbers {
+			if !e.LineNumbers || (e.WordWrap && isWrapContinuation) {
 				padded = strings.Repeat(" ", gutterW)
 			} else {
 				numStr := ""
@@ -260,7 +303,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			for i, ch := range padded {
 				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
 			}
-			if e.Folds != nil && lineIdx < totalLines {
+			if e.Folds != nil && lineIdx < totalLines && !isWrapContinuation {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
 					chevronCol := gutterW - 2
 					collapsedCh := '▶'
@@ -277,8 +320,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 					}
 				}
 			}
-			// Git gutter indicators
-			if lineIdx < totalLines && lineIdx < len(e.LineChanges) {
+			if lineIdx < totalLines && lineIdx < len(e.LineChanges) && !isWrapContinuation {
 				change := e.LineChanges[lineIdx]
 				if change != diff.LineUnchanged {
 					var ch rune
@@ -308,12 +350,17 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 
 			isCollapsedLine := e.Folds != nil && e.Folds.IsCollapsed(lineIdx)
 			var annRunes []rune
-			if isCollapsedLine {
+			if isCollapsedLine && !isWrapContinuation {
 				annRunes = []rune(" ⋯")
 			}
 
-			tabW := e.resolveTabSize()
-			screenCells := e.renderLineToScreen(line, syntaxSpans, isCollapsedLine, annRunes, tabW, e.Viewport.LeftCol, editorW)
+			var leftCol int
+			if e.WordWrap {
+				leftCol = bufColToVisualCol(e.Buf.Lines[lineIdx], segStartCol, tabW)
+			} else {
+				leftCol = e.Viewport.LeftCol
+			}
+			screenCells := e.renderLineToScreen(line, syntaxSpans, isCollapsedLine, annRunes, tabW, leftCol, editorW)
 			var lineBrackets []bracketColorEntry
 			if bracketColors != nil && lineIdx < len(bracketColors) {
 				lineBrackets = bracketColors[lineIdx]
@@ -408,7 +455,12 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		e.scrollbar.X = r.X + scrollbarCol
 		e.scrollbar.Y = r.Y
 		e.scrollbar.Height = h
-		if foldsActive {
+		if e.WordWrap {
+			e.scrollbar.TotalItems = visibleCount + h - 1
+			curTopVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, editorW, tabW)
+			curTopVisRow += e.wrapTopOffset
+			e.scrollbar.TopItem = curTopVisRow
+		} else if foldsActive {
 			e.scrollbar.TotalItems = visibleCount + h - 1
 			topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
 			if topVis < 0 {
@@ -434,18 +486,26 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	}
 
 	r := e.GetRect()
-	cursorVisCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, e.resolveTabSize())
-	e.CursorX = cursorVisCol - e.Viewport.LeftCol + gutterW + r.X
-	if foldsActive {
-		curVis := e.Folds.BufferToVisible(e.Cursor.Line)
-		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-		if curVis >= 0 && topVis >= 0 {
-			e.CursorY = curVis - topVis + r.Y
+	if e.WordWrap {
+		curVisRow, curScreenCol := bufferPosToWrapScreenPos(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col, editorW, tabW)
+		topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, editorW, tabW)
+		topVisRow += e.wrapTopOffset
+		e.CursorX = curScreenCol + gutterW + r.X
+		e.CursorY = curVisRow - topVisRow + r.Y
+	} else {
+		cursorVisCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, tabW)
+		e.CursorX = cursorVisCol - e.Viewport.LeftCol + gutterW + r.X
+		if foldsActive {
+			curVis := e.Folds.BufferToVisible(e.Cursor.Line)
+			topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
+			if curVis >= 0 && topVis >= 0 {
+				e.CursorY = curVis - topVis + r.Y
+			} else {
+				e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
+			}
 		} else {
 			e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
 		}
-	} else {
-		e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
 	}
 }
 
@@ -1077,18 +1137,37 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 	}
 	gutterW := e.GutterWidth()
 	screenY := my - r.Y
-	line = e.screenToBufferLine(screenY)
-	visCol := mx - r.X - gutterW + e.Viewport.LeftCol
-	if visCol < 0 {
-		visCol = 0
+
+	if e.WordWrap && e.wrapMap != nil && screenY >= 0 && screenY < len(e.wrapMap) {
+		entry := e.wrapMap[screenY]
+		line = entry.bufLine
+		segVisCol := mx - r.X - gutterW
+		if segVisCol < 0 {
+			segVisCol = 0
+		}
+		segLeftCol := bufColToVisualCol(e.Buf.Lines[line], entry.startCol, e.resolveTabSize())
+		col = visualColToBufCol(e.Buf.Lines[line], segLeftCol+segVisCol, e.resolveTabSize())
+	} else {
+		line = e.screenToBufferLine(screenY)
+		visCol := mx - r.X - gutterW + e.Viewport.LeftCol
+		if visCol < 0 {
+			visCol = 0
+		}
+		if line < 0 {
+			line = 0
+		}
+		if line >= len(e.Buf.Lines) {
+			line = len(e.Buf.Lines) - 1
+		}
+		col = visualColToBufCol(e.Buf.Lines[line], visCol, e.resolveTabSize())
 	}
+
 	if line < 0 {
 		line = 0
 	}
 	if line >= len(e.Buf.Lines) {
 		line = len(e.Buf.Lines) - 1
 	}
-	col = visualColToBufCol(e.Buf.Lines[line], visCol, e.resolveTabSize())
 	lineLen := len([]rune(e.Buf.Lines[line]))
 	if col > lineLen {
 		col = lineLen
@@ -1499,6 +1578,10 @@ func (e *EditorPaneWidget) expandFoldAtCursor() {
 }
 
 func (e *EditorPaneWidget) scrollViewport() {
+	if e.WordWrap {
+		e.scrollViewportWrap()
+		return
+	}
 	if e.Folds != nil && e.Folds.HasCollapsedFolds() {
 		curVis := e.Folds.BufferToVisible(e.Cursor.Line)
 		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
@@ -1532,11 +1615,47 @@ func (e *EditorPaneWidget) scrollViewport() {
 	}
 }
 
+func (e *EditorPaneWidget) scrollViewportWrap() {
+	e.Viewport.LeftCol = 0
+	tabW := e.resolveTabSize()
+	width := e.Viewport.Width
+	if width < 1 {
+		width = 1
+	}
+
+	curVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col, width, tabW)
+	topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, width, tabW)
+	topVisRow += e.wrapTopOffset
+
+	if curVisRow < topVisRow {
+		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, curVisRow, width, tabW)
+	}
+	if curVisRow >= topVisRow+e.Viewport.Height {
+		newTop := curVisRow - e.Viewport.Height + 1
+		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, newTop, width, tabW)
+	}
+}
+
 func isEditorIdentRune(r rune) bool {
 	return r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
 
 func (e *EditorPaneWidget) scrollUp(n int) {
+	if e.WordWrap {
+		tabW := e.resolveTabSize()
+		width := e.Viewport.Width
+		if width < 1 {
+			width = 1
+		}
+		topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, width, tabW)
+		topVisRow += e.wrapTopOffset
+		newTop := topVisRow - n
+		if newTop < 0 {
+			newTop = 0
+		}
+		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, newTop, width, tabW)
+		return
+	}
 	if e.Folds != nil && e.Folds.HasCollapsedFolds() {
 		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
 		newVis := topVis - n
@@ -1553,6 +1672,25 @@ func (e *EditorPaneWidget) scrollUp(n int) {
 }
 
 func (e *EditorPaneWidget) scrollDown(n int) {
+	if e.WordWrap {
+		tabW := e.resolveTabSize()
+		width := e.Viewport.Width
+		if width < 1 {
+			width = 1
+		}
+		topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, width, tabW)
+		topVisRow += e.wrapTopOffset
+		totalVis := totalVisualLines(e.Buf.Lines, width, tabW)
+		newTop := topVisRow + n
+		if newTop >= totalVis {
+			newTop = totalVis - 1
+		}
+		if newTop < 0 {
+			newTop = 0
+		}
+		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, newTop, width, tabW)
+		return
+	}
 	if e.Folds != nil && e.Folds.HasCollapsedFolds() {
 		totalLines := len(e.Buf.Lines)
 		visCount := e.Folds.VisibleLineCount(totalLines)

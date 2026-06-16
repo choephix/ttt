@@ -107,6 +107,8 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.InsertSpaces = cfg.Settings.Editor.InsertSpaces
 	editorGroup.InsertFinalNewline = cfg.Settings.Editor.InsertFinalNewline
 	editorGroup.TrimTrailingWhitespace = cfg.Settings.Editor.TrimTrailingWhitespace
+	editorGroup.WordWrap = cfg.Settings.Editor.WordWrap
+	editorGroup.Editor.WordWrap = cfg.Settings.Editor.WordWrap
 	editorGroup.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.Editor.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.BracketColorStyles = bracketStyles
