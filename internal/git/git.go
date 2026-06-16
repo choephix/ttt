@@ -135,7 +135,6 @@ func BranchName(dir string) string {
 type BlameInfo struct {
 	Author string
 	Time   time.Time
-	Summary string
 }
 
 func BlameLine(dir, file string, line int) *BlameInfo {
@@ -156,12 +155,10 @@ func BlameLine(dir, file string, line int) *BlameInfo {
 			if err == nil {
 				info.Time = time.Unix(ts, 0)
 			}
-		} else if strings.HasPrefix(l, "summary ") {
-			info.Summary = strings.TrimPrefix(l, "summary ")
 		}
 	}
 
-	if info.Author == "" && info.Summary == "" {
+	if info.Author == "" {
 		return nil
 	}
 	// Uncommitted changes

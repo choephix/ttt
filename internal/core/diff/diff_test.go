@@ -20,16 +20,6 @@ index abc1234..def5678 100644
 +	z := 4
 `
 
-func TestParseFileNames(t *testing.T) {
-	fd := Parse(sampleDiff)
-	if fd.OldName != "main.go" {
-		t.Errorf("expected old name 'main.go', got %q", fd.OldName)
-	}
-	if fd.NewName != "main.go" {
-		t.Errorf("expected new name 'main.go', got %q", fd.NewName)
-	}
-}
-
 func TestParseHunkCount(t *testing.T) {
 	fd := Parse(sampleDiff)
 	if len(fd.Hunks) != 2 {
@@ -113,9 +103,6 @@ func TestGenerate(t *testing.T) {
 	}
 
 	fd := Parse(result)
-	if fd.OldName != "test.txt" || fd.NewName != "test.txt" {
-		t.Errorf("wrong names: %q %q", fd.OldName, fd.NewName)
-	}
 	if len(fd.Hunks) == 0 {
 		t.Fatal("expected at least 1 hunk")
 	}

@@ -59,16 +59,6 @@ func (s *State) Toggle(line int) {
 	}
 }
 
-func (s *State) Collapse(line int) {
-	for _, r := range s.ranges {
-		if r.StartLine == line {
-			s.collapsed[line] = true
-			s.dirty = true
-			return
-		}
-	}
-}
-
 func (s *State) Expand(line int) {
 	if s.collapsed[line] {
 		delete(s.collapsed, line)
@@ -113,12 +103,6 @@ func (s *State) ContainingFold(line int) *Range {
 		}
 	}
 	return nil
-}
-
-func (s *State) Ranges() []Range {
-	out := make([]Range, len(s.ranges))
-	copy(out, s.ranges)
-	return out
 }
 
 func (s *State) rebuild(totalLines int) {

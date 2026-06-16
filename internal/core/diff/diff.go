@@ -31,9 +31,7 @@ type Hunk struct {
 }
 
 type FileDiff struct {
-	OldName string
-	NewName string
-	Hunks   []Hunk
+	Hunks []Hunk
 }
 
 func (f *FileDiff) AllLines() []DiffLine {
@@ -141,20 +139,7 @@ func Parse(unified string) FileDiff {
 	}
 
 	for _, line := range lines {
-		if strings.HasPrefix(line, "--- ") {
-			name := line[4:]
-			if strings.HasPrefix(name, "a/") {
-				name = name[2:]
-			}
-			fd.OldName = name
-			continue
-		}
-		if strings.HasPrefix(line, "+++ ") {
-			name := line[4:]
-			if strings.HasPrefix(name, "b/") {
-				name = name[2:]
-			}
-			fd.NewName = name
+		if strings.HasPrefix(line, "--- ") || strings.HasPrefix(line, "+++ ") {
 			continue
 		}
 		if strings.HasPrefix(line, "@@ ") {
