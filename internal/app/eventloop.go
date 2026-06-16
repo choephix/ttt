@@ -140,6 +140,7 @@ func RunEventLoop(
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
 		case *tcell.EventKey:
+			app.DismissHover()
 			if app.EditorGroup.SignatureHelp != nil {
 				switch tev.Key() {
 				case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,
@@ -163,7 +164,7 @@ func RunEventLoop(
 				if btn == 0 {
 					app.checkMouseHover(mx, my)
 				}
-			} else if !app.isMouseOverHover(mx, my) && btn != 0 && !app.EditorGroup.Hover.IsDragging() {
+			} else if !app.isMouseOverHover(mx, my) && !app.EditorGroup.Hover.IsDragging() {
 				app.DismissHover()
 			}
 			app.Root.HandleEvent(tev)
