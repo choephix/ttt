@@ -58,7 +58,7 @@ func (a *App) RequestGitGutter(filePath string, bufferLines []string) {
 				changes[i] = diff.LineAdded
 			}
 		} else {
-			oldLines := strings.Split(strings.TrimSuffix(headContent, "\n"), "\n")
+			oldLines := strings.Split(headContent, "\n")
 			changes = diff.ComputeGutterChanges(oldLines, linesCopy)
 		}
 		a.Screen.PostEvent(tcell.NewEventInterrupt(&GitGutterResult{
