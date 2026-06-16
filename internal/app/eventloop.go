@@ -164,7 +164,7 @@ func RunEventLoop(
 				if btn == 0 {
 					app.checkMouseHover(mx, my)
 				}
-			} else if !app.isMouseOverHover(mx, my) && btn != 0 && !app.EditorGroup.Hover.IsDragging() {
+			} else if !app.isMouseOverHover(mx, my) && !app.EditorGroup.Hover.IsDragging() {
 				app.DismissHover()
 			}
 			app.Root.HandleEvent(tev)
