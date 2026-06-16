@@ -238,7 +238,7 @@ func TestDefaultSettingsText(t *testing.T) {
 		`"debounce": 350`,
 		`"showHidden": true`,
 		`"scrollback": 1000`,
-		`"hoverDelay": 400`,
+		`"hoverDelay": 500`,
 		`"enabled": true`,
 		`"signatureHelp": true`,
 	}

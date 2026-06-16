@@ -207,7 +207,7 @@
       }
     },
     "saveOnRename": false,
-    "hoverDelay": 400
+    "hoverDelay": 500
   },
   "autocomplete": {
     "enabled": true,

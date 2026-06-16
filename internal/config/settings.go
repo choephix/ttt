@@ -263,14 +263,19 @@ func DefaultSettingsText() string {
     // Uses *bool — omitted means true.
     "enabled": true,
 
+    // Enable hover tooltips on mouse rest (bool, default: true)
+    // Uses *bool — omitted means true. Set to false to disable mouse-triggered hover.
+    // The "Show Hover" command still works when disabled.
+    "hover": true,
+
     // Auto-save files when renamed via LSP (bool, default: false)
     "saveOnRename": false,
 
     // Code actions to run automatically on save (string array, default: [])
     "codeActionsOnSave": [],
 
-    // Delay in ms before showing hover information (int, default: 400)
-    "hoverDelay": 400,
+    // Delay in ms before showing hover information (int, default: 500)
+    "hoverDelay": 500,
 
     // Show notification when an LSP server is available but not installed
     // (bool, default: true). Uses *bool — omitted means true.
