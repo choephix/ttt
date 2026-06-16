@@ -210,6 +210,16 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 	if editorW < 1 {
 		editorW = 1
 	}
+	if e.WordWrap && editorW > 4 {
+		switch e.GutterStyle {
+		case "minimal":
+			editorW--
+		case "extended":
+			editorW -= 3
+		default:
+			editorW -= 2
+		}
+	}
 
 	e.Viewport.Width = editorW
 	e.Viewport.Height = h
