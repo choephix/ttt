@@ -477,9 +477,7 @@ type CodeActionsResult struct {
 func (a *App) RequestCodeActionsAtCursor(path, lang string, line, col int) {
 	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
-		if lang != "" {
-			a.StatusWarn(lang + " language server is not configured")
-		}
+		a.StatusNotify("No code actions available")
 		return
 	}
 	workDir := a.lspWorkDir(path)
