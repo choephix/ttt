@@ -33,33 +33,7 @@ Sleep 1s
 Escape
 Sleep 500ms
 
-# 3. Multi-cursor edit
-Ctrl+p
-Sleep 300ms
-Backspace
-Sleep 300ms
-Type "git_test"
-Sleep 300ms
-Enter
-Sleep 500ms
-Ctrl+f
-Sleep 300ms
-Type "want"
-Sleep 300ms
-Escape
-Sleep 300ms
-Ctrl+d
-Ctrl+d
-Ctrl+d
-Sleep 500ms
-Type "expected"
-Sleep 800ms
-Escape
-Sleep 300ms
-Ctrl+z
-Sleep 500ms
-
-# 4. Git changes — stage and commit
+# 3. Git changes — stage and commit
 Ctrl+p
 Sleep 300ms
 Type "Git: Stage"
@@ -76,7 +50,7 @@ Type "demo: test commit"
 Enter
 Sleep 800ms
 
-# 5. Integrated terminal (Ctrl+T)
+# 4. Integrated terminal (Ctrl+T)
 Ctrl+t
 Sleep 800ms
 Type "make test"
@@ -90,7 +64,7 @@ Sleep 300ms
 Ctrl+t
 Sleep 500ms
 
-# 6. Theme switching — cycle through 3 themes
+# 5. Theme switching — cycle through themes
 Ctrl+p
 Sleep 300ms
 Type "Switch Theme"
@@ -98,34 +72,10 @@ Sleep 500ms
 Enter
 Sleep 500ms
 Down
-Sleep 500ms
-Enter
 Sleep 1s
-
-Ctrl+p
-Sleep 300ms
-Type "Switch Theme"
-Sleep 500ms
-Enter
-Sleep 500ms
 Down
-Sleep 500ms
-Down
-Sleep 500ms
-Enter
 Sleep 1s
-
-Ctrl+p
-Sleep 300ms
-Type "Switch Theme"
-Sleep 500ms
-Enter
-Sleep 500ms
 Down
-Sleep 500ms
-Down
-Sleep 500ms
-Down
-Sleep 500ms
+Sleep 1s
 Enter
 Sleep 1s
