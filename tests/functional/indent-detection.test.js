@@ -25,8 +25,11 @@ describe("indent detection", () => {
       "});",
     ].join("\n");
     const file = createTempFile(dir, "astro.config.mjs", content);
+    const configFile = createTempFile(dir, "settings.json", JSON.stringify({
+      lsp: { notifyAvailability: false },
+    }));
 
-    tui.start(file);
+    tui.start("--config", configFile, file);
     tui.waitFor("astro.config.mjs");
     tui.waitStable();
 
@@ -47,8 +50,11 @@ describe("indent detection", () => {
       "}",
     ].join("\n");
     const file = createTempFile(dir, "main.go", content);
+    const configFile = createTempFile(dir, "settings.json", JSON.stringify({
+      lsp: { notifyAvailability: false },
+    }));
 
-    tui.start(file);
+    tui.start("--config", configFile, file);
     tui.waitFor("main.go");
     tui.waitStable();
 
@@ -66,8 +72,11 @@ describe("indent detection", () => {
       "};",
     ].join("\n");
     const file = createTempFile(dir, "config.mjs", content);
+    const configFile = createTempFile(dir, "settings.json", JSON.stringify({
+      lsp: { notifyAvailability: false },
+    }));
 
-    tui.start(file);
+    tui.start("--config", configFile, file);
     tui.waitFor("config.mjs");
     tui.waitStable();
 
