@@ -277,13 +277,13 @@ func registerGitCommands(app *App) {
 				app.StatusWarn("No file open")
 				return
 			}
-			folder := app.Workspace.FolderForFile(filePath)
-			if folder == nil || !folder.IsRepo {
+			repoDir := git.RepoRoot(filepath.Dir(filePath))
+			if repoDir == "" {
 				app.StatusWarn("Not a git repository")
 				return
 			}
 			line, _ := app.EditorGroup.ActiveCursor()
-			link := git.Permalink(folder.Path, filePath, line)
+			link := git.Permalink(repoDir, filePath, line)
 			if link == "" {
 				app.StatusWarn("Could not generate permalink — no remote found")
 				return
