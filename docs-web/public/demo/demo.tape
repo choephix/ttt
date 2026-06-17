@@ -47,18 +47,71 @@ Sleep 300ms
 Ctrl+t
 Sleep 500ms
 
-# 4. Theme switching — cycle through themes
+# 4. Theme switching — search themes by name
 Ctrl+p
 Sleep 300ms
 Type "Switch Theme"
 Sleep 500ms
 Enter
 Sleep 500ms
-Down
-Sleep 1s
-Down
-Sleep 1s
-Down
-Sleep 1s
+Type "mo"
+Sleep 500ms
+Backspace
+Backspace
+Type "nord"
+Sleep 500ms
+Backspace
+Backspace
+Backspace
+Backspace
+Type "turbo"
+Sleep 500ms
+Backspace
+Backspace
+Backspace
+Backspace
+Backspace
+Type "nord"
+Sleep 500ms
 Enter
+Sleep 500ms
+
+# 5. Menu bar navigation (Alt+F then Right to browse)
+Alt+f
+Sleep 400ms
+Right
+Sleep 400ms
+Right
+Sleep 400ms
+Right
+Sleep 400ms
+Right
+Sleep 400ms
+Right
+Sleep 400ms
+Escape
+Sleep 500ms
+
+# 6. PR review
+Ctrl+p
+Sleep 300ms
+Type "Review PR"
+Sleep 300ms
+Enter
+Sleep 500ms
+Type "https://github.com/eugenioenko/ttt/pull/192"
+Enter
+Sleep 3s
+Down
+Sleep 500ms
+Down
+Sleep 500ms
+Down
+Sleep 500ms
+Down
+Sleep 500ms
+Enter
+Sleep 1s
+
+# Final pause
 Sleep 1s
