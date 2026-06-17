@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -266,6 +267,31 @@ func registerGitCommands(app *App) {
 	registerGitCmd("git.pull", "Git: Pull", []string{"git", "fetch", "download"}, []func(string) error{git.Pull}, "Pulled")
 	registerGitCmd("git.push", "Git: Push", []string{"git", "upload", "publish"}, []func(string) error{git.Push}, "Pushed")
 	registerGitCmd("git.sync", "Git: Sync", []string{"git", "fetch", "upload"}, []func(string) error{git.Pull, git.Push}, "Synced")
+
+	reg.Register(command.Command{
+		ID: "git.copyPermalink", Title: "Git: Copy GitHub Permalink",
+		Keywords: []string{"git", "github", "link", "url", "permalink", "copy"},
+		Handler: func() {
+			filePath := app.EditorGroup.ActiveFilePath()
+			if filePath == "" || filePath == "untitled" {
+				app.StatusWarn("No file open")
+				return
+			}
+			folder := app.Workspace.FolderForFile(filePath)
+			if folder == nil || !folder.IsRepo {
+				app.StatusWarn("Not a git repository")
+				return
+			}
+			line, _ := app.EditorGroup.ActiveCursor()
+			link := git.Permalink(folder.Path, filePath, line)
+			if link == "" {
+				app.StatusWarn("Could not generate permalink — no remote found")
+				return
+			}
+			clipboard.Set(link)
+			app.StatusNotify("Permalink copied to clipboard")
+		},
+	})
 }
 
 func registerWorkspaceCommands(app *App) {

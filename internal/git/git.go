@@ -209,6 +209,59 @@ func FormatRelativeTime(t time.Time) string {
 	}
 }
 
+func HeadSHA(dir string) string {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func RemoteURL(dir string) string {
+	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func Permalink(dir, filePath string, line int) string {
+	remote := RemoteURL(dir)
+	if remote == "" {
+		return ""
+	}
+	sha := HeadSHA(dir)
+	if sha == "" {
+		return ""
+	}
+
+	baseURL := remoteToHTTPS(remote)
+	if baseURL == "" {
+		return ""
+	}
+
+	relPath, err := filepath.Rel(dir, filePath)
+	if err != nil {
+		return ""
+	}
+	relPath = filepath.ToSlash(relPath)
+
+	return fmt.Sprintf("%s/blob/%s/%s#L%d", baseURL, sha, relPath, line+1)
+}
+
+func remoteToHTTPS(remote string) string {
+	remote = strings.TrimSpace(remote)
+	if strings.HasPrefix(remote, "git@") {
+		remote = strings.TrimPrefix(remote, "git@")
+		remote = strings.Replace(remote, ":", "/", 1)
+		remote = "https://" + remote
+	}
+	remote = strings.TrimSuffix(remote, ".git")
+	return remote
+}
+
 func IgnoredFiles(dir string, paths []string) map[string]bool {
 	if len(paths) == 0 {
 		return nil

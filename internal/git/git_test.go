@@ -667,3 +667,21 @@ func TestRepoRootFromSubdir(t *testing.T) {
 		t.Errorf("RepoRoot(%q) = %q, want %q", subdir, gotDir, expectedDir)
 	}
 }
+
+func TestRemoteToHTTPS(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"git@github.com:user/repo.git", "https://github.com/user/repo"},
+		{"git@github.com:user/repo", "https://github.com/user/repo"},
+		{"https://github.com/user/repo.git", "https://github.com/user/repo"},
+		{"https://github.com/user/repo", "https://github.com/user/repo"},
+	}
+	for _, tt := range tests {
+		got := remoteToHTTPS(tt.input)
+		if got != tt.want {
+			t.Errorf("remoteToHTTPS(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
