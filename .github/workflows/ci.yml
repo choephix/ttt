@@ -124,4 +124,4 @@ jobs:
 
       - name: Run LSP tests
         working-directory: tests/functional
-        run: pnpm exec vitest run --reporter=verbose -- lsp
+        run: pnpm exec vitest run --reporter=verbose --include='**/lsp*.test.js'
