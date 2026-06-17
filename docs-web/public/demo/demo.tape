@@ -55,24 +55,24 @@ Sleep 500ms
 Enter
 Sleep 500ms
 Type "mo"
-Sleep 500ms
+Sleep 1s
 Backspace
 Backspace
 Type "nord"
-Sleep 500ms
+Sleep 1s
 Backspace
 Backspace
 Backspace
 Backspace
 Type "turbo"
-Sleep 500ms
+Sleep 1s
 Backspace
 Backspace
 Backspace
 Backspace
 Backspace
 Type "nord"
-Sleep 500ms
+Sleep 1s
 Enter
 Sleep 500ms
 
@@ -103,13 +103,19 @@ Type "https://github.com/eugenioenko/ttt/pull/192"
 Enter
 Sleep 3s
 Down
-Sleep 500ms
+Sleep 100ms
 Down
-Sleep 500ms
+Sleep 100ms
 Down
-Sleep 500ms
+Sleep 100ms
 Down
-Sleep 500ms
+Sleep 100ms
+Enter
+Sleep 1s
+Down
+Sleep 100ms
+Down
+Sleep 100ms
 Enter
 Sleep 1s
 
