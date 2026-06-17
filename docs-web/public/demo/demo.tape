@@ -8,8 +8,8 @@ Set Height 800
 Set Padding 10
 Set Theme "Catppuccin Mocha"
 
-# Launch ttt on the project
-Type "bin/ttt ."
+# Launch ttt on the project with default-dark theme
+Type "bin/ttt --config config/settings.json ."
 Enter
 Sleep 1.5s
 
@@ -33,24 +33,7 @@ Sleep 1s
 Escape
 Sleep 500ms
 
-# 3. Git changes — stage and commit
-Ctrl+p
-Sleep 300ms
-Type "Git: Stage"
-Sleep 300ms
-Enter
-Sleep 500ms
-Ctrl+p
-Sleep 300ms
-Type "Git: Commit"
-Sleep 300ms
-Enter
-Sleep 500ms
-Type "demo: test commit"
-Enter
-Sleep 800ms
-
-# 4. Integrated terminal (Ctrl+T)
+# 3. Integrated terminal (Ctrl+T)
 Ctrl+t
 Sleep 800ms
 Type "make test"
@@ -64,7 +47,7 @@ Sleep 300ms
 Ctrl+t
 Sleep 500ms
 
-# 5. Theme switching — cycle through themes
+# 4. Theme switching — cycle through themes
 Ctrl+p
 Sleep 300ms
 Type "Switch Theme"
