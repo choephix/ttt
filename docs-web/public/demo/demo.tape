@@ -118,6 +118,16 @@ Down
 Sleep 100ms
 Enter
 Sleep 1s
+Down
+Sleep 100ms
+Down
+Sleep 100ms
+Down
+Sleep 100ms
+Down
+Sleep 100ms
+Enter
+Sleep 1s
 
 # Final pause
 Sleep 1s
