@@ -13,8 +13,11 @@ describe("go to matching bracket", () => {
   it("should jump to matching bracket with ctrl+k m", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "test.go", "func main() {\n\tx()\n}\n");
+    const configFile = createTempFile(dir, "settings.json", JSON.stringify({
+      lsp: { notifyAvailability: false },
+    }));
 
-    tui.start(file);
+    tui.start("--config", configFile, file);
     tui.waitFor("main");
 
     // Go to end of line 1 where '{' is the last character
