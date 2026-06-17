@@ -96,16 +96,41 @@ Sleep 800ms
 # 6. Integrated terminal (Ctrl+T)
 Ctrl+t
 Sleep 500ms
-Type "git checkout main && git pull"
+Type "make test"
+Enter
+Sleep 3s
+Type "htop"
 Enter
 Sleep 1.5s
-Type "git checkout chore/dead-code-cleanup && git rebase main"
-Enter
-Sleep 1.5s
-Type "git push"
-Enter
-Sleep 1.5s
+Type "q"
+Sleep 300ms
 Ctrl+t
+Sleep 500ms
+
+# 7. Theme switching
+Ctrl+p
+Sleep 300ms
+Type "Switch Theme"
+Sleep 300ms
+Enter
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Enter
 Sleep 500ms
 
 # Final pause
