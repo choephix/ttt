@@ -1,5 +1,5 @@
-Output demo.gif
-Output demo.webm
+Output docs-web/public/demo/demo.gif
+Output docs-web/public/demo/demo.webm
 
 Set Shell "bash"
 Set FontSize 14
