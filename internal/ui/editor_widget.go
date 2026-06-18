@@ -618,12 +618,7 @@ func (e *EditorPaneWidget) pasteText(text string) {
 	if e.Selection != nil && e.Selection.Active {
 		e.deleteSelection()
 	}
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		e.Cursor.Line = len(e.Buf.Lines) - 1
-	}
-	if e.Cursor.Line < 0 {
-		e.Cursor.Line = 0
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	lines := strings.Split(text, "\n")
 	if len(lines) == 1 {
 		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: lines[0]})
@@ -811,12 +806,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		e.Cursor.Line = len(e.Buf.Lines) - 1
-	}
-	if e.Cursor.Line < 0 {
-		e.Cursor.Line = 0
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 
 	switch kev.Key() {
 	case tcell.KeyRune, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete:
@@ -1198,10 +1188,7 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 }
 
 func (e *EditorPaneWidget) selectWord(line, col int) {
-	if e.Selection == nil {
-		return
-	}
-	if line < 0 || line >= len(e.Buf.Lines) {
+	if e.Selection == nil || line < 0 || line >= len(e.Buf.Lines) {
 		return
 	}
 	runes := []rune(e.Buf.Lines[line])
@@ -1540,12 +1527,7 @@ func (e *EditorPaneWidget) computeBracketColors() bracketColorMap {
 }
 
 func (e *EditorPaneWidget) clampCursor() {
-	if e.Cursor.Line < 0 {
-		e.Cursor.Line = 0
-	}
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		e.Cursor.Line = len(e.Buf.Lines) - 1
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	if e.Cursor.Col < 0 {
 		e.Cursor.Col = 0
 	}
@@ -1556,10 +1538,7 @@ func (e *EditorPaneWidget) skipHiddenLineDown() {
 		return
 	}
 	if r := e.Folds.ContainingFold(e.Cursor.Line); r != nil {
-		e.Cursor.Line = r.EndLine + 1
-		if e.Cursor.Line >= len(e.Buf.Lines) {
-			e.Cursor.Line = len(e.Buf.Lines) - 1
-		}
+		e.Cursor.Line = e.Buf.ClampLine(r.EndLine + 1)
 		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
 		if e.Cursor.Col > lineLen {
 			e.Cursor.Col = lineLen
@@ -1631,12 +1610,7 @@ func (e *EditorPaneWidget) scrollViewport() {
 			e.Viewport.TopLine = e.Cursor.Line - e.Viewport.Height + 1
 		}
 	}
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		e.Cursor.Line = len(e.Buf.Lines) - 1
-	}
-	if e.Cursor.Line < 0 {
-		e.Cursor.Line = 0
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	visCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, e.resolveTabSize())
 	if visCol < e.Viewport.LeftCol {
 		e.Viewport.LeftCol = visCol
@@ -1793,9 +1767,7 @@ func (e *EditorPaneWidget) MoveLineDown() {
 }
 
 func (e *EditorPaneWidget) DuplicateLine() {
-	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
-		return
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	text := e.Buf.Lines[e.Cursor.Line]
 	e.exec(&undo.InsertLineCommand{Idx: e.Cursor.Line + 1, Text: text})
 	e.Cursor.Line++
@@ -1804,12 +1776,7 @@ func (e *EditorPaneWidget) DuplicateLine() {
 }
 
 func (e *EditorPaneWidget) DeleteLine() {
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		e.Cursor.Line = len(e.Buf.Lines) - 1
-	}
-	if e.Cursor.Line < 0 {
-		e.Cursor.Line = 0
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	if len(e.Buf.Lines) <= 1 {
 		e.exec(&undo.DeleteSelectionCommand{
 			StartLine: 0, StartCol: 0,
@@ -1981,25 +1948,15 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 // lineRange returns the start and end line indices for the current selection,
 // or the full buffer range if no selection is active.
 func (e *EditorPaneWidget) lineRange() (int, int) {
-	maxLine := len(e.Buf.Lines) - 1
-	if maxLine < 0 {
-		return 0, 0
-	}
 	if e.Selection != nil && e.Selection.Active {
 		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
 		endLine := end.Line
 		if end.Col == 0 && endLine > start.Line {
 			endLine--
 		}
-		if start.Line > maxLine {
-			start.Line = maxLine
-		}
-		if endLine > maxLine {
-			endLine = maxLine
-		}
-		return start.Line, endLine
+		return e.Buf.ClampLine(start.Line), e.Buf.ClampLine(endLine)
 	}
-	return 0, maxLine
+	return 0, len(e.Buf.Lines) - 1
 }
 
 // copyLines returns a copy of the buffer lines in the given range (inclusive).
@@ -2109,9 +2066,7 @@ func wordBoundaryRight(runes []rune, col int) int {
 
 func (e *EditorPaneWidget) MoveWordLeft(shift bool) {
 	e.startOrExtendSelection(shift)
-	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
-		return
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	if e.Cursor.Col == 0 {
 		if e.Cursor.Line > 0 {
 			e.Cursor.Line--
@@ -2127,9 +2082,7 @@ func (e *EditorPaneWidget) MoveWordLeft(shift bool) {
 
 func (e *EditorPaneWidget) MoveWordRight(shift bool) {
 	e.startOrExtendSelection(shift)
-	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
-		return
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
 	if e.Cursor.Col >= len(runes) {
 		if e.Cursor.Line < len(e.Buf.Lines)-1 {
@@ -2147,9 +2100,7 @@ func (e *EditorPaneWidget) DeleteWordLeft() {
 	if e.Cursor.Col == 0 {
 		return
 	}
-	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
-		return
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
 	start := wordBoundaryLeft(runes, e.Cursor.Col)
 	e.exec(&undo.DeleteSelectionCommand{
@@ -2162,9 +2113,7 @@ func (e *EditorPaneWidget) DeleteWordLeft() {
 }
 
 func (e *EditorPaneWidget) DeleteWordRight() {
-	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
-		return
-	}
+	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
 	if e.Cursor.Col >= len(runes) {
 		return
@@ -2291,12 +2240,7 @@ func (e *EditorPaneWidget) multiExecBackspace() {
 			e.adjustLaterCursors(i, start, end)
 			continue
 		}
-		if cs.Line >= len(e.Buf.Lines) {
-			cs.Line = len(e.Buf.Lines) - 1
-		}
-		if cs.Line < 0 {
-			continue
-		}
+		cs.Line = e.Buf.ClampLine(cs.Line)
 		if cs.Col > 0 {
 			cmd := &undo.DeleteRuneCommand{Line: cs.Line, Col: cs.Col - 1}
 			cmd.Apply(e.Buf)
@@ -2342,12 +2286,7 @@ func (e *EditorPaneWidget) multiExecDelete() {
 			e.adjustLaterCursors(i, start, end)
 			continue
 		}
-		if cs.Line >= len(e.Buf.Lines) {
-			cs.Line = len(e.Buf.Lines) - 1
-		}
-		if cs.Line < 0 {
-			continue
-		}
+		cs.Line = e.Buf.ClampLine(cs.Line)
 		lineLen := len([]rune(e.Buf.Lines[cs.Line]))
 		if cs.Col < lineLen {
 			cmd := &undo.DeleteRuneCommand{Line: cs.Line, Col: cs.Col}
@@ -2389,12 +2328,7 @@ func (e *EditorPaneWidget) multiExecEnter() {
 			cs.Sel.Clear()
 			e.adjustLaterCursors(i, start, end)
 		}
-		if cs.Line >= len(e.Buf.Lines) {
-			cs.Line = len(e.Buf.Lines) - 1
-		}
-		if cs.Line < 0 {
-			continue
-		}
+		cs.Line = e.Buf.ClampLine(cs.Line)
 		indent := leadingWhitespace(e.Buf.Lines[cs.Line])
 		cmd := &undo.SplitLineCommand{Line: cs.Line, Col: cs.Col}
 		cmd.Apply(e.Buf)
@@ -2456,19 +2390,11 @@ func (e *EditorPaneWidget) shiftLaterLines(editedIdx, fromLine, delta int) {
 
 func (e *EditorPaneWidget) multiMoveAll(moveFn func(cs *multicursor.CursorState)) {
 	e.syncToMulti()
-	maxLine := len(e.Buf.Lines) - 1
-	if maxLine < 0 {
-		maxLine = 0
-	}
 	for i := range e.Multi.Cursors {
 		e.Multi.Cursors[i].Sel.Clear()
-		if e.Multi.Cursors[i].Line > maxLine {
-			e.Multi.Cursors[i].Line = maxLine
-		}
+		e.Multi.Cursors[i].Line = e.Buf.ClampLine(e.Multi.Cursors[i].Line)
 		moveFn(&e.Multi.Cursors[i])
-		if e.Multi.Cursors[i].Line > maxLine {
-			e.Multi.Cursors[i].Line = maxLine
-		}
+		e.Multi.Cursors[i].Line = e.Buf.ClampLine(e.Multi.Cursors[i].Line)
 	}
 	e.Multi.Deduplicate()
 	e.syncFromMulti()
@@ -2590,8 +2516,7 @@ func (e *EditorPaneWidget) SplitSelectionToLines() {
 	if start.Line == end.Line {
 		return
 	}
-	maxLine := len(e.Buf.Lines) - 1
-	if start.Line > maxLine || end.Line > maxLine || maxLine < 0 {
+	if start.Line >= len(e.Buf.Lines) || end.Line >= len(e.Buf.Lines) {
 		e.Selection.Clear()
 		return
 	}
