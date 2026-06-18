@@ -134,6 +134,12 @@ TTT supports two-step chord sequences. Press the first key combination, then the
 - `ctrl+k e` means press Ctrl+K, release, then press E
 - `ctrl+l f` means press Ctrl+L, release, then press F
 
-### Keyboard Tester
+### Keyboard Shortcuts Editor
 
-Use **View > Keyboard Tester** from the menu bar to see what key combinations your terminal supports and which commands they are bound to.
+Use **View > Keyboard Shortcuts** from the menu bar (or the command palette) to browse and edit keybindings. The editor shows a searchable list of all commands with their current shortcuts. Select a command to see action buttons:
+
+- **Edit** — record a new key combination for the command
+- **Reset** — restore the default keybinding
+- **Clear** — remove the keybinding
+
+Changes are saved to `keybindings.json` and take effect immediately.

@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
@@ -39,21 +40,77 @@ func (a *App) FocusPanel() {
 	}
 }
 
-func (a *App) ShowKeyboardTester() {
-	kt := ui.NewKeyTesterWidget()
-	kt.Borders = a.Borders
-	kt.LookupBinding = func(combo string) string {
+func (a *App) ShowKeybindings() {
+	defaults := make(map[string]string)
+	for _, kb := range config.DefaultKeybindings() {
+		defaults[kb.Command] = FormatKeyBinding(kb.Key)
+	}
+
+	w := ui.NewKeybindingsWidget(a.Reg.List())
+	w.Borders = a.Borders
+	w.GetShortcut = func(cmdID string) string {
 		for _, kb := range a.Keybindings {
-			if kb.Key == combo {
-				return kb.Command
+			if kb.Command == cmdID {
+				return FormatKeyBinding(kb.Key)
 			}
 		}
 		return ""
 	}
-	kt.OnDismiss = func() {
+	w.GetDefault = func(cmdID string) string {
+		return defaults[cmdID]
+	}
+	w.OnEdit = func(cmdID string, newKey string) {
+		filtered := make([]config.KeyBinding, 0, len(a.Keybindings))
+		for _, kb := range a.Keybindings {
+			if kb.Key != newKey && kb.Command != cmdID {
+				filtered = append(filtered, kb)
+			}
+		}
+		filtered = append(filtered, config.KeyBinding{Key: newKey, Command: cmdID})
+		a.Keybindings = filtered
+		config.SaveKeybindings(a.Keybindings)
+		a.RebindKeys()
+	}
+	w.OnReset = func(cmdID string) {
+		var defaultKey string
+		for _, kb := range config.DefaultKeybindings() {
+			if kb.Command == cmdID {
+				defaultKey = kb.Key
+				break
+			}
+		}
+		filtered := make([]config.KeyBinding, 0, len(a.Keybindings))
+		for _, kb := range a.Keybindings {
+			if kb.Command == cmdID {
+				continue
+			}
+			if defaultKey != "" && kb.Key == defaultKey {
+				continue
+			}
+			filtered = append(filtered, kb)
+		}
+		if defaultKey != "" {
+			filtered = append(filtered, config.KeyBinding{Key: defaultKey, Command: cmdID})
+		}
+		a.Keybindings = filtered
+		config.SaveKeybindings(a.Keybindings)
+		a.RebindKeys()
+	}
+	w.OnClear = func(cmdID string) {
+		filtered := make([]config.KeyBinding, 0, len(a.Keybindings))
+		for _, kb := range a.Keybindings {
+			if kb.Command != cmdID {
+				filtered = append(filtered, kb)
+			}
+		}
+		a.Keybindings = filtered
+		config.SaveKeybindings(a.Keybindings)
+		a.RebindKeys()
+	}
+	w.OnDismiss = func() {
 		a.DismissDialog()
 	}
-	a.ShowDialog(kt)
+	a.ShowDialog(w)
 }
 
 func (a *App) ToggleSearchReplace() {
@@ -189,9 +246,9 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "view.keyboardTester", Title: "Keyboard Tester",
-		Keywords: []string{"view", "debug", "input"},
-		Handler:  app.ShowKeyboardTester,
+		ID: "view.keybindings", Title: "Keyboard Shortcuts",
+		Keywords: []string{"view", "keybindings", "shortcuts", "remap", "rebind", "hotkeys"},
+		Handler:  app.ShowKeybindings,
 	})
 
 	reg.Register(command.Command{

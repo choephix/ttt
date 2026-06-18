@@ -1,0 +1,248 @@
+package ui
+
+import (
+	"testing"
+
+	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/gdamore/tcell/v2"
+)
+
+func kbTestCommands() []command.Command {
+	return []command.Command{
+		{ID: "file.save", Title: "File: Save", Keywords: []string{"save", "write"}},
+		{ID: "file.open", Title: "File: Open", Keywords: []string{"open", "browse"}},
+		{ID: "editor.undo", Title: "Undo", Keywords: []string{"undo"}},
+		{ID: "editor.redo", Title: "Redo", Keywords: []string{"redo"}},
+		{ID: "sidebar.toggle", Title: "Toggle Sidebar"},
+	}
+}
+
+func TestKeybindingsWidgetCreation(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	if w == nil {
+		t.Fatal("expected widget")
+	}
+	if len(w.allItems) != 5 {
+		t.Fatalf("expected 5 items, got %d", len(w.allItems))
+	}
+	if len(w.items) != 5 {
+		t.Fatalf("expected 5 filtered items, got %d", len(w.items))
+	}
+	// items should be sorted alphabetically
+	if w.items[0].Title != "File: Open" {
+		t.Errorf("expected first item 'File: Open', got %q", w.items[0].Title)
+	}
+}
+
+func TestKeybindingsWidgetFilter(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	w.input.SetText("undo")
+	if len(w.items) != 1 {
+		t.Fatalf("expected 1 item for 'undo', got %d", len(w.items))
+	}
+	if w.items[0].CmdID != "editor.undo" {
+		t.Errorf("expected editor.undo, got %q", w.items[0].CmdID)
+	}
+}
+
+func TestKeybindingsWidgetFilterByShortcut(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	w.GetShortcut = func(cmdID string) string {
+		if cmdID == "file.save" {
+			return "Ctrl+S"
+		}
+		return ""
+	}
+	w.input.SetText("ctrl+s")
+	if len(w.items) == 0 {
+		t.Fatal("expected at least 1 match for shortcut search")
+	}
+	found := false
+	for _, item := range w.items {
+		if item.CmdID == "file.save" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected file.save in results when searching by shortcut")
+	}
+}
+
+func TestKeybindingsWidgetNavigation(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	if w.selected != 0 {
+		t.Fatalf("expected selected=0, got %d", w.selected)
+	}
+
+	// Down arrow
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	if w.selected != 1 {
+		t.Errorf("expected selected=1 after down, got %d", w.selected)
+	}
+
+	// Up arrow
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	if w.selected != 0 {
+		t.Errorf("expected selected=0 after up, got %d", w.selected)
+	}
+
+	// Up wraps to last
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	if w.selected != len(w.items)-1 {
+		t.Errorf("expected selected=%d after wrap up, got %d", len(w.items)-1, w.selected)
+	}
+
+	// Down wraps to first
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	if w.selected != 0 {
+		t.Errorf("expected selected=0 after wrap down, got %d", w.selected)
+	}
+}
+
+func TestKeybindingsWidgetRecording(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	var editedCmd, editedKey string
+	w.OnEdit = func(cmdID, newKey string) {
+		editedCmd = cmdID
+		editedKey = newKey
+	}
+
+	// Enter starts recording
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if !w.recording {
+		t.Fatal("expected recording mode after Enter")
+	}
+
+	// Press Ctrl+S, then Enter to confirm single key
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModCtrl))
+	if w.recordCombo != "ctrl+s" {
+		t.Errorf("expected recordCombo='ctrl+s', got %q", w.recordCombo)
+	}
+	// Still recording (waiting for chord or Enter)
+	if !w.recording {
+		t.Fatal("expected still recording after first key")
+	}
+
+	// Enter confirms
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if w.recording {
+		t.Fatal("expected recording to stop after Enter confirm")
+	}
+	if editedKey != "ctrl+s" {
+		t.Errorf("expected editedKey='ctrl+s', got %q", editedKey)
+	}
+	if editedCmd != w.items[0].CmdID {
+		t.Errorf("expected editedCmd=%q, got %q", w.items[0].CmdID, editedCmd)
+	}
+}
+
+func TestKeybindingsWidgetRecordChord(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	var editedKey string
+	w.OnEdit = func(cmdID, newKey string) {
+		editedKey = newKey
+	}
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+
+	// First key: Ctrl+K
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyCtrlK, 0, tcell.ModCtrl))
+	// Second key: e (chord auto-saves)
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'e', tcell.ModNone))
+
+	if w.recording {
+		t.Fatal("expected recording to stop after chord")
+	}
+	if editedKey != "ctrl+k e" {
+		t.Errorf("expected chord 'ctrl+k e', got %q", editedKey)
+	}
+}
+
+func TestKeybindingsWidgetRecordEscape(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	called := false
+	w.OnEdit = func(cmdID, newKey string) {
+		called = true
+	}
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if !w.recording {
+		t.Fatal("expected recording")
+	}
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	if w.recording {
+		t.Fatal("expected recording cancelled")
+	}
+	if called {
+		t.Fatal("OnEdit should not be called on cancel")
+	}
+}
+
+func TestKeybindingsWidgetClear(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	var clearedCmd string
+	w.OnClear = func(cmdID string) {
+		clearedCmd = cmdID
+	}
+
+	// Delete key clears binding
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDelete, 0, tcell.ModNone))
+	if clearedCmd != w.items[0].CmdID {
+		t.Errorf("expected cleared %q, got %q", w.items[0].CmdID, clearedCmd)
+	}
+}
+
+func TestKeybindingsWidgetReset(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	var resetCmd string
+	w.OnReset = func(cmdID string) {
+		resetCmd = cmdID
+	}
+
+	// Backspace on empty input resets
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone))
+	if resetCmd != w.items[0].CmdID {
+		t.Errorf("expected reset %q, got %q", w.items[0].CmdID, resetCmd)
+	}
+}
+
+func TestKeybindingsWidgetDismiss(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	dismissed := false
+	w.OnDismiss = func() {
+		dismissed = true
+	}
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	if !dismissed {
+		t.Fatal("expected dismiss on Escape")
+	}
+}
+
+func TestDescribeKeyCombo(t *testing.T) {
+	tests := []struct {
+		key  tcell.Key
+		rune rune
+		mod  tcell.ModMask
+		want string
+	}{
+		{tcell.KeyCtrlS, 0, tcell.ModCtrl, "ctrl+s"},
+		{tcell.KeyRune, 'a', tcell.ModNone, "a"},
+		{tcell.KeyRune, 'a', tcell.ModAlt, "alt+a"},
+		{tcell.KeyF1, 0, tcell.ModNone, "f1"},
+		{tcell.KeyEnter, 0, tcell.ModNone, "enter"},
+		{tcell.KeyTab, 0, tcell.ModNone, "tab"},
+		{tcell.KeyUp, 0, tcell.ModNone, "up"},
+		{tcell.KeyRune, ' ', tcell.ModNone, "space"},
+	}
+
+	for _, tt := range tests {
+		ev := tcell.NewEventKey(tt.key, tt.rune, tt.mod)
+		got := describeKeyCombo(ev)
+		if got != tt.want {
+			t.Errorf("describeKeyCombo(%v) = %q, want %q", tt, got, tt.want)
+		}
+	}
+}

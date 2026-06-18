@@ -24,6 +24,13 @@ func RegisterCommands(app *App) {
 	RegisterEscapeDismissers(app)
 }
 
+func (a *App) RebindKeys() {
+	a.Root.ClearKeys()
+	a.Reg.ClearAllShortcuts()
+	config.ParseKeyBindings(a.Keybindings)
+	BindKeys(a.Root, a.Reg, a.Keybindings)
+}
+
 func BindKeys(root *ui.Root, reg *command.Registry, keybindings []config.KeyBinding) {
 	for _, kb := range keybindings {
 		if len(kb.Steps) == 0 {

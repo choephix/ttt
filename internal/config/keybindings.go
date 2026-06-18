@@ -1,7 +1,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -127,6 +129,24 @@ var specialKeyNames = map[string]string{
 	"f10":       "F10",
 	"f11":       "F11",
 	"f12":       "F12",
+}
+
+func SaveKeybindings(bindings []KeyBinding) error {
+	path := ConfigFilePath("keybindings.json")
+	type kbJSON struct {
+		Key     string `json:"key"`
+		Command string `json:"command"`
+	}
+	out := make([]kbJSON, len(bindings))
+	for i, b := range bindings {
+		out[i] = kbJSON{Key: b.Key, Command: b.Command}
+	}
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(path, data, 0644)
 }
 
 func DefaultKeybindings() []KeyBinding {
