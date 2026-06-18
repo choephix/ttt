@@ -493,6 +493,9 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		e.CursorX = curScreenCol + gutterW + r.X
 		e.CursorY = curVisRow - topVisRow + r.Y
 	} else {
+		if e.Cursor.Line >= len(e.Buf.Lines) {
+			e.Cursor.Line = len(e.Buf.Lines) - 1
+		}
 		cursorVisCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, tabW)
 		e.CursorX = cursorVisCol - e.Viewport.LeftCol + gutterW + r.X
 		if foldsActive {
@@ -1089,6 +1092,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		tabSize := e.resolveTabSize()
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+			if end.Line >= len(e.Buf.Lines) {
+				end.Line = len(e.Buf.Lines) - 1
+			}
 			for line := start.Line; line <= end.Line; line++ {
 				remove := leadingIndentWidth(e.Buf.Lines[line], tabSize)
 				if remove > 0 {

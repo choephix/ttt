@@ -63,6 +63,15 @@ func (inp *InputWidget) clearSel() {
 func (inp *InputWidget) deleteSelection() {
 	lo, hi := inp.selRange()
 	runes := []rune(inp.Text)
+	if lo > len(runes) {
+		lo = len(runes)
+	}
+	if hi > len(runes) {
+		hi = len(runes)
+	}
+	if lo > hi {
+		lo = hi
+	}
 	inp.Text = string(append(runes[:lo], runes[hi:]...))
 	inp.CursorPos = lo
 	inp.clearSel()
