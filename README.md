@@ -23,6 +23,9 @@ curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | s
 ```
 
 ### Arch Linux (AUR)
+
+Graciously maintained by [@Dominiquini](https://github.com/Dominiquini).
+
 ```sh
 yay -S ttt
 ```
