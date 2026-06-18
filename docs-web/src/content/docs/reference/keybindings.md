@@ -39,8 +39,6 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 | Ctrl+G | `editor.goToLine` | Go to line |
 | Alt+Up | `editor.moveLineUp` | Move line up |
 | Alt+Down | `editor.moveLineDown` | Move line down |
-| Alt+Shift+Up | `editor.duplicateLine` | Duplicate line |
-| Alt+Shift+Down | `editor.duplicateLine` | Duplicate line |
 | Ctrl+K K | `editor.deleteLine` | Delete line |
 | Ctrl+Enter | `editor.insertLineBelow` | Insert line below |
 | Alt+Backspace | `editor.deleteWordLeft` | Delete word left |
@@ -79,6 +77,10 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 | Ctrl+K R | `sidebar.searchReplace` | Search and replace in files |
 | Ctrl+K C | `sidebar.changes` | Show changes |
 | Ctrl+0 | `sidebar.focus` | Focus sidebar |
+| Alt+Shift+Left | `sidebar.narrower` | Decrease sidebar width |
+| Alt+Shift+Right | `sidebar.wider` | Increase sidebar width |
+| Alt+Shift+Up | `panel.taller` | Increase panel height |
+| Alt+Shift+Down | `panel.shorter` | Decrease panel height |
 | Ctrl+K Ctrl+T | `theme.switch` | Switch theme |
 
 ## Tabs

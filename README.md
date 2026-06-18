@@ -523,6 +523,8 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 | Ctrl+K F | Search across files |
 | Ctrl+K C | Show changes |
 | Ctrl+0 | Focus sidebar |
+| Alt+Shift+Left/Right | Resize sidebar |
+| Alt+Shift+Up/Down | Resize bottom panel |
 | Ctrl+K Ctrl+T | Switch theme |
 | | **Tabs** |
 | Ctrl+PgDn / PgUp | Next / previous tab |
