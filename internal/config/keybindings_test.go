@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -144,5 +145,328 @@ func TestParseShiftTab(t *testing.T) {
 	}
 	if !steps[0].Shift || steps[0].KeyName != "Tab" {
 		t.Fatalf("expected Shift+Tab, got %+v", steps[0])
+	}
+}
+
+func TestLoadKeybindingsDictSingle(t *testing.T) {
+	data := []byte(`{"file.save": "ctrl+s", "editor.undo": "ctrl+z"}`)
+	kb, err := LoadKeybindings(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := map[string]string{}
+	for _, b := range kb {
+		found[b.Command] = b.Key
+	}
+	if found["file.save"] != "ctrl+s" {
+		t.Errorf("expected ctrl+s for file.save, got %q", found["file.save"])
+	}
+	if found["editor.undo"] != "ctrl+z" {
+		t.Errorf("expected ctrl+z for editor.undo, got %q", found["editor.undo"])
+	}
+}
+
+func TestLoadKeybindingsDictMulti(t *testing.T) {
+	data := []byte(`{"editor.duplicateLine": ["alt+shift+up", "alt+shift+down"]}`)
+	kb, err := LoadKeybindings(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kb) != 2 {
+		t.Fatalf("expected 2 bindings, got %d", len(kb))
+	}
+	keys := map[string]bool{}
+	for _, b := range kb {
+		if b.Command != "editor.duplicateLine" {
+			t.Errorf("unexpected command %q", b.Command)
+		}
+		keys[b.Key] = true
+	}
+	if !keys["alt+shift+up"] || !keys["alt+shift+down"] {
+		t.Errorf("expected both keys, got %v", keys)
+	}
+}
+
+func TestLoadKeybindingsClearedEmptyString(t *testing.T) {
+	data := []byte(`{"editor.undo": ""}`)
+	kb, err := LoadKeybindings(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kb) != 1 {
+		t.Fatalf("expected 1 binding, got %d", len(kb))
+	}
+	if kb[0].Command != "editor.undo" || kb[0].Key != "" {
+		t.Errorf("expected cleared binding, got %+v", kb[0])
+	}
+}
+
+func TestLoadKeybindingsClearedEmptyArray(t *testing.T) {
+	data := []byte(`{"editor.undo": []}`)
+	kb, err := LoadKeybindings(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kb) != 1 {
+		t.Fatalf("expected 1 binding, got %d", len(kb))
+	}
+	if kb[0].Command != "editor.undo" || kb[0].Key != "" {
+		t.Errorf("expected cleared binding, got %+v", kb[0])
+	}
+}
+
+func TestLoadKeybindingsLegacyArray(t *testing.T) {
+	data := []byte(`[{"key": "ctrl+s", "command": "file.save"}]`)
+	kb, err := LoadKeybindings(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kb) != 1 || kb[0].Key != "ctrl+s" || kb[0].Command != "file.save" {
+		t.Errorf("unexpected binding %+v", kb)
+	}
+}
+
+func TestLoadKeybindingsInvalid(t *testing.T) {
+	_, err := LoadKeybindings([]byte(`not json`))
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestMergeKeybindingsNoOverrides(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+z", Command: "editor.undo"},
+	}
+	merged := MergeKeybindings(defaults, nil)
+	if len(merged) != 2 {
+		t.Fatalf("expected 2 bindings, got %d", len(merged))
+	}
+}
+
+func TestMergeKeybindingsOverride(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+z", Command: "editor.undo"},
+	}
+	overrides := []KeyBinding{
+		{Key: "ctrl+shift+s", Command: "file.save"},
+	}
+	merged := MergeKeybindings(defaults, overrides)
+	found := map[string]string{}
+	for _, b := range merged {
+		found[b.Command] = b.Key
+	}
+	if found["file.save"] != "ctrl+shift+s" {
+		t.Errorf("expected override ctrl+shift+s, got %q", found["file.save"])
+	}
+	if found["editor.undo"] != "ctrl+z" {
+		t.Errorf("expected default ctrl+z preserved, got %q", found["editor.undo"])
+	}
+}
+
+func TestMergeKeybindingsCleared(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+z", Command: "editor.undo"},
+	}
+	overrides := []KeyBinding{
+		{Key: "", Command: "editor.undo"},
+	}
+	merged := MergeKeybindings(defaults, overrides)
+	for _, b := range merged {
+		if b.Command == "editor.undo" {
+			t.Fatal("cleared binding should not appear in merged result")
+		}
+	}
+	if len(merged) != 1 || merged[0].Command != "file.save" {
+		t.Errorf("expected only file.save, got %+v", merged)
+	}
+}
+
+func TestMergeKeybindingsNewDefault(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+k y", Command: "view.keybindings"},
+	}
+	overrides := []KeyBinding{
+		{Key: "ctrl+shift+s", Command: "file.save"},
+	}
+	merged := MergeKeybindings(defaults, overrides)
+	found := map[string]string{}
+	for _, b := range merged {
+		found[b.Command] = b.Key
+	}
+	if found["view.keybindings"] != "ctrl+k y" {
+		t.Errorf("new default should be preserved, got %q", found["view.keybindings"])
+	}
+}
+
+func TestSaveKeybindingsOnlyOverrides(t *testing.T) {
+	defaults := DefaultKeybindings()
+	// Change one binding
+	bindings := make([]KeyBinding, len(defaults))
+	copy(bindings, defaults)
+	for i, b := range bindings {
+		if b.Command == "file.save" {
+			bindings[i].Key = "ctrl+shift+s"
+			break
+		}
+	}
+
+	defaultMap := make(map[string][]string)
+	for _, kb := range defaults {
+		defaultMap[kb.Command] = append(defaultMap[kb.Command], kb.Key)
+	}
+	currentMap := make(map[string][]string)
+	for _, kb := range bindings {
+		currentMap[kb.Command] = append(currentMap[kb.Command], kb.Key)
+	}
+
+	// Count diffs
+	diffs := 0
+	for cmd, keys := range currentMap {
+		if !stringSliceEqual(keys, defaultMap[cmd]) {
+			diffs++
+		}
+	}
+	if diffs != 1 {
+		t.Fatalf("expected 1 diff, got %d", diffs)
+	}
+}
+
+func TestSaveKeybindingsClearedShowsEmpty(t *testing.T) {
+	defaults := DefaultKeybindings()
+	// Remove one binding
+	var bindings []KeyBinding
+	for _, b := range defaults {
+		if b.Command != "file.save" {
+			bindings = append(bindings, b)
+		}
+	}
+
+	defaultMap := make(map[string][]string)
+	for _, kb := range defaults {
+		defaultMap[kb.Command] = append(defaultMap[kb.Command], kb.Key)
+	}
+	currentMap := make(map[string][]string)
+	for _, kb := range bindings {
+		currentMap[kb.Command] = append(currentMap[kb.Command], kb.Key)
+	}
+
+	// file.save should be detected as cleared
+	if _, exists := currentMap["file.save"]; exists {
+		t.Fatal("file.save should not be in current map")
+	}
+	if _, exists := defaultMap["file.save"]; !exists {
+		t.Fatal("file.save should be in default map")
+	}
+}
+
+func TestSaveKeybindingsAllDefaultsNoFile(t *testing.T) {
+	defaults := DefaultKeybindings()
+	defaultMap := make(map[string][]string)
+	for _, kb := range defaults {
+		defaultMap[kb.Command] = append(defaultMap[kb.Command], kb.Key)
+	}
+	currentMap := make(map[string][]string)
+	for _, kb := range defaults {
+		currentMap[kb.Command] = append(currentMap[kb.Command], kb.Key)
+	}
+
+	diffs := 0
+	for cmd, keys := range currentMap {
+		if !stringSliceEqual(keys, defaultMap[cmd]) {
+			diffs++
+		}
+	}
+	clears := 0
+	for cmd := range defaultMap {
+		if _, exists := currentMap[cmd]; !exists {
+			clears++
+		}
+	}
+	if diffs != 0 || clears != 0 {
+		t.Fatalf("no diffs expected for identical bindings, got %d diffs %d clears", diffs, clears)
+	}
+}
+
+func TestRoundTripOverride(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+z", Command: "editor.undo"},
+	}
+
+	// Simulate an override saved as dict
+	saved := []byte(`{"file.save": "ctrl+shift+s"}`)
+	overrides, err := LoadKeybindings(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := MergeKeybindings(defaults, overrides)
+
+	found := map[string]string{}
+	for _, b := range merged {
+		found[b.Command] = b.Key
+	}
+	if found["file.save"] != "ctrl+shift+s" {
+		t.Errorf("override not applied: got %q", found["file.save"])
+	}
+	if found["editor.undo"] != "ctrl+z" {
+		t.Errorf("default not preserved: got %q", found["editor.undo"])
+	}
+}
+
+func TestRoundTripCleared(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+z", Command: "editor.undo"},
+	}
+
+	saved := []byte(`{"editor.undo": ""}`)
+	overrides, err := LoadKeybindings(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := MergeKeybindings(defaults, overrides)
+
+	if len(merged) != 1 || merged[0].Command != "file.save" {
+		t.Errorf("expected only file.save after clear, got %+v", merged)
+	}
+}
+
+func TestRoundTripClearedEmptyArray(t *testing.T) {
+	defaults := []KeyBinding{
+		{Key: "ctrl+s", Command: "file.save"},
+		{Key: "ctrl+z", Command: "editor.undo"},
+	}
+
+	saved := []byte(`{"editor.undo": []}`)
+	overrides, err := LoadKeybindings(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := MergeKeybindings(defaults, overrides)
+
+	if len(merged) != 1 || merged[0].Command != "file.save" {
+		t.Errorf("expected only file.save after clear via [], got %+v", merged)
+	}
+}
+
+func TestMarshalOrderedMap(t *testing.T) {
+	m := map[string]any{
+		"b": "val_b",
+		"a": "val_a",
+	}
+	data, err := marshalOrderedMap(m, []string{"a", "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]string
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("output not valid JSON: %v\n%s", err, data)
+	}
+	if parsed["a"] != "val_a" || parsed["b"] != "val_b" {
+		t.Errorf("unexpected values: %v", parsed)
 	}
 }

@@ -26,9 +26,8 @@ func Load(settingsFile string) AppConfig {
 	paths := configPaths()
 
 	if data, err := readFirst(paths, "keybindings.json"); err == nil {
-		var kb []KeyBinding
-		if err := json.Unmarshal(data, &kb); err == nil {
-			cfg.Keybindings = kb
+		if kb, err := LoadKeybindings(data); err == nil {
+			cfg.Keybindings = MergeKeybindings(DefaultKeybindings(), kb)
 		}
 	}
 

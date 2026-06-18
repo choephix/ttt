@@ -73,8 +73,11 @@ func (a *App) ExplorerDelete() {
 		return
 	}
 	a.ShowConfirmDialog("Delete "+node.Name+"?",
-		[]string{"Yes", "No"},
+		[]string{"No", "Yes"},
 		[]func(){
+			func() {
+				a.DismissDialog()
+			},
 			func() {
 				a.DismissDialog()
 				if err := os.RemoveAll(node.Path); err != nil {
@@ -83,7 +86,6 @@ func (a *App) ExplorerDelete() {
 				}
 				a.Explorer.Reload()
 			},
-			func() { a.DismissDialog() },
 		},
 	)
 }
@@ -92,37 +94,37 @@ func registerExplorerCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "explorer.refresh", Title: "Refresh Explorer",
+		ID: "explorer.refresh", Title: "Explorer: Refresh",
 		Keywords: []string{"view", "file", "reload"},
 		Handler:  func() { app.Explorer.Reload() },
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.open", Title: "Open",
+		ID: "explorer.open", Title: "Explorer: Toggle Node",
 		Keywords: []string{"view", "file"},
 		Handler:  func() { app.Explorer.ActivateSelected() },
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.newFile", Title: "New File",
+		ID: "explorer.newFile", Title: "Explorer: New File",
 		Keywords: []string{"view", "file", "create"},
 		Handler:  app.ExplorerNewFile,
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.newFolder", Title: "New Folder",
+		ID: "explorer.newFolder", Title: "Explorer: New Folder",
 		Keywords: []string{"view", "file", "create", "directory"},
 		Handler:  app.ExplorerNewFolder,
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.rename", Title: "Rename",
+		ID: "explorer.rename", Title: "Explorer: Rename",
 		Keywords: []string{"view", "file"},
 		Handler:  app.ExplorerRename,
 	})
 
 	reg.Register(command.Command{
-		ID: "explorer.delete", Title: "Delete",
+		ID: "explorer.delete", Title: "Explorer: Delete",
 		Keywords: []string{"view", "file", "remove"},
 		Handler:  app.ExplorerDelete,
 	})

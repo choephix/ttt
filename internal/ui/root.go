@@ -69,6 +69,13 @@ func (r *Root) AddChordKey(steps []GlobalKeyBinding, handler func()) {
 	r.ChordKeys = append(r.ChordKeys, ChordKeyBinding{Steps: steps, Handler: handler})
 }
 
+func (r *Root) ClearKeys() {
+	r.GlobalKeys = nil
+	r.ForceKeys = nil
+	r.ChordKeys = nil
+	r.chord = nil
+}
+
 func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 	if gk.Key != tcell.KeyRune {
 		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod

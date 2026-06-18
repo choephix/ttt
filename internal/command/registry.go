@@ -41,6 +41,13 @@ func (r *Registry) SetShortcut(id, shortcut string) {
 	}
 }
 
+func (r *Registry) ClearAllShortcuts() {
+	for id, cmd := range r.commands {
+		cmd.Shortcut = ""
+		r.commands[id] = cmd
+	}
+}
+
 func (r *Registry) List() []Command {
 	cmds := make([]Command, 0, len(r.commands))
 	for _, cmd := range r.commands {
