@@ -111,9 +111,7 @@ func registerViewCommands(app *App) {
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {
-			if app.Sidebar.Visible {
-				app.SetSidebarWidth(app.SplitPanel.DividerPos + 1)
-			}
+			app.SetSidebarWidth(app.SplitPanel.DividerPos + 1)
 		},
 	})
 
@@ -143,6 +141,27 @@ func registerViewCommands(app *App) {
 		ID: "panel.focus", Title: "Focus Panel",
 		Keywords: []string{"view", "bottom"},
 		Handler:  app.FocusPanel,
+	})
+
+	reg.Register(command.Command{
+		ID: "panel.taller", Title: "Increase Panel Height",
+		Keywords: []string{"view", "resize", "bottom"},
+		Handler: func() {
+			if !app.ContentSplit.ShowBottom {
+				app.ShowBottomPanel()
+			}
+			app.ContentSplit.BottomH++
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "panel.shorter", Title: "Decrease Panel Height",
+		Keywords: []string{"view", "resize", "bottom"},
+		Handler: func() {
+			if app.ContentSplit.ShowBottom && app.ContentSplit.BottomH > 1 {
+				app.ContentSplit.BottomH--
+			}
+		},
 	})
 
 	reg.Register(command.Command{
