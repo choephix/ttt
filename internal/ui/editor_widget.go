@@ -141,7 +141,7 @@ func (e *EditorPaneWidget) buildDiagIndex() {
 }
 
 func (e *EditorPaneWidget) hasFolds() bool {
-	return e.Folds != nil && e.Folds.HasCollapsedFolds()
+	return !e.WordWrap && e.Folds != nil && e.Folds.HasCollapsedFolds()
 }
 
 func (e *EditorPaneWidget) ensureTopLineVisible() {
@@ -303,7 +303,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 			for i, ch := range padded {
 				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
 			}
-			if e.Folds != nil && lineIdx < totalLines && !isWrapContinuation {
+			if e.Folds != nil && !e.WordWrap && lineIdx < totalLines && !isWrapContinuation {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
 					chevronCol := gutterW - 2
 					collapsedCh := '▶'
