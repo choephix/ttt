@@ -195,7 +195,7 @@ func registerPaletteCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "settings.open", Title: "Preferences: Open Settings",
+		ID: "settings.open", Title: "Settings: Open settings.json",
 		Keywords: []string{"preferences", "settings", "configuration", "options"},
 		Handler: func() {
 			path := config.ConfigFilePath("settings.json")
@@ -205,7 +205,7 @@ func registerPaletteCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "keybindings.open", Title: "Preferences: Open Keyboard Shortcuts",
+		ID: "keybindings.open", Title: "Settings: Open keybindings.json",
 		Keywords: []string{"preferences", "settings", "hotkeys", "keymap"},
 		Handler: func() {
 			path := config.ConfigFilePath("keybindings.json")
