@@ -20,9 +20,6 @@ func TestNew(t *testing.T) {
 	if ws.Folders[0].Path != dir1 {
 		t.Errorf("expected %s, got %s", dir1, ws.Folders[0].Path)
 	}
-	if ws.Folders[0].Name != "repo1" {
-		t.Errorf("expected repo1, got %s", ws.Folders[0].Name)
-	}
 }
 
 func TestAddFolderDedup(t *testing.T) {
@@ -114,21 +111,6 @@ func TestIsRepo(t *testing.T) {
 	}
 	if ws.Folders[1].IsRepo {
 		t.Error("expected plain to not be a git repo")
-	}
-}
-
-func TestRepoPaths(t *testing.T) {
-	tmp := t.TempDir()
-	repo := filepath.Join(tmp, "repo")
-	plain := filepath.Join(tmp, "plain")
-	os.Mkdir(repo, 0755)
-	os.Mkdir(plain, 0755)
-	os.Mkdir(filepath.Join(repo, ".git"), 0755)
-
-	ws := New([]string{repo, plain})
-	rp := ws.RepoPaths()
-	if len(rp) != 1 || rp[0] != repo {
-		t.Errorf("expected [%s], got %v", repo, rp)
 	}
 }
 

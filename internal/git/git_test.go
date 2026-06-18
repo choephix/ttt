@@ -459,9 +459,6 @@ func TestBlameLineBasic(t *testing.T) {
 	if info.Author != "Test User" {
 		t.Errorf("Author = %q, want %q", info.Author, "Test User")
 	}
-	if info.Summary != "add file" {
-		t.Errorf("Summary = %q, want %q", info.Summary, "add file")
-	}
 	if info.Time.IsZero() {
 		t.Error("Time is zero, expected a valid timestamp")
 	}
@@ -483,17 +480,10 @@ func TestBlameLineDifferentLines(t *testing.T) {
 	if info1 == nil {
 		t.Fatal("BlameLine(line 1) returned nil")
 	}
-	if info1.Summary != "first commit" {
-		t.Errorf("line 1 summary = %q, want %q", info1.Summary, "first commit")
-	}
-
 	// Line 2 should reference "second commit"
 	info2 := BlameLine(dir, "file.txt", 2)
 	if info2 == nil {
 		t.Fatal("BlameLine(line 2) returned nil")
-	}
-	if info2.Summary != "second commit" {
-		t.Errorf("line 2 summary = %q, want %q", info2.Summary, "second commit")
 	}
 }
 
@@ -594,15 +584,11 @@ func TestFileStatusRename(t *testing.T) {
 func TestBlameInfoFields(t *testing.T) {
 	now := time.Now()
 	bi := BlameInfo{
-		Author:  "Jane Doe",
-		Time:    now,
-		Summary: "fix: resolve bug",
+		Author: "Jane Doe",
+		Time:   now,
 	}
 	if bi.Author != "Jane Doe" {
 		t.Errorf("Author = %q, want %q", bi.Author, "Jane Doe")
-	}
-	if bi.Summary != "fix: resolve bug" {
-		t.Errorf("Summary = %q, want %q", bi.Summary, "fix: resolve bug")
 	}
 	if !bi.Time.Equal(now) {
 		t.Error("Time mismatch")

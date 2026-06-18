@@ -80,9 +80,8 @@ type EditorSettings struct {
 	CursorStyle            string `json:"cursorStyle,omitempty"`
 	FormatOnSave           bool   `json:"formatOnSave"`
 	InsertFinalNewline     bool   `json:"insertFinalNewline"`
-	TrimTrailingWhitespace bool   `json:"trimTrailingWhitespace"`
-	DiffView               string `json:"diffView,omitempty"`
-	FocusOnOpen            bool   `json:"focusOnOpen"`
+	TrimTrailingWhitespace bool `json:"trimTrailingWhitespace"`
+	FocusOnOpen            bool `json:"focusOnOpen"`
 	GitGutter               *bool  `json:"gitGutter,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`

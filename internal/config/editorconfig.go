@@ -9,13 +9,12 @@ import (
 )
 
 type EditorConfigProps struct {
-	IndentStyle          string // "tab" or "space"
-	IndentSize           int    // 0 means unset
-	TabWidth             int    // 0 means unset
-	TrimTrailingWS       bool
-	TrimTrailingWSSet    bool
-	InsertFinalNewline   bool
-	InsertFinalNLSet     bool
+	IndentStyle        string // "tab" or "space"
+	IndentSize         int    // 0 means unset
+	TrimTrailingWS     bool
+	TrimTrailingWSSet  bool
+	InsertFinalNewline bool
+	InsertFinalNLSet   bool
 }
 
 type editorConfigSection struct {
@@ -130,11 +129,6 @@ func applyProps(result *EditorConfigProps, props map[string]string) {
 	if v, ok := props["indent_size"]; ok {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			result.IndentSize = n
-		}
-	}
-	if v, ok := props["tab_width"]; ok {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			result.TabWidth = n
 		}
 	}
 	if v, ok := props["trim_trailing_whitespace"]; ok {

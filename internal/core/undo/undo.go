@@ -179,41 +179,6 @@ func (c *InsertRuneCommand) Undo(b *buffer.Buffer) {
 	b.DeleteRune(c.Line, c.Col)
 }
 
-// DeleteRangeCommand implements EditCommand for deleting a range of runes.
-type DeleteRangeCommand struct {
-	Line, Start, End int
-	Deleted          string
-}
-
-func (c *DeleteRangeCommand) Apply(b *buffer.Buffer) {
-	if c.Line < 0 || c.Line >= len(b.Lines) {
-		return
-	}
-	l := []rune(b.Lines[c.Line])
-	if c.Start < 0 || c.End > len(l) || c.Start >= c.End {
-		return
-	}
-	c.Deleted = string(l[c.Start:c.End])
-	b.Lines[c.Line] = string(append(l[:c.Start], l[c.End:]...))
-	b.Dirty = true
-}
-
-func (c *DeleteRangeCommand) Undo(b *buffer.Buffer) {
-	if c.Line < 0 || c.Line >= len(b.Lines) {
-		return
-	}
-	l := []rune(b.Lines[c.Line])
-	if c.Start < 0 || c.Start > len(l) {
-		return
-	}
-	// Insert the deleted text back at the original position
-	newRunes := append([]rune{}, l[:c.Start]...)
-	newRunes = append(newRunes, []rune(c.Deleted)...)
-	newRunes = append(newRunes, l[c.Start:]...)
-	b.Lines[c.Line] = string(newRunes)
-	b.Dirty = true
-}
-
 // DeleteRuneCommand implements EditCommand for deleting a rune.
 type DeleteRuneCommand struct {
 	Line, Col int

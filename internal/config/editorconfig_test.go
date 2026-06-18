@@ -31,10 +31,6 @@ indent_style = tab
 	if props.IndentSize != 4 {
 		t.Errorf("expected indent_size 4, got %d", props.IndentSize)
 	}
-	if props.TabWidth != 4 {
-		t.Errorf("expected tab_width 4, got %d", props.TabWidth)
-	}
-
 	props = LoadEditorConfig(filepath.Join(dir, "Makefile"))
 	if props.IndentStyle != "tab" {
 		t.Errorf("expected indent_style 'tab', got %q", props.IndentStyle)

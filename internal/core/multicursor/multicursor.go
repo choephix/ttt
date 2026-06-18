@@ -7,8 +7,8 @@ import (
 )
 
 type CursorState struct {
-	Line, Col, Goal int
-	Sel             selection.Selection
+	Line, Col int
+	Sel       selection.Selection
 }
 
 type MultiCursor struct {

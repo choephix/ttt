@@ -18,19 +18,6 @@ func TestInsertRuneCommand(t *testing.T) {
 	}
 }
 
-func TestDeleteRangeCommand(t *testing.T) {
-	b := &buffer.Buffer{Lines: []string{"abcdef"}}
-	cmd := &DeleteRangeCommand{Line: 0, Start: 2, End: 4}
-	cmd.Apply(b)
-	if b.Lines[0] != "abef" {
-		t.Errorf("expected 'abef', got '%s'", b.Lines[0])
-	}
-	cmd.Undo(b)
-	if b.Lines[0] != "abcdef" {
-		t.Errorf("expected 'abcdef', got '%s'", b.Lines[0])
-	}
-}
-
 func TestInsertLineCommand(t *testing.T) {
 	b := &buffer.Buffer{Lines: []string{"a", "c"}}
 	cmd := &InsertLineCommand{Idx: 1, Text: "b"}

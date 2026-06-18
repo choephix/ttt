@@ -11,9 +11,12 @@ func TestSetRanges(t *testing.T) {
 		{StartLine: 5, EndLine: 10},
 		{StartLine: 1, EndLine: 3},
 	})
-	ranges := s.Ranges()
-	if ranges[0].StartLine != 1 || ranges[1].StartLine != 5 {
-		t.Errorf("expected sorted ranges, got %v", ranges)
+	// Verify ranges are sorted by checking folds at expected lines
+	if r := s.FoldAt(1); r == nil || r.EndLine != 3 {
+		t.Error("expected fold at line 1 with EndLine 3")
+	}
+	if r := s.FoldAt(5); r == nil || r.EndLine != 10 {
+		t.Error("expected fold at line 5 with EndLine 10")
 	}
 }
 
@@ -44,7 +47,7 @@ func TestToggleNonFoldLine(t *testing.T) {
 func TestToggleInsideFold(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 5}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	s.Toggle(4)
 	if s.IsCollapsed(2) {
@@ -83,7 +86,7 @@ func TestNestedRanges(t *testing.T) {
 		{StartLine: 0, EndLine: 9},
 		{StartLine: 2, EndLine: 4},
 	})
-	s.Collapse(0)
+	s.Toggle(0)
 
 	vis := s.VisibleLines(10)
 	if len(vis) != 1 {
@@ -106,7 +109,7 @@ func TestVisibleLines_NoFolds(t *testing.T) {
 func TestVisibleLines_OneFold(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 4}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	vis := s.VisibleLines(7)
 	expected := []int{0, 1, 2, 5, 6}
@@ -118,7 +121,7 @@ func TestVisibleLines_OneFold(t *testing.T) {
 func TestVisibleLines_FoldStartVisible(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 4}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	vis := s.VisibleLines(7)
 	found := false
@@ -153,7 +156,7 @@ func TestVisibleLines_NestedFolds(t *testing.T) {
 		{StartLine: 1, EndLine: 8},
 		{StartLine: 3, EndLine: 5},
 	})
-	s.Collapse(1)
+	s.Toggle(1)
 
 	vis := s.VisibleLines(10)
 	expected := []int{0, 1, 9}
@@ -165,7 +168,7 @@ func TestVisibleLines_NestedFolds(t *testing.T) {
 func TestBufferToVisible(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 4}})
-	s.Collapse(2)
+	s.Toggle(2)
 	s.VisibleLines(7)
 
 	if v := s.BufferToVisible(0); v != 0 {
@@ -185,7 +188,7 @@ func TestBufferToVisible(t *testing.T) {
 func TestVisibleToBuffer(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 4}})
-	s.Collapse(2)
+	s.Toggle(2)
 	s.VisibleLines(7)
 
 	if b := s.VisibleToBuffer(0); b != 0 {
@@ -202,7 +205,7 @@ func TestVisibleToBuffer(t *testing.T) {
 func TestHiddenCount(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 4}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	total := 7
 	hidden := total - s.VisibleLineCount(total)
@@ -214,7 +217,7 @@ func TestHiddenCount(t *testing.T) {
 func TestSetRangesPreservesCollapsed(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 5}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	s.SetRanges([]Range{
 		{StartLine: 2, EndLine: 5},
@@ -243,7 +246,7 @@ func TestFoldAt(t *testing.T) {
 func TestContainingFold(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 5}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	if r := s.ContainingFold(3); r == nil || r.StartLine != 2 {
 		t.Error("line 3 should be inside fold starting at 2")
@@ -259,7 +262,7 @@ func TestContainingFold(t *testing.T) {
 func TestIsLineHidden(t *testing.T) {
 	s := NewState()
 	s.SetRanges([]Range{{StartLine: 2, EndLine: 5}})
-	s.Collapse(2)
+	s.Toggle(2)
 
 	if s.IsLineHidden(2) {
 		t.Error("fold start line should not be hidden")

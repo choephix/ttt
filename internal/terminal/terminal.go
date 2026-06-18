@@ -97,16 +97,6 @@ func (t *Terminal) readLoop() {
 	}
 }
 
-func (t *Terminal) Exited() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.exited
-}
-
-func (t *Terminal) Write(p []byte) (int, error) {
-	return t.ptm.Write(p)
-}
-
 func (t *Terminal) WriteString(s string) {
 	io.WriteString(t.ptm, s)
 }
@@ -121,12 +111,6 @@ func (t *Terminal) Resize(cols, rows int) {
 		Cols: uint16(cols),
 		Rows: uint16(rows),
 	})
-}
-
-func (t *Terminal) Cell(x, y int) vt10x.Glyph {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.vt.Cell(x, y)
 }
 
 func (t *Terminal) Snapshot(fn func(view vt10x.View)) {
@@ -148,12 +132,6 @@ func (t *Terminal) Size() (cols, rows int) {
 	return t.cols, t.rows
 }
 
-func (t *Terminal) Title() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.vt.Title()
-}
-
 func (t *Terminal) Close() {
 	t.mu.Lock()
 	if t.closed {
@@ -169,10 +147,6 @@ func (t *Terminal) Close() {
 		t.cmd.Wait()
 	}
 	<-t.done
-}
-
-func (t *Terminal) Done() <-chan struct{} {
-	return t.done
 }
 
 func (t *Terminal) ScrollbackLen() int {

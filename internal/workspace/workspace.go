@@ -9,7 +9,6 @@ import (
 
 type Folder struct {
 	Path   string
-	Name   string
 	IsRepo bool
 }
 
@@ -46,7 +45,6 @@ func (w *Workspace) AddFolder(path string) {
 	}
 	w.Folders = append(w.Folders, Folder{
 		Path:   abs,
-		Name:   filepath.Base(abs),
 		IsRepo: isGitRepo(abs),
 	})
 }
@@ -68,16 +66,6 @@ func (w *Workspace) Paths() []string {
 	paths := make([]string, len(w.Folders))
 	for i, f := range w.Folders {
 		paths[i] = f.Path
-	}
-	return paths
-}
-
-func (w *Workspace) RepoPaths() []string {
-	var paths []string
-	for _, f := range w.Folders {
-		if f.IsRepo {
-			paths = append(paths, f.Path)
-		}
 	}
 	return paths
 }
