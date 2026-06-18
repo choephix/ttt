@@ -107,6 +107,22 @@ func (a *App) ShowKeybindings() {
 		config.SaveKeybindings(a.Keybindings)
 		a.RebindKeys()
 	}
+	w.OnHelp = func() {
+		help := ui.NewInfoDialogWidget("Keyboard Shortcuts Help", []ui.InfoEntry{
+			{Key: "Enter", Desc: "Edit selected shortcut"},
+			{Key: "Backspace", Desc: "Reset to default"},
+			{Key: "Delete", Desc: "Clear shortcut"},
+			{Key: "Up/Down", Desc: "Navigate list"},
+			{Key: "Esc", Desc: "Close"},
+		})
+		help.Borders = a.Borders
+		help.OnDismiss = func() {
+			a.Root.PopOverlay()
+			a.Root.SetFocus(w)
+		}
+		a.Root.PushOverlay(ui.Overlay{Widget: help, Modal: true})
+		a.Root.SetFocus(help)
+	}
 	w.OnDismiss = func() {
 		a.DismissDialog()
 	}

@@ -221,6 +221,134 @@ func TestKeybindingsWidgetDismiss(t *testing.T) {
 	}
 }
 
+func TestKeybindingsWidgetTabNavigation(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	if w.focusedAction != -1 {
+		t.Fatalf("expected focusedAction=-1, got %d", w.focusedAction)
+	}
+
+	// Tab cycles through footer buttons: 0=Cancel, 1=Edit, 2=Reset, 3=Clear, 4=Help
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	if w.focusedAction != 0 {
+		t.Errorf("expected focusedAction=0 after first Tab, got %d", w.focusedAction)
+	}
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	if w.focusedAction != 1 {
+		t.Errorf("expected focusedAction=1 after second Tab, got %d", w.focusedAction)
+	}
+
+	// Tab wraps around
+	w.focusedAction = 4
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	if w.focusedAction != 0 {
+		t.Errorf("expected focusedAction=0 after wrap, got %d", w.focusedAction)
+	}
+}
+
+func TestKeybindingsWidgetShiftTab(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+
+	// Shift+Tab wraps to last
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModShift))
+	if w.focusedAction != 4 {
+		t.Errorf("expected focusedAction=4 after Shift+Tab from -1, got %d", w.focusedAction)
+	}
+
+	// Shift+Tab goes back
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModShift))
+	if w.focusedAction != 3 {
+		t.Errorf("expected focusedAction=3 after Shift+Tab, got %d", w.focusedAction)
+	}
+}
+
+func TestKeybindingsWidgetTabEnterActivatesEdit(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	var editedCmd string
+	w.OnEdit = func(cmdID, newKey string) {
+		editedCmd = cmdID
+	}
+
+	// Tab to Edit (index 1), then Enter
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	if w.focusedAction != 1 {
+		t.Fatalf("expected focusedAction=1, got %d", w.focusedAction)
+	}
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if !w.recording {
+		t.Fatal("expected recording mode after Enter on Edit button")
+	}
+	_ = editedCmd
+}
+
+func TestKeybindingsWidgetTabEnterActivatesCancel(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	dismissed := false
+	w.OnDismiss = func() {
+		dismissed = true
+	}
+
+	// Tab to Cancel (index 0), then Enter
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	if w.focusedAction != 0 {
+		t.Fatalf("expected focusedAction=0, got %d", w.focusedAction)
+	}
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if !dismissed {
+		t.Fatal("expected dismiss after Enter on Cancel button")
+	}
+}
+
+func TestKeybindingsWidgetEscapeFromButton(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+	dismissed := false
+	w.OnDismiss = func() {
+		dismissed = true
+	}
+
+	// Tab to a button, then Escape returns to input
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	if w.focusedAction != -1 {
+		t.Errorf("expected focusedAction=-1 after Escape, got %d", w.focusedAction)
+	}
+	if dismissed {
+		t.Fatal("Escape from button should return to input, not dismiss")
+	}
+
+	// Second Escape dismisses
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	if !dismissed {
+		t.Fatal("second Escape should dismiss")
+	}
+}
+
+func TestKeybindingsWidgetTypingReturnsFocus(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+
+	// Tab to button, then type a character
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	if w.focusedAction != 0 {
+		t.Fatalf("expected focusedAction=0, got %d", w.focusedAction)
+	}
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModNone))
+	if w.focusedAction != -1 {
+		t.Errorf("expected focusedAction=-1 after typing, got %d", w.focusedAction)
+	}
+}
+
+func TestKeybindingsWidgetArrowReturnsFocus(t *testing.T) {
+	w := NewKeybindingsWidget(kbTestCommands())
+
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	if w.focusedAction != -1 {
+		t.Errorf("expected focusedAction=-1 after Down, got %d", w.focusedAction)
+	}
+}
+
 func TestDescribeKeyCombo(t *testing.T) {
 	tests := []struct {
 		key  tcell.Key

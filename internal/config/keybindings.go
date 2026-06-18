@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -131,22 +132,143 @@ var specialKeyNames = map[string]string{
 	"f12":       "F12",
 }
 
+func LoadKeybindings(data []byte) ([]KeyBinding, error) {
+	// Try dict format: {"command": "key" | ["key1", "key2"] | "" (cleared)}
+	var dict map[string]json.RawMessage
+	if err := json.Unmarshal(data, &dict); err == nil {
+		var bindings []KeyBinding
+		for cmd, raw := range dict {
+			var single string
+			if json.Unmarshal(raw, &single) == nil {
+				bindings = append(bindings, KeyBinding{Key: single, Command: cmd})
+				continue
+			}
+			var multi []string
+			if json.Unmarshal(raw, &multi) == nil {
+				if len(multi) == 0 {
+					bindings = append(bindings, KeyBinding{Key: "", Command: cmd})
+				}
+				for _, k := range multi {
+					bindings = append(bindings, KeyBinding{Key: k, Command: cmd})
+				}
+			}
+		}
+		return bindings, nil
+	}
+	// Fall back to legacy array format: [{"key": "...", "command": "..."}]
+	var arr []KeyBinding
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return nil, err
+	}
+	return arr, nil
+}
+
+func MergeKeybindings(defaults, overrides []KeyBinding) []KeyBinding {
+	overridden := make(map[string]bool)
+	for _, kb := range overrides {
+		overridden[kb.Command] = true
+	}
+	merged := make([]KeyBinding, 0, len(defaults))
+	for _, kb := range overrides {
+		if kb.Key != "" {
+			merged = append(merged, kb)
+		}
+	}
+	for _, kb := range defaults {
+		if !overridden[kb.Command] {
+			merged = append(merged, kb)
+		}
+	}
+	return merged
+}
+
 func SaveKeybindings(bindings []KeyBinding) error {
-	path := ConfigFilePath("keybindings.json")
-	type kbJSON struct {
-		Key     string `json:"key"`
-		Command string `json:"command"`
+	defaults := DefaultKeybindings()
+	defaultMap := make(map[string][]string)
+	for _, kb := range defaults {
+		defaultMap[kb.Command] = append(defaultMap[kb.Command], kb.Key)
 	}
-	out := make([]kbJSON, len(bindings))
-	for i, b := range bindings {
-		out[i] = kbJSON{Key: b.Key, Command: b.Command}
+
+	currentMap := make(map[string][]string)
+	for _, kb := range bindings {
+		currentMap[kb.Command] = append(currentMap[kb.Command], kb.Key)
 	}
-	data, err := json.MarshalIndent(out, "", "  ")
+
+	out := make(map[string]any)
+	var order []string
+
+	// Find overrides and clears
+	for cmd, keys := range currentMap {
+		defKeys := defaultMap[cmd]
+		if !stringSliceEqual(keys, defKeys) {
+			order = append(order, cmd)
+			if len(keys) == 1 {
+				out[cmd] = keys[0]
+			} else {
+				out[cmd] = keys
+			}
+		}
+	}
+	// Find cleared defaults (in defaults but not in current)
+	for cmd := range defaultMap {
+		if _, exists := currentMap[cmd]; !exists {
+			order = append(order, cmd)
+			out[cmd] = ""
+		}
+	}
+
+	if len(out) == 0 {
+		path := ConfigFilePath("keybindings.json")
+		os.Remove(path)
+		return nil
+	}
+
+	sort.Strings(order)
+	data, err := marshalOrderedMap(out, order)
 	if err != nil {
 		return err
 	}
 	data = append(data, '\n')
+	path := ConfigFilePath("keybindings.json")
 	return os.WriteFile(path, data, 0644)
+}
+
+func stringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func marshalOrderedMap(m map[string]any, order []string) ([]byte, error) {
+	var buf strings.Builder
+	buf.WriteString("{\n")
+	for i, key := range order {
+		val, ok := m[key]
+		if !ok {
+			continue
+		}
+		keyJSON, _ := json.Marshal(key)
+		valJSON, err := json.Marshal(val)
+		if err != nil {
+			return nil, err
+		}
+		buf.WriteString("  ")
+		buf.Write(keyJSON)
+		buf.WriteString(": ")
+		buf.Write(valJSON)
+		if i < len(order)-1 {
+			buf.WriteByte(',')
+		}
+		buf.WriteByte('\n')
+	}
+	buf.WriteString("}")
+	return []byte(buf.String()), nil
 }
 
 func DefaultKeybindings() []KeyBinding {
@@ -217,6 +339,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+k 9", Command: "fold.expandAll"},
 		{Key: "ctrl+k b", Command: "panel.toggle"},
 		{Key: "ctrl+k j", Command: "editor.joinLines"},
+		{Key: "ctrl+k y", Command: "view.keybindings"},
 		{Key: "ctrl+t", Command: "terminal.toggle"},
 		{Key: "alt+t", Command: "terminal.fullscreen"},
 		{Key: "f10", Command: "menu.file"},
