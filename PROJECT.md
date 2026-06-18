@@ -4,7 +4,7 @@ ttt is a fully-featured code editor that lives in the terminal. Not a simplified
 
 With AI-driven development, developers spend less time in editors manually. When they do open one, they want something fast and capable that's already where they are — not a full GUI app booting up. ttt fills that gap: split panes, file explorer, tabs, command palette, menus, dialogs, syntax highlighting, mouse support, and a secure plugin system — all in a single Go binary.
 
-> **Note:** Project was renamed from pico/macro to **ttt** (Terminal Text Tool). Module name is `ttt`, binary is `ttt`, repo is `eugenioenko/ttt`.
+> **Note:** Project was renamed from pico/macro to **ttt** (TTT Editor — Terminal Text Tool). Module name is `ttt`, binary is `ttt`, repo is `eugenioenko/ttt`.
 
 ---
 

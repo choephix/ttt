@@ -7,12 +7,12 @@ export default defineConfig({
   integrations: [
     starlight({
       customCss: ['./src/styles/custom.css'],
-      title: 'TTT',
+      title: 'TTT Editor',
       favicon: '/favicon.svg',
       logo: {
         src: './src/assets/logo.svg',
       },
-      description: 'A terminal text editor. A real alternative to VS Code, Zed, and Sublime that runs in your terminal. Single Go binary, zero config.',
+      description: 'TTT Editor — a terminal text editor. A real alternative to VS Code, Zed, and Sublime that runs in your terminal. Single Go binary, zero config.',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/eugenioenko/ttt' },
       ],
