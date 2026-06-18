@@ -322,7 +322,7 @@ func registerEditorCommands(app *App) {
 				return
 			}
 			e := app.EditorGroup.Editor
-			if e.Folds != nil {
+			if e.Folds != nil && !e.WordWrap {
 				e.Folds.Toggle(e.Cursor.Line)
 			}
 		},
@@ -336,7 +336,7 @@ func registerEditorCommands(app *App) {
 				return
 			}
 			e := app.EditorGroup.Editor
-			if e.Folds != nil {
+			if e.Folds != nil && !e.WordWrap {
 				e.Folds.CollapseAll()
 				e.EnsureCursorVisible()
 			}
