@@ -22,9 +22,9 @@ brew install ttt
 curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | sh
 ```
 
-### Arch Linux (AUR)
+### [Arch Linux (AUR)](https://aur.archlinux.org/packages/ttt)
 
-Graciously maintained by [@Dominiquini](https://github.com/Dominiquini).
+Community-maintained by [@Dominiquini](https://github.com/Dominiquini).
 
 ```sh
 yay -S ttt
