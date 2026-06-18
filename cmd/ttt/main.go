@@ -66,7 +66,7 @@ func main() {
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "--help", "-h":
-			fmt.Printf(`ttt %s - Terminal Text Tool, an IDE for your terminal
+			fmt.Printf(`ttt %s - TTT Editor, Terminal Text Tool, an IDE for your terminal
 
 Usage: ttt [options] [files/folders/URLs...]
 
