@@ -1,11 +1,8 @@
 package app
 
 import (
-	"strings"
-
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
-	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/term"
 )
 
@@ -50,28 +47,11 @@ func (a *App) ApplySettings(s config.Settings) {
 	}
 }
 
-func (a *App) OpenDefaultSettings() {
-	text := config.DefaultSettingsText()
-	lines := strings.Split(text, "\n")
-	// Remove trailing empty line from the split if present
-	if len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-	buf := &buffer.Buffer{Lines: lines}
-	a.EditorGroup.OpenBuffer("Default Settings (Read Only)", buf)
-}
-
 func registerSettingsCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
 		ID: "settings.reload", Title: "Reload Settings",
 		Handler: app.ReloadSettings,
-	})
-
-	reg.Register(command.Command{
-		ID: "options.defaultSettings", Title: "Preferences: Open Default Settings",
-		Keywords: []string{"preferences", "settings", "configuration", "options", "defaults", "reference"},
-		Handler:  app.OpenDefaultSettings,
 	})
 }
