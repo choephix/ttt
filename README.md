@@ -24,7 +24,7 @@ curl -sSfL https://raw.githubusercontent.com/eugenioenko/ttt/main/install.sh | s
 
 ### [Arch Linux (AUR)](https://aur.archlinux.org/packages/ttt)
 
-Community-maintained by [@Dominiquini](https://github.com/Dominiquini).
+Thanks to [@Dominiquini](https://github.com/Dominiquini) for maintaining the AUR package.
 
 ```sh
 yay -S ttt
