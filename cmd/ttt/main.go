@@ -11,6 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/render"
@@ -115,6 +116,10 @@ Docs: https://tttedit.dev
 
 	screen.SetStyleMap(app.BuildStyleMap(cfg.Theme))
 	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.Editor.CursorStyle))
+
+	if tty, ok := screen.Tty(); ok {
+		clipboard.SetOSCWriter(tty)
+	}
 
 	lspManager := lsp.NewManager(cfg.Settings.LSP)
 	defer lspManager.Shutdown()

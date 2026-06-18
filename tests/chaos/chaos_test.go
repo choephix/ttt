@@ -14,6 +14,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/workspace"
@@ -46,6 +47,7 @@ type chaosHarness struct {
 }
 
 func newChaosHarness(seed int64) *chaosHarness {
+	clipboard.DisableSystem()
 	dir, _ := os.MkdirTemp("", "chaos-*")
 
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"), 0644)
@@ -104,6 +106,7 @@ func newChaosHarness(seed int64) *chaosHarness {
 }
 
 func (h *chaosHarness) cleanup() {
+	h.app.CloseAllTerminals()
 	h.screen.Fini()
 	os.RemoveAll(h.dir)
 }

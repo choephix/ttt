@@ -3,6 +3,7 @@ package clipboard
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -10,12 +11,17 @@ import (
 )
 
 var (
-	content      string
-	useSystem    = true
+	content   string
+	useSystem = true
+	oscWriter io.Writer
 )
 
 func DisableSystem() {
 	useSystem = false
+}
+
+func SetOSCWriter(w io.Writer) {
+	oscWriter = w
 }
 
 func Set(s string) {
@@ -35,8 +41,10 @@ func Get() string {
 }
 
 func writeSystemClipboard(s string) {
-	encoded := base64.StdEncoding.EncodeToString([]byte(s))
-	fmt.Fprintf(os.Stderr, "\033]52;c;%s\a", encoded)
+	if oscWriter != nil {
+		encoded := base64.StdEncoding.EncodeToString([]byte(s))
+		fmt.Fprintf(oscWriter, "\033]52;c;%s\a", encoded)
+	}
 
 	if name, args := findCopyCmd(); name != "" {
 		c := exec.Command(name, args...)

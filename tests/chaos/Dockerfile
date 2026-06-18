@@ -11,6 +11,8 @@ RUN go test -c -o /chaos-test ./tests/chaos/
 
 FROM alpine:3.21
 
+RUN apk add --no-cache bash
+
 COPY --from=builder /chaos-test /chaos-test
 
 ENV CHAOS_LOOP=1
