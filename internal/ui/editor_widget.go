@@ -493,9 +493,7 @@ func (e *EditorPaneWidget) Render(surface *RenderSurface) {
 		e.CursorX = curScreenCol + gutterW + r.X
 		e.CursorY = curVisRow - topVisRow + r.Y
 	} else {
-		if e.Cursor.Line >= len(e.Buf.Lines) {
-			e.Cursor.Line = len(e.Buf.Lines) - 1
-		}
+		e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 		cursorVisCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, tabW)
 		e.CursorX = cursorVisCol - e.Viewport.LeftCol + gutterW + r.X
 		if foldsActive {
@@ -856,10 +854,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 					cs.Line++
 					if e.Folds != nil {
 						if r := e.Folds.ContainingFold(cs.Line); r != nil {
-							cs.Line = r.EndLine + 1
-							if cs.Line >= len(e.Buf.Lines) {
-								cs.Line = len(e.Buf.Lines) - 1
-							}
+							cs.Line = e.Buf.ClampLine(r.EndLine + 1)
 						}
 					}
 					lineLen := len([]rune(e.Buf.Lines[cs.Line]))
@@ -948,10 +943,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case tcell.KeyPgUp:
 		e.startOrExtendSelection(shift)
-		e.Cursor.Line -= e.Viewport.Height
-		if e.Cursor.Line < 0 {
-			e.Cursor.Line = 0
-		}
+		e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line - e.Viewport.Height)
 		e.skipHiddenLineUp()
 		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
 		if e.Cursor.Col > lineLen {
@@ -959,10 +951,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case tcell.KeyPgDn:
 		e.startOrExtendSelection(shift)
-		e.Cursor.Line += e.Viewport.Height
-		if e.Cursor.Line >= len(e.Buf.Lines) {
-			e.Cursor.Line = len(e.Buf.Lines) - 1
-		}
+		e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line + e.Viewport.Height)
 		e.skipHiddenLineDown()
 		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
 		if e.Cursor.Col > lineLen {
@@ -1095,9 +1084,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		tabSize := e.resolveTabSize()
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-			if end.Line >= len(e.Buf.Lines) {
-				end.Line = len(e.Buf.Lines) - 1
-			}
+			end.Line = e.Buf.ClampLine(end.Line)
 			for line := start.Line; line <= end.Line; line++ {
 				remove := leadingIndentWidth(e.Buf.Lines[line], tabSize)
 				if remove > 0 {
@@ -1785,9 +1772,7 @@ func (e *EditorPaneWidget) DeleteLine() {
 		e.Cursor.Col = 0
 	} else {
 		e.exec(&undo.DeleteLineCommand{Idx: e.Cursor.Line})
-		if e.Cursor.Line >= len(e.Buf.Lines) {
-			e.Cursor.Line = len(e.Buf.Lines) - 1
-		}
+		e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	}
 	lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
 	if e.Cursor.Col > lineLen {
@@ -1875,15 +1860,8 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 			endLine--
 		}
 	}
-	if startLine >= len(e.Buf.Lines) {
-		startLine = len(e.Buf.Lines) - 1
-	}
-	if endLine >= len(e.Buf.Lines) {
-		endLine = len(e.Buf.Lines) - 1
-	}
-	if startLine < 0 || endLine < 0 {
-		return
-	}
+	startLine = e.Buf.ClampLine(startLine)
+	endLine = e.Buf.ClampLine(endLine)
 
 	allCommented := true
 	for l := startLine; l <= endLine; l++ {
@@ -2012,9 +1990,6 @@ func (e *EditorPaneWidget) UniqueLines() {
 		}
 	}
 	e.exec(&undo.ReplaceLinesCommand{Start: start, OldLines: old, NewLines: unique})
-	if e.Cursor.Line >= len(e.Buf.Lines) {
-		e.Cursor.Line = len(e.Buf.Lines) - 1
-	}
 	e.clampCursor()
 	e.scrollViewport()
 }
