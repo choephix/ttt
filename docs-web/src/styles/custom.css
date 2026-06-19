@@ -27,9 +27,11 @@
 .hero h1 {
   text-align: center;
   width: 100%;
+  position: relative;
 }
 
 .hero h1::after {
+  position: absolute;
   content: '_';
   animation: blink 1s step-end infinite;
   color: var(--sl-color-text);
