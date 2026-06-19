@@ -27,3 +27,4 @@ docs-web/dist/
 .DS_Store
 *.log
 docs-web/.astro/
+chaos-output/

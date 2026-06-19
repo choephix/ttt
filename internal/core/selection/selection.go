@@ -50,6 +50,9 @@ func (s *Selection) Text(lines []string, curLine, curCol int) string {
 		return ""
 	}
 	start, end := s.Range(curLine, curCol)
+	if start.Line >= len(lines) || end.Line >= len(lines) || start.Line < 0 || end.Line < 0 {
+		return ""
+	}
 	if start.Line == end.Line {
 		runes := []rune(lines[start.Line])
 		sc, ec := start.Col, end.Col

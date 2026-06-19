@@ -694,6 +694,9 @@ func (g *EditorGroupWidget) ReplaceMatch(match FindMatch, replacement string) {
 	if !g.IsEditorActive() {
 		return
 	}
+	if match.Line < 0 || match.Line >= len(g.Editor.Buf.Lines) {
+		return
+	}
 	runes := []rune(g.Editor.Buf.Lines[match.Line])
 	endCol := match.Col + match.Len
 	if endCol > len(runes) {

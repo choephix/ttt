@@ -1,6 +1,6 @@
 # Makefile for ttt - terminal text editor
 
-.PHONY: all test build run clean fmt lint
+.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build
 
 all: build
 
@@ -20,6 +20,16 @@ fmt:
 
 lint:
 	golint ./...
+
+chaos:
+	go test -v -count=1 ./tests/chaos/ -run TestChaosMonkey
+
+chaos-docker-build:
+	docker build -t ttt-chaos -f tests/chaos/Dockerfile .
+
+chaos-docker:
+	mkdir -p chaos-output
+	docker run --rm -v $(PWD)/chaos-output:/output ttt-chaos
 
 clean:
 	rm -rf bin/

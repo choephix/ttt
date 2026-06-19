@@ -51,7 +51,13 @@ func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) 
 	t.vt = vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithScrollback(scrollbackMax))
 
 	cmd := exec.Command(shell)
-	cmd.Dir = dir
+	// Verify dir exists before setting it — chaos monkey and random commands can
+	// delete the workspace dir, causing pty.Start to fail with "no such file or directory"
+	if dir != "" {
+		if _, err := os.Stat(dir); err == nil {
+			cmd.Dir = dir
+		}
+	}
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 

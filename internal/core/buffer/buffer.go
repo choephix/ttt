@@ -85,6 +85,16 @@ type Buffer struct {
 	diskInfoSet bool
 }
 
+func (b *Buffer) ClampLine(line int) int {
+	if line < 0 {
+		return 0
+	}
+	if line >= len(b.Lines) {
+		return len(b.Lines) - 1
+	}
+	return line
+}
+
 // InsertRune inserts a rune at the given line and column.
 func (b *Buffer) InsertRune(line, col int, r rune) {
 	if line < 0 || line >= len(b.Lines) {

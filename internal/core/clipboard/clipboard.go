@@ -3,6 +3,7 @@ package clipboard
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -10,12 +11,20 @@ import (
 )
 
 var (
-	content      string
-	useSystem    = true
+	content   string
+	useSystem = true
+	oscWriter io.Writer
 )
 
 func DisableSystem() {
 	useSystem = false
+}
+
+// SetOSCWriter sets the destination for OSC 52 clipboard escape sequences.
+// Without this, OSC 52 writes to raw stderr which leaks escape sequences in
+// headless, piped, and unsupported terminal contexts. Set to the tcell tty.
+func SetOSCWriter(w io.Writer) {
+	oscWriter = w
 }
 
 func Set(s string) {
@@ -35,8 +44,11 @@ func Get() string {
 }
 
 func writeSystemClipboard(s string) {
-	encoded := base64.StdEncoding.EncodeToString([]byte(s))
-	fmt.Fprintf(os.Stderr, "\033]52;c;%s\a", encoded)
+	// Only emit OSC 52 when a writer is configured — avoids leaking escape sequences
+	if oscWriter != nil {
+		encoded := base64.StdEncoding.EncodeToString([]byte(s))
+		fmt.Fprintf(oscWriter, "\033]52;c;%s\a", encoded)
+	}
 
 	if name, args := findCopyCmd(); name != "" {
 		c := exec.Command(name, args...)

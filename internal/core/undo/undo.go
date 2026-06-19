@@ -395,6 +395,10 @@ func (c *DeleteSelectionCommand) Apply(b *buffer.Buffer) {
 	if c.StartLine >= len(b.Lines) {
 		return
 	}
+	if c.EndLine >= len(b.Lines) {
+		c.EndLine = len(b.Lines) - 1
+		c.EndCol = len([]rune(b.Lines[c.EndLine]))
+	}
 
 	startRunes := []rune(b.Lines[c.StartLine])
 	sc := c.StartCol
@@ -407,6 +411,9 @@ func (c *DeleteSelectionCommand) Apply(b *buffer.Buffer) {
 		ec := c.EndCol
 		if ec > len(endRunes) {
 			ec = len(endRunes)
+		}
+		if sc > ec {
+			sc = ec
 		}
 		c.Deleted = string(endRunes[sc:ec])
 		b.Lines[c.StartLine] = string(startRunes[:sc]) + string(endRunes[ec:])

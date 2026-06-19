@@ -136,3 +136,7 @@ func (t *TcellScreen) SetCursorStyle(style CursorStyle) {
 func (t *TcellScreen) PostEvent(ev tcell.Event) error {
 	return t.scr.PostEvent(ev)
 }
+
+func (t *TcellScreen) Tty() (tcell.Tty, bool) {
+	return t.scr.Tty()
+}
