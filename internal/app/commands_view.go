@@ -268,10 +268,20 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "about", Title: "About ttt",
+		ID: "about", Title: "About TTT Editor",
 		Keywords: []string{"help", "version", "info"},
 		Handler: func() {
-			OpenURL("https://github.com/eugenioenko/ttt")
+			dialog := ui.NewInfoDialogWidget("About TTT Editor", []ui.InfoEntry{
+				{Key: "Version", Desc: app.Version},
+				{Key: "Website", Desc: "https://tttedit.dev"},
+				{Key: "GitHub", Desc: "https://github.com/eugenioenko/ttt"},
+			})
+			dialog.Borders = app.Borders
+			dialog.InvertStyles = true
+			dialog.OnDismiss = func() {
+				app.DismissDialog()
+			}
+			app.ShowDialog(dialog)
 		},
 	})
 }

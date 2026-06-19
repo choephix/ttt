@@ -74,6 +74,7 @@ type App struct {
 	Watcher            *watcher.Watcher
 	GitGutterGen       int
 	GitGutterTimer     *time.Timer
+	Version            string
 }
 
 func (a *App) KeyFor(cmd string) string {

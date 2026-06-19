@@ -132,6 +132,7 @@ Docs: https://tttedit.dev
 	editor, prURLs := app.BuildApp(&cfg, &borders)
 	editor.Init(screen, renderer, lspManager)
 
+	editor.Version = version
 	editor.Keybindings = cfg.Keybindings
 	editor.Reg = cmdRegistry
 	running := true
