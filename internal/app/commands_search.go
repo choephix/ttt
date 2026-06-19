@@ -71,7 +71,7 @@ func (a *App) OpenFindReplace() {
 		a.DismissDialog()
 		a.EditorGroup.ClearSearch()
 	}
-	a.ShowDialog(bar)
+	a.ShowFindBar(bar)
 }
 
 func (a *App) ClearGlobalSearch() {
