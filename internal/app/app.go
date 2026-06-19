@@ -481,9 +481,6 @@ func (a *App) Paste() {
 }
 
 func (a *App) ShowDialog(w ui.Widget) {
-	if a.Root.HasModalOverlay() {
-		a.Root.PopOverlay()
-	}
 	a.Root.PushOverlay(ui.Overlay{Widget: w, Modal: true})
 	a.Root.SetFocus(w)
 }

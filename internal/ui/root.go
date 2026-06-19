@@ -274,8 +274,8 @@ func (r *Root) Render(cells [][]term.Cell) {
 	}
 }
 
-func (r *Root) HasModalOverlay() bool {
-	return len(r.Overlays) > 0 && r.Overlays[len(r.Overlays)-1].Modal
+func (r *Root) HasOverlay() bool {
+	return len(r.Overlays) > 0
 }
 
 func (r *Root) PushOverlay(o Overlay) {
