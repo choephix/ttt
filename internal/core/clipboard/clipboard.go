@@ -20,6 +20,9 @@ func DisableSystem() {
 	useSystem = false
 }
 
+// SetOSCWriter sets the destination for OSC 52 clipboard escape sequences.
+// Without this, OSC 52 writes to raw stderr which leaks escape sequences in
+// headless, piped, and unsupported terminal contexts. Set to the tcell tty.
 func SetOSCWriter(w io.Writer) {
 	oscWriter = w
 }
@@ -41,6 +44,7 @@ func Get() string {
 }
 
 func writeSystemClipboard(s string) {
+	// Only emit OSC 52 when a writer is configured — avoids leaking escape sequences
 	if oscWriter != nil {
 		encoded := base64.StdEncoding.EncodeToString([]byte(s))
 		fmt.Fprintf(oscWriter, "\033]52;c;%s\a", encoded)

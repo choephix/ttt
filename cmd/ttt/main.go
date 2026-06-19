@@ -117,6 +117,7 @@ Docs: https://tttedit.dev
 	screen.SetStyleMap(app.BuildStyleMap(cfg.Theme))
 	screen.SetCursorStyle(term.ParseCursorStyle(cfg.Settings.Editor.CursorStyle))
 
+	// Route OSC 52 clipboard writes through the tty, not raw stderr
 	if tty, ok := screen.Tty(); ok {
 		clipboard.SetOSCWriter(tty)
 	}

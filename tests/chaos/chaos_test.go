@@ -47,6 +47,7 @@ type chaosHarness struct {
 }
 
 func newChaosHarness(seed int64) *chaosHarness {
+	// Prevent OSC 52 escape sequences from leaking into test output
 	clipboard.DisableSystem()
 	dir, _ := os.MkdirTemp("", "chaos-*")
 
@@ -106,6 +107,7 @@ func newChaosHarness(seed int64) *chaosHarness {
 }
 
 func (h *chaosHarness) cleanup() {
+	// Close terminals before removing the temp dir to avoid PTY fd leaks across iterations
 	h.app.CloseAllTerminals()
 	h.screen.Fini()
 	os.RemoveAll(h.dir)
