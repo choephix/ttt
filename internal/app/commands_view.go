@@ -9,11 +9,10 @@ import (
 func (a *App) ToggleTerminal() {
 	if !a.ContentSplit.ShowBottom {
 		r := a.ContentSplit.GetRect()
-		half := r.H / 2
-		if half > r.H-4 {
-			half = r.H - 4
+		maxH := r.H - 4
+		if a.ContentSplit.BottomH <= 1 || a.ContentSplit.BottomH > maxH {
+			a.ContentSplit.BottomH = min(r.H/2, maxH)
 		}
-		a.ContentSplit.BottomH = half
 		a.showTerminalPanel()
 	} else {
 		a.HideBottomPanel()
