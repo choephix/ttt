@@ -42,8 +42,6 @@ var (
 	fileLineRe = regexp.MustCompile(`(?:^|[\s(])([./~]?[^\s:*?"<>|]*\.[a-zA-Z0-9]+):(\d+)(?::(\d+))?`)
 )
 
-var linkColor = term.DirectColor{R: 100, G: 149, B: 237, Set: true}
-
 type TerminalWidget struct {
 	BaseWidget
 	Term         *terminal.Terminal
@@ -59,6 +57,7 @@ type TerminalWidget struct {
 	OnOpenURL  func(url string)
 	OnOpenFile func(path string, line int)
 	WorkDir    string
+	ctrlHeld   bool
 	linkCache  map[int][]linkSpan
 }
 
@@ -87,6 +86,10 @@ func (tw *TerminalWidget) CursorPosition() (x, y int, visible bool) {
 	return r.X + cx, r.Y + cy, tw.focused
 }
 
+func byteToRunePos(s string, byteIdx int) int {
+	return len([]rune(s[:byteIdx]))
+}
+
 func detectLinks(text string, workDir string) []linkSpan {
 	var spans []linkSpan
 
@@ -100,9 +103,10 @@ func detectLinks(text string, workDir string) []linkSpan {
 				break
 			}
 		}
-		endCol := loc[0] + len(url)
+		startCol := byteToRunePos(text, loc[0])
+		endCol := startCol + len([]rune(url))
 		spans = append(spans, linkSpan{
-			StartCol: loc[0],
+			StartCol: startCol,
 			EndCol:   endCol,
 			URL:      url,
 		})
@@ -126,10 +130,11 @@ func detectLinks(text string, workDir string) []linkSpan {
 			spanEnd = match[7]
 		}
 
-		startCol := match[2]
+		startCol := byteToRunePos(text, match[2])
+		endCol := byteToRunePos(text, spanEnd)
 		overlaps := false
 		for _, existing := range spans {
-			if startCol < existing.EndCol && spanEnd > existing.StartCol {
+			if startCol < existing.EndCol && endCol > existing.StartCol {
 				overlaps = true
 				break
 			}
@@ -140,7 +145,7 @@ func detectLinks(text string, workDir string) []linkSpan {
 
 		spans = append(spans, linkSpan{
 			StartCol: startCol,
-			EndCol:   spanEnd,
+			EndCol:   endCol,
 			IsFile:   true,
 			FilePath: resolvedPath,
 			Line:     lineNum,
@@ -258,13 +263,19 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 			contentW = w - 1
 		}
 
-		tw.linkCache = make(map[int][]linkSpan)
+		if tw.ctrlHeld {
+			tw.linkCache = make(map[int][]linkSpan)
+		} else {
+			tw.linkCache = nil
+		}
 
 		if tw.scrollOffset == 0 {
 			for y := 0; y < h && y < rows; y++ {
 				unifiedLine := sbLen + y
-				lineText := extractLineText(view, unifiedLine, contentW)
-				tw.linkCache[unifiedLine] = detectLinks(lineText, tw.WorkDir)
+				if tw.ctrlHeld {
+					lineText := extractLineText(view, unifiedLine, contentW)
+					tw.linkCache[unifiedLine] = detectLinks(lineText, tw.WorkDir)
+				}
 
 				for x := 0; x < contentW && x < cols; x++ {
 					c := tw.glyphToCell(view.Cell(x, y))
@@ -277,7 +288,6 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 							c.Bg = tw.Palette.Fg
 						}
 					} else if tw.linkAt(unifiedLine, x) != nil {
-						c.Fg = linkColor
 						c.Attrs |= term.CellAttrUnderline
 					}
 					surface.SetCell(x, y, c)
@@ -291,8 +301,10 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 
 			for screenY := 0; screenY < h; screenY++ {
 				srcLine := startLine + screenY
-				lineText := extractLineText(view, srcLine, contentW)
-				tw.linkCache[srcLine] = detectLinks(lineText, tw.WorkDir)
+				if tw.ctrlHeld {
+					lineText := extractLineText(view, srcLine, contentW)
+					tw.linkCache[srcLine] = detectLinks(lineText, tw.WorkDir)
+				}
 
 				if srcLine < sbLen {
 					sl := view.ScrollbackLine(srcLine)
@@ -312,7 +324,6 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 								c.Bg = tw.Palette.Fg
 							}
 						} else if tw.linkAt(srcLine, x) != nil {
-							c.Fg = linkColor
 							c.Attrs |= term.CellAttrUnderline
 						}
 						surface.SetCell(x, screenY, c)
@@ -331,7 +342,6 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 									c.Bg = tw.Palette.Fg
 								}
 							} else if tw.linkAt(srcLine, x) != nil {
-								c.Fg = linkColor
 								c.Attrs |= term.CellAttrUnderline
 							}
 							surface.SetCell(x, screenY, c)
@@ -463,6 +473,8 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 	case *tcell.EventMouse:
+		tw.ctrlHeld = tev.Modifiers()&tcell.ModCtrl != 0
+
 		if newTop, consumed := tw.scrollbar.HandleEvent(ev); consumed {
 			sbLen := tw.Term.ScrollbackLen()
 			tw.scrollOffset = sbLen - newTop
@@ -485,7 +497,7 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		if btn&tcell.Button1 != 0 {
-			if tev.Modifiers()&tcell.ModCtrl != 0 {
+			if tw.ctrlHeld {
 				pos := tw.screenToLine(mx, my)
 				if link := tw.linkAt(pos.Line, pos.Col); link != nil {
 					if link.IsFile && tw.OnOpenFile != nil {
