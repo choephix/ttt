@@ -8,6 +8,9 @@ import (
 )
 
 func (a *App) OpenCommandPalette(fileMode bool, initialText ...string) {
+	if a.Root.HasOverlay() {
+		return
+	}
 	palette := ui.NewSelectDialogWidget(a.Reg.List())
 	palette.Borders = a.Borders
 	palette.SetFiles(a.Workspace.Paths())

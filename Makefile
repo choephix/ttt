@@ -22,7 +22,7 @@ lint:
 	golint ./...
 
 chaos:
-	go test -v -count=1 ./tests/chaos/ -run TestChaosMonkey
+	go test -v -tags chaos -count=1 ./tests/chaos/ -run TestChaosMonkey
 
 chaos-docker-build:
 	docker build -t ttt-chaos -f tests/chaos/Dockerfile .

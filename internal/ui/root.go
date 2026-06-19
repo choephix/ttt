@@ -163,7 +163,10 @@ func (r *Root) handleOverlay(ev tcell.Event) EventResult {
 	top := r.Overlays[len(r.Overlays)-1]
 	slog.Debug("root", "action", "overlayIntercept", "modal", top.Modal, "count", len(r.Overlays))
 	result := top.Widget.HandleEvent(ev)
-	if top.Modal || result == EventConsumed {
+	if top.Modal {
+		return EventConsumed
+	}
+	if result == EventConsumed {
 		return result
 	}
 	return EventIgnored
@@ -269,6 +272,10 @@ func (r *Root) Render(cells [][]term.Cell) {
 		overlay.Widget.SetRect(Rect{X: 0, Y: 0, W: r.Width, H: r.Height})
 		overlay.Widget.Render(surface)
 	}
+}
+
+func (r *Root) HasOverlay() bool {
+	return len(r.Overlays) > 0
 }
 
 func (r *Root) PushOverlay(o Overlay) {

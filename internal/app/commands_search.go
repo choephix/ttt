@@ -6,6 +6,9 @@ import (
 )
 
 func (a *App) OpenFind() {
+	if a.Root.HasOverlay() {
+		return
+	}
 	dv := a.EditorGroup.ActiveDiffWidget()
 	if dv != nil {
 		a.showDiffFindBar(dv)
@@ -37,6 +40,9 @@ func (a *App) OpenFind() {
 }
 
 func (a *App) OpenFindReplace() {
+	if a.Root.HasOverlay() {
+		return
+	}
 	bar := ui.NewReplaceBarWidget()
 	bar.Borders = a.Borders
 	bar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
@@ -65,7 +71,7 @@ func (a *App) OpenFindReplace() {
 		a.DismissDialog()
 		a.EditorGroup.ClearSearch()
 	}
-	a.ShowDialog(bar)
+	a.ShowFindBar(bar)
 }
 
 func (a *App) ClearGlobalSearch() {
