@@ -13,11 +13,12 @@ type InfoEntry struct {
 
 type InfoDialogWidget struct {
 	BaseWidget
-	Title   string
-	Entries []InfoEntry
-	Width   int
-	Height  int
-	Borders *term.BorderSet
+	Title        string
+	Entries      []InfoEntry
+	Width        int
+	Height       int
+	Borders      *term.BorderSet
+	InvertStyles bool
 
 	OnDismiss func()
 
@@ -129,10 +130,14 @@ func (d *InfoDialogWidget) Render(surface *RenderSurface) {
 		if kx < boxX+2 {
 			kx = boxX + 2
 		}
-		surface.DrawText(kx, y, entry.Key, boxX+2+kw, term.StylePaletteItem)
+		keyStyle, descStyle := term.StylePaletteItem, term.StyleMuted
+		if d.InvertStyles {
+			keyStyle, descStyle = descStyle, keyStyle
+		}
+		surface.DrawText(kx, y, entry.Key, boxX+2+kw, keyStyle)
 
 		descX := boxX + 2 + kw + 2
-		surface.DrawText(descX, y, entry.Desc, boxX+boxW-2, term.StyleMuted)
+		surface.DrawText(descX, y, entry.Desc, boxX+boxW-2, descStyle)
 	}
 
 	if d.scrollTop > 0 {
