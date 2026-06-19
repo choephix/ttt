@@ -97,9 +97,7 @@ func matchKeyChord(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 
 func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 	kev, isKey := ev.(*tcell.EventKey)
-	hasModalOverlay := len(r.Overlays) > 0 && r.Overlays[len(r.Overlays)-1].Modal
-
-	if isKey && !hasModalOverlay {
+	if isKey {
 		for _, gk := range r.ForceKeys {
 			if matchKey(kev, gk) {
 				gk.Handler()
@@ -274,6 +272,10 @@ func (r *Root) Render(cells [][]term.Cell) {
 		overlay.Widget.SetRect(Rect{X: 0, Y: 0, W: r.Width, H: r.Height})
 		overlay.Widget.Render(surface)
 	}
+}
+
+func (r *Root) HasModalOverlay() bool {
+	return len(r.Overlays) > 0 && r.Overlays[len(r.Overlays)-1].Modal
 }
 
 func (r *Root) PushOverlay(o Overlay) {
