@@ -24,6 +24,11 @@
   text-align: center;
 }
 
+.hero h1 {
+  text-align: center;
+  width: 100%;
+}
+
 .hero h1::after {
   content: '_';
   animation: blink 1s step-end infinite;
