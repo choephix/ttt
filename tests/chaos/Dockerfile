@@ -7,7 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN go test -c -o /chaos-test ./tests/chaos/
+RUN go test -tags chaos -c -o /chaos-test ./tests/chaos/
 
 FROM alpine:3.21
 

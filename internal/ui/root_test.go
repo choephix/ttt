@@ -31,6 +31,19 @@ func (m *mockWidget) Render(surface *RenderSurface) {
 
 func (m *mockWidget) Focusable() bool { return m.focusable }
 
+type passThroughWidget struct {
+	BaseWidget
+	eventCount int
+}
+
+func (m *passThroughWidget) HandleEvent(ev tcell.Event) EventResult {
+	m.eventCount++
+	return EventIgnored
+}
+
+func (m *passThroughWidget) Render(surface *RenderSurface) {}
+func (m *passThroughWidget) Focusable() bool               { return true }
+
 func makeKeyEvent(key tcell.Key, mod tcell.ModMask) *tcell.EventKey {
 	return tcell.NewEventKey(key, 0, mod)
 }
@@ -251,6 +264,26 @@ func TestChordMatchesCaseInsensitiveReverse(t *testing.T) {
 	root.HandleEvent(ev)
 	if !fired {
 		t.Fatal("chord should fire with lowercase second key when registered as uppercase")
+	}
+}
+
+func TestModalOverlayBlocksGlobalKeysWhenUnhandled(t *testing.T) {
+	modal := &passThroughWidget{}
+	root := NewRoot(&mockWidget{})
+	root.SetSize(80, 24)
+	root.SetFocus(&mockWidget{focusable: true})
+	root.PushOverlay(Overlay{Widget: modal, Modal: true})
+
+	globalFired := false
+	root.AddGlobalKey(tcell.KeyCtrlP, tcell.ModCtrl, 0, func() { globalFired = true })
+
+	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlP, tcell.ModCtrl))
+
+	if globalFired {
+		t.Fatal("global key should not fire when modal overlay is active, even if overlay ignores the event")
+	}
+	if modal.eventCount != 1 {
+		t.Fatalf("modal overlay should have received the event, got %d", modal.eventCount)
 	}
 }
 

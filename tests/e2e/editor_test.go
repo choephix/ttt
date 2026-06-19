@@ -56,6 +56,21 @@ func TestCommandPaletteOpenClose(t *testing.T) {
 	}
 }
 
+func TestCommandPaletteDoesNotStack(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.pressCtrl(tcell.KeyCtrlP)
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay after first Ctrl+P, got %d", len(h.app.Root.Overlays))
+	}
+
+	h.pressCtrl(tcell.KeyCtrlP)
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay after second Ctrl+P, got %d", len(h.app.Root.Overlays))
+	}
+}
+
 func TestGoToLineDialog(t *testing.T) {
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
