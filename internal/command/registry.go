@@ -1,5 +1,7 @@
 package command
 
+import "sort"
+
 type Command struct {
 	ID       string
 	Title    string
@@ -53,5 +55,8 @@ func (r *Registry) List() []Command {
 	for _, cmd := range r.commands {
 		cmds = append(cmds, cmd)
 	}
+	sort.Slice(cmds, func(i, j int) bool {
+		return cmds[i].Title < cmds[j].Title
+	})
 	return cmds
 }
