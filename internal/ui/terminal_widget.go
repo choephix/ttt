@@ -3,14 +3,18 @@ package ui
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/eugenioenko/vt10x"
+	"github.com/gdamore/tcell/v2"
 )
 
 type TerminalColorPalette struct {
@@ -24,6 +28,22 @@ type termSelPos struct {
 	Line, Col int // Line = unified index (0 = oldest scrollback)
 }
 
+type linkSpan struct {
+	StartCol int
+	EndCol   int // exclusive
+	URL      string
+	IsFile   bool
+	FilePath string
+	Line     int // 1-based line number for file links (0 = no line)
+}
+
+var (
+	urlRe      = regexp.MustCompile(`https?://[^\s)>\]'"` + "`" + `]+`)
+	fileLineRe = regexp.MustCompile(`(?:^|[\s(])([./~]?[^\s:*?"<>|]*\.[a-zA-Z0-9]+):(\d+)(?::(\d+))?`)
+)
+
+var linkColor = term.DirectColor{R: 100, G: 149, B: 237, Set: true}
+
 type TerminalWidget struct {
 	BaseWidget
 	Term         *terminal.Terminal
@@ -35,6 +55,11 @@ type TerminalWidget struct {
 	hasSelection bool
 	selAnchor    termSelPos
 	selCurrent   termSelPos
+
+	OnOpenURL  func(url string)
+	OnOpenFile func(path string, line int)
+	WorkDir    string
+	linkCache  map[int][]linkSpan
 }
 
 func NewTerminalWidget(t *terminal.Terminal, palette *TerminalColorPalette) *TerminalWidget {
@@ -60,6 +85,147 @@ func (tw *TerminalWidget) CursorPosition() (x, y int, visible bool) {
 	r := tw.GetRect()
 	cx, cy := tw.Term.CursorPos()
 	return r.X + cx, r.Y + cy, tw.focused
+}
+
+func detectLinks(text string, workDir string) []linkSpan {
+	var spans []linkSpan
+
+	for _, loc := range urlRe.FindAllStringIndex(text, -1) {
+		url := text[loc[0]:loc[1]]
+		for len(url) > 0 {
+			last := url[len(url)-1]
+			if last == '.' || last == ',' || last == ';' || last == ':' {
+				url = url[:len(url)-1]
+			} else {
+				break
+			}
+		}
+		endCol := loc[0] + len(url)
+		spans = append(spans, linkSpan{
+			StartCol: loc[0],
+			EndCol:   endCol,
+			URL:      url,
+		})
+	}
+
+	for _, match := range fileLineRe.FindAllStringSubmatchIndex(text, -1) {
+		filePath := text[match[2]:match[3]]
+		lineStr := text[match[4]:match[5]]
+		lineNum, err := strconv.Atoi(lineStr)
+		if err != nil {
+			continue
+		}
+
+		resolvedPath := resolveFilePath(filePath, workDir)
+		if resolvedPath == "" {
+			continue
+		}
+
+		spanEnd := match[5]
+		if match[6] != -1 {
+			spanEnd = match[7]
+		}
+
+		startCol := match[2]
+		overlaps := false
+		for _, existing := range spans {
+			if startCol < existing.EndCol && spanEnd > existing.StartCol {
+				overlaps = true
+				break
+			}
+		}
+		if overlaps {
+			continue
+		}
+
+		spans = append(spans, linkSpan{
+			StartCol: startCol,
+			EndCol:   spanEnd,
+			IsFile:   true,
+			FilePath: resolvedPath,
+			Line:     lineNum,
+		})
+	}
+
+	return spans
+}
+
+func resolveFilePath(path string, workDir string) string {
+	if path == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			path = filepath.Join(home, path[2:])
+		}
+	}
+
+	if filepath.IsAbs(path) {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+		return ""
+	}
+
+	if workDir != "" {
+		abs := filepath.Join(workDir, path)
+		if _, err := os.Stat(abs); err == nil {
+			return abs
+		}
+	}
+
+	return ""
+}
+
+func extractLineText(view vt10x.View, unifiedLine int, maxCols int) string {
+	cols, rows := view.Size()
+	if maxCols > cols {
+		maxCols = cols
+	}
+	sbLen := view.ScrollbackLen()
+
+	var sb strings.Builder
+	if unifiedLine < sbLen {
+		sl := view.ScrollbackLine(unifiedLine)
+		for x := 0; x < maxCols; x++ {
+			if sl != nil && x < len(sl) {
+				ch := sl[x].Char
+				if ch == 0 {
+					ch = ' '
+				}
+				sb.WriteRune(ch)
+			} else {
+				sb.WriteByte(' ')
+			}
+		}
+	} else {
+		liveRow := unifiedLine - sbLen
+		if liveRow >= 0 && liveRow < rows {
+			for x := 0; x < maxCols; x++ {
+				ch := view.Cell(x, liveRow).Char
+				if ch == 0 {
+					ch = ' '
+				}
+				sb.WriteRune(ch)
+			}
+		}
+	}
+	return sb.String()
+}
+
+func (tw *TerminalWidget) linkAt(unifiedLine, col int) *linkSpan {
+	spans, ok := tw.linkCache[unifiedLine]
+	if !ok {
+		return nil
+	}
+	for i := range spans {
+		if col >= spans[i].StartCol && col < spans[i].EndCol {
+			return &spans[i]
+		}
+	}
+	return nil
 }
 
 func (tw *TerminalWidget) ScrollToBottom() {
@@ -92,9 +258,14 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 			contentW = w - 1
 		}
 
+		tw.linkCache = make(map[int][]linkSpan)
+
 		if tw.scrollOffset == 0 {
 			for y := 0; y < h && y < rows; y++ {
 				unifiedLine := sbLen + y
+				lineText := extractLineText(view, unifiedLine, contentW)
+				tw.linkCache[unifiedLine] = detectLinks(lineText, tw.WorkDir)
+
 				for x := 0; x < contentW && x < cols; x++ {
 					c := tw.glyphToCell(view.Cell(x, y))
 					if tw.isCellSelected(unifiedLine, x) {
@@ -105,6 +276,9 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 						if !c.Bg.Set {
 							c.Bg = tw.Palette.Fg
 						}
+					} else if tw.linkAt(unifiedLine, x) != nil {
+						c.Fg = linkColor
+						c.Attrs |= term.CellAttrUnderline
 					}
 					surface.SetCell(x, y, c)
 				}
@@ -117,6 +291,9 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 
 			for screenY := 0; screenY < h; screenY++ {
 				srcLine := startLine + screenY
+				lineText := extractLineText(view, srcLine, contentW)
+				tw.linkCache[srcLine] = detectLinks(lineText, tw.WorkDir)
+
 				if srcLine < sbLen {
 					sl := view.ScrollbackLine(srcLine)
 					for x := 0; x < contentW; x++ {
@@ -134,6 +311,9 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 							if !c.Bg.Set {
 								c.Bg = tw.Palette.Fg
 							}
+						} else if tw.linkAt(srcLine, x) != nil {
+							c.Fg = linkColor
+							c.Attrs |= term.CellAttrUnderline
 						}
 						surface.SetCell(x, screenY, c)
 					}
@@ -150,6 +330,9 @@ func (tw *TerminalWidget) Render(surface *RenderSurface) {
 								if !c.Bg.Set {
 									c.Bg = tw.Palette.Fg
 								}
+							} else if tw.linkAt(srcLine, x) != nil {
+								c.Fg = linkColor
+								c.Attrs |= term.CellAttrUnderline
 							}
 							surface.SetCell(x, screenY, c)
 						}
@@ -302,6 +485,18 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		if btn&tcell.Button1 != 0 {
+			if tev.Modifiers()&tcell.ModCtrl != 0 {
+				pos := tw.screenToLine(mx, my)
+				if link := tw.linkAt(pos.Line, pos.Col); link != nil {
+					if link.IsFile && tw.OnOpenFile != nil {
+						tw.OnOpenFile(link.FilePath, link.Line)
+					} else if !link.IsFile && tw.OnOpenURL != nil {
+						tw.OnOpenURL(link.URL)
+					}
+					return EventConsumed
+				}
+			}
+
 			pos := tw.screenToLine(mx, my)
 			if !tw.selecting {
 				tw.selecting = true
