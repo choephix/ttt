@@ -2040,6 +2040,21 @@ func wordBoundaryRight(runes []rune, col int) int {
 }
 
 func (e *EditorPaneWidget) MoveWordLeft(shift bool) {
+	if e.isMultiActive() && !shift {
+		e.multiMoveAll(func(cs *multicursor.CursorState) {
+			if cs.Col == 0 {
+				if cs.Line > 0 {
+					cs.Line--
+					cs.Col = len([]rune(e.Buf.Lines[cs.Line]))
+				}
+			} else {
+				runes := []rune(e.Buf.Lines[cs.Line])
+				cs.Col = wordBoundaryLeft(runes, cs.Col)
+			}
+		})
+		e.scrollViewport()
+		return
+	}
 	e.startOrExtendSelection(shift)
 	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	if e.Cursor.Col == 0 {
@@ -2056,6 +2071,21 @@ func (e *EditorPaneWidget) MoveWordLeft(shift bool) {
 }
 
 func (e *EditorPaneWidget) MoveWordRight(shift bool) {
+	if e.isMultiActive() && !shift {
+		e.multiMoveAll(func(cs *multicursor.CursorState) {
+			runes := []rune(e.Buf.Lines[cs.Line])
+			if cs.Col >= len(runes) {
+				if cs.Line < len(e.Buf.Lines)-1 {
+					cs.Line++
+					cs.Col = 0
+				}
+			} else {
+				cs.Col = wordBoundaryRight(runes, cs.Col)
+			}
+		})
+		e.scrollViewport()
+		return
+	}
 	e.startOrExtendSelection(shift)
 	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
@@ -2397,6 +2427,8 @@ func (e *EditorPaneWidget) SelectNextOccurrence() {
 	}
 	e.ensureMulti()
 	e.syncToMulti()
+	e.Multi.NormalizePrimary()
+	e.syncFromMulti()
 
 	searchWord := e.multiSearchWord
 	lastCursor := e.Multi.Cursors[len(e.Multi.Cursors)-1]
