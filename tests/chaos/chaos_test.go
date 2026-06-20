@@ -166,27 +166,27 @@ var chordFollowRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 func (h *chaosHarness) randomEvent() {
 	w, hh := h.app.Root.Width, h.app.Root.Height
 
-	switch h.rng.Intn(100) {
-	case 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-		20, 21, 22, 23, 24, 25, 26, 27, 28, 29:
+	n := h.rng.Intn(100)
+	switch {
+	case n >= 0 && n < 30:
 		// 30%: printable rune
 		r := printableRunes[h.rng.Intn(len(printableRunes))]
 		h.record("rune", string(r))
 		h.dispatch(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
 
-	case 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44:
+	case n >= 30 && n < 45:
 		// 15%: special key
 		k := specialKeys[h.rng.Intn(len(specialKeys))]
 		h.record("special", fmt.Sprintf("key=%d", k))
 		h.dispatch(tcell.NewEventKey(k, 0, tcell.ModNone))
 
-	case 45, 46, 47, 48, 49, 50, 51, 52, 53, 54:
+	case n >= 45 && n < 55:
 		// 10%: ctrl+key
 		k := ctrlKeys[h.rng.Intn(len(ctrlKeys))]
 		h.record("ctrl", fmt.Sprintf("key=%d", k))
 		h.dispatch(tcell.NewEventKey(k, 0, tcell.ModCtrl))
 
-	case 55, 56, 57, 58, 59, 60, 61, 62, 63, 64:
+	case n >= 55 && n < 65:
 		// 10%: chord (ctrl+k followed by a rune)
 		h.record("chord", "ctrl+k")
 		h.dispatch(tcell.NewEventKey(tcell.KeyCtrlK, 0, tcell.ModCtrl))
@@ -194,7 +194,7 @@ func (h *chaosHarness) randomEvent() {
 		h.record("chord-follow", string(r))
 		h.dispatch(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
 
-	case 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79:
+	case n >= 65 && n < 80:
 		// 15%: mouse click
 		mx := h.rng.Intn(w)
 		my := h.rng.Intn(hh)
@@ -202,7 +202,7 @@ func (h *chaosHarness) randomEvent() {
 		h.dispatch(tcell.NewEventMouse(mx, my, tcell.Button1, tcell.ModNone))
 		h.dispatch(tcell.NewEventMouse(mx, my, tcell.ButtonNone, tcell.ModNone))
 
-	case 80, 81, 82, 83, 84:
+	case n >= 80 && n < 85:
 		// 5%: mouse scroll
 		mx := h.rng.Intn(w)
 		my := h.rng.Intn(hh)
@@ -215,7 +215,7 @@ func (h *chaosHarness) randomEvent() {
 		h.record("scroll", fmt.Sprintf("x=%d,y=%d,dir=%s", mx, my, dir))
 		h.dispatch(tcell.NewEventMouse(mx, my, btn, tcell.ModNone))
 
-	case 85, 86, 87, 88, 89:
+	case n >= 85 && n < 90:
 		// 5%: resize
 		nw := 40 + h.rng.Intn(120)
 		nh := 10 + h.rng.Intn(50)
@@ -224,7 +224,7 @@ func (h *chaosHarness) randomEvent() {
 		h.app.Root.SetSize(nw, nh)
 		h.redraw()
 
-	case 90, 91, 92, 93, 94:
+	case n >= 90 && n < 95:
 		// 5%: execute random command
 		cmds := h.reg.List()
 		if len(cmds) > 0 {
@@ -236,7 +236,7 @@ func (h *chaosHarness) randomEvent() {
 		}
 
 	default:
-		// 10%: shift+special key
+		// 5%: shift+special key
 		k := specialKeys[h.rng.Intn(len(specialKeys))]
 		h.record("shift-special", fmt.Sprintf("key=%d", k))
 		h.dispatch(tcell.NewEventKey(k, 0, tcell.ModShift))
