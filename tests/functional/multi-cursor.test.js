@@ -164,4 +164,35 @@ describe("multi-cursor", () => {
     const content = readFile(file);
     expect(content).toBe("let x = 1;\nlet y = 2;\nlet z = 3;\n");
   });
+
+  it("should move all cursors with ctrl+right word movement", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "wordmove.txt", "test one\ntest two\ntest three");
+
+    tui.start(file);
+    tui.waitFor("test one");
+
+    tui.press("home");
+    tui.press("ctrl+d");
+    tui.waitStable();
+    tui.press("ctrl+d");
+    tui.waitStable();
+    tui.press("ctrl+d");
+    tui.waitStable();
+
+    // All cursors have "test" selected; word-right x2: skip space, then jump to end of number word
+    tui.exec("Move Word Right");
+    tui.waitStable();
+    tui.exec("Move Word Right");
+    tui.waitStable();
+
+    tui.type("!");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+
+    const content = readFile(file);
+    expect(content).toBe("test one!\ntest two!\ntest three!\n");
+  });
 });

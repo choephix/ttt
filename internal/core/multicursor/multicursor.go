@@ -109,6 +109,17 @@ func (mc *MultiCursor) Sort() {
 	}
 }
 
+func (mc *MultiCursor) NormalizePrimary() {
+	c := &mc.Cursors[mc.Primary]
+	if !c.Sel.Active {
+		return
+	}
+	start, end := c.Sel.Range(c.Line, c.Col)
+	c.Sel.Anchor = start
+	c.Line = end.Line
+	c.Col = end.Col
+}
+
 func (mc *MultiCursor) Deduplicate() {
 	if len(mc.Cursors) <= 1 {
 		return
