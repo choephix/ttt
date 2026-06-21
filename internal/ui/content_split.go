@@ -25,7 +25,7 @@ type ContentSplitWidget struct {
 func NewContentSplitWidget() *ContentSplitWidget {
 	return &ContentSplitWidget{
 		ShowBottom: false,
-		BottomH:    10,
+		BottomH:    15,
 	}
 }
 
