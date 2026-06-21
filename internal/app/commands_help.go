@@ -8,6 +8,8 @@ import (
 var explorerHelpEntries = []ui.InfoEntry{
 	{Key: "Enter", Desc: "Open file or toggle folder"},
 	{Key: "Space", Desc: "Open file or toggle folder"},
+	{Key: "Shift+Enter", Desc: "Open context menu"},
+	{Key: "Menu*", Desc: "Open context menu (terminal-dependent)"},
 	{Key: "Left", Desc: "Collapse folder"},
 	{Key: "Right", Desc: "Expand folder"},
 	{Key: "Up / Down", Desc: "Navigate items"},
