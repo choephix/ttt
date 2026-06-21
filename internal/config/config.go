@@ -55,7 +55,13 @@ func Load(settingsFile string) AppConfig {
 	return cfg
 }
 
+var OverrideConfigDir string
+
 func configPaths() []string {
+	if OverrideConfigDir != "" {
+		return []string{OverrideConfigDir}
+	}
+
 	var paths []string
 
 	if exe, err := os.Executable(); err == nil {
