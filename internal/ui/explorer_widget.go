@@ -32,6 +32,7 @@ type ExplorerWidget struct {
 	Settings   config.ExplorerSettings
 	OnOpenFile   func(path string)
 	OnRightClick func(node *TreeNode, screenX, screenY int)
+	OnRootMenu   func(node *TreeNode, screenX, screenY int)
 }
 
 func NewExplorerWidget(settings config.ExplorerSettings, rootPaths ...string) *ExplorerWidget {
@@ -59,6 +60,15 @@ func (e *ExplorerWidget) SelectedNode() *TreeNode {
 		return e.FlatList[e.Selected]
 	}
 	return nil
+}
+
+func (e *ExplorerWidget) IsRoot(node *TreeNode) bool {
+	for _, root := range e.Roots {
+		if root == node {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *ExplorerWidget) Reload() {
@@ -233,11 +243,31 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 			surface.SetCell(x, y, term.Cell{Ch: ch, Style: nameStyle})
 			x++
 		}
+
+		if e.IsRoot(node) && w >= 3 {
+			surface.SetCell(w-2, y, term.Cell{Ch: '⋮', Style: style})
+		}
 	}
 }
 
 func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 	r := e.GetRect()
+
+	if tev, ok := ev.(*tcell.EventMouse); ok {
+		if tev.Buttons()&tcell.Button1 != 0 {
+			mx, my := tev.Position()
+			idx := e.ScrollTop + (my - r.Y)
+			if idx >= 0 && idx < len(e.FlatList) && mx >= r.X+r.W-3 {
+				node := e.FlatList[idx]
+				if e.IsRoot(node) && e.OnRootMenu != nil {
+					e.Selected = idx
+					e.OnRootMenu(node, mx, my)
+					return EventConsumed
+				}
+			}
+		}
+	}
+
 	res := e.SelectableList.HandleListEvent(ev, r, len(e.FlatList))
 	if res.Result == EventConsumed {
 		switch res.Action {

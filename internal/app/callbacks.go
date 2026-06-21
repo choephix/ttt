@@ -479,6 +479,17 @@ func registerWidgetCallbacks(app *App) {
 	app.Search.OnReplace = app.ApplySearchReplace
 	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
 
+	app.Explorer.OnRootMenu = func(node *ui.TreeNode, sx, sy int) {
+		app.ExplorerContextNode = node
+		items := []ui.ContextMenuItem{
+			{Label: "Refresh", Command: "explorer.refresh"},
+			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
+			ui.MenuSep(),
+			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
+		}
+		openContextMenu(app, items, sx, sy)
+	}
+
 	app.Explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {
 		app.ExplorerContextNode = node
 		items := []ui.ContextMenuItem{
