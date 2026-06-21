@@ -138,11 +138,16 @@ func themeNameFromFile(filename string) string {
 }
 
 func ConfigFilePath(filename string) string {
-	for _, dir := range configPaths() {
+	paths := configPaths()
+	for _, dir := range paths {
 		path := filepath.Join(dir, filename)
 		if _, err := os.Stat(path); err == nil {
 			return path
 		}
+	}
+	if OverrideConfigDir != "" {
+		os.MkdirAll(OverrideConfigDir, 0755)
+		return filepath.Join(OverrideConfigDir, filename)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		dir := filepath.Join(home, ".config", "ttt")
