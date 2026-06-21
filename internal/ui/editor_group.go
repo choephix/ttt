@@ -72,6 +72,7 @@ type EditorGroupWidget struct {
 	LineNumbers            bool
 	GutterStyle             string
 	WordWrap                bool
+	SyntaxHighlight         bool
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	InsertFinalNewline      bool
@@ -194,10 +195,12 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Vp:          &view.Viewport{},
 		Undo:        &undo.UndoStack{},
 		Sel:         &selection.Selection{},
-		Highlighter: highlight.New(path),
 		Folds:       folds,
 		TabSize:     tabSize,
 		UseTabs:     useTabs,
+	}
+	if g.SyntaxHighlight {
+		newTab.Highlighter = highlight.New(path)
 	}
 	if t := g.activeTab(); t != nil && !t.Pinned && t.Content == nil && t.Buf != nil && !t.Buf.Dirty {
 		g.tabs[g.active] = newTab
@@ -236,13 +239,20 @@ func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff, oldLines, ne
 	tabName := path + " (diff)"
 	for i, t := range g.tabs {
 		if t.FilePath == tabName {
-			t.Content = NewDiffViewWidget(path, fd, oldLines, newLines, extended)
+			dw := NewDiffViewWidget(path, fd, oldLines, newLines, extended)
+			if !g.SyntaxHighlight {
+				dw.Highlighter = nil
+			}
+			t.Content = dw
 			g.tabs[i] = t
 			g.SwitchTab(i)
 			return
 		}
 	}
 	widget := NewDiffViewWidget(path, fd, oldLines, newLines, extended)
+	if !g.SyntaxHighlight {
+		widget.Highlighter = nil
+	}
 	g.tabs = append(g.tabs, editorTab{
 		FilePath: tabName,
 		Content:  widget,
@@ -495,7 +505,11 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 		return
 	}
 	t.FilePath = path
-	t.Highlighter = highlight.New(path)
+	if g.SyntaxHighlight {
+		t.Highlighter = highlight.New(path)
+	} else {
+		t.Highlighter = nil
+	}
 	g.syncTabs()
 }
 

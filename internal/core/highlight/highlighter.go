@@ -16,6 +16,7 @@ type Span struct {
 
 type Highlighter struct {
 	lexer chroma.Lexer
+	cache map[string][]Span
 }
 
 func New(filename string) *Highlighter {
@@ -32,6 +33,11 @@ func (h *Highlighter) Language() string {
 }
 
 func (h *Highlighter) HighlightLine(line string) []Span {
+	if h.cache != nil {
+		if cached, ok := h.cache[line]; ok {
+			return cached
+		}
+	}
 	iter, err := h.lexer.Tokenise(nil, line+"\n")
 	if err != nil {
 		return nil
@@ -54,7 +60,15 @@ func (h *Highlighter) HighlightLine(line string) []Span {
 		}
 		pos += runeLen
 	}
+	if h.cache == nil {
+		h.cache = make(map[string][]Span)
+	}
+	h.cache[line] = spans
 	return spans
+}
+
+func (h *Highlighter) ClearCache() {
+	h.cache = make(map[string][]Span)
 }
 
 func mapTokenType(t chroma.TokenType) term.Style {

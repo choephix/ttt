@@ -575,6 +575,9 @@ func (e *EditorPaneWidget) FlushOnChange() {
 		e.bufferDirty = false
 		e.maxLineWidthDirty = true
 		e.bracketColorDirty = true
+		if e.Highlighter != nil {
+			e.Highlighter.ClearCache()
+		}
 		if e.OnChange != nil {
 			e.OnChange()
 		}

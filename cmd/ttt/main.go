@@ -18,7 +18,10 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 )
 
-var version = "dev"
+var (
+	version         = "dev"
+	profilerEnabled bool
+)
 
 func initLogger(debug bool) *os.File {
 	if !debug {
@@ -96,6 +99,10 @@ Docs: https://tttedit.dev
 			fmt.Println("ttt " + version)
 			os.Exit(0)
 		}
+	}
+
+	if profilerEnabled {
+		defer startProfiler()()
 	}
 
 	cfg := config.Load(findConfigFlag())

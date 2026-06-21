@@ -1,6 +1,6 @@
 # Makefile for ttt - terminal text editor
 
-.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build
+.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build profiler
 
 all: build
 
@@ -30,6 +30,9 @@ chaos-docker-build:
 chaos-docker:
 	mkdir -p chaos-output
 	docker run --rm -v $(PWD)/chaos-output:/output ttt-chaos
+
+profiler:
+	go build -tags profiler -ldflags="-X main.version=$(VERSION)" -o bin/ttt-profiler ./cmd/ttt
 
 clean:
 	rm -rf bin/
