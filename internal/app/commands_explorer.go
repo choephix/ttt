@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
@@ -139,6 +140,12 @@ func (a *App) activeFilePath() string {
 	path := a.EditorGroup.ActiveFilePath()
 	if path == "untitled" {
 		return ""
+	}
+	path = strings.TrimSuffix(path, " (diff)")
+	if !filepath.IsAbs(path) {
+		if len(a.Workspace.Folders) > 0 {
+			path = filepath.Join(a.Workspace.Folders[0].Path, path)
+		}
 	}
 	return path
 }
