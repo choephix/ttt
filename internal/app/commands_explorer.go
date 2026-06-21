@@ -135,6 +135,20 @@ func (a *App) ExplorerCopyRelativePath() {
 	a.StatusNotify("Relative path copied to clipboard")
 }
 
+func (a *App) ExplorerRemoveRoot() {
+	path := a.explorerNodePath()
+	if path == "" {
+		return
+	}
+	a.ExplorerContextNode = nil
+	if len(a.Workspace.Paths()) <= 1 {
+		a.StatusWarn("Cannot remove the last folder")
+		return
+	}
+	a.Workspace.RemoveFolder(path)
+	a.refreshWorkspaceWidgets()
+}
+
 func (a *App) activeFilePath() string {
 	path := a.EditorGroup.ActiveFilePath()
 	if path == "untitled" {
@@ -229,5 +243,11 @@ func registerExplorerCommands(app *App) {
 		ID: "explorer.copyRelativePath", Title: "Explorer: Copy Relative Path",
 		Keywords: []string{"explorer", "file", "path", "copy", "clipboard", "relative"},
 		Handler:  app.ExplorerCopyRelativePath,
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.removeRoot", Title: "Explorer: Remove Folder from Workspace",
+		Keywords: []string{"explorer", "workspace", "folder", "remove"},
+		Handler:  app.ExplorerRemoveRoot,
 	})
 }
