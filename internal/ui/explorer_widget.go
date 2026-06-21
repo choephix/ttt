@@ -258,6 +258,14 @@ func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
 				e.ActivateSelected()
 				return EventConsumed
 			}
+		case tcell.KeyEnter:
+			if tev.Modifiers()&tcell.ModShift != 0 {
+				if e.OnRightClick != nil && e.Selected >= 0 && e.Selected < len(e.FlatList) {
+					r := e.GetRect()
+					e.OnRightClick(e.FlatList[e.Selected], r.X, r.Y+e.Selected-e.ScrollTop)
+				}
+				return EventConsumed
+			}
 		case tcell.KeyLeft:
 			e.collapseSelected()
 			return EventConsumed

@@ -96,7 +96,15 @@ func (sl *SelectableList) HandleListEvent(ev tcell.Event, rect Rect, itemCount i
 			}
 			return ListEventResult{Result: EventConsumed}
 		case tcell.KeyEnter:
-			return ListEventResult{Result: EventConsumed, Action: ListActionActivate}
+			if tev.Modifiers() == 0 {
+				return ListEventResult{Result: EventConsumed, Action: ListActionActivate}
+			}
+		case tcell.KeyMenu:
+			return ListEventResult{Result: EventConsumed, Action: ListActionContext, ScreenX: rect.X, ScreenY: rect.Y + sl.Selected - sl.ScrollTop}
+		case tcell.KeyF10:
+			if tev.Modifiers()&tcell.ModShift != 0 {
+				return ListEventResult{Result: EventConsumed, Action: ListActionContext, ScreenX: rect.X, ScreenY: rect.Y + sl.Selected - sl.ScrollTop}
+			}
 		}
 	}
 

@@ -116,6 +116,7 @@ Functional tests with `tui` are the highest-value tests. Use `tui.exec("Command 
 - **Selection operations**: check `Selection.Active` first. Use `Selection.Range(cursor.Line, cursor.Col)` for bounds. Convention: if no selection, operate on all lines (for line-based commands) or no-op (for text transforms).
 - **Keybindings**: `ctrl+shift` combos are unreliable in terminals — avoid them. Use `ctrl+k <key>` chords for new commands. Check `DefaultKeybindings()` in `internal/config/keybindings.go` before assigning to avoid collisions. If no obvious binding exists, leave the command as command palette only — not every command needs a keybinding.
 - **Overlay stacking**: commands that open overlays via keybindings must guard against being called twice with `if a.Root.HasOverlay() { return }`. `ShowDialog`/`ShowConfirmDialog` themselves have no guard so legitimate stacking (e.g. quit confirm) still works.
+- **Command handlers**: define handlers as named methods on `App` (e.g. `app.ExplorerRename`) and reference them in `reg.Register(...)`. Do not use inline closures for non-trivial handlers.
 
 ### Post-implementation review
 
