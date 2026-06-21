@@ -30,11 +30,18 @@ type TabBarWidget struct {
 	OnTabClick      func(index int)
 	OnTabClose      func(index int)
 	OnTabRightClick func(index, screenX, screenY int)
-	tabSpans        []tabSpan
+	OnPrevTab       func()
+	OnNextTab       func()
+	tabSpans         []tabSpan
+	hasOverflowLeft  bool
+	hasOverflowRight bool
+	totalTabWidth    int
+	closeDownX       int // screen X where mouse-down hit a close button, -1 if none
+	closeDownY       int
 }
 
 func NewTabBarWidget() *TabBarWidget {
-	return &TabBarWidget{}
+	return &TabBarWidget{closeDownX: -1}
 }
 
 func (t *TabBarWidget) SetTabs(tabs []Tab) {
@@ -83,11 +90,29 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 	}
 	t.tabSpans = spans
 
-	// Scroll to keep active tab visible
+	t.totalTabWidth = pos
+
+	// Determine if tabs overflow the available width
+	hasOverflow := pos > w
+	arrowW := 0
+	if hasOverflow {
+		arrowW = 3 // " ◀ " or " ▶ "
+	}
+	innerLeft := arrowW
+	innerRight := w - arrowW
+	if t.MoreButton != nil && w >= 5 {
+		innerRight = w - 4 - arrowW
+	}
+	innerW := innerRight - innerLeft
+	if innerW < 1 {
+		innerW = 1
+	}
+
+	// Scroll to keep active tab visible within the inner zone
 	if activeIdx >= 0 {
 		s := spans[activeIdx]
-		if s.end-t.ScrollOffset > w {
-			t.ScrollOffset = s.end - w
+		if s.end-t.ScrollOffset > innerW {
+			t.ScrollOffset = s.end - innerW
 		}
 		if s.start < t.ScrollOffset {
 			t.ScrollOffset = s.start
@@ -97,23 +122,26 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 		t.ScrollOffset = 0
 	}
 
+	t.hasOverflowLeft = t.ScrollOffset > 0
+	t.hasOverflowRight = pos-t.ScrollOffset > innerW
+
 	// Row 0: top of active tab ┌───┐, spaces elsewhere
 	for x := 0; x < w; x++ {
 		surface.SetCell(x, 0, term.Cell{Ch: ' '})
 	}
 	if activeIdx >= 0 {
 		s := spans[activeIdx]
-		sx := s.start - t.ScrollOffset
-		ex := s.end - t.ScrollOffset
-		if sx >= 0 && sx < w {
+		sx := s.start - t.ScrollOffset + innerLeft
+		ex := s.end - t.ScrollOffset + innerLeft
+		if sx >= innerLeft && sx < innerRight {
 			surface.SetCell(sx, 0, term.Cell{Ch: b.TopLeft, Style: bs})
 		}
 		for x := sx + 1; x < ex-1; x++ {
-			if x >= 0 && x < w {
+			if x >= innerLeft && x < innerRight {
 				surface.SetCell(x, 0, term.Cell{Ch: b.Horizontal, Style: bs})
 			}
 		}
-		if ex-1 > sx && ex-1 >= 0 && ex-1 < w {
+		if ex-1 > sx && ex-1 >= innerLeft && ex-1 < innerRight {
 			surface.SetCell(ex-1, 0, term.Cell{Ch: b.TopRight, Style: bs})
 		}
 	}
@@ -123,11 +151,11 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 		surface.SetCell(x, 1, term.Cell{Ch: ' '})
 	}
 	for i, s := range spans {
-		sx := s.start - t.ScrollOffset
-		ex := s.end - t.ScrollOffset
+		sx := s.start - t.ScrollOffset + innerLeft
+		ex := s.end - t.ScrollOffset + innerLeft
 		dirty := t.Tabs[i].Dirty
 		if s.active {
-			if sx >= 0 && sx < w {
+			if sx >= innerLeft && sx < innerRight {
 				surface.SetCell(sx, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
 			for ci, ch := range []rune(s.label) {
@@ -136,11 +164,11 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 					style = term.StyleWarning
 				}
 				x := sx + 1 + ci
-				if x >= 0 && x < w {
+				if x >= innerLeft && x < innerRight {
 					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style})
 				}
 			}
-			if ex-1 >= 0 && ex-1 < w {
+			if ex-1 >= innerLeft && ex-1 < innerRight {
 				surface.SetCell(ex-1, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
 		} else {
@@ -150,7 +178,7 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 					style = term.StyleWarning
 				}
 				x := sx + ci
-				if x >= 0 && x < w {
+				if x >= innerLeft && x < innerRight {
 					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style})
 				}
 			}
@@ -163,19 +191,27 @@ func (t *TabBarWidget) Render(surface *RenderSurface) {
 	}
 	if activeIdx >= 0 {
 		s := spans[activeIdx]
-		sx := s.start - t.ScrollOffset
-		ex := s.end - t.ScrollOffset
-		if sx >= 0 && sx < w {
+		sx := s.start - t.ScrollOffset + innerLeft
+		ex := s.end - t.ScrollOffset + innerLeft
+		if sx >= innerLeft && sx < innerRight {
 			surface.SetCell(sx, 2, term.Cell{Ch: b.BottomRight, Style: bs})
 		}
 		for x := sx + 1; x < ex-1; x++ {
-			if x >= 0 && x < w {
+			if x >= innerLeft && x < innerRight {
 				surface.SetCell(x, 2, term.Cell{Ch: ' '})
 			}
 		}
-		if ex-1 > sx && ex-1 >= 0 && ex-1 < w {
+		if ex-1 > sx && ex-1 >= innerLeft && ex-1 < innerRight {
 			surface.SetCell(ex-1, 2, term.Cell{Ch: b.BottomLeft, Style: bs})
 		}
+	}
+
+	// Arrow zones: " ◀ " on left, " ▶ " on right
+	if t.hasOverflowLeft {
+		surface.SetCell(1, 1, term.Cell{Ch: '◀', Style: term.StyleMuted})
+	}
+	if t.hasOverflowRight {
+		surface.SetCell(innerRight+1, 1, term.Cell{Ch: '▶', Style: term.StyleMuted})
 	}
 
 	if t.MoreButton != nil && w >= 5 {
@@ -208,8 +244,23 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 
+	// Mouse wheel on tab bar switches tabs
+	if btn&tcell.WheelUp != 0 && t.OnPrevTab != nil {
+		t.OnPrevTab()
+		return EventConsumed
+	}
+	if btn&tcell.WheelDown != 0 && t.OnNextTab != nil {
+		t.OnNextTab()
+		return EventConsumed
+	}
+
+	arrowW := 0
+	if t.hasOverflowLeft || t.hasOverflowRight {
+		arrowW = 3
+	}
+
 	if btn&tcell.Button2 != 0 && t.OnTabRightClick != nil {
-		localX := mx - r.X + t.ScrollOffset
+		localX := mx - r.X - arrowW + t.ScrollOffset
 		for i, s := range t.tabSpans {
 			if localX >= s.start && localX < s.end {
 				t.OnTabRightClick(i, mx, my)
@@ -218,17 +269,52 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
+	// Mouse release: only close if released at the exact same screen position as mouse-down
+	if btn == tcell.ButtonNone {
+		if t.closeDownX >= 0 && mx == t.closeDownX && my == t.closeDownY {
+			t.closeDownX = -1
+			localX := mx - r.X - arrowW + t.ScrollOffset
+			for i, s := range t.tabSpans {
+				if s.active && localX == s.end-3 && t.OnTabClose != nil {
+					t.OnTabClose(i)
+					return EventConsumed
+				}
+			}
+		}
+		t.closeDownX = -1
+		return EventIgnored
+	}
+
 	if btn&tcell.Button1 == 0 {
 		return EventIgnored
 	}
 
-	localX := mx - r.X + t.ScrollOffset
+	// Handle overflow arrow clicks — switch to prev/next tab
+	if t.hasOverflowLeft && mx >= r.X && mx < r.X+arrowW {
+		if t.OnPrevTab != nil {
+			t.OnPrevTab()
+		}
+		return EventConsumed
+	}
+	rightZoneStart := r.X + r.W - arrowW
+	if t.MoreButton != nil && r.W >= 5 {
+		rightZoneStart = r.X + r.W - 4 - arrowW
+	}
+	if t.hasOverflowRight && mx >= rightZoneStart && mx < rightZoneStart+arrowW {
+		if t.OnNextTab != nil {
+			t.OnNextTab()
+		}
+		return EventConsumed
+	}
+
+	localX := mx - r.X - arrowW + t.ScrollOffset
 	for i, s := range t.tabSpans {
 		if localX >= s.start && localX < s.end {
 			if s.active && t.OnTabClose != nil {
 				closeX := s.end - 3
 				if localX == closeX {
-					t.OnTabClose(i)
+					t.closeDownX = mx
+					t.closeDownY = my
 					return EventConsumed
 				}
 			}
