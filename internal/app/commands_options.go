@@ -24,6 +24,13 @@ func (a *App) ToggleWordWrap() {
 	config.SaveSettings(*a.Settings)
 }
 
+func (a *App) ToggleSyntaxHighlight() {
+	enabled := !a.Settings.Editor.IsSyntaxHighlightEnabled()
+	a.Settings.Editor.SyntaxHighlight = &enabled
+	config.SaveSettings(*a.Settings)
+	a.StatusNotify("Restart to apply syntax highlight changes")
+}
+
 func (a *App) ToggleBracketPairColorization() {
 	a.Settings.Editor.BracketPairColorization = !a.Settings.Editor.BracketPairColorization
 	a.EditorGroup.BracketPairColorization = a.Settings.Editor.BracketPairColorization
@@ -104,6 +111,12 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 
 func registerOptionsCommands(app *App) {
 	reg := app.Reg
+
+	reg.Register(command.Command{
+		ID: "options.toggleSyntaxHighlight", Title: "Toggle Syntax Highlight",
+		Keywords: []string{"preferences", "settings", "editor", "view", "performance"},
+		Handler:  app.ToggleSyntaxHighlight,
+	})
 
 	reg.Register(command.Command{
 		ID: "options.toggleLineNumbers", Title: "Toggle Line Numbers",

@@ -82,13 +82,16 @@ type EditorSettings struct {
 	InsertFinalNewline     bool   `json:"insertFinalNewline"`
 	TrimTrailingWhitespace bool `json:"trimTrailingWhitespace"`
 	FocusOnOpen            bool `json:"focusOnOpen"`
+	SyntaxHighlight         *bool  `json:"syntaxHighlight,omitempty"`
 	GitGutter               *bool  `json:"gitGutter,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`
 }
 
-// IsGitGutterEnabled returns whether git gutter indicators are enabled.
-// Defaults to true when the setting is not explicitly set.
+func (e EditorSettings) IsSyntaxHighlightEnabled() bool {
+	return e.SyntaxHighlight == nil || *e.SyntaxHighlight
+}
+
 func (e EditorSettings) IsGitGutterEnabled() bool {
 	return e.GitGutter == nil || *e.GitGutter
 }
