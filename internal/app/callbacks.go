@@ -443,6 +443,9 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Close", Shortcut: app.KeyFor("tab.close"), Command: "tab.close"},
 			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
+			ui.MenuSep(),
+			{Label: "Copy Absolute Path", Command: "file.copyAbsolutePath"},
+			{Label: "Copy Relative Path", Command: "file.copyRelativePath"},
 		}
 		if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
 			cmd := "diff.extendedView"
@@ -477,11 +480,15 @@ func registerWidgetCallbacks(app *App) {
 	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
 
 	app.Explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {
+		app.ExplorerContextNode = node
 		items := []ui.ContextMenuItem{
 			{Label: "Open", Command: "explorer.open"},
 			ui.MenuSep(),
 			{Label: "New File", Command: "explorer.newFile"},
 			{Label: "New Folder", Command: "explorer.newFolder"},
+			ui.MenuSep(),
+			{Label: "Copy Absolute Path", Command: "explorer.copyAbsolutePath"},
+			{Label: "Copy Relative Path", Command: "explorer.copyRelativePath"},
 			ui.MenuSep(),
 			{Label: "Rename", Command: "explorer.rename"},
 			{Label: "Delete", Command: "explorer.delete"},

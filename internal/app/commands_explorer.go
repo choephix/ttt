@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
 )
 
 func (a *App) ExplorerNewFile() {
@@ -90,6 +91,39 @@ func (a *App) ExplorerDelete() {
 	)
 }
 
+func (a *App) activeFilePath() string {
+	path := a.EditorGroup.ActiveFilePath()
+	if path == "untitled" {
+		return ""
+	}
+	return path
+}
+
+func (a *App) explorerNodePath() string {
+	if a.ExplorerContextNode != nil {
+		return a.ExplorerContextNode.Path
+	}
+	if node := a.Explorer.SelectedNode(); node != nil {
+		return node.Path
+	}
+	return ""
+}
+
+func (a *App) relativePath(absPath string) string {
+	if folder := a.Workspace.FolderForFile(absPath); folder != nil {
+		if rel, err := filepath.Rel(folder.Path, absPath); err == nil {
+			return rel
+		}
+	}
+	primary := a.Workspace.Primary()
+	if primary != "" {
+		if rel, err := filepath.Rel(primary, absPath); err == nil {
+			return rel
+		}
+	}
+	return absPath
+}
+
 func registerExplorerCommands(app *App) {
 	reg := app.Reg
 
@@ -127,5 +161,65 @@ func registerExplorerCommands(app *App) {
 		ID: "explorer.delete", Title: "Explorer: Delete",
 		Keywords: []string{"view", "file", "remove"},
 		Handler:  app.ExplorerDelete,
+	})
+
+	reg.Register(command.Command{
+		ID: "file.copyAbsolutePath", Title: "File: Copy Absolute Path",
+		Keywords: []string{"file", "path", "copy", "clipboard", "absolute"},
+		Handler: func() {
+			path := app.activeFilePath()
+			if path == "" {
+				app.StatusWarn("No file open")
+				return
+			}
+			clipboard.Set(path)
+			app.StatusNotify("Absolute path copied to clipboard")
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "file.copyRelativePath", Title: "File: Copy Relative Path",
+		Keywords: []string{"file", "path", "copy", "clipboard", "relative"},
+		Handler: func() {
+			path := app.activeFilePath()
+			if path == "" {
+				app.StatusWarn("No file open")
+				return
+			}
+			rel := app.relativePath(path)
+			clipboard.Set(rel)
+			app.StatusNotify("Relative path copied to clipboard")
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.copyAbsolutePath", Title: "Explorer: Copy Absolute Path",
+		Keywords: []string{"explorer", "file", "path", "copy", "clipboard", "absolute"},
+		Handler: func() {
+			path := app.explorerNodePath()
+			if path == "" {
+				app.StatusWarn("No file selected")
+				return
+			}
+			clipboard.Set(path)
+			app.ExplorerContextNode = nil
+			app.StatusNotify("Absolute path copied to clipboard")
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.copyRelativePath", Title: "Explorer: Copy Relative Path",
+		Keywords: []string{"explorer", "file", "path", "copy", "clipboard", "relative"},
+		Handler: func() {
+			path := app.explorerNodePath()
+			if path == "" {
+				app.StatusWarn("No file selected")
+				return
+			}
+			rel := app.relativePath(path)
+			clipboard.Set(rel)
+			app.ExplorerContextNode = nil
+			app.StatusNotify("Relative path copied to clipboard")
+		},
 	})
 }
