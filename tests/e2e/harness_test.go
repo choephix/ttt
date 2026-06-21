@@ -41,6 +41,11 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	os.MkdirAll(filepath.Join(dir, "subdir"), 0755)
 	os.WriteFile(filepath.Join(dir, "subdir", "nested.txt"), []byte("nested"), 0644)
 
+	configDir := filepath.Join(dir, "config")
+	os.MkdirAll(configDir, 0755)
+	config.OverrideConfigDir = configDir
+	t.Cleanup(func() { config.OverrideConfigDir = "" })
+
 	sim := tcell.NewSimulationScreen("")
 	if err := sim.Init(); err != nil {
 		t.Fatal(err)
