@@ -18,16 +18,20 @@ type ListEventResult struct {
 }
 
 type SelectableList struct {
-	Selected  int
-	ScrollTop int
+	Selected     int
+	ScrollTop    int
+	lastSelected int
 }
 
 func (sl *SelectableList) EnsureVisible(visibleHeight int) {
-	if sl.Selected < sl.ScrollTop {
-		sl.ScrollTop = sl.Selected
-	}
-	if sl.Selected >= sl.ScrollTop+visibleHeight {
-		sl.ScrollTop = sl.Selected - visibleHeight + 1
+	if sl.Selected != sl.lastSelected {
+		sl.lastSelected = sl.Selected
+		if sl.Selected < sl.ScrollTop {
+			sl.ScrollTop = sl.Selected
+		}
+		if sl.Selected >= sl.ScrollTop+visibleHeight {
+			sl.ScrollTop = sl.Selected - visibleHeight + 1
+		}
 	}
 }
 

@@ -26,13 +26,14 @@ type TreeNode struct {
 type ExplorerWidget struct {
 	BaseWidget
 	SelectableList
-	Roots      []*TreeNode
-	FlatList   []*TreeNode
-	ActiveFile string
-	Settings   config.ExplorerSettings
+	Roots        []*TreeNode
+	FlatList     []*TreeNode
+	ActiveFile   string
+	Settings     config.ExplorerSettings
 	OnOpenFile   func(path string)
 	OnRightClick func(node *TreeNode, screenX, screenY int)
 	OnRootMenu   func(node *TreeNode, screenX, screenY int)
+	scrollbar Scrollbar
 }
 
 func NewExplorerWidget(settings config.ExplorerSettings, rootPaths ...string) *ExplorerWidget {
@@ -189,6 +190,13 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 	}
 	e.EnsureVisible(visibleHeight)
 
+	r := e.GetRect()
+	e.scrollbar.X = r.X + w - 1
+	e.scrollbar.Y = r.Y
+	e.scrollbar.Height = visibleHeight
+	e.scrollbar.TotalItems = len(e.FlatList)
+	e.scrollbar.TopItem = e.ScrollTop
+
 	for i := 0; i < visibleHeight; i++ {
 		idx := e.ScrollTop + i
 		if idx >= len(e.FlatList) {
@@ -246,9 +254,19 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 			surface.SetCell(w-2, y, term.Cell{Ch: '⋮', Style: style})
 		}
 	}
+
+	e.scrollbar.Render(surface, w-1, 0)
 }
 
 func (e *ExplorerWidget) HandleEvent(ev tcell.Event) EventResult {
+	if newTop, consumed := e.scrollbar.HandleEvent(ev); consumed {
+		e.ScrollTop = newTop
+		if e.scrollbar.IsDragging() {
+			return EventCaptured
+		}
+		return EventConsumed
+	}
+
 	r := e.GetRect()
 
 	if tev, ok := ev.(*tcell.EventMouse); ok {
