@@ -11,6 +11,7 @@
     "trimTrailingWhitespace": false,
     "focusOnOpen": false,
     "gutterStyle": "compact",
+    "borderStyle": "default",
     "bracketPairColorization": false
   },
   "search": {

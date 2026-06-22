@@ -54,6 +54,7 @@ func (a *App) ShowThemePicker() {
 		a.Screen.SetStyleMap(BuildStyleMap(theme))
 		*a.Palette = BuildTerminalPalette(theme)
 		*a.Borders = BuildBorderSet(theme.Borders)
+		a.ApplyBorderStyle()
 		a.Renderer.Clear()
 	}
 	picker.OnSelectionChange = func(name string) {

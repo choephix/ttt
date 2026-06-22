@@ -85,6 +85,7 @@ type EditorSettings struct {
 	SyntaxHighlight         *bool  `json:"syntaxHighlight,omitempty"`
 	GitGutter               *bool  `json:"gitGutter,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
+	BorderStyle             string `json:"borderStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`
 }
 
@@ -103,6 +104,7 @@ func DefaultEditorSettings() EditorSettings {
 		LineNumbers:        true,
 		InsertFinalNewline: true,
 		GutterStyle:             "compact",
+		BorderStyle:             "default",
 		BracketPairColorization: false,
 	}
 }
@@ -158,6 +160,11 @@ func normalizeSettings(s *Settings) {
 	case "minimal", "compact", "extended":
 	default:
 		s.Editor.GutterStyle = "compact"
+	}
+	switch s.Editor.BorderStyle {
+	case "default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none":
+	default:
+		s.Editor.BorderStyle = "default"
 	}
 }
 
