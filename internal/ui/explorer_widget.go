@@ -227,8 +227,6 @@ func (e *ExplorerWidget) Render(surface *RenderSurface) {
 				surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 			}
 			x++
-		} else {
-			x += 2
 		}
 
 		// Name
