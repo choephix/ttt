@@ -383,7 +383,9 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ---
 
-## Phase 5 — Split Panes
+## Phase 5 — Split Panes *(deferred)*
+
+> **Note:** Users can achieve side-by-side editing today using tmux panes, Ghostty splits, or any terminal multiplexer — each running its own `ttt` instance. Native split panes would add shared buffers and tighter integration, but until there is user demand, this phase is deferred.
 
 - [ ] Ctrl+\ vertical split, Ctrl+- horizontal split (or via command palette)
 - [ ] Each pane is an independent editor with its own viewport, cursor, and tab bar
