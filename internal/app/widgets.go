@@ -175,6 +175,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
 
 	root := ui.NewRoot(rootBox)
+	root.CmdAsCtrl = cfg.Settings.Experimental.CmdAsCtrl
 	root.SetFocus(editorGroup)
 
 	return &App{

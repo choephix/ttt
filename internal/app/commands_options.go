@@ -120,6 +120,12 @@ func (a *App) ShowBorderStylePicker() {
 	})
 }
 
+func (a *App) ToggleCmdAsCtrl() {
+	a.Settings.Experimental.CmdAsCtrl = !a.Settings.Experimental.CmdAsCtrl
+	a.Root.CmdAsCtrl = a.Settings.Experimental.CmdAsCtrl
+	config.SaveSettings(*a.Settings)
+}
+
 func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 	lineNumbersChecked := ui.MenuUnchecked
 	if a.Settings.Editor.LineNumbers {
@@ -146,6 +152,11 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		gitGutterChecked = ui.MenuChecked
 	}
 
+	cmdAsCtrlChecked := ui.MenuUnchecked
+	if a.Settings.Experimental.CmdAsCtrl {
+		cmdAsCtrlChecked = ui.MenuChecked
+	}
+
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
@@ -156,6 +167,8 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		{Label: "Gutter Style", Command: "options.gutterStyle"},
 		{Label: "Border Style", Command: "options.borderStyle"},
 		{Label: "Indentation", Command: "options.indentation"},
+		ui.MenuSep(),
+		{Label: "Cmd as Ctrl", Command: "options.toggleCmdAsCtrl", Checked: cmdAsCtrlChecked},
 		ui.MenuSep(),
 		{Label: "Switch Theme", Command: "theme.switch"},
 		ui.MenuSep(),
@@ -218,5 +231,11 @@ func registerOptionsCommands(app *App) {
 		ID: "options.indentation", Title: "Editor Indentation",
 		Keywords: []string{"preferences", "settings", "editor", "indentation", "tabs", "spaces"},
 		Handler:  app.ShowIndentSettings,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleCmdAsCtrl", Title: "Experimental: Toggle Cmd as Ctrl",
+		Keywords: []string{"preferences", "settings", "experimental", "macos", "cmd", "super", "meta"},
+		Handler:  app.ToggleCmdAsCtrl,
 	})
 }
