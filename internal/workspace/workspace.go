@@ -25,6 +25,20 @@ type workspaceFolder struct {
 	Path string `json:"path"`
 }
 
+func ExpandPath(path string) string {
+	if path == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+	}
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
 func New(paths []string) *Workspace {
 	w := &Workspace{}
 	for _, p := range paths {
@@ -34,7 +48,7 @@ func New(paths []string) *Workspace {
 }
 
 func (w *Workspace) AddFolder(path string) {
-	abs, err := filepath.Abs(path)
+	abs, err := filepath.Abs(ExpandPath(path))
 	if err != nil {
 		abs = path
 	}
@@ -50,7 +64,7 @@ func (w *Workspace) AddFolder(path string) {
 }
 
 func (w *Workspace) RemoveFolder(path string) {
-	abs, err := filepath.Abs(path)
+	abs, err := filepath.Abs(ExpandPath(path))
 	if err != nil {
 		abs = path
 	}

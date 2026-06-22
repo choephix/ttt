@@ -50,7 +50,7 @@ func (a *App) OpenFolder() {
 		if path == "" {
 			return
 		}
-		abs, err := filepath.Abs(path)
+		abs, err := filepath.Abs(workspace.ExpandPath(path))
 		if err != nil {
 			a.StatusError("Error: " + err.Error())
 			return
@@ -76,7 +76,7 @@ func (a *App) AddWorkspaceFolder() {
 		if path == "" {
 			return
 		}
-		abs, err := filepath.Abs(path)
+		abs, err := filepath.Abs(workspace.ExpandPath(path))
 		if err != nil {
 			a.StatusError("Error: " + err.Error())
 			return
@@ -116,7 +116,7 @@ func (a *App) OpenWorkspace() {
 		if path == "" {
 			return
 		}
-		abs, err := filepath.Abs(path)
+		abs, err := filepath.Abs(workspace.ExpandPath(path))
 		if err != nil {
 			a.StatusError("Error: " + err.Error())
 			return
@@ -145,7 +145,7 @@ func (a *App) SaveWorkspace() {
 		if path == "" {
 			return
 		}
-		abs, err := filepath.Abs(path)
+		abs, err := filepath.Abs(workspace.ExpandPath(path))
 		if err != nil {
 			a.StatusError("Error: " + err.Error())
 			return

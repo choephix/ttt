@@ -38,7 +38,7 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 			}
 			continue
 		}
-		absPath, err := filepath.Abs(args[i])
+		absPath, err := filepath.Abs(workspace.ExpandPath(args[i]))
 		if err != nil {
 			openFiles = append(openFiles, args[i])
 			continue

@@ -6,6 +6,50 @@ import (
 	"testing"
 )
 
+func TestExpandPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot determine home dir")
+	}
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"~", home},
+		{"~/Documents", filepath.Join(home, "Documents")},
+		{"~/a/b/c", filepath.Join(home, "a", "b", "c")},
+		{"/absolute/path", "/absolute/path"},
+		{"relative/path", "relative/path"},
+		{"~user/path", "~user/path"},
+		{"", ""},
+		{"~/", filepath.Join(home, "")},
+	}
+
+	for _, tt := range tests {
+		got := ExpandPath(tt.input)
+		if got != tt.want {
+			t.Errorf("ExpandPath(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestAddFolderTilde(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot determine home dir")
+	}
+
+	ws := &Workspace{}
+	ws.AddFolder("~")
+	if len(ws.Folders) != 1 {
+		t.Fatalf("expected 1 folder, got %d", len(ws.Folders))
+	}
+	if ws.Folders[0].Path != home {
+		t.Errorf("expected %s, got %s", home, ws.Folders[0].Path)
+	}
+}
+
 func TestNew(t *testing.T) {
 	tmp := t.TempDir()
 	dir1 := filepath.Join(tmp, "repo1")
