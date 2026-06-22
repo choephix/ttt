@@ -52,10 +52,10 @@
       "fg": "#999999"
     },
     "activeLine": {
-      "bg": "#282828"
+      "bg": "#383838"
     },
     "selection": {
-      "bg": "#3a3d41"
+      "bg": "#434343"
     },
     "searchMatch": {},
     "searchActive": {}
