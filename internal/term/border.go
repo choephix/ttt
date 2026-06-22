@@ -103,7 +103,6 @@ func NoneBorderSet() BorderSet {
 	}
 }
 
-
 func BorderSetByName(name string) BorderSet {
 	switch name {
 	case "rounded":
@@ -116,9 +115,9 @@ func BorderSetByName(name string) BorderSet {
 		return BoldBorderSet()
 	case "ascii":
 		return AsciiBorderSet()
-case "none":
+	case "none":
 		return NoneBorderSet()
 	default:
-		return RoundedBorderSet()
+		return SingleBorderSet()
 	}
 }

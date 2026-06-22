@@ -122,7 +122,7 @@ func firstRune(s string, fallback rune) rune {
 }
 
 func BuildBorderSet(bc config.BorderChars) term.BorderSet {
-	d := term.RoundedBorderSet()
+	d := term.SingleBorderSet()
 	return term.BorderSet{
 		Horizontal:  firstRune(bc.Horizontal, d.Horizontal),
 		Vertical:    firstRune(bc.Vertical, d.Vertical),
