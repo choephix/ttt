@@ -235,4 +235,4 @@ Below is a complete theme file showing every configurable section. All color val
 | `scrollbar` | Scrollbar thumb (`fg`) and track (`bg`) colors |
 | `syntax` | Syntax highlighting colors for language tokens |
 | `terminal` | ANSI color palette for the integrated terminal (16 colors) |
-| `borders` | Unicode characters used for drawing box borders |
+| `borders` | Unicode characters used for drawing box borders. Overridden when `borderStyle` in settings is set to a named preset (e.g. `"rounded"`, `"double"`). Use `"default"` or `"theme"` to respect the theme's borders. |
