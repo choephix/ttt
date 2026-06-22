@@ -102,13 +102,7 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		mod := kev.Modifiers()
 		if mod&tcell.ModMeta != 0 {
 			mod = (mod &^ tcell.ModMeta) | tcell.ModCtrl
-			key, ch := kev.Key(), kev.Rune()
-			if key == tcell.KeyRune && ch >= 'a' && ch <= 'z' {
-				key = tcell.KeyCtrlA + tcell.Key(ch-'a')
-			} else if key == tcell.KeyRune && ch >= 'A' && ch <= 'Z' {
-				key = tcell.KeyCtrlA + tcell.Key(ch-'A')
-			}
-			ev = tcell.NewEventKey(key, ch, mod)
+			ev = tcell.NewEventKey(kev.Key(), kev.Rune(), mod)
 			kev = ev.(*tcell.EventKey)
 		}
 	}
