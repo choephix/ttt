@@ -137,6 +137,7 @@ Docs: https://tttedit.dev
 	borders := app.BuildBorderSet(cfg.Theme.Borders)
 
 	editor, prURLs := app.BuildApp(&cfg, &borders)
+	editor.ApplyBorderStyle()
 	editor.Init(screen, renderer, lspManager)
 
 	editor.Version = version

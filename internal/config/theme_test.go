@@ -259,7 +259,7 @@ func TestDefaultThemeBorders(t *testing.T) {
 	if th.Borders.Vertical != "│" {
 		t.Errorf("expected Borders.Vertical '│', got %q", th.Borders.Vertical)
 	}
-	if th.Borders.TopLeft != "┌" {
-		t.Errorf("expected Borders.TopLeft '┌', got %q", th.Borders.TopLeft)
+	if th.Borders.TopLeft != "╭" {
+		t.Errorf("expected Borders.TopLeft '╭', got %q", th.Borders.TopLeft)
 	}
 }

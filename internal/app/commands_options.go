@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
@@ -78,6 +79,47 @@ func (a *App) ShowGutterStylePicker() {
 	})
 }
 
+func (a *App) SetBorderStyle(style string) {
+	a.Settings.Editor.BorderStyle = style
+	a.ApplyBorderStyle()
+	config.SaveSettings(*a.Settings)
+}
+
+func (a *App) ApplyBorderStyle() {
+	style := a.Settings.Editor.BorderStyle
+	switch style {
+	case "default", "theme", "":
+		// use whatever BuildBorderSet resolved from the theme (defaults to rounded)
+	case "rounded":
+		*a.Borders = term.RoundedBorderSet()
+	case "sharp":
+		*a.Borders = term.SingleBorderSet()
+	case "double":
+		*a.Borders = term.DoubleBorderSet()
+	case "bold":
+		*a.Borders = term.BoldBorderSet()
+	case "ascii":
+		*a.Borders = term.AsciiBorderSet()
+case "none":
+		*a.Borders = term.NoneBorderSet()
+	}
+}
+
+func (a *App) ShowBorderStylePicker() {
+	styles := []command.Command{
+		{ID: "default", Title: "Default"},
+		{ID: "rounded", Title: "Rounded"},
+		{ID: "sharp", Title: "Sharp"},
+		{ID: "double", Title: "Double"},
+		{ID: "bold", Title: "Bold"},
+		{ID: "ascii", Title: "ASCII"},
+{ID: "none", Title: "None"},
+	}
+	a.ShowPicker(styles, func(id string) {
+		a.SetBorderStyle(id)
+	})
+}
+
 func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 	lineNumbersChecked := ui.MenuUnchecked
 	if a.Settings.Editor.LineNumbers {
@@ -112,6 +154,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		{Label: "Git Gutter", Command: "options.toggleGitGutter", Checked: gitGutterChecked},
 		ui.MenuSep(),
 		{Label: "Gutter Style", Command: "options.gutterStyle"},
+		{Label: "Border Style", Command: "options.borderStyle"},
 		{Label: "Indentation", Command: "options.indentation"},
 		ui.MenuSep(),
 		{Label: "Switch Theme", Command: "theme.switch"},
@@ -163,6 +206,12 @@ func registerOptionsCommands(app *App) {
 		ID: "options.gutterStyle", Title: "Change Gutter Style",
 		Keywords: []string{"preferences", "settings", "editor", "view"},
 		Handler:  app.ShowGutterStylePicker,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.borderStyle", Title: "Change Border Style",
+		Keywords: []string{"preferences", "settings", "editor", "view", "borders", "rounded", "sharp"},
+		Handler:  app.ShowBorderStylePicker,
 	})
 
 	reg.Register(command.Command{

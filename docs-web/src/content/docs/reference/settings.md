@@ -25,6 +25,7 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
 | `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
 | `insertFinalNewline` | bool | `true` | Ensure files end with a newline on load and save |
 | `bracketPairColorization` | bool | `false` | Colorize matching bracket pairs by nesting depth |
+| `borderStyle` | string | `"default"` | Border style preset: `"default"`, `"rounded"`, `"sharp"`, `"double"`, `"bold"`, `"ascii"`, `"none"`. Use `"default"` or `"theme"` to defer to the active theme. |
 
 ## Explorer
 
@@ -77,6 +78,7 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
   "formatOnSave": true,
   "insertFinalNewline": true,
   "bracketPairColorization": false,
+  "borderStyle": "default",
   "search": {
     "debounce": 350
   },

@@ -42,6 +42,7 @@ func (a *App) ApplySettings(s config.Settings) {
 			a.Screen.SetStyleMap(BuildStyleMap(theme))
 			*a.Palette = BuildTerminalPalette(theme)
 			*a.Borders = BuildBorderSet(theme.Borders)
+			a.ApplyBorderStyle()
 			a.Renderer.Clear()
 		}
 	}
