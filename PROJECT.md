@@ -383,7 +383,9 @@ The key refactor is: `main.go`'s monolithic event loop and manual coordinate mat
 
 ---
 
-## Phase 5 — Split Panes
+## Phase 5 — Split Panes *(deferred)*
+
+> **Note:** Users can achieve side-by-side editing today using tmux panes, Ghostty splits, or any terminal multiplexer — each running its own `ttt` instance. Native split panes would add shared buffers and tighter integration, but until there is user demand, this phase is deferred.
 
 - [ ] Ctrl+\ vertical split, Ctrl+- horizontal split (or via command palette)
 - [ ] Each pane is an independent editor with its own viewport, cursor, and tab bar
@@ -975,16 +977,16 @@ One thing the core needs to support: `editor/openFile` must accept absolute path
 
 ## Future Ideas (unscoped)
 
-- Integrated terminal panel (bottom panel runs a shell)
-- Git integration: gutter indicators for added/modified/deleted lines, branch name in status bar
-- Multi-cursor editing (Ctrl+D to select next occurrence)
-- Minimap
-- Bracket matching and auto-close
-- LSP client for autocomplete, diagnostics, go-to-definition
-- Session restore (reopen last files and layout)
-- Snippet support
-- Macro recording and playback
-- Plugin marketplace / registry
+- [x] Integrated terminal panel (bottom panel runs a shell)
+- [x] Git integration: gutter indicators for added/modified/deleted lines, branch name in status bar
+- [x] Multi-cursor editing (Ctrl+D to select next occurrence)
+- [x] Bracket matching and auto-close
+- [x] LSP client for autocomplete, diagnostics, go-to-definition
+- [ ] Session restore (reopen last files and layout) — consider storing open tabs and layout in `.ttt` workspace files so restoring a session is just `ttt project.ttt`
+- [ ] Plugin marketplace / registry
+- [ ] ~~Minimap~~ — deprioritized, terminal resolution too low to be useful
+- [ ] ~~Snippet support~~ — deprioritized
+- [ ] ~~Macro recording and playback~~ — deprioritized
 
 ---
 
