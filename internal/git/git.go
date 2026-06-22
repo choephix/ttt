@@ -115,8 +115,20 @@ func Pull(dir string) error {
 	return nil
 }
 
+func hasUpstream(dir string) bool {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	return cmd.Run() == nil
+}
+
 func Push(dir string) error {
-	cmd := exec.Command("git", "-C", dir, "push")
+	args := []string{"-C", dir, "push"}
+	if !hasUpstream(dir) {
+		branch := BranchName(dir)
+		if branch != "" {
+			args = []string{"-C", dir, "push", "--set-upstream", "origin", branch}
+		}
+	}
+	cmd := exec.Command("git", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
 	}
