@@ -218,27 +218,6 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	}
 }
 
-func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
-	for i, t := range g.tabs {
-		if t.FilePath == path {
-			g.SwitchTab(i)
-			return
-		}
-	}
-	folds := fold.NewState()
-	folds.SetRanges(fold.ComputeIndentRanges(buf.Lines))
-	g.tabs = append(g.tabs, editorTab{
-		FilePath: path,
-		Buf:      buf,
-		Cur:      &cursor.Cursor{},
-		Vp:       &view.Viewport{},
-		Undo:     &undo.UndoStack{},
-		Sel:      &selection.Selection{},
-		Folds:    folds,
-	})
-	g.SwitchTab(len(g.tabs) - 1)
-}
-
 func (g *EditorGroupWidget) NewFile() {
 	name := g.nextUntitledName()
 	g.tabs = append(g.tabs, editorTab{

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/gdamore/tcell/v2"
 )
@@ -249,10 +248,9 @@ func TestScrollDown_FoldAware(t *testing.T) {
 func TestOpenBuffer_HasFoldState(t *testing.T) {
 	h := newTestHarness(t, 80, 30)
 
-	buf := &buffer.Buffer{
-		Lines: []string{"func main() {", "\ta()", "\tb()", "}"},
-	}
-	h.app.EditorGroup.OpenBuffer("test.go", buf)
+	path := filepath.Join(h.dir, "test.go")
+	os.WriteFile(path, []byte("func main() {\n\ta()\n\tb()\n}"), 0644)
+	h.app.EditorGroup.OpenFile(path)
 	h.redraw()
 
 	folds := h.app.EditorGroup.Editor.Folds
