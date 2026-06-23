@@ -35,8 +35,8 @@ func TestNewFile(t *testing.T) {
 	defer h.stop()
 
 	h.exec("file.new")
-	if h.app.EditorGroup.ActiveFilePath() != "untitled" {
-		t.Errorf("expected path 'untitled', got %q", h.app.EditorGroup.ActiveFilePath())
+	if !h.app.EditorGroup.IsActiveVirtual() {
+		t.Error("expected new file tab to be virtual")
 	}
 	h.assertContains("untitled")
 }

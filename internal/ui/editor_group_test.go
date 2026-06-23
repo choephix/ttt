@@ -6,6 +6,73 @@ import (
 	"testing"
 )
 
+func TestInitialTabIsVirtual(t *testing.T) {
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	if !g.tabs[0].Virtual {
+		t.Fatal("expected initial tab to be virtual")
+	}
+}
+
+func TestNewFileAlwaysCreatesTab(t *testing.T) {
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	if len(g.tabs) != 1 || g.tabs[0].FilePath != "untitled" {
+		t.Fatal("expected initial untitled tab")
+	}
+
+	g.tabs[0].Buf.Lines = []string{"some content"}
+	g.tabs[0].Buf.Dirty = true
+
+	g.NewFile()
+	if len(g.tabs) != 2 {
+		t.Fatalf("expected 2 tabs, got %d", len(g.tabs))
+	}
+	if g.tabs[1].FilePath != "untitled-2" {
+		t.Errorf("expected 'untitled-2', got %q", g.tabs[1].FilePath)
+	}
+	if g.active != 1 {
+		t.Errorf("expected active tab 1, got %d", g.active)
+	}
+}
+
+func TestNewFileSequentialNaming(t *testing.T) {
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+
+	g.NewFile()
+	g.NewFile()
+	g.NewFile()
+
+	if len(g.tabs) != 4 {
+		t.Fatalf("expected 4 tabs, got %d", len(g.tabs))
+	}
+	expected := []string{"untitled", "untitled-2", "untitled-3", "untitled-4"}
+	for i, want := range expected {
+		if g.tabs[i].FilePath != want {
+			t.Errorf("tab %d: got %q, want %q", i, g.tabs[i].FilePath, want)
+		}
+	}
+}
+
+func TestNewFileReusesNameAfterClose(t *testing.T) {
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.NewFile() // untitled-2
+
+	g.SwitchTab(0)
+	g.CloseTab()
+
+	if g.tabs[0].FilePath != "untitled-2" {
+		t.Fatalf("expected remaining tab 'untitled-2', got %q", g.tabs[0].FilePath)
+	}
+
+	g.NewFile()
+	names := make(map[string]bool)
+	for _, tab := range g.tabs {
+		names[tab.FilePath] = true
+	}
+	if !names["untitled"] {
+		t.Error("expected 'untitled' to be reused after close")
+	}
+}
+
 func TestEditorGroupOpenFileNotFound(t *testing.T) {
 	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string
@@ -46,6 +113,7 @@ func TestEditorGroupSaveError(t *testing.T) {
 	g.OnError = func(msg string) { errMsg = msg }
 
 	g.tabs[0].FilePath = "/nonexistent/dir/file.txt"
+	g.tabs[0].Virtual = false
 	g.tabs[0].Buf.Lines = []string{"test"}
 
 	ok := g.Save()
@@ -66,6 +134,7 @@ func TestEditorGroupSaveSuccess(t *testing.T) {
 	g.OnError = func(msg string) { errMsg = msg }
 
 	g.tabs[0].FilePath = path
+	g.tabs[0].Virtual = false
 	g.tabs[0].Buf.Lines = []string{"saved content"}
 
 	ok := g.Save()
@@ -113,5 +182,8 @@ func TestEditorGroupSaveAsSuccess(t *testing.T) {
 	}
 	if g.tabs[0].FilePath != path {
 		t.Fatalf("expected FilePath to be %s, got %s", path, g.tabs[0].FilePath)
+	}
+	if g.tabs[0].Virtual {
+		t.Fatal("SaveAs should clear Virtual flag")
 	}
 }

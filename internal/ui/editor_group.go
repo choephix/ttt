@@ -55,6 +55,7 @@ type editorTab struct {
 	UseTabs     bool
 	Content     Widget
 	Pinned      bool
+	Virtual     bool
 	LineChanges []diff.LineChangeKind
 }
 
@@ -122,6 +123,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 		Vp:       editor.Viewport,
 		Undo:     undoStack,
 		Sel:      sel,
+		Virtual:  true,
 	}}
 	g.syncTabs()
 	return g
@@ -237,6 +239,38 @@ func (g *EditorGroupWidget) OpenBuffer(path string, buf *buffer.Buffer) {
 	g.SwitchTab(len(g.tabs) - 1)
 }
 
+func (g *EditorGroupWidget) NewFile() {
+	name := g.nextUntitledName()
+	g.tabs = append(g.tabs, editorTab{
+		FilePath: name,
+		Buf:      &buffer.Buffer{Lines: []string{""}},
+		Cur:      &cursor.Cursor{},
+		Vp:       &view.Viewport{},
+		Undo:     &undo.UndoStack{},
+		Sel:      &selection.Selection{},
+		Virtual:  true,
+	})
+	g.SwitchTab(len(g.tabs) - 1)
+}
+
+func (g *EditorGroupWidget) nextUntitledName() string {
+	taken := make(map[string]bool)
+	for _, t := range g.tabs {
+		if t.Virtual {
+			taken[t.FilePath] = true
+		}
+	}
+	if !taken["untitled"] {
+		return "untitled"
+	}
+	for n := 2; ; n++ {
+		name := fmt.Sprintf("untitled-%d", n)
+		if !taken[name] {
+			return name
+		}
+	}
+}
+
 func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff, oldLines, newLines []string, extended bool) {
 	tabName := path + " (diff)"
 	for i, t := range g.tabs {
@@ -312,7 +346,7 @@ func (g *EditorGroupWidget) OpenFilePaths() []string {
 		if t.Content != nil || t.Buf == nil {
 			continue
 		}
-		if t.FilePath == "" || t.FilePath == "untitled" {
+		if t.FilePath == "" || t.Virtual {
 			continue
 		}
 		paths = append(paths, t.FilePath)
@@ -439,7 +473,7 @@ func (g *EditorGroupWidget) CloseTab() {
 		return
 	}
 	closing := g.tabs[g.active]
-	if g.OnFileClose != nil && closing.Highlighter != nil && closing.FilePath != "untitled" {
+	if g.OnFileClose != nil && closing.Highlighter != nil && !closing.Virtual {
 		g.OnFileClose(closing.FilePath, closing.Highlighter.Language())
 	}
 	g.tabs = append(g.tabs[:g.active], g.tabs[g.active+1:]...)
@@ -451,6 +485,7 @@ func (g *EditorGroupWidget) CloseTab() {
 			Vp:       &view.Viewport{},
 			Undo:     &undo.UndoStack{},
 			Sel:      &selection.Selection{},
+			Virtual:  true,
 		}}
 		g.active = 0
 	} else if g.active >= len(g.tabs) {
@@ -477,6 +512,7 @@ func (g *EditorGroupWidget) CloseAllTabs() {
 		Vp:       &view.Viewport{},
 		Undo:     &undo.UndoStack{},
 		Sel:      &selection.Selection{},
+		Virtual:  true,
 	}}
 	g.active = 0
 	g.syncTabs()
@@ -487,7 +523,7 @@ func (g *EditorGroupWidget) Save() bool {
 	if t == nil || t.Content != nil {
 		return false
 	}
-	if t.FilePath == "untitled" {
+	if t.Virtual {
 		return false
 	}
 	if err := t.Buf.SaveFile(t.FilePath); err != nil {
@@ -507,6 +543,7 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 		return
 	}
 	t.FilePath = path
+	t.Virtual = false
 	if g.SyntaxHighlight {
 		t.Highlighter = highlight.New(path)
 	} else {
@@ -520,6 +557,13 @@ func (g *EditorGroupWidget) ActiveFilePath() string {
 		return t.FilePath
 	}
 	return ""
+}
+
+func (g *EditorGroupWidget) IsActiveVirtual() bool {
+	if t := g.activeTab(); t != nil {
+		return t.Virtual
+	}
+	return true
 }
 
 // ActiveBuffer returns the buffer backing the active tab, or nil if the active
@@ -1002,7 +1046,7 @@ func (g *EditorGroupWidget) syncTabs() {
 			dirty = ts.Buf.Dirty
 		}
 		closable := true
-		if len(g.tabs) == 1 && ts.FilePath == "untitled" && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
+		if len(g.tabs) == 1 && ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
 			closable = false
 		}
 		uiTabs = append(uiTabs, Tab{
