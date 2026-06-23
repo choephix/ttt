@@ -78,7 +78,7 @@ func RunEventLoop(
 		}
 
 		repoDir := ""
-		if filePath != "" && filePath != "untitled" {
+		if filePath != "" && !app.EditorGroup.IsActiveVirtual() {
 			if folder := app.Workspace.FolderForFile(filePath); folder != nil && folder.IsRepo {
 				repoDir = folder.Path
 			}

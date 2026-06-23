@@ -24,7 +24,7 @@ func (a *App) RequestGitGutter(filePath string, bufferLines []string) {
 	if !a.Settings.Editor.IsGitGutterEnabled() {
 		return
 	}
-	if filePath == "" || filePath == "untitled" {
+	if filePath == "" || a.EditorGroup.IsActiveVirtual() {
 		return
 	}
 

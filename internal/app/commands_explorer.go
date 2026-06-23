@@ -152,7 +152,7 @@ func (a *App) ExplorerRemoveRoot() {
 
 func (a *App) activeFilePath() string {
 	path := a.EditorGroup.ActiveFilePath()
-	if path == "untitled" {
+	if a.EditorGroup.IsActiveVirtual() {
 		return ""
 	}
 	path = strings.TrimSuffix(path, " (diff)")

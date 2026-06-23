@@ -273,7 +273,7 @@ func registerGitCommands(app *App) {
 		Keywords: []string{"git", "github", "link", "url", "permalink", "copy"},
 		Handler: func() {
 			filePath := app.EditorGroup.ActiveFilePath()
-			if filePath == "" || filePath == "untitled" {
+			if filePath == "" || app.EditorGroup.IsActiveVirtual() {
 				app.StatusWarn("No file open")
 				return
 			}

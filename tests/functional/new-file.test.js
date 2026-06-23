@@ -25,6 +25,25 @@ describe("new file", () => {
     expect(snap).toContain("untitled");
   });
 
+  it("should create a distinct tab when current untitled has content", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "existing.txt", "Existing content");
+
+    tui.start(file);
+    tui.waitFor("existing.txt");
+
+    tui.press("ctrl+n");
+    tui.waitFor("untitled");
+    tui.type("some text");
+    tui.waitStable();
+
+    tui.press("ctrl+n");
+    tui.waitStable();
+
+    const snap = tui.snapshot();
+    expect(snap).toContain("untitled-");
+  });
+
   it("should save a new file via Save As", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "existing.txt", "Existing content");

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
-	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
@@ -102,14 +101,14 @@ func (a *App) CloseTab() {
 }
 
 func (a *App) NewFile() {
-	a.EditorGroup.OpenBuffer("untitled", &buffer.Buffer{Lines: []string{""}})
+	a.EditorGroup.NewFile()
 	a.Root.SetFocus(a.EditorGroup)
 }
 
 func (a *App) SaveFileAs() {
 	current := a.EditorGroup.ActiveFilePath()
 	initial := ""
-	if current != "untitled" {
+	if !a.EditorGroup.IsActiveVirtual() {
 		initial = current
 	}
 	a.ShowInputDialog("Save As", "Filename", initial, func(path string) {
@@ -122,7 +121,7 @@ func (a *App) SaveFileAs() {
 func (a *App) SaveFile() {
 	path := a.EditorGroup.ActiveFilePath()
 	buf := a.EditorGroup.ActiveBuffer()
-	if buf != nil && path != "untitled" && buf.DiskChanged(path) {
+	if buf != nil && !a.EditorGroup.IsActiveVirtual() && buf.DiskChanged(path) {
 		a.ShowConfirmDialog(
 			fmt.Sprintf("%s was modified on disk. Overwrite with your version?", filepath.Base(path)),
 			[]string{"Overwrite", "Cancel"},
