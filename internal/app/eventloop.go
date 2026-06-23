@@ -139,6 +139,27 @@ func RunEventLoop(
 	for *running {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
+		case *tcell.EventPaste:
+			if tev.Start() {
+				var pasteKeys []*tcell.EventKey
+				for {
+					pev := screen.PollEvent()
+					if pe, ok := pev.(*tcell.EventPaste); ok && !pe.Start() {
+						break
+					}
+					if ke, ok := pev.(*tcell.EventKey); ok {
+						pasteKeys = append(pasteKeys, ke)
+					}
+				}
+				text := term.CollectPasteText(pasteKeys)
+				if text != "" {
+					app.PasteText(text)
+					app.FlushEditorOnChange()
+					syncStatus()
+					redraw()
+				}
+			}
+
 		case *tcell.EventKey:
 			app.DismissHover()
 			if app.EditorGroup.SignatureHelp != nil {

@@ -32,6 +32,7 @@ func NewTcellScreen() (*TcellScreen, error) {
 		return nil, err
 	}
 	s.EnableMouse()
+	s.EnablePaste()
 	return &TcellScreen{scr: s, styleMap: DefaultStyleMap()}, nil
 }
 

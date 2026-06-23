@@ -482,6 +482,22 @@ func (a *App) Paste() {
 	a.EditorGroup.Paste()
 }
 
+func (a *App) PasteText(text string) {
+	if tp, ok := a.Root.Focused.(*ui.TerminalPanelWidget); ok && tp.WantsRawKeys() {
+		if tw, ok := tp.ActiveWidget().(*ui.TerminalWidget); ok {
+			tw.PasteText(text)
+		}
+		return
+	}
+	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
+		if inp := holder.FocusedInput(); inp != nil {
+			inp.PasteText(text)
+			return
+		}
+	}
+	a.EditorGroup.PasteText(text)
+}
+
 func (a *App) ShowDialog(w ui.Widget) {
 	a.Root.PushOverlay(ui.Overlay{Widget: w, Modal: true})
 	a.Root.SetFocus(w)

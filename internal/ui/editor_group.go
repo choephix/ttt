@@ -960,6 +960,16 @@ func (g *EditorGroupWidget) Paste() {
 	g.Editor.pasteText(text)
 }
 
+func (g *EditorGroupWidget) PasteText(text string) {
+	if !g.IsEditorActive() {
+		return
+	}
+	if text == "" {
+		return
+	}
+	g.Editor.pasteText(text)
+}
+
 func (g *EditorGroupWidget) syncTabs() {
 	t := g.activeTab()
 	if t == nil {

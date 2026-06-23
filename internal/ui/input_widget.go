@@ -477,6 +477,22 @@ func (inp *InputWidget) PasteClipboard() {
 	inp.notify()
 }
 
+func (inp *InputWidget) PasteText(text string) {
+	if inp.HasSelection() {
+		inp.deleteSelection()
+	}
+	text = sanitizePaste(text)
+	if text == "" {
+		return
+	}
+	runes := []rune(inp.Text)
+	pasted := []rune(text)
+	runes = append(runes[:inp.CursorPos], append(pasted, runes[inp.CursorPos:]...)...)
+	inp.Text = string(runes)
+	inp.CursorPos += len(pasted)
+	inp.notify()
+}
+
 func sanitizePaste(text string) string {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
