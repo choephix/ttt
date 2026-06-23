@@ -462,19 +462,7 @@ type InputHolder interface {
 // PasteClipboard inserts clipboard text at the cursor, replacing any
 // selection. Newlines are flattened for single-line inputs.
 func (inp *InputWidget) PasteClipboard() {
-	if inp.HasSelection() {
-		inp.deleteSelection()
-	}
-	text := sanitizePaste(clipboard.Get())
-	if text == "" {
-		return
-	}
-	runes := []rune(inp.Text)
-	pasted := []rune(text)
-	runes = append(runes[:inp.CursorPos], append(pasted, runes[inp.CursorPos:]...)...)
-	inp.Text = string(runes)
-	inp.CursorPos += len(pasted)
-	inp.notify()
+	inp.PasteText(clipboard.Get())
 }
 
 func (inp *InputWidget) PasteText(text string) {

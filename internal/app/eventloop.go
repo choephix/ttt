@@ -141,9 +141,13 @@ func RunEventLoop(
 		switch tev := ev.(type) {
 		case *tcell.EventPaste:
 			if tev.Start() {
+				const maxPasteEvents = 1_000_000
 				var pasteKeys []*tcell.EventKey
-				for {
+				for range maxPasteEvents {
 					pev := screen.PollEvent()
+					if pev == nil || !*running {
+						break
+					}
 					if pe, ok := pev.(*tcell.EventPaste); ok && !pe.Start() {
 						break
 					}
