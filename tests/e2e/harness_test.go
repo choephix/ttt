@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
@@ -193,32 +192,6 @@ func (h *testHarness) assertNotContains(text string) {
 	h.t.Helper()
 	if h.containsText(text) {
 		h.t.Errorf("expected screen NOT to contain %q, got:\n%s", text, h.screenText())
-	}
-}
-
-// waitForFileChange blocks until the file watcher posts a change notification
-// (or the timeout elapses), then dispatches it exactly as the real event loop
-// does. It returns true if a change was handled. This drives the full path:
-// real fsnotify watcher -> PostEvent -> reconcile -> editor update.
-func (h *testHarness) waitForFileChange(timeout time.Duration) bool {
-	h.t.Helper()
-	evCh := make(chan tcell.Event, 1)
-	go func() { evCh <- h.screen.PollEvent() }()
-	select {
-	case ev := <-evCh:
-		iev, ok := ev.(*tcell.EventInterrupt)
-		if !ok {
-			return false
-		}
-		fc, ok := iev.Data().(*app.FileChangedResult)
-		if !ok {
-			return false
-		}
-		h.app.HandleFileChanged(fc.Path)
-		h.redraw()
-		return true
-	case <-time.After(timeout):
-		return false
 	}
 }
 
