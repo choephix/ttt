@@ -31,6 +31,7 @@ export default defineConfig({
             { label: 'Integrated Terminal', link: '/guides/terminal/' },
             { label: 'LSP', link: '/guides/lsp/' },
             { label: 'Themes', link: '/guides/themes/' },
+            { label: 'Extra Themes', link: '/guides/extra-themes/' },
             { label: 'Keybindings', link: '/guides/keybindings/' },
           ],
         },
