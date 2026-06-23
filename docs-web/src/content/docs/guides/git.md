@@ -34,8 +34,16 @@ The changes panel in the sidebar (**Ctrl+K C**) provides a full staging workflow
 
 ## Diff View
 
-- Select a changed file to open a diff with syntax highlighting layered on diff backgrounds
-- Untracked files open directly in the editor
+Select a changed file in the changes panel to open a side-by-side diff. Syntax highlighting is layered on top of diff background colors so you can read the code naturally while seeing what changed.
+
+TTT offers two diff modes:
+
+- **Partial diff view** shows only the changed hunks with surrounding context lines, letting you focus on what actually changed.
+- **Full-file diff view** shows the complete file with changes highlighted inline.
+
+You can toggle between partial and full-file diff views to get the level of detail you need.
+
+Untracked files open directly in the editor instead of showing a diff.
 
 ## Multi-Root Support
 
@@ -47,16 +55,25 @@ When working with multiple folders:
 
 ## Pull Request Review
 
-Open a GitHub pull request directly from the command line:
+You can review GitHub pull requests directly in TTT without cloning the branch or switching contexts. Pass a PR URL on the command line:
 
 ```sh
 ttt https://github.com/owner/repo/pull/123
+```
 
-# Review a PR with the repo tree open
+This opens the PR's changed files in the changes panel. Select any file to see its diff with full syntax highlighting.
+
+To review a PR alongside your local repository, pass both:
+
+```sh
 ttt . https://github.com/owner/repo/pull/123
 ```
 
-Changed files appear in the changes panel with diff view.
+This gives you the local file tree in the explorer and the PR's changed files in the changes panel, so you can cross-reference the PR against the existing codebase.
+
+## Git Gutter
+
+The line number area displays diff indicators that show which lines have been added, modified, or deleted compared to the last commit. This gives you at-a-glance visibility into your uncommitted changes as you edit.
 
 ## Git Blame
 

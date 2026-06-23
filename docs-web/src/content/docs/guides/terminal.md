@@ -16,14 +16,14 @@ TTT includes a built-in terminal emulator. Press **Ctrl+T** to toggle the termin
 ## Features
 
 - Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
-- 256-color rendering with direct RGB color support
-- When the terminal is focused, all keys go to the PTY except force keys (Ctrl+T, Alt+T, Ctrl+Q, Ctrl+P, etc.)
+- True color (24-bit) and 256-color rendering with direct RGB color support
+- When the terminal is focused, all keys go to the PTY except force keys: Ctrl+T, Alt+T, Ctrl+Q, Ctrl+P, Ctrl+K P, Ctrl+B
 - Scrollback buffer with mouse wheel scrolling (3 lines), Shift+PgUp/PgDn (half page), and a draggable scrollbar
 - Click the terminal content area to focus it; any keypress snaps back to the live view when scrolled up
 
 ## Bottom Panel
 
-The bottom panel contains three tabs:
+Toggle the bottom panel with **Ctrl+K B**. It contains three tabs:
 
 - **Terminal** for the integrated terminal
 - **Problems** listing all LSP diagnostics grouped by file; click to jump to location

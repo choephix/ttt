@@ -9,23 +9,34 @@ Settings are stored in `~/.config/ttt/settings.json`. A complete example is avai
 
 You can open your settings file directly from the command palette (**Ctrl+P**) with **Preferences: Open Settings**.
 
-## Editor
+## Top-level
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `tabSize` | int | `4` | Number of spaces per indentation level |
-| `insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
-| `wordWrap` | bool | `false` | Wrap long lines at the editor width |
-| `lineNumbers` | bool | `true` | Show line numbers in the gutter |
-| `sidebarVisible` | bool | `true` | Show the sidebar on startup |
-| `sidebarWidth` | int | `30` | Width of the sidebar in columns |
-| `cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
-| `theme` | string | `""` | Theme name |
+| `version` | int | `1` | Settings file format version |
+| `theme` | string | `""` | Theme name (e.g. `"default-dark"`) |
 | `debugMode` | bool | `false` | Enable debug logging |
-| `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
-| `insertFinalNewline` | bool | `true` | Ensure files end with a newline on load and save |
-| `bracketPairColorization` | bool | `false` | Colorize matching bracket pairs by nesting depth |
-| `borderStyle` | string | `"default"` | Border style preset: `"default"`, `"rounded"`, `"sharp"`, `"double"`, `"bold"`, `"ascii"`, `"none"`. Use `"default"` or `"theme"` to defer to the active theme. |
+
+## Editor
+
+All editor settings are nested under the `editor` key.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `editor.tabSize` | int | `4` | Number of spaces per indentation level |
+| `editor.insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
+| `editor.wordWrap` | bool | `false` | Wrap long lines at the editor width |
+| `editor.lineNumbers` | bool | `true` | Show line numbers in the gutter |
+| `editor.cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
+| `editor.formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `editor.insertFinalNewline` | bool | `true` | Ensure files end with a newline on load and save |
+| `editor.trimTrailingWhitespace` | bool | `false` | Remove trailing whitespace from lines on save |
+| `editor.focusOnOpen` | bool | `false` | Focus the editor when opening a file |
+| `editor.syntaxHighlight` | bool | `true` | Enable syntax highlighting |
+| `editor.gitGutter` | bool | `true` | Show git change indicators in the gutter |
+| `editor.gutterStyle` | string | `"compact"` | Gutter layout: `"minimal"`, `"compact"`, or `"extended"` |
+| `editor.borderStyle` | string | `"default"` | Border style preset: `"default"`, `"rounded"`, `"sharp"`, `"double"`, `"bold"`, `"ascii"`, `"none"`. Use `"default"` or `"theme"` to defer to the active theme. |
+| `editor.bracketPairColorization` | bool | `false` | Colorize matching bracket pairs by nesting depth |
 
 ## Explorer
 
@@ -45,8 +56,12 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `lsp.enabled` | bool | `true` | Enable LSP support |
+| `lsp.hover` | bool | `true` | Show hover information from the language server |
+| `lsp.hoverDelay` | int | `500` | Milliseconds to wait before showing hover information |
 | `lsp.saveOnRename` | bool | `false` | Auto-save files affected by a rename operation |
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
+| `lsp.notifyAvailability` | bool | `true` | Show a notification when a language server is available but not installed |
 | `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
 
 ## Search
@@ -68,17 +83,25 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
 
 ```json
 {
-  "tabSize": 4,
-  "insertSpaces": true,
-  "wordWrap": false,
-  "lineNumbers": true,
-  "sidebarVisible": true,
-  "sidebarWidth": 30,
+  "version": 1,
   "theme": "default-dark",
-  "formatOnSave": true,
-  "insertFinalNewline": true,
-  "bracketPairColorization": false,
-  "borderStyle": "default",
+  "debugMode": false,
+  "editor": {
+    "tabSize": 4,
+    "insertSpaces": true,
+    "wordWrap": false,
+    "lineNumbers": true,
+    "cursorStyle": "",
+    "formatOnSave": false,
+    "insertFinalNewline": true,
+    "trimTrailingWhitespace": false,
+    "focusOnOpen": false,
+    "syntaxHighlight": true,
+    "gitGutter": true,
+    "gutterStyle": "compact",
+    "borderStyle": "default",
+    "bracketPairColorization": false
+  },
   "search": {
     "debounce": 350
   },
@@ -91,7 +114,11 @@ You can open your settings file directly from the command palette (**Ctrl+P**) w
     "scrollback": 1000
   },
   "lsp": {
-    "saveOnRename": true,
+    "enabled": true,
+    "hover": true,
+    "hoverDelay": 500,
+    "saveOnRename": false,
+    "notifyAvailability": true,
     "codeActionsOnSave": [
       "source.organizeImports",
       "source.fixAll"

@@ -7,7 +7,7 @@ TTT has built-in LSP support for language-aware editing features. Language serve
 
 ## Built-in Language Support
 
-TTT ships with built-in configurations for popular language servers. You just need to install the server binary — TTT will detect and use it automatically. If a server isn't installed, TTT shows a brief notification when you open a file of that language.
+TTT ships with 24 built-in language server configurations. You just need to install the server binary and TTT will detect and use it automatically. If a server isn't installed, TTT shows a brief notification when you open a file of that language (disable this with `lsp.notifyAvailability: false`).
 
 To disable LSP entirely, set `lsp.enabled` to `false` in your settings:
 
@@ -31,7 +31,7 @@ go install golang.org/x/tools/gopls@latest
 npm install -g typescript typescript-language-server
 ```
 
-Handles `.ts`, `.tsx`, `.js`, and `.jsx` files.
+Handles `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.mts`, `.cjs`, and `.cts` files.
 
 ### Python {#python}
 
@@ -108,6 +108,8 @@ npm install -g vscode-langservers-extracted
 npm install -g vscode-langservers-extracted
 ```
 
+Handles `.json` and `.jsonc` files.
+
 ### YAML {#yaml}
 
 ```sh
@@ -119,6 +121,8 @@ npm install -g yaml-language-server
 ```sh
 npm install -g bash-language-server
 ```
+
+Handles `.sh` and `.bash` files.
 
 ### Docker {#docker}
 
@@ -169,6 +173,8 @@ composer global require phpactor/phpactor
 ```sh
 # See https://github.com/hashicorp/terraform-ls
 ```
+
+Handles `.tf` and `.tfvars` files.
 
 ### Markdown {#markdown}
 
@@ -302,7 +308,9 @@ The LSP server publishes diagnostics (errors, warnings, hints) which are display
 
 ```json
 {
-  "formatOnSave": true
+  "editor": {
+    "formatOnSave": true
+  }
 }
 ```
 
@@ -335,3 +343,17 @@ Configure automatic code actions that run before each save:
   }
 }
 ```
+
+## LSP Settings Reference
+
+All LSP settings are nested under `lsp.*` in `settings.json`. Autocomplete settings are separate, under `autocomplete.*`.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `lsp.enabled` | boolean | `true` | Enable or disable LSP support entirely |
+| `lsp.hover` | boolean | `true` | Enable or disable hover information |
+| `lsp.hoverDelay` | number | `500` | Delay in milliseconds before showing hover info |
+| `lsp.saveOnRename` | boolean | `false` | Auto-save files affected by a rename |
+| `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before each save |
+| `lsp.notifyAvailability` | boolean | `true` | Show a notification when a language server is not installed |
+| `lsp.servers` | object | *(24 built-in)* | Custom or overridden language server configurations |

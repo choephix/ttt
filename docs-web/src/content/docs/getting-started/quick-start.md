@@ -20,8 +20,9 @@ ttt https://github.com/owner/repo/pull/123  # review a PR
 ## Basic Navigation
 
 - **Ctrl+P** opens the command palette
-- **Alt+P** opens quick file open
+- **Ctrl+K P** opens quick file open
 - **Ctrl+B** toggles the sidebar
+- **Ctrl+O** opens a folder
 - **Ctrl+T** toggles the terminal (half screen)
 - **Alt+T** toggles the terminal fullscreen
 - **Ctrl+G** opens Go to Line
@@ -30,7 +31,7 @@ ttt https://github.com/owner/repo/pull/123  # review a PR
 
 - **Ctrl+Z / Ctrl+Y** for undo/redo
 - **Ctrl+C / Ctrl+X / Ctrl+V** for copy/cut/paste
-- **Ctrl+F** to find, **Ctrl+H** to find and replace
+- **Ctrl+F** to find, **Ctrl+R** to find and replace
 - **Ctrl+A** to select all
 - **Ctrl+D** to select the next occurrence (multi-cursor)
 - **Alt+Click** to add cursors at multiple positions
@@ -44,7 +45,7 @@ ttt https://github.com/owner/repo/pull/123  # review a PR
 
 ## Command Palette
 
-Press **Ctrl+P** to open the command palette. All available commands are listed there. Type `>` to switch between file search and command mode.
+Press **Ctrl+P** to open the command palette. By default it searches files. Type a `>` prefix to switch to command mode, which lists all available editor commands.
 
 ## Configuration
 
