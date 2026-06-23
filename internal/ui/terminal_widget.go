@@ -50,6 +50,21 @@ func (tw *TerminalWidget) SetFocused(f bool) { tw.focused = f }
 
 func (tw *TerminalWidget) WantsRawKeys() bool { return tw.focused }
 
+func (tw *TerminalWidget) PasteText(text string) {
+	if tw.Term == nil || text == "" {
+		return
+	}
+	if tw.Term.Mode()&vt10x.ModeBracketedPaste != 0 {
+		tw.Term.WriteString("\x1b[200~")
+		tw.Term.WriteString(text)
+		tw.Term.WriteString("\x1b[201~")
+	} else {
+		tw.Term.WriteString(text)
+	}
+	tw.ClearSelection()
+	tw.scrollOffset = 0
+}
+
 func (tw *TerminalWidget) CursorPosition() (x, y int, visible bool) {
 	if tw.Term == nil {
 		return 0, 0, false
