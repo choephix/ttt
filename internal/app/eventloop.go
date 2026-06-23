@@ -144,6 +144,9 @@ func RunEventLoop(
 				var pasteKeys []*tcell.EventKey
 				for {
 					pev := screen.PollEvent()
+					if pev == nil || !*running {
+						break
+					}
 					if pe, ok := pev.(*tcell.EventPaste); ok && !pe.Start() {
 						break
 					}
