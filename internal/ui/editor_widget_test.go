@@ -228,5 +228,46 @@ func TestEditorLineNumbersCursorOffset(t *testing.T) {
 	}
 }
 
+func TestHorizontalScrollClampNoOverflow(t *testing.T) {
+	e := newTestEditor()
+	e.SetRect(Rect{X: 0, Y: 0, W: 20, H: 10})
+	e.Viewport.Width = 20
+
+	ev := tcell.NewEventMouse(10, 5, tcell.WheelRight, tcell.ModNone)
+	e.HandleEvent(ev)
+
+	if e.Viewport.LeftCol != 0 {
+		t.Errorf("expected LeftCol 0 when content fits, got %d", e.Viewport.LeftCol)
+	}
+}
+
+func TestHorizontalScrollClampShiftWheel(t *testing.T) {
+	e := newTestEditor()
+	e.SetRect(Rect{X: 0, Y: 0, W: 20, H: 10})
+	e.Viewport.Width = 20
+
+	ev := tcell.NewEventMouse(10, 5, tcell.WheelDown, tcell.ModShift)
+	e.HandleEvent(ev)
+
+	if e.Viewport.LeftCol != 0 {
+		t.Errorf("expected LeftCol 0 when content fits with shift+wheel, got %d", e.Viewport.LeftCol)
+	}
+}
+
+func TestHorizontalScrollAllowedWhenOverflow(t *testing.T) {
+	buf := &buffer.Buffer{Lines: []string{"a]very long line that definitely overflows the viewport width of twenty chars"}}
+	cur := &cursor.Cursor{Line: 0, Col: 0}
+	vp := &view.Viewport{TopLine: 0, LeftCol: 0, Width: 20, Height: 10}
+	e := NewEditorPaneWidget(buf, cur, vp)
+	e.SetRect(Rect{X: 0, Y: 0, W: 20, H: 10})
+
+	ev := tcell.NewEventMouse(10, 5, tcell.WheelRight, tcell.ModNone)
+	e.HandleEvent(ev)
+
+	if e.Viewport.LeftCol == 0 {
+		t.Error("expected LeftCol > 0 when content overflows")
+	}
+}
+
 // ensure term import is used
 var _ = term.Cell{}

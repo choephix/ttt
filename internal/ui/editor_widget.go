@@ -124,6 +124,21 @@ func (e *EditorPaneWidget) InvalidateMaxLineWidth() {
 	e.maxLineWidthDirty = true
 }
 
+func (e *EditorPaneWidget) clampLeftCol() {
+	editorW := e.Viewport.Width
+	maxW := e.computeMaxLineWidth()
+	max := maxW - editorW
+	if max < 0 {
+		max = 0
+	}
+	if e.Viewport.LeftCol > max {
+		e.Viewport.LeftCol = max
+	}
+	if e.Viewport.LeftCol < 0 {
+		e.Viewport.LeftCol = 0
+	}
+}
+
 func (e *EditorPaneWidget) buildSearchIndex() {
 	e.searchByLine = make(map[int][]int, len(e.SearchMatches))
 	for i, m := range e.SearchMatches {
@@ -664,6 +679,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		if newLeft, consumed := e.hscrollbar.HandleEvent(ev); consumed {
 			e.Viewport.LeftCol = newLeft
+			e.clampLeftCol()
 			if e.hscrollbar.IsDragging() {
 				return EventCaptured
 			}
@@ -677,9 +693,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if btn&tcell.WheelUp != 0 {
 			if mod&tcell.ModShift != 0 {
 				e.Viewport.LeftCol -= 4
-				if e.Viewport.LeftCol < 0 {
-					e.Viewport.LeftCol = 0
-				}
+				e.clampLeftCol()
 			} else {
 				e.scrollUp(3)
 			}
@@ -688,6 +702,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		if btn&tcell.WheelDown != 0 {
 			if mod&tcell.ModShift != 0 {
 				e.Viewport.LeftCol += 4
+				e.clampLeftCol()
 			} else {
 				e.scrollDown(3)
 			}
@@ -695,13 +710,12 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		if btn&tcell.WheelLeft != 0 {
 			e.Viewport.LeftCol -= 4
-			if e.Viewport.LeftCol < 0 {
-				e.Viewport.LeftCol = 0
-			}
+			e.clampLeftCol()
 			return EventConsumed
 		}
 		if btn&tcell.WheelRight != 0 {
 			e.Viewport.LeftCol += 4
+			e.clampLeftCol()
 			return EventConsumed
 		}
 
