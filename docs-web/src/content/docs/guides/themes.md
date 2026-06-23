@@ -7,22 +7,30 @@ TTT supports fully customizable themes via JSON files. You can change every colo
 
 ## Built-in Themes
 
-10 themes are included:
+TTT ships with a collection of built-in themes:
 
 - Aurora
 - Bubblegum
 - Default Dark
 - Default Light
+- Dracula
+- High Contrast Dark
+- High Contrast Light
 - Hotline
 - Monokai
+- Nord
 - One Dark
+- Rainy Day
+- Rainy Day Dark
 - Solarized Dark
 - Solarized Light
+- Turbo Vision
 - Virtru Dark
+- Zenith
 
 ## Switching Themes
 
-Press **Ctrl+K Ctrl+T** (or use **View > Switch Theme** from the menu bar) to open the theme picker with a live preview.
+Use **View > Switch Theme** from the menu bar, or search for **Switch Theme** in the command palette (**Ctrl+P**), to open the theme picker. The picker shows a live preview of each theme as you navigate the list, so you can try them out before committing to one.
 
 ## Customizing
 

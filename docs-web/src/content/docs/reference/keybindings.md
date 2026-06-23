@@ -7,7 +7,7 @@ sidebar:
 
 All keybindings can be customized in `~/.config/ttt/keybindings.json`. See [`config/keybindings.json`](https://github.com/eugenioenko/ttt/blob/main/config/keybindings.json) for a complete example.
 
-You can open your keybindings file from the command palette (**Ctrl+P**) with **Preferences: Open Keyboard Shortcuts**.
+You can open your keybindings file from the command palette (**Ctrl+P**) with **Preferences: Open Keyboard Shortcuts**, or press **Ctrl+K Y**.
 
 ## General
 
@@ -15,7 +15,7 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 |----------|---------|-------------|
 | Ctrl+Q | `editor.quit` | Quit the editor |
 | Ctrl+P | `command.palette` | Open command palette |
-| Alt+P | `file.quickOpen` | Quick open file |
+| Ctrl+K P | `file.quickOpen` | Quick open file |
 | Escape | `editor.focus` | Focus the editor |
 
 ## File
@@ -23,6 +23,7 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 | Shortcut | Command | Description |
 |----------|---------|-------------|
 | Ctrl+N | `file.new` | New file |
+| Ctrl+O | `workspace.openFolder` | Open folder |
 | Ctrl+S | `file.save` | Save |
 | Ctrl+K S | `file.saveAs` | Save as |
 
@@ -37,10 +38,23 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 | Ctrl+X | `editor.cut` | Cut |
 | Ctrl+V | `editor.paste` | Paste |
 | Ctrl+G | `editor.goToLine` | Go to line |
+| Ctrl+/ | `editor.toggleComment` | Toggle line comment |
+| Ctrl+Enter | `editor.insertLineBelow` | Insert line below |
 | Alt+Up | `editor.moveLineUp` | Move line up |
 | Alt+Down | `editor.moveLineDown` | Move line down |
 | Ctrl+K K | `editor.deleteLine` | Delete line |
-| Ctrl+Enter | `editor.insertLineBelow` | Insert line below |
+| Ctrl+K J | `editor.joinLines` | Join lines |
+| Ctrl+K O | `editor.sortLinesAsc` | Sort lines ascending |
+| Ctrl+K M | `editor.goToMatchingBracket` | Go to matching bracket |
+
+## Word Navigation
+
+| Shortcut | Command | Description |
+|----------|---------|-------------|
+| Ctrl+Left | `editor.moveWordLeft` | Move cursor one word left |
+| Ctrl+Right | `editor.moveWordRight` | Move cursor one word right |
+| Ctrl+Shift+Left | `editor.selectWordLeft` | Select one word left |
+| Ctrl+Shift+Right | `editor.selectWordRight` | Select one word right |
 | Alt+Backspace | `editor.deleteWordLeft` | Delete word left |
 | Alt+Delete | `editor.deleteWordRight` | Delete word right |
 | Ctrl+Delete | `editor.deleteWordRight` | Delete word right |
@@ -49,11 +63,19 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 
 | Shortcut | Command | Description |
 |----------|---------|-------------|
-| Ctrl+D | `editor.selectNextOccurrence` | Select next occurrence of current word/selection |
-| Ctrl+K L | `editor.selectAllOccurrences` | Select all occurrences at once |
+| Ctrl+D | `multicursor.selectNext` | Select next occurrence of current word or selection |
+| Ctrl+K L | `multicursor.selectAll` | Select all occurrences at once |
+| Ctrl+K U | `multicursor.undoCursor` | Undo last cursor addition |
 | Alt+Click | *(mouse)* | Add cursor at click position |
-| Ctrl+K U | `editor.undoCursor` | Undo last cursor addition |
 | Escape | `editor.focus` | Collapse to single cursor (when multiple cursors exist) |
+
+## Code Folding
+
+| Shortcut | Command | Description |
+|----------|---------|-------------|
+| Ctrl+K [ | `fold.toggle` | Toggle fold at cursor |
+| Ctrl+K 0 | `fold.collapseAll` | Collapse all folds |
+| Ctrl+K 9 | `fold.expandAll` | Expand all folds |
 
 ## Search
 
@@ -71,17 +93,17 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 | Shortcut | Command | Description |
 |----------|---------|-------------|
 | Ctrl+B | `sidebar.toggle` | Toggle sidebar |
-| Ctrl+J | `panel.toggle` | Toggle bottom panel |
+| Ctrl+K B | `panel.toggle` | Toggle bottom panel |
 | Ctrl+K E | `sidebar.explorer` | Show file explorer |
 | Ctrl+K F | `sidebar.search` | Search across files |
 | Ctrl+K R | `sidebar.searchReplace` | Search and replace in files |
 | Ctrl+K C | `sidebar.changes` | Show changes |
+| Ctrl+K Y | `view.keybindings` | Open keybindings |
 | Ctrl+0 | `sidebar.focus` | Focus sidebar |
 | Alt+Shift+Left | `sidebar.narrower` | Decrease sidebar width |
 | Alt+Shift+Right | `sidebar.wider` | Increase sidebar width |
 | Alt+Shift+Up | `panel.taller` | Increase panel height |
 | Alt+Shift+Down | `panel.shorter` | Decrease panel height |
-| Ctrl+K Ctrl+T | `theme.switch` | Switch theme |
 
 ## Tabs
 
@@ -96,16 +118,16 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 | Shortcut | Command | Description |
 |----------|---------|-------------|
 | Ctrl+U | `editor.autocomplete` | Trigger autocomplete |
+| Ctrl+K I | `editor.hover` | Hover info |
+| F2 | `editor.rename` | Rename symbol |
 | F12 | `editor.goToDefinition` | Go to definition |
 | Shift+F12 | `editor.goToImplementation` | Go to implementation |
-| F2 | `editor.rename` | Rename symbol |
-| Ctrl+K I | `editor.hover` | Hover info |
+| Ctrl+L I | `editor.goToImplementation` | Go to implementation |
 | Ctrl+L F | `editor.formatDocument` | Format document |
 | Ctrl+L S | `editor.formatSelection` | Format selection |
 | Ctrl+L O | `editor.organizeImports` | Organize imports |
 | Ctrl+L X | `editor.fixAll` | Fix all |
 | Ctrl+L R | `editor.findReferences` | Find references |
-| Ctrl+L I | `editor.goToImplementation` | Go to implementation |
 | Ctrl+L T | `editor.goToTypeDefinition` | Go to type definition |
 
 ## Terminal
@@ -124,4 +146,5 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 | Alt+E | `menu.edit` | Edit menu |
 | Alt+S | `menu.selection` | Selection menu |
 | Alt+V | `menu.view` | View menu |
+| Alt+O | `menu.options` | Options menu |
 | Alt+H | `menu.help` | Help menu |

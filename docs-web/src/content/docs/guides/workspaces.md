@@ -14,6 +14,11 @@ The file explorer lives in the sidebar (**Ctrl+B** to toggle, **Ctrl+K E** to fo
 
 When multiple folders are open, each root is shown as a collapsible group.
 
+## Quick Navigation
+
+- **Ctrl+O** to open a folder (`workspace.openFolder`)
+- **Ctrl+K P** for quick file open with fuzzy search (`file.quickOpen`)
+
 ## Opening Files and Folders
 
 ```sh

@@ -7,17 +7,22 @@ sidebar:
 
 TTT Editor (Terminal Text Tool) is a fully-featured code editor that runs in your terminal. It is not a simplified terminal editor. It is a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal.
 
+TTT is designed to feel like a GUI desktop app. You get menus, dialogs, right-click context menus, a file explorer, and full mouse support, all inside your terminal.
+
 ## Why TTT?
 
 - **Single binary** built with Go, no runtime dependencies
 - **Zero config** out of the box, but fully customizable
-- **Multi-cursor editing** with Ctrl+D, Ctrl+K L, and Alt+Click
-- **LSP support** for language-aware editing (completions, diagnostics, formatting, rename, references)
-- **Integrated terminal** with full VT escape sequence support
-- **Git integration** with staging, committing, and diff view
-- **Multi-folder workspaces** for working across multiple projects
-- **10 built-in themes** with full JSON customization
 - **Familiar keybindings** inspired by VS Code
+- **Multi-cursor editing** with Ctrl+D, Ctrl+K L, and Alt+Click
+- **LSP support** with 23+ built-in language servers for completions, diagnostics with inline squiggles, hover, rename, references, and formatting
+- **Integrated terminal** with true color support and multiple tabs
+- **Git integration** with staging, committing, pushing, diff view (partial and full-file diffs), blame, and GitHub PR review
+- **Multi-folder workspaces** for working across multiple projects
+- **Built-in themes** with full JSON customization
+- **Code folding** and **bracket pair colorization**
+- **Ripgrep-powered search** across your workspace
+- **.editorconfig support** for consistent formatting
 
 ## Prerequisites
 
