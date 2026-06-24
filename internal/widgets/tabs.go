@@ -25,6 +25,8 @@ type TabsWidget struct {
 	overSpan   [2]int
 	hiddenTabs []int
 	wasPressed bool
+	focused    bool
+	selected   int
 }
 
 func NewTabsWidget(config TabsConfig) *TabsWidget {
@@ -33,6 +35,15 @@ func NewTabsWidget(config TabsConfig) *TabsWidget {
 
 func (t *TabsWidget) Height() int { return 1 + t.BoxOverheadH() }
 func (t *TabsWidget) Width() int  { return 0 }
+
+func (t *TabsWidget) Focusable() bool { return true }
+func (t *TabsWidget) SetFocused(f bool) {
+	t.focused = f
+	if f {
+		t.selected = t.activeIndex()
+	}
+}
+func (t *TabsWidget) IsFocused() bool { return t.focused }
 
 func (t *TabsWidget) SetActive(id string) {
 	for i := range t.Config.Items {
@@ -89,6 +100,7 @@ func (t *TabsWidget) Render(surface Surface) {
 		if item.Active {
 			style = term.StyleActiveTab
 		}
+		ul := t.focused && i == t.selected
 		startX := x
 		inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 		x++
@@ -96,7 +108,7 @@ func (t *TabsWidget) Render(surface Surface) {
 			if x >= tabAreaW {
 				break
 			}
-			inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
+			inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style, Underline: ul})
 			x++
 		}
 		if x < tabAreaW {
@@ -118,10 +130,59 @@ func (t *TabsWidget) Render(surface Surface) {
 }
 
 func (t *TabsWidget) HandleEvent(ev tcell.Event) bool {
-	mev, ok := ev.(*tcell.EventMouse)
-	if !ok {
+	switch tev := ev.(type) {
+	case *tcell.EventKey:
+		return t.handleKey(tev)
+	case *tcell.EventMouse:
+		return t.handleMouse(tev)
+	}
+	return false
+}
+
+func (t *TabsWidget) activeIndex() int {
+	for i, item := range t.Config.Items {
+		if item.Active {
+			return i
+		}
+	}
+	return 0
+}
+
+func (t *TabsWidget) handleKey(ev *tcell.EventKey) bool {
+	if !t.focused {
 		return false
 	}
+	n := len(t.Config.Items)
+	if n == 0 {
+		return false
+	}
+	switch ev.Key() {
+	case tcell.KeyLeft:
+		t.selected--
+		if t.selected < 0 {
+			t.selected = n - 1
+		}
+		return true
+	case tcell.KeyRight:
+		t.selected = (t.selected + 1) % n
+		return true
+	case tcell.KeyEnter:
+		if t.Config.OnTabClick != nil {
+			t.Config.OnTabClick(t.selected)
+		}
+		return true
+	case tcell.KeyRune:
+		if ev.Rune() == ' ' {
+			if t.Config.OnTabClick != nil {
+				t.Config.OnTabClick(t.selected)
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) bool {
 	pressed := mev.Buttons()&tcell.Button1 != 0
 	freshClick := pressed && !t.wasPressed
 	t.wasPressed = pressed

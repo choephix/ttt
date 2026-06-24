@@ -162,11 +162,11 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 	fm.Collect(tabbed)
 
 	t.Logf("tab 0 focusable items: %d", len(fm.items))
-	if len(fm.items) != 1 {
-		t.Fatalf("tab 0 should have 1 focusable (tree), got %d", len(fm.items))
+	if len(fm.items) != 2 {
+		t.Fatalf("tab 0 should have 2 focusables (tabs + tree), got %d", len(fm.items))
 	}
-	if !tree.IsFocused() {
-		t.Error("tree should be focused on tab 0")
+	if !tabs.IsFocused() {
+		t.Error("tabs bar should be auto-focused on tab 0")
 	}
 
 	// Switch to tab 1
@@ -182,8 +182,8 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 		t.Logf("  item %d: rect X=%d Y=%d W=%d H=%d focused=%v", i, r.X, r.Y, r.W, r.H, item.IsFocused())
 	}
 
-	if len(fm.items) != 2 {
-		t.Fatalf("tab 1 should have 2 focusables (inputs), got %d", len(fm.items))
+	if len(fm.items) != 3 {
+		t.Fatalf("tab 1 should have 3 focusables (tabs + 2 inputs), got %d", len(fm.items))
 	}
 
 	// Old tree should NOT be focused
@@ -191,9 +191,9 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 		t.Error("tree from tab 0 should not be focused after tab switch")
 	}
 
-	// First input should be auto-focused
-	if !inp1.IsFocused() {
-		t.Error("inp1 should be auto-focused after tab switch")
+	// Tabs bar should be auto-focused (first focusable)
+	if !tabs.IsFocused() {
+		t.Error("tabs bar should be auto-focused after tab switch")
 	}
 
 	// Verify inp2 rect is non-zero
@@ -392,5 +392,75 @@ func TestTabbedClickOnFirstTabAfterSwitch(t *testing.T) {
 	fm.FocusByClick(treeRect.X+1, treeRect.Y+1)
 	if tree.IsFocused() {
 		t.Error("tree should NOT get focused by click when on tab 1")
+	}
+}
+
+func TestTabsKeyboardNavigation(t *testing.T) {
+	activated := -1
+	tabs := NewTabsWidget(TabsConfig{
+		Items: []TabItem{
+			{ID: "a", Label: "Alpha", Active: true},
+			{ID: "b", Label: "Beta"},
+			{ID: "c", Label: "Gamma"},
+		},
+		OnTabClick: func(idx int) { activated = idx },
+	})
+	tabs.SetFocused(true)
+
+	// Right moves selected cursor, does NOT activate
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	if tabs.selected != 1 {
+		t.Fatalf("expected selected=1, got %d", tabs.selected)
+	}
+	if activated != -1 {
+		t.Fatal("right arrow should not activate tab")
+	}
+
+	// Right again: 1 -> 2
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	if tabs.selected != 2 {
+		t.Fatalf("expected selected=2, got %d", tabs.selected)
+	}
+
+	// Right wraps: 2 -> 0
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	if tabs.selected != 0 {
+		t.Fatalf("expected wrap to 0, got %d", tabs.selected)
+	}
+
+	// Left wraps: 0 -> 2
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	if tabs.selected != 2 {
+		t.Fatalf("expected wrap to 2, got %d", tabs.selected)
+	}
+
+	// Enter activates the selected tab
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	if activated != 2 {
+		t.Fatalf("enter should activate selected tab 2, got %d", activated)
+	}
+
+	// Space also activates
+	activated = -1
+	tabs.selected = 1
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone))
+	if activated != 1 {
+		t.Fatalf("space should activate selected tab 1, got %d", activated)
+	}
+
+	// SetFocused resets selected to active index
+	tabs.selected = 2
+	tabs.SetFocused(false)
+	tabs.SetFocused(true)
+	if tabs.selected != 0 {
+		t.Fatalf("SetFocused should reset selected to active (0), got %d", tabs.selected)
+	}
+
+	// Not focused: should not handle
+	tabs.SetFocused(false)
+	activated = -1
+	handled := tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	if handled {
+		t.Error("unfocused tabs should not handle key events")
 	}
 }
