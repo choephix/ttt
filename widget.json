@@ -64,19 +64,14 @@
       }
     },
     {
-      "type": "box",
-      "borderTop": true,
-      "borderBottom": true,
-      "borderLeft": true,
-      "borderRight": true,
-      "child": {
-        "type": "tree",
-        "items": [
-          {"id": "v1", "label": "pg_data"},
-          {"id": "v2", "label": "redis_data"},
-          {"id": "v3", "label": "es_data"}
-        ]
-      }
+      "type": "hstack",
+      "align": "right",
+      "paddingRight": 1,
+      "children": [
+        {"type": "button", "label": "&Run", "command": "docker.run", "paddingLeft": 1, "paddingRight": 1},
+        {"type": "button", "label": "&Stop", "command": "docker.stop", "paddingLeft": 1, "paddingRight": 1},
+        {"type": "button", "label": "&Pull", "command": "docker.pull", "paddingLeft": 1, "paddingRight": 1}
+      ]
     }
   ]
 }

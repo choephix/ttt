@@ -43,6 +43,11 @@ type InputStyles struct {
 	Action      StyleDef `json:"action"`
 }
 
+type ButtonStyles struct {
+	Item    StyleDef `json:"item"`
+	Focused StyleDef `json:"focused"`
+}
+
 type MenuStyles struct {
 	Item   StyleDef `json:"item"`
 	Active StyleDef `json:"active"`
@@ -198,6 +203,7 @@ type ThemeConfig struct {
 	Editor    EditorStyles   `json:"editor"`
 	Menu      MenuStyles     `json:"menu"`
 	Input     InputStyles    `json:"input"`
+	Button    ButtonStyles   `json:"button"`
 	Hover     HoverStyles    `json:"hover"`
 	Border    StyleDef       `json:"border"`
 	Diff      DiffStyles     `json:"diff"`
@@ -282,6 +288,10 @@ func (t *ThemeConfig) ResolveColors() {
 	fillFg(&t.Input.Item, t.Default.Fg)
 	fillFg(&t.Input.Placeholder, t.Muted.Fg)
 	fillFg(&t.Input.Action, t.Muted.Fg)
+	fillBg(&t.Button.Item, t.Default.Bg)
+	fillFg(&t.Button.Item, t.Default.Fg)
+	fillBg(&t.Button.Focused, t.Default.Fg)
+	fillFg(&t.Button.Focused, t.Default.Bg)
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")
 	fillBg(&t.Diff.Modified, "#2e2e1e")

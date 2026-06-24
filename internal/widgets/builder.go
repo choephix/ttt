@@ -36,6 +36,10 @@ type WidgetDef struct {
 	MenuIcon       string      `json:"menuIcon,omitempty"`
 	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
 
+	// button
+	Label   string `json:"label,omitempty"`
+	Command string `json:"command,omitempty"`
+
 	// layout
 	Align    string       `json:"align,omitempty"`
 	Child    *WidgetDef   `json:"child,omitempty"`
@@ -75,6 +79,8 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 		w = buildTitle(def)
 	case "tree":
 		w = buildTree(def)
+	case "button":
+		w = buildButton(def)
 	case "box":
 		w, err = buildBox(def, ctx)
 	case "vstack":
@@ -90,6 +96,13 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 
 	w.SetBoxModel(boxModelFromDef(def, ctx))
 	return w, nil
+}
+
+func buildButton(def *WidgetDef) *ButtonWidget {
+	return NewButtonWidget(ButtonConfig{
+		Label:   def.Label,
+		Command: def.Command,
+	})
 }
 
 func buildTitle(def *WidgetDef) *TitleWidget {
