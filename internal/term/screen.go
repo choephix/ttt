@@ -61,6 +61,7 @@ const (
 	StyleGutterDeleted
 	StyleButton
 	StyleButtonFocused
+	StyleSelectedTab
 	styleCount
 )
 

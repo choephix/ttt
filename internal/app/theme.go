@@ -28,6 +28,11 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleStatusBar, theme.StatusBar)
 	applyStyleDef(&m, term.StyleActiveTab, theme.Tabs.Active)
 	applyStyleDef(&m, term.StyleInactiveTab, theme.Tabs.Inactive)
+	selectedTab := theme.Tabs.Selected
+	if selectedTab.Fg == "" && selectedTab.Bg == "" {
+		selectedTab = theme.Sidebar.Selected
+	}
+	applyStyleDef(&m, term.StyleSelectedTab, selectedTab)
 	applyStyleDef(&m, term.StyleSidebarSelected, theme.Sidebar.Selected)
 	applyStyleDef(&m, term.StylePaletteItem, theme.Dialog.Item)
 	applyStyleDef(&m, term.StylePaletteSelected, theme.Dialog.Selected)

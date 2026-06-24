@@ -22,6 +22,7 @@ type BorderChars struct {
 type TabStyles struct {
 	Active   StyleDef `json:"active"`
 	Inactive StyleDef `json:"inactive"`
+	Selected StyleDef `json:"selected"`
 }
 
 type SidebarStyles struct {

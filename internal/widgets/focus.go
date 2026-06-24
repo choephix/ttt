@@ -44,10 +44,10 @@ func collectFocusable(w Widget, out *[]FocusableWidget) {
 			collectFocusable(v.Child, out)
 		}
 	case *TabbedWidget:
-		collectFocusable(v.Tabs, out)
 		if c := v.ActiveChild(); c != nil {
 			collectFocusable(c, out)
 		}
+		collectFocusable(v.Tabs, out)
 	}
 }
 

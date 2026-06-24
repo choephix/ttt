@@ -100,7 +100,9 @@ func (t *TabsWidget) Render(surface Surface) {
 		if item.Active {
 			style = term.StyleActiveTab
 		}
-		ul := t.focused && i == t.selected
+		if t.focused && i == t.selected {
+			style = term.StyleSelectedTab
+		}
 		startX := x
 		inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 		x++
@@ -108,7 +110,7 @@ func (t *TabsWidget) Render(surface Surface) {
 			if x >= tabAreaW {
 				break
 			}
-			inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style, Underline: ul})
+			inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
 			x++
 		}
 		if x < tabAreaW {
@@ -123,6 +125,9 @@ func (t *TabsWidget) Render(surface Surface) {
 		ox := tabAreaW
 		t.overSpan = [2]int{ox, ox + overflowW}
 		style := term.StyleInactiveTab
+		if t.focused && t.isHidden(t.selected) {
+			style = term.StyleSelectedTab
+		}
 		inner.SetCell(ox, 0, term.Cell{Ch: ' ', Style: style})
 		inner.SetCell(ox+1, 0, term.Cell{Ch: '»', Style: style})
 		inner.SetCell(ox+2, 0, term.Cell{Ch: ' ', Style: style})
@@ -135,6 +140,15 @@ func (t *TabsWidget) HandleEvent(ev tcell.Event) bool {
 		return t.handleKey(tev)
 	case *tcell.EventMouse:
 		return t.handleMouse(tev)
+	}
+	return false
+}
+
+func (t *TabsWidget) isHidden(idx int) bool {
+	for _, h := range t.hiddenTabs {
+		if h == idx {
+			return true
+		}
 	}
 	return false
 }
@@ -166,18 +180,19 @@ func (t *TabsWidget) handleKey(ev *tcell.EventKey) bool {
 	case tcell.KeyRight:
 		t.selected = (t.selected + 1) % n
 		return true
-	case tcell.KeyEnter:
-		if t.Config.OnTabClick != nil {
+	case tcell.KeyEnter, tcell.KeyRune:
+		if ev.Key() == tcell.KeyRune && ev.Rune() != ' ' {
+			return false
+		}
+		if t.isHidden(t.selected) {
+			if t.Config.OnOverflow != nil {
+				r := t.GetRect()
+				t.Config.OnOverflow(r.X+t.overSpan[0], r.Y)
+			}
+		} else if t.Config.OnTabClick != nil {
 			t.Config.OnTabClick(t.selected)
 		}
 		return true
-	case tcell.KeyRune:
-		if ev.Rune() == ' ' {
-			if t.Config.OnTabClick != nil {
-				t.Config.OnTabClick(t.selected)
-			}
-			return true
-		}
 	}
 	return false
 }
