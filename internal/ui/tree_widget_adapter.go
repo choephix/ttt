@@ -73,3 +73,27 @@ func (a *CardWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	}
 	return EventIgnored
 }
+
+type BoxWidgetAdapter struct {
+	BaseWidget
+	Box *widgets.BoxWidget
+}
+
+func NewBoxWidgetAdapter(box *widgets.BoxWidget) *BoxWidgetAdapter {
+	return &BoxWidgetAdapter{Box: box}
+}
+
+func (a *BoxWidgetAdapter) Focusable() bool { return true }
+
+func (a *BoxWidgetAdapter) Render(surface *RenderSurface) {
+	r := a.GetRect()
+	a.Box.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
+	a.Box.Render(&surfaceAdapter{surface: surface})
+}
+
+func (a *BoxWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
+	if a.Box.HandleEvent(ev) {
+		return EventConsumed
+	}
+	return EventIgnored
+}

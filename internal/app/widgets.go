@@ -244,11 +244,14 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 			{Label: "Remove", Command: "docker.remove"},
 		},
 	})
-	demoCard := widgets.NewCardWidget(widgets.CardConfig{
-		Borders: *borders,
+	demoBox := widgets.NewBoxWidget(widgets.BoxConfig{
+		PaddingTop:    1,
+		PaddingBottom: 1,
+		PaddingLeft:   1,
+		PaddingRight:  1,
 	})
-	demoCard.Child = demoTree
-	widgetPanel := ui.NewCardWidgetAdapter(demoCard)
+	demoBox.Child = demoTree
+	widgetPanel := ui.NewBoxWidgetAdapter(demoBox)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Explore", explorer)
