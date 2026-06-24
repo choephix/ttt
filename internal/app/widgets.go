@@ -153,7 +153,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
-	demoTree := widgets.NewTreeWidget(widgets.TreeConfig{
+	_ = widgets.NewTreeWidget(widgets.TreeConfig{
 		Items: []*widgets.TreeNode{
 			{
 				ID:       "containers",
@@ -244,14 +244,15 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 			{Label: "Remove", Command: "docker.remove"},
 		},
 	})
-	demoBox := widgets.NewBoxWidget(widgets.BoxConfig{
-		PaddingTop:    1,
-		PaddingBottom: 1,
-		PaddingLeft:   1,
-		PaddingRight:  1,
+	demoTitle := widgets.NewTitleWidget(widgets.TitleConfig{
+		Title: "Docker",
+		Menu: []widgets.MenuEntry{
+			{Label: "Refresh", Command: "docker.refresh"},
+			{Separator: true},
+			{Label: "Help", Command: "docker.help"},
+		},
 	})
-	demoBox.Child = demoTree
-	widgetPanel := ui.NewBoxWidgetAdapter(demoBox)
+	widgetPanel := ui.NewTitleWidgetAdapter(demoTitle)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Explore", explorer)

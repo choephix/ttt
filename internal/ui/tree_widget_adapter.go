@@ -97,3 +97,27 @@ func (a *BoxWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	}
 	return EventIgnored
 }
+
+type TitleWidgetAdapter struct {
+	BaseWidget
+	Section *widgets.TitleWidget
+}
+
+func NewTitleWidgetAdapter(section *widgets.TitleWidget) *TitleWidgetAdapter {
+	return &TitleWidgetAdapter{Section: section}
+}
+
+func (a *TitleWidgetAdapter) Focusable() bool { return false }
+
+func (a *TitleWidgetAdapter) Render(surface *RenderSurface) {
+	r := a.GetRect()
+	a.Section.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
+	a.Section.Render(&surfaceAdapter{surface: surface})
+}
+
+func (a *TitleWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
+	if a.Section.HandleEvent(ev) {
+		return EventConsumed
+	}
+	return EventIgnored
+}
