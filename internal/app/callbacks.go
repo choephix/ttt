@@ -51,6 +51,12 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
+	case "widgets":
+		items = []ui.ContextMenuItem{
+			{Label: "Refresh", Command: "widgets.refresh"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "widgets.help"},
+		}
 	}
 	if len(items) > 0 {
 		openContextMenu(a, items, sx, sy)

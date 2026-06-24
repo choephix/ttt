@@ -180,6 +180,14 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "sidebar.widgets", Title: "Show Widgets",
+		Keywords: []string{"view", "widget", "plugin", "tree"},
+		Handler: func() {
+			app.ShowPanel("widgets", app.WidgetPanel)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {
