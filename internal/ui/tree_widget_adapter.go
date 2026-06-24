@@ -19,6 +19,9 @@ func (a *surfaceAdapter) DrawText(x, y int, text string, maxW int, style term.St
 func (a *surfaceAdapter) ClearRect(x, y, w, h int, style term.Style) {
 	a.surface.ClearRect(x, y, w, h, style)
 }
+func (a *surfaceAdapter) DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style) {
+	a.surface.DrawBorder(x, y, w, h, b, style)
+}
 func (a *surfaceAdapter) Sub(r widgets.Rect) widgets.Surface {
 	return &surfaceAdapter{surface: a.surface.Sub(Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})}
 }
@@ -42,6 +45,30 @@ func (a *TreeWidgetAdapter) Render(surface *RenderSurface) {
 
 func (a *TreeWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	if a.Tree.HandleEvent(ev) {
+		return EventConsumed
+	}
+	return EventIgnored
+}
+
+type CardWidgetAdapter struct {
+	BaseWidget
+	Box *widgets.CardWidget
+}
+
+func NewCardWidgetAdapter(box *widgets.CardWidget) *CardWidgetAdapter {
+	return &CardWidgetAdapter{Box: box}
+}
+
+func (a *CardWidgetAdapter) Focusable() bool { return true }
+
+func (a *CardWidgetAdapter) Render(surface *RenderSurface) {
+	r := a.GetRect()
+	a.Box.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
+	a.Box.Render(&surfaceAdapter{surface: surface})
+}
+
+func (a *CardWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
+	if a.Box.HandleEvent(ev) {
 		return EventConsumed
 	}
 	return EventIgnored
