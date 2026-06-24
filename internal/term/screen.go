@@ -14,6 +14,7 @@ const (
 	StyleMenuBar
 	StyleMenuBarActive
 	StyleBorder
+	StyleBorderActive
 	StyleSelection
 	StyleSearchMatch
 	StyleSearchActive

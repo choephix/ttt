@@ -46,6 +46,7 @@ type TreeWidget struct {
 	selected  int
 	scrollTop int
 	lastSel   int
+	focused   bool
 
 	scrollbar scrollbar
 }
@@ -58,7 +59,9 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 
 func (t *TreeWidget) Height() int { return 0 }
 func (t *TreeWidget) Width() int  { return 0 }
-func (t *TreeWidget) Focusable() bool { return true }
+func (t *TreeWidget) Focusable() bool    { return true }
+func (t *TreeWidget) SetFocused(f bool)  { t.focused = f }
+func (t *TreeWidget) IsFocused() bool    { return t.focused }
 
 func (t *TreeWidget) Selected() *TreeNode {
 	if t.selected >= 0 && t.selected < len(t.flatList) {

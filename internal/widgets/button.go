@@ -45,15 +45,11 @@ func (b *ButtonWidget) Width() int {
 	return w
 }
 
-func (b *ButtonWidget) SetFocused(f bool) { b.focused = f }
+func (b *ButtonWidget) Focusable() bool    { return true }
+func (b *ButtonWidget) SetFocused(f bool)  { b.focused = f }
+func (b *ButtonWidget) IsFocused() bool    { return b.focused }
 
 func (b *ButtonWidget) Render(surface Surface) {
-	inner := b.RenderBox(surface)
-	w, _ := inner.Size()
-	if w <= 0 {
-		return
-	}
-
 	style := b.Config.Style
 	if style == 0 {
 		style = term.StyleButton
@@ -62,8 +58,19 @@ func (b *ButtonWidget) Render(surface Surface) {
 		style = term.StyleButtonFocused
 	}
 
-	for x := 0; x < w; x++ {
-		inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+	padded := b.BorderedInterior(surface)
+	pw, _ := padded.Size()
+	fillH := 1 + b.Box.PaddingTop + b.Box.PaddingBottom
+	for y := 0; y < fillH; y++ {
+		for x := 0; x < pw; x++ {
+			padded.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
+		}
+	}
+
+	inner := b.RenderBox(surface)
+	w, _ := inner.Size()
+	if w <= 0 {
+		return
 	}
 
 	x := 0

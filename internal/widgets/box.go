@@ -55,7 +55,16 @@ func (b *BoxWidget) Width() int {
 	return 0
 }
 
+func (b *BoxWidget) hasBorder() bool {
+	return b.Box.BorderTop || b.Box.BorderBottom || b.Box.BorderLeft || b.Box.BorderRight
+}
+
 func (b *BoxWidget) Render(surface Surface) {
+	if b.hasBorder() && b.Child != nil && hasFocusedChild(b.Child) {
+		b.Box.Style = term.StyleBorderActive
+	} else {
+		b.Box.Style = 0
+	}
 	inner := b.RenderBox(surface)
 	iw, ih := inner.Size()
 	if b.Child != nil && iw > 0 && ih > 0 {

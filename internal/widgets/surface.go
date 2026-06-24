@@ -19,6 +19,38 @@ type Widget interface {
 	SetBoxModel(bm BoxModel)
 }
 
+type FocusableWidget interface {
+	Widget
+	Focusable() bool
+	SetFocused(focused bool)
+	IsFocused() bool
+}
+
+func hasFocusedChild(w Widget) bool {
+	if fw, ok := w.(FocusableWidget); ok && fw.IsFocused() {
+		return true
+	}
+	switch v := w.(type) {
+	case *VStackWidget:
+		for _, child := range v.Children {
+			if hasFocusedChild(child) {
+				return true
+			}
+		}
+	case *HStackWidget:
+		for _, child := range v.Children {
+			if hasFocusedChild(child) {
+				return true
+			}
+		}
+	case *BoxWidget:
+		if v.Child != nil {
+			return hasFocusedChild(v.Child)
+		}
+	}
+	return false
+}
+
 type Surface interface {
 	Size() (w, h int)
 	SetCell(x, y int, c term.Cell)
@@ -145,13 +177,54 @@ func (b *BaseWidget) RenderBox(surface Surface) Surface {
 		surface.SetCell(mx+mw-1, my+mh-1, term.Cell{Ch: bs.BottomRight, Style: borderStyle})
 	}
 
-	innerX := mx + bLeft + b.Box.PaddingLeft
-	innerY := my + bTop + b.Box.PaddingTop
-	innerW := mw - bLeft - bRight - b.Box.PaddingLeft - b.Box.PaddingRight
-	innerH := mh - bTop - bBottom - b.Box.PaddingTop - b.Box.PaddingBottom
+	paddedX := mx + bLeft
+	paddedY := my + bTop
+	paddedW := mw - bLeft - bRight
+	paddedH := mh - bTop - bBottom
+
+	if paddedW <= 0 || paddedH <= 0 {
+		return surface.Sub(Rect{X: 0, Y: 0, W: 0, H: 0})
+	}
+
+	innerX := paddedX + b.Box.PaddingLeft
+	innerY := paddedY + b.Box.PaddingTop
+	innerW := paddedW - b.Box.PaddingLeft - b.Box.PaddingRight
+	innerH := paddedH - b.Box.PaddingTop - b.Box.PaddingBottom
 
 	if innerW <= 0 || innerH <= 0 {
 		return surface.Sub(Rect{X: 0, Y: 0, W: 0, H: 0})
 	}
 	return surface.Sub(Rect{X: innerX, Y: innerY, W: innerW, H: innerH})
+}
+
+func (b *BaseWidget) BorderedInterior(surface Surface) Surface {
+	w, h := surface.Size()
+	mx := b.Box.MarginLeft
+	my := b.Box.MarginTop
+	mw := w - b.Box.MarginLeft - b.Box.MarginRight
+	mh := h - b.Box.MarginTop - b.Box.MarginBottom
+	if mw <= 0 || mh <= 0 {
+		return surface.Sub(Rect{X: 0, Y: 0, W: 0, H: 0})
+	}
+	bTop, bLeft, bRight, bBottom := 0, 0, 0, 0
+	if b.Box.BorderTop {
+		bTop = 1
+	}
+	if b.Box.BorderBottom {
+		bBottom = 1
+	}
+	if b.Box.BorderLeft {
+		bLeft = 1
+	}
+	if b.Box.BorderRight {
+		bRight = 1
+	}
+	px := mx + bLeft
+	py := my + bTop
+	pw := mw - bLeft - bRight
+	ph := mh - bTop - bBottom
+	if pw <= 0 || ph <= 0 {
+		return surface.Sub(Rect{X: 0, Y: 0, W: 0, H: 0})
+	}
+	return surface.Sub(Rect{X: px, Y: py, W: pw, H: ph})
 }

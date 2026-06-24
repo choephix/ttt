@@ -28,11 +28,14 @@ func (a *surfaceAdapter) Sub(r widgets.Rect) widgets.Surface {
 
 type WidgetAdapter struct {
 	BaseWidget
-	W widgets.Widget
+	W    widgets.Widget
+	focus *widgets.FocusManager
 }
 
 func NewWidgetAdapter(w widgets.Widget) *WidgetAdapter {
-	return &WidgetAdapter{W: w}
+	wa := &WidgetAdapter{W: w, focus: widgets.NewFocusManager()}
+	wa.focus.Collect(w)
+	return wa
 }
 
 func (a *WidgetAdapter) Focusable() bool { return true }
@@ -43,9 +46,18 @@ func (a *WidgetAdapter) Render(surface *RenderSurface) {
 	a.W.Render(&surfaceAdapter{surface: surface})
 }
 
+func (a *WidgetAdapter) RebuildFocus() {
+	a.focus.Collect(a.W)
+}
+
 func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
-	if a.W.HandleEvent(ev) {
+	if a.focus.HandleEvent(ev) {
 		return EventConsumed
+	}
+	if _, ok := ev.(*tcell.EventMouse); ok {
+		if a.W.HandleEvent(ev) {
+			return EventConsumed
+		}
 	}
 	return EventIgnored
 }
