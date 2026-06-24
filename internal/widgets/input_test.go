@@ -163,10 +163,10 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 
 	t.Logf("tab 0 focusable items: %d", len(fm.items))
 	if len(fm.items) != 2 {
-		t.Fatalf("tab 0 should have 2 focusables (tabs + tree), got %d", len(fm.items))
+		t.Fatalf("tab 0 should have 2 focusables (tree + tabs), got %d", len(fm.items))
 	}
-	if !tabs.IsFocused() {
-		t.Error("tabs bar should be auto-focused on tab 0")
+	if !tree.IsFocused() {
+		t.Error("tree should be auto-focused on tab 0 (content before tabs)")
 	}
 
 	// Switch to tab 1
@@ -183,7 +183,7 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 	}
 
 	if len(fm.items) != 3 {
-		t.Fatalf("tab 1 should have 3 focusables (tabs + 2 inputs), got %d", len(fm.items))
+		t.Fatalf("tab 1 should have 3 focusables (2 inputs + tabs), got %d", len(fm.items))
 	}
 
 	// Old tree should NOT be focused
@@ -191,9 +191,9 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 		t.Error("tree from tab 0 should not be focused after tab switch")
 	}
 
-	// Tabs bar should be auto-focused (first focusable)
-	if !tabs.IsFocused() {
-		t.Error("tabs bar should be auto-focused after tab switch")
+	// First input should be auto-focused (content before tabs)
+	if !inp1.IsFocused() {
+		t.Error("inp1 should be auto-focused after tab switch")
 	}
 
 	// Verify inp2 rect is non-zero
@@ -462,5 +462,158 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 	handled := tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
 	if handled {
 		t.Error("unfocused tabs should not handle key events")
+	}
+}
+
+func TestTreeActiveID(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "Alpha"},
+			{ID: "b", Label: "Beta"},
+			{ID: "c", Label: "Gamma"},
+		},
+	})
+
+	tree.SetActiveID("b")
+	if tree.Config.ActiveID != "b" {
+		t.Fatalf("expected ActiveID=b, got %s", tree.Config.ActiveID)
+	}
+
+	s := renderWidget(tree, 0, 0, 20, 10)
+
+	// Row 1 (Beta) should use StyleSidebarSelected, row 0 (Alpha) uses default
+	// Row 0 is also selected (idx==0) so it gets highlight too. Check row 2 is default.
+	if s.cells[2][0].Style != term.StyleDefault {
+		t.Error("Gamma (non-active, non-selected) should use default style")
+	}
+	if s.cells[1][0].Style != term.StyleSidebarSelected {
+		t.Error("Beta (active) should use sidebar selected style")
+	}
+}
+
+func TestTreeMutedNodes(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "Alpha"},
+			{ID: "b", Label: "Beta", Muted: true},
+		},
+	})
+
+	s := renderWidget(tree, 0, 0, 20, 10)
+
+	// Beta is at row 1, not selected, muted — label chars should use StyleMuted
+	if s.cells[1][0].Style != term.StyleMuted {
+		t.Errorf("muted node label should use StyleMuted, got %v", s.cells[1][0].Style)
+	}
+
+	// Alpha is at row 0, selected — should NOT be muted even if Muted were true
+	if s.cells[0][0].Style == term.StyleMuted {
+		t.Error("selected node should not use muted style")
+	}
+}
+
+func TestTreeOnExpand(t *testing.T) {
+	expanded := []string{}
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{
+				ID:    "root",
+				Label: "Root",
+				Children: []*TreeNode{
+					{ID: "child", Label: "Child"},
+				},
+			},
+		},
+		OnExpand: func(node *TreeNode) {
+			expanded = append(expanded, node.ID)
+		},
+	})
+
+	// Select root and expand
+	tree.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	if len(expanded) != 1 || expanded[0] != "root" {
+		t.Fatalf("expected OnExpand called with root, got %v", expanded)
+	}
+
+	// Collapse and re-expand
+	tree.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	tree.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	if len(expanded) != 2 {
+		t.Fatalf("expected 2 OnExpand calls, got %d", len(expanded))
+	}
+}
+
+func TestTreeSelectByID(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "Alpha"},
+			{ID: "b", Label: "Beta"},
+			{ID: "c", Label: "Gamma"},
+		},
+	})
+
+	tree.SelectByID("c")
+	sel := tree.Selected()
+	if sel == nil || sel.ID != "c" {
+		t.Fatalf("expected selected=c, got %v", sel)
+	}
+
+	tree.SelectByID("nonexistent")
+	sel = tree.Selected()
+	if sel == nil || sel.ID != "c" {
+		t.Fatal("SelectByID with unknown ID should not change selection")
+	}
+}
+
+func TestTreeMouseBoundsCheck(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "Alpha"},
+		},
+	})
+	renderWidget(tree, 5, 5, 20, 10)
+
+	// Click outside tree rect should not be handled
+	outside := mouseClick(0, 0)
+	if tree.HandleEvent(outside) {
+		t.Error("click outside rect should not be handled")
+	}
+
+	// Click inside should be handled
+	inside := mouseClick(6, 5)
+	if !tree.HandleEvent(inside) {
+		t.Error("click inside rect should be handled")
+	}
+}
+
+func TestTreeReload(t *testing.T) {
+	child := &TreeNode{ID: "child", Label: "Child"}
+	root := &TreeNode{
+		ID:       "root",
+		Label:    "Root",
+		Children: []*TreeNode{child},
+		Expanded: true,
+	}
+	expandCalled := 0
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{root},
+		OnExpand: func(node *TreeNode) {
+			expandCalled++
+		},
+	})
+
+	// Initially 2 items (root expanded + child)
+	if len(tree.flatList) != 2 {
+		t.Fatalf("expected 2 flat items, got %d", len(tree.flatList))
+	}
+
+	tree.Reload()
+	// OnExpand should be called for the root
+	if expandCalled != 1 {
+		t.Fatalf("expected 1 OnExpand call on reload, got %d", expandCalled)
+	}
+	// Expanded state should be preserved
+	if !root.Expanded {
+		t.Error("root should still be expanded after reload")
 	}
 }
