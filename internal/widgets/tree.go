@@ -9,8 +9,9 @@ type TreeNode struct {
 	ID       string      `json:"id"`
 	Label    string      `json:"label"`
 	Icon     string      `json:"icon,omitempty"`
-	Badge    string      `json:"badge,omitempty"`
-	Children []*TreeNode `json:"children,omitempty"`
+	Badge      string     `json:"badge,omitempty"`
+	BadgeStyle term.Style `json:"-"`
+	Children   []*TreeNode `json:"children,omitempty"`
 	Actions  []Action    `json:"actions,omitempty"`
 	Muted    bool        `json:"-"`
 
@@ -246,7 +247,10 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 
 	if node.Badge != "" {
-		badgeStyle := term.StyleMuted
+		badgeStyle := node.BadgeStyle
+		if badgeStyle == term.StyleDefault {
+			badgeStyle = term.StyleMuted
+		}
 		if idx == t.selected {
 			badgeStyle = style
 		}

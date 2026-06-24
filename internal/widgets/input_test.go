@@ -512,6 +512,37 @@ func TestTreeMutedNodes(t *testing.T) {
 	}
 }
 
+func TestTreeBadgeStyle(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "A", Badge: "M", BadgeStyle: term.StyleWarning},
+			{ID: "b", Label: "B", Badge: "D", BadgeStyle: term.StyleDanger},
+			{ID: "c", Label: "C", Badge: "?"},
+		},
+	})
+
+	// Select node "b" so "a" is unselected and shows its BadgeStyle
+	tree.SelectByID("b")
+	s := renderWidget(tree, 0, 0, 20, 10)
+
+	// Row 0 ("A"): badge "M" should render in StyleWarning
+	// Label is at x=0, badge has a space gap then starts
+	badgeX := 2 // "A" at x=0, space at x=1, badge at x=2
+	if s.cells[0][badgeX].Style != term.StyleWarning {
+		t.Errorf("badge M should use StyleWarning, got %v", s.cells[0][badgeX].Style)
+	}
+
+	// Row 2 ("C"): badge "?" has no BadgeStyle set, should fall back to StyleMuted
+	if s.cells[2][badgeX].Style != term.StyleMuted {
+		t.Errorf("badge ? with no BadgeStyle should use StyleMuted, got %v", s.cells[2][badgeX].Style)
+	}
+
+	// Row 1 ("B"): selected — badge should use selection style, not BadgeStyle
+	if s.cells[1][badgeX].Style != term.StyleSidebarSelected {
+		t.Errorf("selected node badge should use selection style, got %v", s.cells[1][badgeX].Style)
+	}
+}
+
 func TestTreeOnExpand(t *testing.T) {
 	expanded := []string{}
 	tree := NewTreeWidget(TreeConfig{
