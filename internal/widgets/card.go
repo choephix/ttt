@@ -12,13 +12,16 @@ type CardConfig struct {
 
 type CardWidget struct {
 	Config CardConfig
-	Child  *TreeWidget
+	Child  Widget
 	rect   Rect
 }
 
 func NewCardWidget(config CardConfig) *CardWidget {
 	return &CardWidget{Config: config}
 }
+
+func (c *CardWidget) Height() int { return 0 }
+func (c *CardWidget) Width() int  { return 0 }
 
 func (c *CardWidget) SetRect(r Rect) {
 	c.rect = r

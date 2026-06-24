@@ -68,7 +68,7 @@ type App struct {
 	AllDiagnostics     map[string][]ui.Diagnostic
 	Keybindings        []config.KeyBinding
 	LspNotified        map[string]bool
-	WidgetPanel        *ui.TitleWidgetAdapter
+	WidgetPanel        *ui.WidgetAdapter
 	ExplorerContextNode *ui.TreeNode
 	Reg                *command.Registry
 	Running            *bool

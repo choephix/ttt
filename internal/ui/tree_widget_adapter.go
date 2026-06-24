@@ -98,25 +98,25 @@ func (a *BoxWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-type TitleWidgetAdapter struct {
+type WidgetAdapter struct {
 	BaseWidget
-	Section *widgets.TitleWidget
+	W widgets.Widget
 }
 
-func NewTitleWidgetAdapter(section *widgets.TitleWidget) *TitleWidgetAdapter {
-	return &TitleWidgetAdapter{Section: section}
+func NewWidgetAdapter(w widgets.Widget) *WidgetAdapter {
+	return &WidgetAdapter{W: w}
 }
 
-func (a *TitleWidgetAdapter) Focusable() bool { return false }
+func (a *WidgetAdapter) Focusable() bool { return true }
 
-func (a *TitleWidgetAdapter) Render(surface *RenderSurface) {
+func (a *WidgetAdapter) Render(surface *RenderSurface) {
 	r := a.GetRect()
-	a.Section.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
-	a.Section.Render(&surfaceAdapter{surface: surface})
+	a.W.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
+	a.W.Render(&surfaceAdapter{surface: surface})
 }
 
-func (a *TitleWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
-	if a.Section.HandleEvent(ev) {
+func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
+	if a.W.HandleEvent(ev) {
 		return EventConsumed
 	}
 	return EventIgnored

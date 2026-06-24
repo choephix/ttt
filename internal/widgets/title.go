@@ -22,6 +22,9 @@ func NewTitleWidget(config TitleConfig) *TitleWidget {
 	return &TitleWidget{Config: config}
 }
 
+func (t *TitleWidget) Height() int { return 1 }
+func (t *TitleWidget) Width() int  { return 0 }
+
 func (t *TitleWidget) SetRect(r Rect) {
 	t.rect = r
 }

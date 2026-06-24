@@ -55,6 +55,9 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 	return t
 }
 
+func (t *TreeWidget) Height() int { return 0 }
+func (t *TreeWidget) Width() int  { return 0 }
+
 func (t *TreeWidget) SetRect(r Rect) { t.rect = r }
 func (t *TreeWidget) GetRect() Rect  { return t.rect }
 func (t *TreeWidget) Focusable() bool { return true }

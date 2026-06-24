@@ -1,9 +1,21 @@
 package widgets
 
-import "github.com/eugenioenko/ttt/internal/term"
+import (
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/gdamore/tcell/v2"
+)
 
 type Rect struct {
 	X, Y, W, H int
+}
+
+type Widget interface {
+	Height() int
+	Width() int
+	SetRect(r Rect)
+	GetRect() Rect
+	Render(surface Surface)
+	HandleEvent(ev tcell.Event) bool
 }
 
 type Surface interface {

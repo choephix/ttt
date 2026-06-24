@@ -26,6 +26,8 @@ func NewDropdownWidget(config DropdownConfig) *DropdownWidget {
 	return &DropdownWidget{Config: config}
 }
 
+func (d *DropdownWidget) Height() int { return 1 }
+
 func (d *DropdownWidget) SetRect(r Rect) {
 	d.rect = r
 }

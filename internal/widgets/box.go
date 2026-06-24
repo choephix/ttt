@@ -13,13 +13,16 @@ type BoxConfig struct {
 
 type BoxWidget struct {
 	Config BoxConfig
-	Child  *TreeWidget
+	Child  Widget
 	rect   Rect
 }
 
 func NewBoxWidget(config BoxConfig) *BoxWidget {
 	return &BoxWidget{Config: config}
 }
+
+func (b *BoxWidget) Height() int { return 0 }
+func (b *BoxWidget) Width() int  { return 0 }
 
 func (b *BoxWidget) SetRect(r Rect) {
 	b.rect = r
