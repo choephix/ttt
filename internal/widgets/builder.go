@@ -36,7 +36,8 @@ type WidgetDef struct {
 	MenuIcon       string      `json:"menuIcon,omitempty"`
 	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
 
-	// container
+	// layout
+	Align    string       `json:"align,omitempty"`
 	Child    *WidgetDef   `json:"child,omitempty"`
 	Children []*WidgetDef `json:"children,omitempty"`
 }
@@ -130,7 +131,9 @@ func buildVStack(def *WidgetDef, ctx BuildContext) (*VStackWidget, error) {
 		}
 		children = append(children, child)
 	}
-	return NewVStackWidget(children...), nil
+	vs := NewVStackWidget(children...)
+	vs.Align = def.Align
+	return vs, nil
 }
 
 func buildHStack(def *WidgetDef, ctx BuildContext) (*HStackWidget, error) {
@@ -142,5 +145,7 @@ func buildHStack(def *WidgetDef, ctx BuildContext) (*HStackWidget, error) {
 		}
 		children = append(children, child)
 	}
-	return NewHStackWidget(children...), nil
+	hs := NewHStackWidget(children...)
+	hs.Align = def.Align
+	return hs, nil
 }

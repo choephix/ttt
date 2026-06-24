@@ -7,6 +7,7 @@ import (
 type VStackWidget struct {
 	BaseWidget
 	Children []Widget
+	Align    string `json:"align,omitempty"`
 }
 
 func NewVStackWidget(children ...Widget) *VStackWidget {
@@ -54,7 +55,17 @@ func (v *VStackWidget) Render(surface Surface) {
 		oy++
 	}
 
+	totalUsed := fixedTotal + growH*growCount + growRemainder
 	y := 0
+	if growCount == 0 {
+		switch v.Align {
+		case "center":
+			y = (h - totalUsed) / 2
+		case "bottom":
+			y = h - totalUsed
+		}
+	}
+
 	growIndex := 0
 	for _, child := range v.Children {
 		ch := child.Height()
