@@ -173,7 +173,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		},
 		NodeMenu: nodeMenu,
 	})
-	containersCard := widgets.NewCardWidget(widgets.CardConfig{Borders: *borders})
+	containersCard := widgets.NewBoxWithBorder(*borders)
 	containersCard.Child = containersTree
 
 	imagesTree := widgets.NewTreeWidget(widgets.TreeConfig{
@@ -186,7 +186,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		},
 		NodeMenu: nodeMenu,
 	})
-	imagesCard := widgets.NewCardWidget(widgets.CardConfig{Borders: *borders})
+	imagesCard := widgets.NewBoxWithBorder(*borders)
 	imagesCard.Child = imagesTree
 
 	volumesTree := widgets.NewTreeWidget(widgets.TreeConfig{
@@ -197,7 +197,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		},
 		NodeMenu: nodeMenu,
 	})
-	volumesCard := widgets.NewCardWidget(widgets.CardConfig{Borders: *borders})
+	volumesCard := widgets.NewBoxWithBorder(*borders)
 	volumesCard.Child = volumesTree
 
 	demoTitle := widgets.NewTitleWidget(widgets.TitleConfig{

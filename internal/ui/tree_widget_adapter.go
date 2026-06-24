@@ -50,29 +50,6 @@ func (a *TreeWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-type CardWidgetAdapter struct {
-	BaseWidget
-	Box *widgets.CardWidget
-}
-
-func NewCardWidgetAdapter(box *widgets.CardWidget) *CardWidgetAdapter {
-	return &CardWidgetAdapter{Box: box}
-}
-
-func (a *CardWidgetAdapter) Focusable() bool { return true }
-
-func (a *CardWidgetAdapter) Render(surface *RenderSurface) {
-	r := a.GetRect()
-	a.Box.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
-	a.Box.Render(&surfaceAdapter{surface: surface})
-}
-
-func (a *CardWidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
-	if a.Box.HandleEvent(ev) {
-		return EventConsumed
-	}
-	return EventIgnored
-}
 
 type BoxWidgetAdapter struct {
 	BaseWidget
