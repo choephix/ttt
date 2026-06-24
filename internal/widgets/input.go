@@ -62,7 +62,7 @@ func (inp *InputWidget) CursorPosition() (int, int, bool) {
 	textX := r.X + inp.Box.MarginLeft + inp.Box.PaddingLeft
 	textY := r.Y + inp.Box.MarginTop + inp.Box.PaddingTop
 	if inp.Config.Bordered {
-		textX += 1
+		textX += 2
 		textY += 1
 	} else {
 		textX += len([]rune(inp.Config.Prefix))
@@ -132,7 +132,7 @@ func (inp *InputWidget) renderBordered(surface Surface) {
 
 	inner.DrawBorder(0, 0, w, h, bs, borderStyle)
 
-	inp.renderText(inner, 1, 1, w-2)
+	inp.renderText(inner, 2, 1, w-4)
 }
 
 func (inp *InputWidget) borders() term.BorderSet {
@@ -357,7 +357,7 @@ func (inp *InputWidget) handleMouse(ev *tcell.EventMouse) bool {
 
 	textX := r.X + inp.Box.MarginLeft + inp.Box.PaddingLeft + len([]rune(inp.Config.Prefix))
 	if inp.Config.Bordered {
-		textX = r.X + inp.Box.MarginLeft + inp.Box.PaddingLeft + 1
+		textX = r.X + inp.Box.MarginLeft + inp.Box.PaddingLeft + 2
 	}
 	pos := inp.scrollOffset + (mx - textX)
 	runes := []rune(inp.text)

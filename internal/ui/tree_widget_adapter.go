@@ -35,7 +35,30 @@ type WidgetAdapter struct {
 func NewWidgetAdapter(w widgets.Widget) *WidgetAdapter {
 	wa := &WidgetAdapter{W: w, focus: widgets.NewFocusManager()}
 	wa.focus.Collect(w)
+	wa.wireTabbedCallbacks(w)
 	return wa
+}
+
+func (a *WidgetAdapter) wireTabbedCallbacks(w widgets.Widget) {
+	switch v := w.(type) {
+	case *widgets.TabbedWidget:
+		v.OnChange = func(int) { a.RebuildFocus() }
+		for _, child := range v.Children {
+			a.wireTabbedCallbacks(child)
+		}
+	case *widgets.VStackWidget:
+		for _, child := range v.Children {
+			a.wireTabbedCallbacks(child)
+		}
+	case *widgets.HStackWidget:
+		for _, child := range v.Children {
+			a.wireTabbedCallbacks(child)
+		}
+	case *widgets.BoxWidget:
+		if v.Child != nil {
+			a.wireTabbedCallbacks(v.Child)
+		}
+	}
 }
 
 func (a *WidgetAdapter) Focusable() bool { return true }
@@ -48,6 +71,10 @@ func (a *WidgetAdapter) Render(surface *RenderSurface) {
 
 func (a *WidgetAdapter) RebuildFocus() {
 	a.focus.Collect(a.W)
+}
+
+func (a *WidgetAdapter) RewireTabbedCallbacks() {
+	a.wireTabbedCallbacks(a.W)
 }
 
 func (a *WidgetAdapter) CursorPosition() (int, int, bool) {

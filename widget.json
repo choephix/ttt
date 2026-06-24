@@ -1,77 +1,113 @@
 {
-  "type": "vstack",
+  "type": "tabbed",
+  "tabs": [
+    {"id": "containers", "label": "Containers"},
+    {"id": "settings", "label": "Settings"},
+    {"id": "images", "label": "Images"},
+    {"id": "networks", "label": "Networks"}
+  ],
   "children": [
     {
-      "type": "title",
-      "title": "Docker", "paddingLeft": 1, "padded": true,
-      "menu": [
-        {"label": "Refresh", "command": "docker.refresh"},
-        {"separator": true},
-        {"label": "Help", "command": "docker.help"}
+      "type": "vstack",
+      "children": [
+        {
+          "type": "title",
+          "title": "Docker", "paddingLeft": 1, "padded": true,
+          "menu": [
+            {"label": "Refresh", "command": "docker.refresh"},
+            {"separator": true},
+            {"label": "Help", "command": "docker.help"}
+          ]
+        },
+        {
+          "type": "box",
+          "borderTop": true,
+          "borderBottom": true,
+          "borderLeft": true,
+          "borderRight": true,
+          "child": {
+            "type": "tree",
+            "items": [
+              {"id": "c1", "label": "nginx-proxy", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+              {"id": "c2", "label": "postgres-db", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+              {"id": "c3", "label": "redis-cache", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
+              {"id": "c4", "label": "grafana", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+              {"id": "c5", "label": "prometheus", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]}
+            ],
+            "nodeMenu": [
+              {"label": "Stop", "command": "docker.stop"},
+              {"label": "Restart", "command": "docker.restart"},
+              {"separator": true},
+              {"label": "Remove", "command": "docker.remove"}
+            ]
+          }
+        },
+        {
+          "type": "hstack",
+          "align": "right",
+          "paddingRight": 1,
+          "children": [
+            {"type": "button", "label": "&Run", "command": "docker.run", "paddingLeft": 1, "paddingRight": 1},
+            {"type": "button", "label": "&Stop", "command": "docker.stop", "paddingLeft": 1, "paddingRight": 1}
+          ]
+        }
       ]
     },
     {
-      "type": "box",
-      "borderTop": true,
-      "borderBottom": true,
-      "borderLeft": true,
-      "borderRight": true,
-      "child": {
-        "type": "tree",
-        "items": [
-          {"id": "c1", "label": "nginx-proxy", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
-          {"id": "c2", "label": "postgres-db", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
-          {"id": "c3", "label": "redis-cache", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
-          {"id": "c4", "label": "grafana", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
-          {"id": "c5", "label": "prometheus", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]}
-        ],
-        "nodeMenu": [
-          {"label": "Stop", "command": "docker.stop"},
-          {"label": "Restart", "command": "docker.restart"},
-          {"separator": true},
-          {"label": "Remove", "command": "docker.remove"}
-        ]
-      }
-    },
-    {
-      "type": "divider"
-    },
-    {
-      "type": "title",
-      "title": "Settings", "paddingLeft": 1, "padded": true
-    },
-    {
-      "type": "label", "text": "Container name", "paddingLeft": 1
-    },
-    {
-      "type": "input", "bordered": true
-    },
-    {
-      "type": "label", "text": "Image", "paddingLeft": 1
-    },
-    {
-      "type": "input", "bordered": true
-    },
-    {
-      "type": "label", "text": "Command", "paddingLeft": 1
-    },
-    {
-      "type": "input", "prefix": " ❯ ", "bordered": false
-    },
-    {
-      "type": "label", "text": "Port mapping", "paddingLeft": 1
-    },
-    {
-      "type": "input", "prefix": " ❯ ", "bordered": false
-    },
-    {
-      "type": "hstack",
-      "align": "right",
-      "paddingRight": 1,
-      "marginTop": 1,
+      "type": "vstack",
       "children": [
-        {"type": "button", "label": "&Run", "command": "docker.run", "paddingLeft": 1, "paddingRight": 1},
-        {"type": "button", "label": "&Stop", "command": "docker.stop", "paddingLeft": 1, "paddingRight": 1}
+        {
+          "type": "label", "text": "Container name", "paddingLeft": 1
+        },
+        {
+          "type": "input", "bordered": true, "placeholder": "e.g. my-container"
+        },
+        {
+          "type": "label", "text": "Image", "paddingLeft": 1
+        },
+        {
+          "type": "input", "bordered": true
+        },
+        {
+          "type": "label", "text": "Command", "paddingLeft": 1
+        },
+        {
+          "type": "input", "prefix": " ❯ ", "bordered": false
+        },
+        {
+          "type": "label", "text": "Port mapping", "paddingLeft": 1
+        },
+        {
+          "type": "input", "prefix": " ❯ ", "bordered": false
+        }
+      ]
+    },
+    {
+      "type": "vstack",
+      "children": [
+        {
+          "type": "tree",
+          "items": [
+            {"id": "i1", "label": "nginx:latest"},
+            {"id": "i2", "label": "postgres:16"},
+            {"id": "i3", "label": "redis:7"},
+            {"id": "i4", "label": "node:20"},
+            {"id": "i5", "label": "alpine:3.19"}
+          ]
+        }
+      ]
+    },
+    {
+      "type": "vstack",
+      "children": [
+        {
+          "type": "tree",
+          "items": [
+            {"id": "n1", "label": "bridge"},
+            {"id": "n2", "label": "host"},
+            {"id": "n3", "label": "my-network"}
+          ]
+        }
       ]
     }
   ]

@@ -48,6 +48,9 @@ type WidgetDef struct {
 	Placeholder string `json:"placeholder,omitempty"`
 	Bordered    *bool  `json:"bordered,omitempty"`
 
+	// tabs
+	Tabs []TabItem `json:"tabs,omitempty"`
+
 	// layout
 	Align    string       `json:"align,omitempty"`
 	Child    *WidgetDef   `json:"child,omitempty"`
@@ -93,8 +96,12 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 		w = buildButton(def)
 	case "input":
 		w = buildInput(def)
+	case "tabs":
+		w = buildTabs(def)
 	case "divider":
 		w = buildDivider(def)
+	case "tabbed":
+		w, err = buildTabbed(def, ctx)
 	case "box":
 		w, err = buildBox(def, ctx)
 	case "vstack":
@@ -135,6 +142,28 @@ func buildInput(def *WidgetDef) *InputWidget {
 		Placeholder: def.Placeholder,
 		Bordered:    bordered,
 	})
+}
+
+func buildTabbed(def *WidgetDef, ctx BuildContext) (*TabbedWidget, error) {
+	items := make([]TabItem, len(def.Tabs))
+	copy(items, def.Tabs)
+	tabs := NewTabsWidget(TabsConfig{Items: items})
+
+	children := make([]Widget, 0, len(def.Children))
+	for _, childDef := range def.Children {
+		child, err := buildWidget(childDef, ctx)
+		if err != nil {
+			return nil, err
+		}
+		children = append(children, child)
+	}
+	return NewTabbedWidget(tabs, children), nil
+}
+
+func buildTabs(def *WidgetDef) *TabsWidget {
+	items := make([]TabItem, len(def.Tabs))
+	copy(items, def.Tabs)
+	return NewTabsWidget(TabsConfig{Items: items})
 }
 
 func buildDivider(def *WidgetDef) *DividerWidget {

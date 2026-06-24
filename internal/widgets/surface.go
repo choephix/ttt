@@ -51,6 +51,10 @@ func hasFocusedChild(w Widget) bool {
 		if v.Child != nil {
 			return hasFocusedChild(v.Child)
 		}
+	case *TabbedWidget:
+		if c := v.ActiveChild(); c != nil {
+			return hasFocusedChild(c)
+		}
 	}
 	return false
 }

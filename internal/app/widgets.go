@@ -229,5 +229,6 @@ func loadWidgetPanel(borders *term.BorderSet) *ui.WidgetAdapter {
 func (a *App) ReloadWidgetPanel() {
 	panel := loadWidgetPanel(a.Borders)
 	a.WidgetPanel.W = panel.W
+	a.WidgetPanel.RewireTabbedCallbacks()
 	a.WidgetPanel.RebuildFocus()
 }

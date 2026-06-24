@@ -1,0 +1,396 @@
+package widgets
+
+import (
+	"testing"
+
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/gdamore/tcell/v2"
+)
+
+// testSurface implements Surface for testing. Tracks cells and sub-surface offsets.
+type testSurface struct {
+	w, h   int
+	ox, oy int // absolute origin offset
+	cells  [][]term.Cell
+}
+
+func newTestSurface(w, h int) *testSurface {
+	cells := make([][]term.Cell, h)
+	for y := range h {
+		cells[y] = make([]term.Cell, w)
+	}
+	return &testSurface{w: w, h: h, cells: cells}
+}
+
+func (s *testSurface) Size() (int, int) { return s.w, s.h }
+func (s *testSurface) SetCell(x, y int, c term.Cell) {
+	ax, ay := x+s.ox, y+s.oy
+	if ax >= 0 && ax < len(s.cells[0]) && ay >= 0 && ay < len(s.cells) {
+		s.cells[ay][ax] = c
+	}
+}
+func (s *testSurface) DrawText(x, y int, text string, maxW int, style term.Style) int {
+	for i, ch := range []rune(text) {
+		if i >= maxW {
+			break
+		}
+		s.SetCell(x+i, y, term.Cell{Ch: ch, Style: style})
+	}
+	return len([]rune(text))
+}
+func (s *testSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style) {
+	for i := x + 1; i < x+w-1; i++ {
+		s.SetCell(i, y, term.Cell{Ch: b.Horizontal, Style: style})
+		s.SetCell(i, y+h-1, term.Cell{Ch: b.Horizontal, Style: style})
+	}
+	for j := y + 1; j < y+h-1; j++ {
+		s.SetCell(x, j, term.Cell{Ch: b.Vertical, Style: style})
+		s.SetCell(x+w-1, j, term.Cell{Ch: b.Vertical, Style: style})
+	}
+	s.SetCell(x, y, term.Cell{Ch: b.TopLeft, Style: style})
+	s.SetCell(x+w-1, y, term.Cell{Ch: b.TopRight, Style: style})
+	s.SetCell(x, y+h-1, term.Cell{Ch: b.BottomLeft, Style: style})
+	s.SetCell(x+w-1, y+h-1, term.Cell{Ch: b.BottomRight, Style: style})
+}
+func (s *testSurface) ClearRect(x, y, w, h int, style term.Style) {}
+func (s *testSurface) Fill(c term.Cell)                           {}
+func (s *testSurface) Sub(r Rect) Surface {
+	return &testSurface{
+		w: r.W, h: r.H,
+		ox: s.ox + r.X, oy: s.oy + r.Y,
+		cells: s.cells,
+	}
+}
+
+func mouseClick(x, y int) *tcell.EventMouse {
+	return tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone)
+}
+
+func mouseRelease(x, y int) *tcell.EventMouse {
+	return tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone)
+}
+
+// renderWidget sets rect and renders, simulating what the layout system does.
+func renderWidget(w Widget, x, y, width, height int) *testSurface {
+	s := newTestSurface(width, height)
+	w.SetRect(Rect{X: x, Y: y, W: width, H: height})
+	w.Render(s)
+	return s
+}
+
+func TestInputClickFocus(t *testing.T) {
+	inp := NewInputWidget(InputConfig{Bordered: true})
+
+	// Simulate layout: place input at (5, 10) with width 20, height 3
+	renderWidget(inp, 5, 10, 20, 3)
+
+	r := inp.GetRect()
+	t.Logf("input rect: X=%d Y=%d W=%d H=%d", r.X, r.Y, r.W, r.H)
+
+	if r.W == 0 || r.H == 0 {
+		t.Fatal("input rect is zero after render")
+	}
+
+	// Set up focus manager
+	fm := NewFocusManager()
+	vs := NewVStackWidget(inp)
+	vs.SetRect(Rect{X: 5, Y: 10, W: 20, H: 3})
+	fm.Collect(vs)
+
+	if len(fm.items) != 1 {
+		t.Fatalf("expected 1 focusable, got %d", len(fm.items))
+	}
+	if !inp.IsFocused() {
+		t.Error("input should be auto-focused after collect")
+	}
+
+	// Click inside the input (text area is at x+1, y+1 for bordered)
+	click := mouseClick(6, 11)
+	fm.FocusByClick(6, 11)
+	if !inp.IsFocused() {
+		t.Error("input should remain focused after click inside")
+	}
+
+	handled := inp.HandleEvent(click)
+	if !handled {
+		t.Error("input should handle click inside its rect")
+	}
+}
+
+func TestInputClickOutsideRect(t *testing.T) {
+	inp := NewInputWidget(InputConfig{Bordered: true})
+	renderWidget(inp, 5, 10, 20, 3)
+
+	click := mouseClick(0, 0)
+	handled := inp.HandleEvent(click)
+	if handled {
+		t.Error("input should NOT handle click outside its rect")
+	}
+}
+
+func TestTabbedTabSwitchFocus(t *testing.T) {
+	// Tab 0: a tree
+	tree := NewTreeWidget(TreeConfig{})
+
+	// Tab 1: a vstack with two inputs
+	inp1 := NewInputWidget(InputConfig{Bordered: true})
+	inp2 := NewInputWidget(InputConfig{Bordered: true})
+	settingsVS := NewVStackWidget(
+		NewLabelWidget(LabelConfig{Text: "Name"}),
+		inp1,
+		NewLabelWidget(LabelConfig{Text: "Value"}),
+		inp2,
+	)
+
+	tabs := NewTabsWidget(TabsConfig{
+		Items: []TabItem{
+			{ID: "tab0", Label: "Tab 0"},
+			{ID: "tab1", Label: "Tab 1"},
+		},
+	})
+
+	tabbed := NewTabbedWidget(tabs, []Widget{
+		NewVStackWidget(tree),
+		settingsVS,
+	})
+
+	fm := NewFocusManager()
+
+	// Initial state: tab 0 active
+	surface := renderWidget(tabbed, 0, 0, 30, 20)
+	_ = surface
+	fm.Collect(tabbed)
+
+	t.Logf("tab 0 focusable items: %d", len(fm.items))
+	if len(fm.items) != 1 {
+		t.Fatalf("tab 0 should have 1 focusable (tree), got %d", len(fm.items))
+	}
+	if !tree.IsFocused() {
+		t.Error("tree should be focused on tab 0")
+	}
+
+	// Switch to tab 1
+	tabbed.SetActive(1)
+
+	// Re-render so rects update
+	renderWidget(tabbed, 0, 0, 30, 20)
+	fm.Collect(tabbed)
+
+	t.Logf("tab 1 focusable items: %d", len(fm.items))
+	for i, item := range fm.items {
+		r := item.GetRect()
+		t.Logf("  item %d: rect X=%d Y=%d W=%d H=%d focused=%v", i, r.X, r.Y, r.W, r.H, item.IsFocused())
+	}
+
+	if len(fm.items) != 2 {
+		t.Fatalf("tab 1 should have 2 focusables (inputs), got %d", len(fm.items))
+	}
+
+	// Old tree should NOT be focused
+	if tree.IsFocused() {
+		t.Error("tree from tab 0 should not be focused after tab switch")
+	}
+
+	// First input should be auto-focused
+	if !inp1.IsFocused() {
+		t.Error("inp1 should be auto-focused after tab switch")
+	}
+
+	// Verify inp2 rect is non-zero
+	r2 := inp2.GetRect()
+	if r2.W == 0 || r2.H == 0 {
+		t.Fatalf("inp2 rect is zero: %+v", r2)
+	}
+
+	// Click on inp2
+	clickX := r2.X + 1
+	clickY := r2.Y + 1
+	t.Logf("clicking inp2 at (%d, %d)", clickX, clickY)
+
+	fm.FocusByClick(clickX, clickY)
+	if !inp2.IsFocused() {
+		t.Error("inp2 should be focused after click")
+	}
+	if inp1.IsFocused() {
+		t.Error("inp1 should NOT be focused after clicking inp2")
+	}
+
+	// Also verify handleMouse works
+	click := mouseClick(clickX, clickY)
+	handled := inp2.HandleEvent(click)
+	if !handled {
+		t.Errorf("inp2 should handle click at (%d, %d), rect=%+v", clickX, clickY, r2)
+	}
+}
+
+func TestTabbedClickInputViaFocusManager(t *testing.T) {
+	// Simulate the full adapter flow:
+	// 1. Build widget tree + focus manager
+	// 2. Render (sets rects)
+	// 3. Click tab to switch
+	// 4. Re-render (sets new rects)
+	// 5. Click on input in new tab
+
+	inp1 := NewInputWidget(InputConfig{Bordered: true})
+	inp2 := NewInputWidget(InputConfig{Prefix: " ❯ "})
+	tree := NewTreeWidget(TreeConfig{})
+
+	tabs := NewTabsWidget(TabsConfig{
+		Items: []TabItem{
+			{ID: "containers", Label: "Containers"},
+			{ID: "settings", Label: "Settings"},
+		},
+	})
+	tabbed := NewTabbedWidget(tabs, []Widget{
+		NewVStackWidget(tree),
+		NewVStackWidget(
+			NewLabelWidget(LabelConfig{Text: "Name"}),
+			inp1,
+			NewLabelWidget(LabelConfig{Text: "Cmd"}),
+			inp2,
+		),
+	})
+
+	fm := NewFocusManager()
+
+	// Wire OnChange like the adapter does
+	tabbed.OnChange = func(int) {
+		fm.Collect(tabbed)
+	}
+
+	// Step 1: initial collect (tab 0 active, no rects yet)
+	fm.Collect(tabbed)
+	t.Logf("after initial collect: %d items", len(fm.items))
+
+	// Step 2: render tab 0
+	renderWidget(tabbed, 0, 0, 30, 20)
+	t.Logf("tree rect after render: %+v", tree.GetRect())
+
+	// Step 3: simulate clicking on the "Settings" tab
+	// The tab bar is at Y=0. Click on it.
+	tabY := 0
+	tabX := 15 // somewhere on the "Settings" tab label
+	click := mouseClick(tabX, tabY)
+
+	// Send through focus manager (like adapter does)
+	consumed := fm.HandleEvent(click)
+	t.Logf("tab click consumed by focus: %v", consumed)
+
+	// If focus didn't consume it, send through widget tree (like adapter does)
+	if !consumed {
+		tabbed.HandleEvent(click)
+		// Need mouse release for wasPressed tracking
+		tabbed.HandleEvent(mouseRelease(tabX, tabY))
+	}
+
+	t.Logf("active tab after click: %d", tabbed.active)
+
+	// Step 4: re-render with new tab active
+	renderWidget(tabbed, 0, 0, 30, 20)
+
+	t.Logf("after tab switch + re-render: %d focus items", len(fm.items))
+	for i, item := range fm.items {
+		r := item.GetRect()
+		t.Logf("  item %d: rect=%+v focused=%v", i, r, item.IsFocused())
+	}
+
+	// Verify we have the right items
+	if tabbed.active != 1 {
+		t.Fatalf("expected tab 1 active, got %d", tabbed.active)
+	}
+
+	// Step 5: click on inp1
+	r1 := inp1.GetRect()
+	t.Logf("inp1 rect: %+v", r1)
+	if r1.W == 0 || r1.H == 0 {
+		t.Fatal("inp1 rect is zero after render")
+	}
+
+	cx, cy := r1.X+1, r1.Y+1 // inside the bordered input
+	t.Logf("clicking inp1 at (%d, %d)", cx, cy)
+
+	inputClick := mouseClick(cx, cy)
+	consumed = fm.HandleEvent(inputClick)
+	t.Logf("inp1 focus consumed: %v, inp1.focused=%v", consumed, inp1.IsFocused())
+
+	// Simulate adapter: if focus didn't consume, route through widget tree
+	if !consumed {
+		wHandled := tabbed.HandleEvent(inputClick)
+		t.Logf("inp1 widget tree handled: %v", wHandled)
+		if !wHandled {
+			t.Error("widget tree should handle click on inp1")
+		}
+	}
+
+	if !inp1.IsFocused() {
+		t.Error("inp1 should be focused after click")
+	}
+
+	// Step 6: click on inp2
+	r2 := inp2.GetRect()
+	t.Logf("inp2 rect: %+v", r2)
+
+	cx2, cy2 := r2.X+1, r2.Y
+	t.Logf("clicking inp2 at (%d, %d)", cx2, cy2)
+
+	inputClick2 := mouseClick(cx2, cy2)
+	consumed = fm.HandleEvent(inputClick2)
+	t.Logf("inp2 focus consumed: %v, inp2.focused=%v", consumed, inp2.IsFocused())
+
+	if !consumed {
+		wHandled := tabbed.HandleEvent(inputClick2)
+		t.Logf("inp2 widget tree handled: %v", wHandled)
+		if !wHandled {
+			t.Error("widget tree should handle click on inp2")
+		}
+	}
+
+	if !inp2.IsFocused() {
+		t.Error("inp2 should be focused after click")
+	}
+	if inp1.IsFocused() {
+		t.Error("inp1 should NOT be focused after clicking inp2")
+	}
+}
+
+func TestTabbedClickOnFirstTabAfterSwitch(t *testing.T) {
+	// Ensure widgets from tab 0 don't interfere after switching to tab 1
+	tree := NewTreeWidget(TreeConfig{})
+	inp := NewInputWidget(InputConfig{Bordered: true})
+
+	tabs := NewTabsWidget(TabsConfig{
+		Items: []TabItem{
+			{ID: "t0", Label: "T0"},
+			{ID: "t1", Label: "T1"},
+		},
+	})
+	tabbed := NewTabbedWidget(tabs, []Widget{
+		NewVStackWidget(tree),
+		NewVStackWidget(inp),
+	})
+
+	fm := NewFocusManager()
+
+	// Render tab 0, collect
+	renderWidget(tabbed, 0, 0, 30, 20)
+	fm.Collect(tabbed)
+
+	treeRect := tree.GetRect()
+	t.Logf("tree rect on tab 0: %+v", treeRect)
+
+	// Switch to tab 1
+	tabbed.SetActive(1)
+	renderWidget(tabbed, 0, 0, 30, 20)
+	fm.Collect(tabbed)
+
+	// tree should no longer be focused
+	if tree.IsFocused() {
+		t.Error("tree should be unfocused after switching to tab 1")
+	}
+
+	// Click where tree WAS - should NOT focus tree
+	fm.FocusByClick(treeRect.X+1, treeRect.Y+1)
+	if tree.IsFocused() {
+		t.Error("tree should NOT get focused by click when on tab 1")
+	}
+}

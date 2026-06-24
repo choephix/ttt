@@ -14,6 +14,9 @@ func NewFocusManager() *FocusManager {
 }
 
 func (fm *FocusManager) Collect(w Widget) {
+	for _, item := range fm.items {
+		item.SetFocused(false)
+	}
 	fm.items = nil
 	fm.focused = -1
 	collectFocusable(w, &fm.items)
@@ -39,6 +42,10 @@ func collectFocusable(w Widget, out *[]FocusableWidget) {
 	case *BoxWidget:
 		if v.Child != nil {
 			collectFocusable(v.Child, out)
+		}
+	case *TabbedWidget:
+		if c := v.ActiveChild(); c != nil {
+			collectFocusable(c, out)
 		}
 	}
 }
@@ -80,6 +87,9 @@ func (fm *FocusManager) setFocus(idx int) {
 		fm.items[fm.focused].SetFocused(true)
 	}
 }
+
+func (fm *FocusManager) ItemCount() int              { return len(fm.items) }
+func (fm *FocusManager) Items() []FocusableWidget     { return fm.items }
 
 func (fm *FocusManager) Focused() Widget {
 	if fm.focused >= 0 && fm.focused < len(fm.items) {
