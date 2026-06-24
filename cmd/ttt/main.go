@@ -138,6 +138,7 @@ Docs: https://tttedit.dev
 
 	editor, prURLs := app.BuildApp(&cfg, &borders)
 	editor.ApplyBorderStyle()
+	editor.ReloadWidgetPanel()
 	editor.Init(screen, renderer, lspManager)
 
 	editor.Version = version

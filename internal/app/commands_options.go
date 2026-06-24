@@ -103,6 +103,7 @@ func (a *App) ApplyBorderStyle() {
 case "none":
 		*a.Borders = term.NoneBorderSet()
 	}
+	a.ReloadWidgetPanel()
 }
 
 func (a *App) ShowBorderStylePicker() {
