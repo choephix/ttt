@@ -30,8 +30,9 @@ type WidgetDef struct {
 	MarginLeft   int  `json:"marginLeft,omitempty"`
 	MarginRight  int  `json:"marginRight,omitempty"`
 
-	// tree
+	// tree / list
 	Items          []*TreeNode `json:"items,omitempty"`
+	ListItems      []ListItem  `json:"listItems,omitempty"`
 	NodeMenu       []MenuEntry `json:"nodeMenu,omitempty"`
 	MenuIcon       string      `json:"menuIcon,omitempty"`
 	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
@@ -90,6 +91,8 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 		w = buildTitle(def)
 	case "tree":
 		w = buildTree(def)
+	case "list":
+		w = buildList(def)
 	case "label":
 		w = buildLabel(def)
 	case "button":
@@ -176,6 +179,25 @@ func buildTitle(def *WidgetDef) *TitleWidget {
 		Menu:   def.Menu,
 		Icon:   def.Icon,
 		Padded: def.Padded,
+	})
+}
+
+func buildList(def *WidgetDef) *TreeWidget {
+	items := make([]*TreeNode, len(def.ListItems))
+	for i, li := range def.ListItems {
+		items[i] = &TreeNode{
+			ID:      li.ID,
+			Label:   li.Label,
+			Icon:    li.Icon,
+			Badge:   li.Badge,
+			Actions: li.Actions,
+		}
+	}
+	return NewTreeWidget(TreeConfig{
+		Items:          items,
+		NodeMenu:       def.NodeMenu,
+		MenuIcon:       def.MenuIcon,
+		MenuIconPadded: def.MenuIconPadded,
 	})
 }
 

@@ -86,8 +86,8 @@
       "type": "vstack",
       "children": [
         {
-          "type": "tree",
-          "items": [
+          "type": "list",
+          "listItems": [
             {"id": "i1", "label": "nginx:latest"},
             {"id": "i2", "label": "postgres:16"},
             {"id": "i3", "label": "redis:7"},
@@ -101,8 +101,8 @@
       "type": "vstack",
       "children": [
         {
-          "type": "tree",
-          "items": [
+          "type": "list",
+          "listItems": [
             {"id": "n1", "label": "bridge"},
             {"id": "n2", "label": "host"},
             {"id": "n3", "label": "my-network"}

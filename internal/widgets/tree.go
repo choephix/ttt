@@ -19,6 +19,14 @@ type TreeNode struct {
 	depth    int
 }
 
+type ListItem struct {
+	ID      string   `json:"id"`
+	Label   string   `json:"label"`
+	Icon    string   `json:"icon,omitempty"`
+	Badge   string   `json:"badge,omitempty"`
+	Actions []Action `json:"actions,omitempty"`
+}
+
 type Action struct {
 	Icon    string `json:"icon"`
 	Command string `json:"command"`
