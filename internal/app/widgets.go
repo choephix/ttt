@@ -156,9 +156,11 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
 	widgetPanel := loadWidgetPanel(borders)
+	navigation := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Explore", explorer)
+	sidebar.AddPanel("navigation", "Navigate", navigation.Adapter)
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes)
 	sidebar.AddPanel("widgets", "Widget", widgetPanel)
@@ -203,6 +205,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		TerminalPanel:     terminalPanel,
 		Problems:          problems,
 		WidgetPanel:       widgetPanel,
+		Navigation:        navigation,
 		References:        references,
 		DocVersions:       make(map[string]int),
 		AllDiagnostics:    make(map[string][]ui.Diagnostic),

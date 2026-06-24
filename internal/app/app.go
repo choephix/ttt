@@ -18,6 +18,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/watcher"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 
 	"github.com/gdamore/tcell/v2"
@@ -68,8 +69,10 @@ type App struct {
 	AllDiagnostics     map[string][]ui.Diagnostic
 	Keybindings        []config.KeyBinding
 	LspNotified        map[string]bool
-	WidgetPanel        *ui.WidgetAdapter
+	WidgetPanel         *ui.WidgetAdapter
+	Navigation          *NavigationPanel
 	ExplorerContextNode *ui.TreeNode
+	NavigationContextNode *widgets.TreeNode
 	Reg                *command.Registry
 	Running            *bool
 	quitPending        bool

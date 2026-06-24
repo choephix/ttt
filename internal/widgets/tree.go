@@ -6,14 +6,15 @@ import (
 )
 
 type TreeNode struct {
-	ID       string      `json:"id"`
-	Label    string      `json:"label"`
-	Icon     string      `json:"icon,omitempty"`
-	Badge      string     `json:"badge,omitempty"`
-	BadgeStyle term.Style `json:"-"`
+	ID         string      `json:"id"`
+	Label      string      `json:"label"`
+	Icon       string      `json:"icon,omitempty"`
+	Badge      string      `json:"badge,omitempty"`
+	BadgeStyle term.Style  `json:"-"`
 	Children   []*TreeNode `json:"children,omitempty"`
-	Actions  []Action    `json:"actions,omitempty"`
-	Muted    bool        `json:"-"`
+	Actions    []Action    `json:"actions,omitempty"`
+	Muted      bool        `json:"-"`
+	Expandable bool        `json:"-"`
 
 	Expanded bool `json:"-"`
 	depth    int
@@ -212,7 +213,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 
 	x := node.depth * 2
 
-	hasChildren := len(node.Children) > 0
+	hasChildren := len(node.Children) > 0 || node.Expandable
 	if hasChildren {
 		chevron := '▶'
 		if node.Expanded {
@@ -354,11 +355,20 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 		return true
 	}
 
-	if btn&tcell.Button1 != 0 {
-		idx := t.scrollTop + (my - r.Y)
-		if idx < 0 || idx >= len(t.flatList) {
-			return false
+	idx := t.scrollTop + (my - r.Y)
+	if idx < 0 || idx >= len(t.flatList) {
+		return false
+	}
+
+	if btn&tcell.Button2 != 0 {
+		t.selected = idx
+		if t.Config.OnMenu != nil {
+			t.Config.OnMenu(t.Config.NodeMenu, t.flatList[idx], mx, my)
 		}
+		return true
+	}
+
+	if btn&tcell.Button1 != 0 {
 		node := t.flatList[idx]
 		t.selected = idx
 
@@ -439,12 +449,16 @@ func (t *TreeWidget) handleShortcutKey(r rune) bool {
 	return false
 }
 
+func (n *TreeNode) isExpandable() bool {
+	return len(n.Children) > 0 || n.Expandable
+}
+
 func (t *TreeWidget) activateSelected() {
 	if t.selected < 0 || t.selected >= len(t.flatList) {
 		return
 	}
 	node := t.flatList[t.selected]
-	if len(node.Children) > 0 {
+	if node.isExpandable() {
 		node.Expanded = !node.Expanded
 		if node.Expanded && t.Config.OnExpand != nil {
 			t.Config.OnExpand(node)
@@ -460,7 +474,7 @@ func (t *TreeWidget) collapseSelected() {
 		return
 	}
 	node := t.flatList[t.selected]
-	if len(node.Children) > 0 && node.Expanded {
+	if node.isExpandable() && node.Expanded {
 		node.Expanded = false
 		t.flatten()
 	}
@@ -471,7 +485,7 @@ func (t *TreeWidget) expandSelected() {
 		return
 	}
 	node := t.flatList[t.selected]
-	if len(node.Children) > 0 && !node.Expanded {
+	if node.isExpandable() && !node.Expanded {
 		node.Expanded = true
 		if t.Config.OnExpand != nil {
 			t.Config.OnExpand(node)

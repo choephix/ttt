@@ -1,13 +1,10 @@
 package ui
 
 import (
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/config"
-	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
@@ -115,53 +112,18 @@ func (e *ExplorerWidget) reloadExpanded(node *TreeNode) {
 }
 
 func (e *ExplorerWidget) loadChildren(node *TreeNode) {
-	entries, err := os.ReadDir(node.Path)
-	if err != nil {
-		return
-	}
-
-	// Batch check gitignore for all children at once
-	var ignored map[string]bool
-	gitRoot := git.RepoRoot(node.Path)
-	if gitRoot != "" {
-		var paths []string
-		for _, entry := range entries {
-			paths = append(paths, filepath.Join(node.Path, entry.Name()))
-		}
-		ignored = git.IgnoredFiles(gitRoot, paths)
-	}
-
+	entries := LoadDirEntries(node.Path, e.Settings)
 	node.Children = nil
-	dirs := []*TreeNode{}
-	files := []*TreeNode{}
-
-	for _, entry := range entries {
-		if !e.Settings.ShowHidden && strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-		childPath := filepath.Join(node.Path, entry.Name())
-		isIgnored := ignored[childPath]
-		if !e.Settings.ShowGitIgnored && isIgnored {
-			continue
-		}
+	for _, de := range entries {
 		child := &TreeNode{
-			Name:       entry.Name(),
-			Path:       childPath,
-			IsDir:      entry.IsDir(),
+			Name:       de.Name,
+			Path:       de.Path,
+			IsDir:      de.IsDir,
 			Depth:      node.Depth + 1,
-			GitIgnored: isIgnored,
+			GitIgnored: de.GitIgnored,
 		}
-		if entry.IsDir() {
-			dirs = append(dirs, child)
-		} else {
-			files = append(files, child)
-		}
+		node.Children = append(node.Children, child)
 	}
-
-	sort.Slice(dirs, func(i, j int) bool { return dirs[i].Name < dirs[j].Name })
-	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
-
-	node.Children = append(dirs, files...)
 }
 
 func (e *ExplorerWidget) flatten() {

@@ -22,14 +22,14 @@ func TestSidebarTabClick(t *testing.T) {
 	sidebarY := h.app.Sidebar.GetRect().Y
 	sidebarX := h.app.Sidebar.GetRect().X
 
-	h.click(sidebarX+10, sidebarY)
-	if h.app.Sidebar.ActivePanel != "search" {
-		t.Errorf("expected active panel 'search' after click, got %q", h.app.Sidebar.ActivePanel)
+	h.click(sidebarX+12, sidebarY)
+	if h.app.Sidebar.ActivePanel != "navigation" {
+		t.Errorf("expected active panel 'navigation' after click, got %q", h.app.Sidebar.ActivePanel)
 	}
 
-	h.click(sidebarX+18, sidebarY)
-	if h.app.Sidebar.ActivePanel != "changes" {
-		t.Errorf("expected active panel 'changes' after click, got %q", h.app.Sidebar.ActivePanel)
+	h.click(sidebarX+22, sidebarY)
+	if h.app.Sidebar.ActivePanel != "search" {
+		t.Errorf("expected active panel 'search' after click, got %q", h.app.Sidebar.ActivePanel)
 	}
 
 	h.click(sidebarX+3, sidebarY)
@@ -123,12 +123,12 @@ func TestSidebarTabOverflow(t *testing.T) {
 		t.Error("expected at least one hidden tab due to overflow")
 	}
 
-	h.app.SplitPanel.DividerPos = 40
-	h.app.Root.SetSize(80, 24)
+	h.app.SplitPanel.DividerPos = 50
+	h.app.Root.SetSize(100, 24)
 	h.redraw()
 
 	row = h.screenRow(sidebarY)
-	t.Logf("sidebar row (w=40): %q", row)
+	t.Logf("sidebar row (w=50): %q", row)
 
 	if strings.Contains(row, "»") {
 		t.Errorf("expected no overflow with wide sidebar, got: %s", row)

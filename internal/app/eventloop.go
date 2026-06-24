@@ -51,6 +51,7 @@ func RunEventLoop(
 			app.Status.LineEnding = "\n"
 		}
 		app.Explorer.ActiveFile = filePath
+		app.Navigation.SetActiveFile(filePath)
 		app.SyncWatched()
 
 		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.Highlighter != nil {
