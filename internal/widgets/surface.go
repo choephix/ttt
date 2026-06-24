@@ -26,6 +26,10 @@ type FocusableWidget interface {
 	IsFocused() bool
 }
 
+type CursorPositioner interface {
+	CursorPosition() (x, y int, visible bool)
+}
+
 func hasFocusedChild(w Widget) bool {
 	if fw, ok := w.(FocusableWidget); ok && fw.IsFocused() {
 		return true

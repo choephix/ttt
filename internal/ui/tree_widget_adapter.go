@@ -50,6 +50,15 @@ func (a *WidgetAdapter) RebuildFocus() {
 	a.focus.Collect(a.W)
 }
 
+func (a *WidgetAdapter) CursorPosition() (int, int, bool) {
+	if fw := a.focus.Focused(); fw != nil {
+		if cp, ok := fw.(widgets.CursorPositioner); ok {
+			return cp.CursorPosition()
+		}
+	}
+	return 0, 0, false
+}
+
 func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	if a.focus.HandleEvent(ev) {
 		return EventConsumed

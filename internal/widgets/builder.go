@@ -43,6 +43,11 @@ type WidgetDef struct {
 	Label   string `json:"label,omitempty"`
 	Command string `json:"command,omitempty"`
 
+	// input
+	Prefix      string `json:"prefix,omitempty"`
+	Placeholder string `json:"placeholder,omitempty"`
+	Bordered    *bool  `json:"bordered,omitempty"`
+
 	// layout
 	Align    string       `json:"align,omitempty"`
 	Child    *WidgetDef   `json:"child,omitempty"`
@@ -86,6 +91,8 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 		w = buildLabel(def)
 	case "button":
 		w = buildButton(def)
+	case "input":
+		w = buildInput(def)
 	case "divider":
 		w = buildDivider(def)
 	case "box":
@@ -115,6 +122,18 @@ func buildButton(def *WidgetDef) *ButtonWidget {
 	return NewButtonWidget(ButtonConfig{
 		Label:   def.Label,
 		Command: def.Command,
+	})
+}
+
+func buildInput(def *WidgetDef) *InputWidget {
+	bordered := true
+	if def.Bordered != nil {
+		bordered = *def.Bordered
+	}
+	return NewInputWidget(InputConfig{
+		Prefix:      def.Prefix,
+		Placeholder: def.Placeholder,
+		Bordered:    bordered,
 	})
 }
 
