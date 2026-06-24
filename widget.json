@@ -1,0 +1,82 @@
+{
+  "type": "vstack",
+  "children": [
+    {
+      "type": "title",
+      "title": "Docker", "paddingLeft": 1, "padded": true,
+      "menu": [
+        {"label": "Refresh", "command": "docker.refresh"},
+        {"separator": true},
+        {"label": "Help", "command": "docker.help"}
+      ]
+    },
+    {
+      "type": "box",
+      "borderTop": true,
+      "borderBottom": true,
+      "borderLeft": true,
+      "borderRight": true,
+      "child": {
+        "type": "tree",
+        "items": [
+          {"id": "c1", "label": "nginx-proxy", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c2", "label": "postgres-db", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c3", "label": "redis-cache", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
+          {"id": "c4", "label": "grafana", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c5", "label": "prometheus", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c6", "label": "rabbitmq", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
+          {"id": "c7", "label": "elasticsearch", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c8", "label": "kibana", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
+          {"id": "c9", "label": "mongo-db", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c10", "label": "consul-agent", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c11", "label": "vault-server", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
+          {"id": "c12", "label": "traefik", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c13", "label": "minio-storage", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c14", "label": "jaeger-tracing", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]},
+          {"id": "c15", "label": "keycloak-auth", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c16", "label": "kafka-broker", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c17", "label": "zookeeper", "icon": "●", "actions": [{"icon": "▶", "command": "docker.restart"}, {"icon": "■", "command": "docker.stop"}]},
+          {"id": "c18", "label": "etcd-cluster", "icon": "○", "actions": [{"icon": "▶", "command": "docker.start"}]}
+        ],
+        "nodeMenu": [
+          {"label": "Stop", "command": "docker.stop"},
+          {"label": "Restart", "command": "docker.restart"},
+          {"separator": true},
+          {"label": "Remove", "command": "docker.remove"}
+        ]
+      }
+    },
+    {
+      "type": "box",
+      "borderTop": true,
+      "borderBottom": true,
+      "borderLeft": true,
+      "borderRight": true,
+      "child": {
+        "type": "tree",
+        "items": [
+          {"id": "i1", "label": "nginx:latest", "badge": "45MB"},
+          {"id": "i2", "label": "postgres:16", "badge": "120MB"},
+          {"id": "i3", "label": "redis:7", "badge": "30MB"},
+          {"id": "i4", "label": "node:20", "badge": "350MB"},
+          {"id": "i5", "label": "alpine:3.19", "badge": "7MB"}
+        ]
+      }
+    },
+    {
+      "type": "box",
+      "borderTop": true,
+      "borderBottom": true,
+      "borderLeft": true,
+      "borderRight": true,
+      "child": {
+        "type": "tree",
+        "items": [
+          {"id": "v1", "label": "pg_data"},
+          {"id": "v2", "label": "redis_data"},
+          {"id": "v3", "label": "es_data"}
+        ]
+      }
+    }
+  ]
+}

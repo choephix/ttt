@@ -6,57 +6,76 @@ import (
 )
 
 type TitleConfig struct {
-	Title string      `json:"title"`
-	Menu  []MenuEntry `json:"menu,omitempty"`
-	Style term.Style  `json:"-"`
+	Title  string      `json:"title"`
+	Menu   []MenuEntry `json:"menu,omitempty"`
+	Icon   string      `json:"icon,omitempty"`
+	Padded bool        `json:"padded,omitempty"`
+	Style  term.Style  `json:"-"`
 
 	OnMenu func(entries []MenuEntry, screenX, screenY int)
 }
 
 type TitleWidget struct {
-	Config TitleConfig
-	rect   Rect
+	BaseWidget
+	Config   TitleConfig
+	dropdown *DropdownWidget
 }
 
 func NewTitleWidget(config TitleConfig) *TitleWidget {
-	return &TitleWidget{Config: config}
+	t := &TitleWidget{Config: config}
+	if len(config.Menu) > 0 {
+		icon := config.Icon
+		if icon == "" {
+			icon = "⋮"
+		}
+		t.dropdown = NewDropdownWidget(DropdownConfig{
+			Icon:    icon,
+			Padded:  config.Padded,
+			Entries: config.Menu,
+			Style:   config.Style,
+			OnMenu:  config.OnMenu,
+		})
+	}
+	return t
 }
 
-func (t *TitleWidget) Height() int { return 1 }
+func (t *TitleWidget) Height() int { return 1 + t.BoxOverheadH() }
 func (t *TitleWidget) Width() int  { return 0 }
 
-func (t *TitleWidget) SetRect(r Rect) {
-	t.rect = r
-}
-
-func (t *TitleWidget) GetRect() Rect {
-	return t.rect
-}
-
 func (t *TitleWidget) Render(surface Surface) {
-	w, _ := surface.Size()
+	inner := t.RenderBox(surface)
+	w, _ := inner.Size()
+	if w <= 0 {
+		return
+	}
 	style := t.Config.Style
 
-	surface.DrawText(0, 0, t.Config.Title, w, style)
-
-	if len(t.Config.Menu) > 0 {
-		iconX := w - 1
-		if iconX > 0 {
-			surface.SetCell(iconX, 0, term.Cell{Ch: '⋮', Style: style})
-		}
+	maxTextW := w
+	if t.dropdown != nil {
+		dw := t.dropdown.Width()
+		maxTextW = w - dw
+		t.dropdown.Render(inner, w-dw, 0, style)
 	}
+	inner.DrawText(0, 0, t.Config.Title, maxTextW, style)
 }
 
 func (t *TitleWidget) HandleEvent(ev tcell.Event) bool {
-	switch e := ev.(type) {
-	case *tcell.EventMouse:
-		if e.Buttons() == tcell.Button1 && len(t.Config.Menu) > 0 {
-			mx, my := e.Position()
-			if my == t.rect.Y && mx == t.rect.X+t.rect.W-1 {
-				if t.Config.OnMenu != nil {
-					t.Config.OnMenu(t.Config.Menu, mx, my)
+	if t.dropdown != nil {
+		switch e := ev.(type) {
+		case *tcell.EventMouse:
+			if e.Buttons() == tcell.Button1 {
+				mx, my := e.Position()
+				r := t.GetRect()
+				if my == r.Y {
+					dw := t.dropdown.Width()
+					iconStart := r.X + r.W - dw
+					if mx >= iconStart && mx < r.X+r.W {
+						if t.Config.OnMenu != nil {
+							t.Config.OnMenu(t.Config.Menu, mx, my)
+						}
+						return true
+					}
 				}
-				return true
 			}
 		}
 	}

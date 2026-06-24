@@ -15,8 +15,8 @@ type DropdownConfig struct {
 }
 
 type DropdownWidget struct {
+	BaseWidget
 	Config DropdownConfig
-	rect   Rect
 }
 
 func NewDropdownWidget(config DropdownConfig) *DropdownWidget {
@@ -27,14 +27,6 @@ func NewDropdownWidget(config DropdownConfig) *DropdownWidget {
 }
 
 func (d *DropdownWidget) Height() int { return 1 }
-
-func (d *DropdownWidget) SetRect(r Rect) {
-	d.rect = r
-}
-
-func (d *DropdownWidget) GetRect() Rect {
-	return d.rect
-}
 
 func (d *DropdownWidget) Width() int {
 	w := 0
@@ -67,7 +59,8 @@ func (d *DropdownWidget) Render(surface Surface, x, y int, style term.Style) {
 
 func (d *DropdownWidget) HandleClick(x, y int) bool {
 	if d.Config.OnMenu != nil && len(d.Config.Entries) > 0 {
-		d.Config.OnMenu(d.Config.Entries, d.rect.X+x, d.rect.Y+y)
+		r := d.GetRect()
+		d.Config.OnMenu(d.Config.Entries, r.X+x, r.Y+y)
 		return true
 	}
 	return false
@@ -78,8 +71,9 @@ func (d *DropdownWidget) HandleEvent(ev tcell.Event) bool {
 	case *tcell.EventMouse:
 		if e.Buttons() == tcell.Button1 {
 			mx, my := e.Position()
-			if mx >= d.rect.X && mx < d.rect.X+d.rect.W && my >= d.rect.Y && my < d.rect.Y+d.rect.H {
-				return d.HandleClick(mx-d.rect.X, my-d.rect.Y)
+			r := d.GetRect()
+			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+				return d.HandleClick(mx-r.X, my-r.Y)
 			}
 		}
 	}

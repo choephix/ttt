@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"log"
+
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -153,63 +155,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
-	nodeMenu := []widgets.MenuEntry{
-		{Label: "Stop", Command: "docker.stop"},
-		{Label: "Restart", Command: "docker.restart"},
-		{Separator: true},
-		{Label: "Remove", Command: "docker.remove"},
-	}
-
-	containersTree := widgets.NewTreeWidget(widgets.TreeConfig{
-		Items: []*widgets.TreeNode{
-			{ID: "c1", Label: "nginx-proxy", Icon: "●", Actions: []widgets.Action{{Icon: "▶", Command: "docker.restart"}, {Icon: "■", Command: "docker.stop"}}},
-			{ID: "c2", Label: "postgres-db", Icon: "●", Actions: []widgets.Action{{Icon: "▶", Command: "docker.restart"}, {Icon: "■", Command: "docker.stop"}}},
-			{ID: "c3", Label: "redis-cache", Icon: "○", Actions: []widgets.Action{{Icon: "▶", Command: "docker.start"}}},
-			{ID: "c4", Label: "grafana", Icon: "●", Actions: []widgets.Action{{Icon: "▶", Command: "docker.restart"}, {Icon: "■", Command: "docker.stop"}}},
-			{ID: "c5", Label: "prometheus", Icon: "●", Actions: []widgets.Action{{Icon: "▶", Command: "docker.restart"}, {Icon: "■", Command: "docker.stop"}}},
-			{ID: "c6", Label: "rabbitmq", Icon: "○", Actions: []widgets.Action{{Icon: "▶", Command: "docker.start"}}},
-			{ID: "c7", Label: "elasticsearch", Icon: "●", Actions: []widgets.Action{{Icon: "▶", Command: "docker.restart"}, {Icon: "■", Command: "docker.stop"}}},
-			{ID: "c8", Label: "kibana", Icon: "○", Actions: []widgets.Action{{Icon: "▶", Command: "docker.start"}}},
-		},
-		NodeMenu: nodeMenu,
-	})
-	containersCard := widgets.NewBoxWithBorder(*borders)
-	containersCard.Child = containersTree
-
-	imagesTree := widgets.NewTreeWidget(widgets.TreeConfig{
-		Items: []*widgets.TreeNode{
-			{ID: "i1", Label: "nginx:latest", Badge: "45MB"},
-			{ID: "i2", Label: "postgres:16", Badge: "120MB"},
-			{ID: "i3", Label: "redis:7", Badge: "30MB"},
-			{ID: "i4", Label: "node:20", Badge: "350MB"},
-			{ID: "i5", Label: "alpine:3.19", Badge: "7MB"},
-		},
-		NodeMenu: nodeMenu,
-	})
-	imagesCard := widgets.NewBoxWithBorder(*borders)
-	imagesCard.Child = imagesTree
-
-	volumesTree := widgets.NewTreeWidget(widgets.TreeConfig{
-		Items: []*widgets.TreeNode{
-			{ID: "v1", Label: "pg_data"},
-			{ID: "v2", Label: "redis_data"},
-			{ID: "v3", Label: "es_data"},
-		},
-		NodeMenu: nodeMenu,
-	})
-	volumesCard := widgets.NewBoxWithBorder(*borders)
-	volumesCard.Child = volumesTree
-
-	demoTitle := widgets.NewTitleWidget(widgets.TitleConfig{
-		Title: "Docker",
-		Menu: []widgets.MenuEntry{
-			{Label: "Refresh", Command: "docker.refresh"},
-			{Separator: true},
-			{Label: "Help", Command: "docker.help"},
-		},
-	})
-	demoStack := widgets.NewVStackWidget(demoTitle, containersCard, imagesCard, volumesCard)
-	widgetPanel := ui.NewWidgetAdapter(demoStack)
+	widgetPanel := loadWidgetPanel(borders)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Explore", explorer)
@@ -262,4 +208,25 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		AllDiagnostics:    make(map[string][]ui.Diagnostic),
 		LspNotified:       make(map[string]bool),
 	}
+}
+
+const widgetJSONPath = "widget.json"
+
+func loadWidgetPanel(borders *term.BorderSet) *ui.WidgetAdapter {
+	data, err := os.ReadFile(widgetJSONPath)
+	if err != nil {
+		log.Printf("widget.json: %v", err)
+		return ui.NewWidgetAdapter(widgets.NewVStackWidget())
+	}
+	w, err := widgets.BuildFromJSON(data, widgets.BuildContext{Borders: *borders})
+	if err != nil {
+		log.Printf("widget.json: %v", err)
+		return ui.NewWidgetAdapter(widgets.NewVStackWidget())
+	}
+	return ui.NewWidgetAdapter(w)
+}
+
+func (a *App) ReloadWidgetPanel() {
+	panel := loadWidgetPanel(a.Borders)
+	a.WidgetPanel.W = panel.W
 }

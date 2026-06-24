@@ -188,6 +188,15 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "sidebar.reloadWidgets", Title: "Reload Widgets",
+		Keywords: []string{"widget", "reload", "refresh", "json"},
+		Handler: func() {
+			app.ReloadWidgetPanel()
+			app.ShowPanel("widgets", app.WidgetPanel)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "sidebar.wider", Title: "Increase Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {

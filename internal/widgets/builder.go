@@ -1,0 +1,146 @@
+package widgets
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/eugenioenko/ttt/internal/term"
+)
+
+type WidgetDef struct {
+	Type string `json:"type"`
+
+	// title / dropdown
+	Title  string      `json:"title,omitempty"`
+	Menu   []MenuEntry `json:"menu,omitempty"`
+	Icon   string      `json:"icon,omitempty"`
+	Padded bool        `json:"padded,omitempty"`
+
+	// box model (applies to any widget)
+	BorderTop    bool `json:"borderTop,omitempty"`
+	BorderBottom bool `json:"borderBottom,omitempty"`
+	BorderLeft   bool `json:"borderLeft,omitempty"`
+	BorderRight  bool `json:"borderRight,omitempty"`
+	PaddingTop   int  `json:"paddingTop,omitempty"`
+	PaddingBottom int `json:"paddingBottom,omitempty"`
+	PaddingLeft  int  `json:"paddingLeft,omitempty"`
+	PaddingRight int  `json:"paddingRight,omitempty"`
+	MarginTop    int  `json:"marginTop,omitempty"`
+	MarginBottom int  `json:"marginBottom,omitempty"`
+	MarginLeft   int  `json:"marginLeft,omitempty"`
+	MarginRight  int  `json:"marginRight,omitempty"`
+
+	// tree
+	Items          []*TreeNode `json:"items,omitempty"`
+	NodeMenu       []MenuEntry `json:"nodeMenu,omitempty"`
+	MenuIcon       string      `json:"menuIcon,omitempty"`
+	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
+
+	// container
+	Child    *WidgetDef   `json:"child,omitempty"`
+	Children []*WidgetDef `json:"children,omitempty"`
+}
+
+type BuildContext struct {
+	Borders term.BorderSet
+}
+
+func BuildFromJSON(data []byte, ctx BuildContext) (Widget, error) {
+	var def WidgetDef
+	if err := json.Unmarshal(data, &def); err != nil {
+		return nil, fmt.Errorf("parse widget JSON: %w", err)
+	}
+	return buildWidget(&def, ctx)
+}
+
+func boxModelFromDef(def *WidgetDef, ctx BuildContext) BoxModel {
+	return BoxModel{
+		BorderTop: def.BorderTop, BorderBottom: def.BorderBottom,
+		BorderLeft: def.BorderLeft, BorderRight: def.BorderRight,
+		PaddingTop: def.PaddingTop, PaddingBottom: def.PaddingBottom,
+		PaddingLeft: def.PaddingLeft, PaddingRight: def.PaddingRight,
+		MarginTop: def.MarginTop, MarginBottom: def.MarginBottom,
+		MarginLeft: def.MarginLeft, MarginRight: def.MarginRight,
+		Borders: ctx.Borders,
+	}
+}
+
+func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
+	var w Widget
+	var err error
+
+	switch def.Type {
+	case "title":
+		w = buildTitle(def)
+	case "tree":
+		w = buildTree(def)
+	case "box":
+		w, err = buildBox(def, ctx)
+	case "vstack":
+		w, err = buildVStack(def, ctx)
+	case "hstack":
+		w, err = buildHStack(def, ctx)
+	default:
+		return nil, fmt.Errorf("unknown widget type: %q", def.Type)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	w.SetBoxModel(boxModelFromDef(def, ctx))
+	return w, nil
+}
+
+func buildTitle(def *WidgetDef) *TitleWidget {
+	return NewTitleWidget(TitleConfig{
+		Title:  def.Title,
+		Menu:   def.Menu,
+		Icon:   def.Icon,
+		Padded: def.Padded,
+	})
+}
+
+func buildTree(def *WidgetDef) *TreeWidget {
+	return NewTreeWidget(TreeConfig{
+		Items:          def.Items,
+		NodeMenu:       def.NodeMenu,
+		MenuIcon:       def.MenuIcon,
+		MenuIconPadded: def.MenuIconPadded,
+	})
+}
+
+func buildBox(def *WidgetDef, ctx BuildContext) (*BoxWidget, error) {
+	box := NewBoxWidget(BoxModel{})
+	if def.Child != nil {
+		child, err := buildWidget(def.Child, ctx)
+		if err != nil {
+			return nil, err
+		}
+		box.Child = child
+	}
+	return box, nil
+}
+
+func buildVStack(def *WidgetDef, ctx BuildContext) (*VStackWidget, error) {
+	children := make([]Widget, 0, len(def.Children))
+	for _, childDef := range def.Children {
+		child, err := buildWidget(childDef, ctx)
+		if err != nil {
+			return nil, err
+		}
+		children = append(children, child)
+	}
+	return NewVStackWidget(children...), nil
+}
+
+func buildHStack(def *WidgetDef, ctx BuildContext) (*HStackWidget, error) {
+	children := make([]Widget, 0, len(def.Children))
+	for _, childDef := range def.Children {
+		child, err := buildWidget(childDef, ctx)
+		if err != nil {
+			return nil, err
+		}
+		children = append(children, child)
+	}
+	return NewHStackWidget(children...), nil
+}

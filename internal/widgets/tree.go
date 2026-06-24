@@ -29,14 +29,17 @@ type MenuEntry struct {
 }
 
 type TreeConfig struct {
-	Items    []*TreeNode `json:"items"`
-	NodeMenu []MenuEntry `json:"nodeMenu,omitempty"`
+	Items          []*TreeNode `json:"items"`
+	NodeMenu       []MenuEntry `json:"nodeMenu,omitempty"`
+	MenuIcon       string      `json:"menuIcon,omitempty"`
+	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
 
 	OnCommand func(command string, node *TreeNode)
 	OnMenu    func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
 }
 
 type TreeWidget struct {
+	BaseWidget
 	Config   TreeConfig
 	flatList []*TreeNode
 
@@ -45,8 +48,6 @@ type TreeWidget struct {
 	lastSel   int
 
 	scrollbar scrollbar
-
-	rect Rect
 }
 
 func NewTreeWidget(cfg TreeConfig) *TreeWidget {
@@ -57,9 +58,6 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 
 func (t *TreeWidget) Height() int { return 0 }
 func (t *TreeWidget) Width() int  { return 0 }
-
-func (t *TreeWidget) SetRect(r Rect) { t.rect = r }
-func (t *TreeWidget) GetRect() Rect  { return t.rect }
 func (t *TreeWidget) Focusable() bool { return true }
 
 func (t *TreeWidget) Selected() *TreeNode {
@@ -210,18 +208,24 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	rightX := w - 2
 
 	if len(t.Config.NodeMenu) > 0 {
-		moreIcon := '⋮'
-		if len(node.Children) == 0 {
-			moreIcon = '⋯'
+		icon := t.Config.MenuIcon
+		if icon == "" {
+			if len(node.Children) > 0 {
+				icon = "⋮"
+			} else {
+				icon = "⋯"
+			}
 		}
-		if rightX > x && rightX < w {
-			surface.SetCell(rightX, y, term.Cell{Ch: moreIcon, Style: style})
+		dd := DropdownWidget{Config: DropdownConfig{Icon: icon, Padded: t.Config.MenuIconPadded}}
+		dw := dd.Width()
+		dd.Render(surface, rightX-dw+1, y, style)
+		rightX -= dw
+		if !t.Config.MenuIconPadded {
+			if rightX > x && rightX < w {
+				surface.SetCell(rightX, y, term.Cell{Ch: ' ', Style: style})
+			}
+			rightX--
 		}
-		rightX--
-		if rightX > x && rightX < w {
-			surface.SetCell(rightX, y, term.Cell{Ch: ' ', Style: style})
-		}
-		rightX--
 	}
 
 	for i := len(node.Actions) - 1; i >= 0; i-- {

@@ -5,8 +5,8 @@ import (
 )
 
 type HStackWidget struct {
+	BaseWidget
 	Children []Widget
-	rect     Rect
 }
 
 func NewHStackWidget(children ...Widget) *HStackWidget {
@@ -16,16 +16,9 @@ func NewHStackWidget(children ...Widget) *HStackWidget {
 func (s *HStackWidget) Height() int { return 0 }
 func (s *HStackWidget) Width() int  { return 0 }
 
-func (s *HStackWidget) SetRect(r Rect) {
-	s.rect = r
-}
-
-func (s *HStackWidget) GetRect() Rect {
-	return s.rect
-}
-
 func (s *HStackWidget) Render(surface Surface) {
-	w, h := surface.Size()
+	inner := s.RenderBox(surface)
+	w, h := inner.Size()
 	if len(s.Children) == 0 || w <= 0 || h <= 0 {
 		return
 	}
@@ -51,6 +44,16 @@ func (s *HStackWidget) Render(surface Surface) {
 		}
 	}
 
+	r := s.GetRect()
+	ox := s.Box.MarginLeft + s.Box.PaddingLeft
+	oy := s.Box.MarginTop + s.Box.PaddingTop
+	if s.Box.BorderLeft {
+		ox++
+	}
+	if s.Box.BorderTop {
+		oy++
+	}
+
 	x := 0
 	growIndex := 0
 	for _, child := range s.Children {
@@ -68,8 +71,8 @@ func (s *HStackWidget) Render(surface Surface) {
 		if x+cw > w {
 			cw = w - x
 		}
-		sub := surface.Sub(Rect{X: x, Y: 0, W: cw, H: h})
-		child.SetRect(Rect{X: s.rect.X + x, Y: s.rect.Y, W: cw, H: h})
+		sub := inner.Sub(Rect{X: x, Y: 0, W: cw, H: h})
+		child.SetRect(Rect{X: r.X + ox + x, Y: r.Y + oy, W: cw, H: h})
 		child.Render(sub)
 		x += cw
 	}
