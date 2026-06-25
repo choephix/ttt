@@ -29,6 +29,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 		}
 	case "navigation":
 		items = []ui.ContextMenuItem{
+			{Label: "New File", Command: "file.new"},
+			{Label: "Add Folder", Command: "workspace.addFolder"},
 			{Label: "Refresh", Command: "navigate.refresh"},
 		}
 	case "search":

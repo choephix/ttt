@@ -52,6 +52,10 @@ type WidgetDef struct {
 	// tabs
 	Tabs []TabItem `json:"tabs,omitempty"`
 
+	// dialog
+	Width        int              `json:"width,omitempty"`
+	DialogButtons []DialogButtonJSON `json:"buttons,omitempty"`
+
 	// layout
 	Align    string       `json:"align,omitempty"`
 	Child    *WidgetDef   `json:"child,omitempty"`
@@ -105,6 +109,8 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 		w = buildDivider(def)
 	case "tabbed":
 		w, err = buildTabbed(def, ctx)
+	case "dialog":
+		w, err = buildDialog(def, ctx)
 	case "box":
 		w, err = buildBox(def, ctx)
 	case "vstack":
@@ -234,6 +240,28 @@ func buildVStack(def *WidgetDef, ctx BuildContext) (*VStackWidget, error) {
 	vs := NewVStackWidget(children...)
 	vs.Align = def.Align
 	return vs, nil
+}
+
+type DialogButtonJSON struct {
+	Label   string `json:"label"`
+	Command string `json:"command"`
+}
+
+func buildDialog(def *WidgetDef, ctx BuildContext) (*DialogWidget, error) {
+	d := NewDialogWidget(def.Width)
+	d.Title = def.Title
+	d.Borders = ctx.Borders
+	for _, btn := range def.DialogButtons {
+		d.Buttons = append(d.Buttons, DialogButton{Label: btn.Label})
+	}
+	if def.Child != nil {
+		child, err := buildWidget(def.Child, ctx)
+		if err != nil {
+			return nil, err
+		}
+		d.SetContent(child)
+	}
+	return d, nil
 }
 
 func buildHStack(def *WidgetDef, ctx BuildContext) (*HStackWidget, error) {

@@ -55,6 +55,10 @@ func hasFocusedChild(w Widget) bool {
 		if c := v.ActiveChild(); c != nil {
 			return hasFocusedChild(c)
 		}
+	case *DialogWidget:
+		if v.Content != nil {
+			return hasFocusedChild(v.Content)
+		}
 	}
 	return false
 }
