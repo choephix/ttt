@@ -276,17 +276,26 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	rightX := w - 2
 
 	if len(t.Config.NodeMenu) > 0 {
-		icon := t.Config.MenuIcon
-		if icon == "" {
+		label := t.Config.MenuIcon
+		if label == "" {
 			if len(node.Children) > 0 {
-				icon = "⋮"
+				label = "⋮"
 			} else {
-				icon = "⋯"
+				label = "⋯"
 			}
 		}
-		dd := DropdownWidget{Config: DropdownConfig{Icon: icon, Padded: t.Config.MenuIconPadded}}
+		var box *BoxModel
+		if t.Config.MenuIconPadded {
+			box = &BoxModel{PaddingLeft: 1, PaddingRight: 1}
+		} else {
+			box = &BoxModel{PaddingLeft: 0, PaddingRight: 0}
+		}
+		dd := NewDropdownWidget(DropdownConfig{Label: label, Style: style, Box: box})
 		dw := dd.Width()
-		dd.Render(surface, rightX-dw+1, y, style)
+		ddX := rightX - dw + 1
+		dd.SetRect(Rect{X: ddX, Y: y, W: dw, H: 1})
+		ddSurface := surface.Sub(Rect{X: ddX, Y: y, W: dw, H: 1})
+		dd.Render(ddSurface)
 		rightX -= dw
 		if !t.Config.MenuIconPadded {
 			if rightX > x && rightX < w {

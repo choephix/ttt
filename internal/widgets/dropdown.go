@@ -6,10 +6,10 @@ import (
 )
 
 type DropdownConfig struct {
-	Icon    string      `json:"icon,omitempty"`
+	Label   string      `json:"label,omitempty"`
 	Entries []MenuEntry `json:"entries,omitempty"`
-	Padded  bool        `json:"padded,omitempty"`
 	Style   term.Style  `json:"-"`
+	Box     *BoxModel
 
 	OnMenu func(entries []MenuEntry, screenX, screenY int)
 }
@@ -17,53 +17,29 @@ type DropdownConfig struct {
 type DropdownWidget struct {
 	BaseWidget
 	Config DropdownConfig
+	button *ButtonWidget
 }
 
 func NewDropdownWidget(config DropdownConfig) *DropdownWidget {
-	if config.Icon == "" {
-		config.Icon = "⋮"
+	if config.Label == "" {
+		config.Label = "⋮"
 	}
-	return &DropdownWidget{Config: config}
+	btn := NewButtonWidget(ButtonConfig{
+		Label: config.Label,
+		Style: config.Style,
+	})
+	if config.Box != nil {
+		btn.Box = *config.Box
+	}
+	return &DropdownWidget{Config: config, button: btn}
 }
 
-func (d *DropdownWidget) Height() int { return 1 }
+func (d *DropdownWidget) Height() int { return d.button.Height() }
+func (d *DropdownWidget) Width() int  { return d.button.Width() }
 
-func (d *DropdownWidget) Width() int {
-	w := 0
-	for range d.Config.Icon {
-		w++
-	}
-	if d.Config.Padded {
-		w += 2
-	}
-	return w
-}
-
-func (d *DropdownWidget) Render(surface Surface, x, y int, style term.Style) {
-	if style == 0 {
-		style = d.Config.Style
-	}
-	cx := x
-	if d.Config.Padded {
-		surface.SetCell(cx, y, term.Cell{Ch: ' ', Style: style})
-		cx++
-	}
-	for _, ch := range d.Config.Icon {
-		surface.SetCell(cx, y, term.Cell{Ch: ch, Style: style})
-		cx++
-	}
-	if d.Config.Padded {
-		surface.SetCell(cx, y, term.Cell{Ch: ' ', Style: style})
-	}
-}
-
-func (d *DropdownWidget) HandleClick(x, y int) bool {
-	if d.Config.OnMenu != nil && len(d.Config.Entries) > 0 {
-		r := d.GetRect()
-		d.Config.OnMenu(d.Config.Entries, r.X+x, r.Y+y)
-		return true
-	}
-	return false
+func (d *DropdownWidget) Render(surface Surface) {
+	d.button.SetRect(d.GetRect())
+	d.button.Render(surface)
 }
 
 func (d *DropdownWidget) HandleEvent(ev tcell.Event) bool {
@@ -73,7 +49,10 @@ func (d *DropdownWidget) HandleEvent(ev tcell.Event) bool {
 			mx, my := e.Position()
 			r := d.GetRect()
 			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
-				return d.HandleClick(mx-r.X, my-r.Y)
+				if d.Config.OnMenu != nil && len(d.Config.Entries) > 0 {
+					d.Config.OnMenu(d.Config.Entries, r.X, r.Y+r.H)
+					return true
+				}
 			}
 		}
 	}

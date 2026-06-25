@@ -24,15 +24,21 @@ type TitleWidget struct {
 func NewTitleWidget(config TitleConfig) *TitleWidget {
 	t := &TitleWidget{Config: config}
 	if len(config.Menu) > 0 {
-		icon := config.Icon
-		if icon == "" {
-			icon = "⋮"
+		label := config.Icon
+		if label == "" {
+			label = "⋮"
+		}
+		var box *BoxModel
+		if config.Padded {
+			box = &BoxModel{PaddingLeft: 1, PaddingRight: 1}
+		} else {
+			box = &BoxModel{PaddingLeft: 0, PaddingRight: 0}
 		}
 		t.dropdown = NewDropdownWidget(DropdownConfig{
-			Icon:    icon,
-			Padded:  config.Padded,
+			Label:   label,
 			Entries: config.Menu,
 			Style:   config.Style,
+			Box:     box,
 			OnMenu:  config.OnMenu,
 		})
 	}
@@ -54,7 +60,10 @@ func (t *TitleWidget) Render(surface Surface) {
 	if t.dropdown != nil {
 		dw := t.dropdown.Width()
 		maxTextW = w - dw
-		t.dropdown.Render(inner, w-dw, 0, style)
+		r := t.GetRect()
+		t.dropdown.SetRect(Rect{X: r.X + w - dw, Y: r.Y, W: dw, H: 1})
+		ddSurface := inner.Sub(Rect{X: w - dw, Y: 0, W: dw, H: 1})
+		t.dropdown.Render(ddSurface)
 	}
 	x := 0
 	for _, ch := range t.Config.Title {
@@ -68,22 +77,8 @@ func (t *TitleWidget) Render(surface Surface) {
 
 func (t *TitleWidget) HandleEvent(ev tcell.Event) bool {
 	if t.dropdown != nil {
-		switch e := ev.(type) {
-		case *tcell.EventMouse:
-			if e.Buttons() == tcell.Button1 {
-				mx, my := e.Position()
-				r := t.GetRect()
-				if my == r.Y {
-					dw := t.dropdown.Width()
-					iconStart := r.X + r.W - dw
-					if mx >= iconStart && mx < r.X+r.W {
-						if t.Config.OnMenu != nil {
-							t.Config.OnMenu(t.Config.Menu, mx, my)
-						}
-						return true
-					}
-				}
-			}
+		if t.dropdown.HandleEvent(ev) {
+			return true
 		}
 	}
 	return false
