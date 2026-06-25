@@ -55,6 +55,15 @@ func registerHelpCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID:       "navigate.help",
+		Title:    "Navigate: Keyboard Shortcuts",
+		Keywords: []string{"view", "help", "keybindings", "navigate"},
+		Handler: func() {
+			app.ShowPanelHelp("Navigate Shortcuts", explorerHelpEntries)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID:       "search.help",
 		Title:    "Search: Keyboard Shortcuts",
 		Keywords: []string{"search", "help", "keybindings"},

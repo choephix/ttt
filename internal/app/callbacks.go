@@ -32,6 +32,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "New File", Command: "file.new"},
 			{Label: "Add Folder", Command: "workspace.addFolder"},
 			{Label: "Refresh", Command: "navigate.refresh"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "navigate.help"},
 		}
 	case "search":
 		replaceLabel := "Replace"
