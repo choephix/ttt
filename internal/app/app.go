@@ -553,6 +553,28 @@ func (a *App) ShowInputDialogEx(title, placeholder, initial, confirmLabel string
 	a.ShowDialog(adapter)
 }
 
+func (a *App) ShowInfoDialog(title string, entries []widgets.KeyValueEntry) {
+	a.ShowInfoDialogEx(title, entries, false)
+}
+
+func (a *App) ShowInfoDialogEx(title string, entries []widgets.KeyValueEntry, invertStyles bool) {
+	content := widgets.NewKeyValueListWidget(entries)
+	content.InvertStyles = invertStyles
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(content)
+	dialog.Buttons = []widgets.DialogButton{
+		{Label: "&Close", Handler: func() { a.DismissDialog() }},
+	}
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
+}
+
 func (a *App) ShowConfirmDialog(message string, buttons []string, callbacks []func()) {
 	a.ShowConfirmDialogEx("", message, buttons, callbacks)
 }

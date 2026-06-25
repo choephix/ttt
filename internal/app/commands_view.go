@@ -4,6 +4,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
 func (a *App) ToggleTerminal() {
@@ -107,20 +108,31 @@ func (a *App) ShowKeybindings() {
 		a.RebindKeys()
 	}
 	w.OnHelp = func() {
-		help := ui.NewInfoDialogWidget("Keyboard Shortcuts Help", []ui.InfoEntry{
-			{Key: "Enter", Desc: "Edit selected shortcut"},
-			{Key: "Backspace", Desc: "Reset to default"},
-			{Key: "Delete", Desc: "Clear shortcut"},
-			{Key: "Up/Down", Desc: "Navigate list"},
-			{Key: "Esc", Desc: "Close"},
+		content := widgets.NewKeyValueListWidget([]widgets.KeyValueEntry{
+			{Key: "Enter", Value: "Edit selected shortcut"},
+			{Key: "Backspace", Value: "Reset to default"},
+			{Key: "Delete", Value: "Clear shortcut"},
+			{Key: "Up/Down", Value: "Navigate list"},
+			{Key: "Esc", Value: "Close"},
 		})
-		help.Borders = a.Borders
-		help.OnDismiss = func() {
+		dialog := widgets.NewDialogWidget(50)
+		dialog.Title = "Keyboard Shortcuts Help"
+		dialog.Borders = *a.Borders
+		dialog.SetContent(content)
+		dialog.Buttons = []widgets.DialogButton{
+			{Label: "&Close", Handler: func() {
+				a.Root.PopOverlay()
+				a.Root.SetFocus(w)
+			}},
+		}
+		dialog.OnDismiss = func() {
 			a.Root.PopOverlay()
 			a.Root.SetFocus(w)
 		}
-		a.Root.PushOverlay(ui.Overlay{Widget: help, Modal: true})
-		a.Root.SetFocus(help)
+		dialog.Build()
+		adapter := ui.NewWidgetAdapter(dialog)
+		a.Root.PushOverlay(ui.Overlay{Widget: adapter, Modal: true})
+		a.Root.SetFocus(adapter)
 	}
 	w.OnDismiss = func() {
 		a.DismissDialog()
@@ -342,17 +354,11 @@ func registerViewCommands(app *App) {
 		ID: "about", Title: "About TTT Editor",
 		Keywords: []string{"help", "version", "info"},
 		Handler: func() {
-			dialog := ui.NewInfoDialogWidget("About TTT Editor", []ui.InfoEntry{
-				{Key: "Version", Desc: app.Version},
-				{Key: "Website", Desc: "https://tttedit.dev"},
-				{Key: "GitHub", Desc: "https://github.com/eugenioenko/ttt"},
-			})
-			dialog.Borders = app.Borders
-			dialog.InvertStyles = true
-			dialog.OnDismiss = func() {
-				app.DismissDialog()
-			}
-			app.ShowDialog(dialog)
+			app.ShowInfoDialogEx("About TTT Editor", []widgets.KeyValueEntry{
+				{Key: "Version", Value: app.Version},
+				{Key: "Website", Value: "https://tttedit.dev"},
+				{Key: "GitHub", Value: "https://github.com/eugenioenko/ttt"},
+			}, true)
 		},
 	})
 }
