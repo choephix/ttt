@@ -57,7 +57,8 @@ func (a *App) ShowThemePicker() {
 		a.Renderer.Clear()
 	}
 	sel := widgets.NewSelectWidget(widgets.SelectConfig{
-		Items: items,
+		Items:       items,
+		ShowDivider: true,
 		OnChange: func(name string) {
 			theme, err := config.LoadTheme(name)
 			if err != nil {

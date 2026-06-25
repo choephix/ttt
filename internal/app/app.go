@@ -628,7 +628,8 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 
 func (a *App) ShowSelectDialog(title string, items []widgets.SelectItem, onSelect func(id string), onChange func(id string)) {
 	sel := widgets.NewSelectWidget(widgets.SelectConfig{
-		Items: items,
+		Items:       items,
+		ShowDivider: true,
 		OnSelect: func(id string) {
 			a.DismissDialog()
 			onSelect(id)

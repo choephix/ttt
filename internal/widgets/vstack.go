@@ -15,7 +15,20 @@ func NewVStackWidget(children ...Widget) *VStackWidget {
 	return &VStackWidget{Children: children}
 }
 
-func (v *VStackWidget) Height() int { return 0 }
+func (v *VStackWidget) Height() int {
+	total := 0
+	for _, child := range v.Children {
+		ch := child.Height()
+		if ch == 0 {
+			return 0
+		}
+		total += ch
+	}
+	if len(v.Children) > 1 {
+		total += (len(v.Children) - 1) * v.Gap
+	}
+	return total + v.BoxOverheadH()
+}
 func (v *VStackWidget) Width() int  { return 0 }
 
 func (v *VStackWidget) Render(surface Surface) {
