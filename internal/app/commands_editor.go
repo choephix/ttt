@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
-	"github.com/eugenioenko/ttt/internal/ui"
 )
 
 func (a *App) editorPathLang() (string, string) {
@@ -77,27 +76,23 @@ func (a *App) CloseTab() {
 		return
 	}
 	name := a.EditorGroup.ActiveFileName()
-	dialog := ui.NewConfirmDialogWidget3(
-		"Save changes to "+name+"?",
-		"Discard", "Cancel", "Save",
+	a.ShowConfirmDialog("Save changes to "+name+"?",
+		[]string{"Discard", "Cancel", "Save"},
+		[]func(){
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseTab()
+			},
+			func() {
+				a.DismissDialog()
+			},
+			func() {
+				a.DismissDialog()
+				a.Reg.Execute("file.save")
+				a.EditorGroup.CloseTab()
+			},
+		},
 	)
-	dialog.Borders = a.Borders
-	dialog.OnButton[0] = func() {
-		a.DismissDialog()
-		a.EditorGroup.CloseTab()
-	}
-	dialog.OnButton[1] = func() {
-		a.DismissDialog()
-	}
-	dialog.OnButton[2] = func() {
-		a.DismissDialog()
-		a.Reg.Execute("file.save")
-		a.EditorGroup.CloseTab()
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
 }
 
 func (a *App) NewFile() {

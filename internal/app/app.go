@@ -547,24 +547,31 @@ func (a *App) ShowInputDialogEx(title, placeholder, initial, confirmLabel string
 }
 
 func (a *App) ShowConfirmDialog(message string, buttons []string, callbacks []func()) {
-	var dialog *ui.ConfirmDialogWidget
-	if len(buttons) == 3 {
-		dialog = ui.NewConfirmDialogWidget3(message, buttons[0], buttons[1], buttons[2])
-	} else if len(buttons) == 2 {
-		dialog = ui.NewConfirmDialogWidget2(message, buttons[0], buttons[1])
-	} else {
-		dialog = ui.NewConfirmDialogWidget(message)
-	}
-	dialog.Borders = a.Borders
-	for i, cb := range callbacks {
-		if i < len(dialog.OnButton) {
-			dialog.OnButton[i] = cb
+	a.ShowConfirmDialogEx("", message, buttons, callbacks)
+}
+
+func (a *App) ShowConfirmDialogEx(title, message string, buttons []string, callbacks []func()) {
+	content := widgets.NewParagraphWidget(message)
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Borders = *a.Borders
+	dialog.SetContent(content)
+
+	dialogButtons := make([]widgets.DialogButton, len(buttons))
+	for i, label := range buttons {
+		handler := callbacks[i]
+		dialogButtons[i] = widgets.DialogButton{
+			Label:   "&" + label,
+			Handler: handler,
 		}
 	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	dialog.Buttons = dialogButtons
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Title = title
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {

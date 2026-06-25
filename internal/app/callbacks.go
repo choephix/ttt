@@ -372,7 +372,7 @@ func (a *App) CommitChanges(dir string, message string) {
 }
 
 func (a *App) ConfirmDiscard(message string, onConfirm func()) {
-	a.ShowConfirmDialog(message,
+	a.ShowConfirmDialogEx("Discard Changes?", message,
 		[]string{"Cancel", "Discard"},
 		[]func(){
 			func() { a.DismissDialog() },

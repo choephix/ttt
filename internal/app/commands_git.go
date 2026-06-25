@@ -21,7 +21,7 @@ func (a *App) DiscardSelected() {
 	if status.Status == "?" {
 		msg = fmt.Sprintf("Delete untracked file %s? This is irreversible.", status.Path)
 	}
-	a.ShowConfirmDialog(msg,
+	a.ShowConfirmDialogEx("Discard Changes?", msg,
 		[]string{"Cancel", "Discard"},
 		[]func(){
 			func() {

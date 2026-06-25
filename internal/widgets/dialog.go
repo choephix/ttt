@@ -94,13 +94,20 @@ func (d *DialogWidget) Render(surface Surface) {
 		titleH = 1
 	}
 	contentH := d.contentHeight(d.boxW - 4)
-	contentPad := 2
 	btnH := 0
 	if d.footer != nil {
 		btnH = 1
 	}
 
-	d.boxH = 2 + titleH + contentPad + contentH + btnH
+	gaps := 0
+	if titleH > 0 && contentH > 0 {
+		gaps++
+	}
+	if contentH > 0 && btnH > 0 {
+		gaps++
+	}
+
+	d.boxH = 2 + titleH + gaps + contentH + btnH
 	d.boxX = (sw - d.boxW) / 2
 	d.boxY = 2
 
@@ -128,13 +135,18 @@ func (d *DialogWidget) Render(surface Surface) {
 	}
 
 	if d.Content != nil && contentH > 0 {
-		y++
+		if d.Title != "" {
+			y++
+		}
 		cx := innerX + 1
 		cw := innerW - 2
 		d.Content.SetRect(Rect{X: d.boxX + 2, Y: y, W: cw, H: contentH})
 		contentSurface := surface.Sub(Rect{X: cx, Y: y, W: cw, H: contentH})
 		d.Content.Render(contentSurface)
-		y += contentH + 1
+		y += contentH
+		if d.footer != nil {
+			y++
+		}
 	}
 
 	if d.footer != nil {
