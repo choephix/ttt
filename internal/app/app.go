@@ -517,16 +517,34 @@ func (a *App) DismissDialog() {
 }
 
 func (a *App) ShowInputDialog(title, placeholder, initial string, onSubmit func(string)) {
-	dialog := ui.NewInputDialogWidget(title, placeholder, initial)
-	dialog.Borders = a.Borders
-	dialog.OnSubmit = func(value string) {
-		a.DismissDialog()
-		onSubmit(value)
+	a.ShowInputDialogEx(title, placeholder, initial, "Save", onSubmit)
+}
+
+func (a *App) ShowInputDialogEx(title, placeholder, initial, confirmLabel string, onSubmit func(string)) {
+	input := widgets.NewInputWidget(widgets.InputConfig{
+		Placeholder: placeholder,
+		Bordered:    true,
+	})
+	input.SetText(initial)
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(input)
+	dialog.Buttons = []widgets.DialogButton{
+		{Label: "&Cancel", Handler: func() { a.DismissDialog() }},
+		{Label: "&" + confirmLabel, Handler: func() {
+			if input.Text() != "" {
+				a.DismissDialog()
+				onSubmit(input.Text())
+			}
+		}},
 	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) ShowConfirmDialog(message string, buttons []string, callbacks []func()) {

@@ -9,7 +9,6 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
-	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
@@ -42,14 +41,7 @@ func (a *App) DiscardSelected() {
 }
 
 func (a *App) OpenFolder() {
-	dialog := ui.NewInputDialogWidget("Open Folder", "Folder path", "")
-	dialog.ConfirmLabel = "Open"
-	dialog.Borders = a.Borders
-	dialog.OnSubmit = func(path string) {
-		a.DismissDialog()
-		if path == "" {
-			return
-		}
+	a.ShowInputDialogEx("Open Folder", "Folder path", "", "Open", func(path string) {
 		abs, err := filepath.Abs(workspace.ExpandPath(path))
 		if err != nil {
 			a.StatusError("Error: " + err.Error())
@@ -64,11 +56,7 @@ func (a *App) OpenFolder() {
 		a.Workspace.FilePath = ""
 		a.Workspace.AddFolder(abs)
 		a.refreshWorkspaceWidgets()
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	})
 }
 
 func (a *App) AddWorkspaceFolder() {
@@ -108,14 +96,7 @@ func (a *App) RemoveWorkspaceFolder() {
 }
 
 func (a *App) OpenWorkspace() {
-	dialog := ui.NewInputDialogWidget("Open Workspace", "Path to .ttt file", "")
-	dialog.ConfirmLabel = "Open"
-	dialog.Borders = a.Borders
-	dialog.OnSubmit = func(path string) {
-		a.DismissDialog()
-		if path == "" {
-			return
-		}
+	a.ShowInputDialogEx("Open Workspace", "Path to .ttt file", "", "Open", func(path string) {
 		abs, err := filepath.Abs(workspace.ExpandPath(path))
 		if err != nil {
 			a.StatusError("Error: " + err.Error())
@@ -129,11 +110,7 @@ func (a *App) OpenWorkspace() {
 		a.Workspace.Folders = ws.Folders
 		a.Workspace.FilePath = ws.FilePath
 		a.refreshWorkspaceWidgets()
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	})
 }
 
 func (a *App) SaveWorkspace() {
@@ -164,19 +141,9 @@ func (a *App) OpenPullRequestDialog() {
 		a.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
 		return
 	}
-	dialog := ui.NewInputDialogWidget("Review PR", "https://github.com/owner/repo/pull/123", "")
-	dialog.ConfirmLabel = "Review"
-	dialog.Borders = a.Borders
-	dialog.OnSubmit = func(url string) {
-		a.DismissDialog()
-		if url != "" {
-			a.FetchAndOpenPR(url)
-		}
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	a.ShowInputDialogEx("Review PR", "https://github.com/owner/repo/pull/123", "", "Review", func(url string) {
+		a.FetchAndOpenPR(url)
+	})
 }
 
 func registerGitCommands(app *App) {
