@@ -8,6 +8,7 @@ type VStackWidget struct {
 	BaseWidget
 	Children []Widget
 	Align    string `json:"align,omitempty"`
+	Gap      int    `json:"gap,omitempty"`
 }
 
 func NewVStackWidget(children ...Widget) *VStackWidget {
@@ -24,6 +25,11 @@ func (v *VStackWidget) Render(surface Surface) {
 		return
 	}
 
+	gapTotal := 0
+	if len(v.Children) > 1 {
+		gapTotal = (len(v.Children) - 1) * v.Gap
+	}
+
 	fixedTotal := 0
 	growCount := 0
 	for _, child := range v.Children {
@@ -38,7 +44,7 @@ func (v *VStackWidget) Render(surface Surface) {
 	growH := 0
 	growRemainder := 0
 	if growCount > 0 {
-		remaining := h - fixedTotal
+		remaining := h - fixedTotal - gapTotal
 		if remaining > 0 {
 			growH = remaining / growCount
 			growRemainder = remaining % growCount
@@ -55,7 +61,7 @@ func (v *VStackWidget) Render(surface Surface) {
 		oy++
 	}
 
-	totalUsed := fixedTotal + growH*growCount + growRemainder
+	totalUsed := fixedTotal + growH*growCount + growRemainder + gapTotal
 	y := 0
 	if growCount == 0 {
 		switch v.Align {
@@ -67,7 +73,7 @@ func (v *VStackWidget) Render(surface Surface) {
 	}
 
 	growIndex := 0
-	for _, child := range v.Children {
+	for i, child := range v.Children {
 		ch := child.Height()
 		if ch == 0 {
 			ch = growH
@@ -86,6 +92,9 @@ func (v *VStackWidget) Render(surface Surface) {
 		child.SetRect(Rect{X: r.X + ox, Y: r.Y + oy + y, W: w, H: ch})
 		child.Render(sub)
 		y += ch
+		if i < len(v.Children)-1 {
+			y += v.Gap
+		}
 	}
 }
 

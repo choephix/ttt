@@ -53,6 +53,7 @@ func (d *DialogWidget) Build() {
 		}
 		d.footer = NewHStackWidget(children...)
 		d.footer.Align = "right"
+		d.footer.Gap = 1
 		d.footer.Box.PaddingLeft = 1
 		d.footer.Box.PaddingRight = 1
 	}
@@ -115,7 +116,14 @@ func (d *DialogWidget) Render(surface Surface) {
 	y := d.boxY + 1
 
 	if d.Title != "" {
-		surface.DrawText(innerX+1, y, d.Title, innerX+innerW-1, term.StylePaletteItem)
+		tx := innerX + 1
+		for _, ch := range d.Title {
+			if tx >= innerX+innerW-1 {
+				break
+			}
+			surface.SetCell(tx, y, term.Cell{Ch: ch, Style: term.StylePaletteItem, Bold: true})
+			tx++
+		}
 		y += titleH
 	}
 

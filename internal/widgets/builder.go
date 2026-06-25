@@ -57,6 +57,7 @@ type WidgetDef struct {
 	DialogButtons []DialogButtonJSON `json:"buttons,omitempty"`
 
 	// layout
+	Gap      int          `json:"gap,omitempty"`
 	Align    string       `json:"align,omitempty"`
 	Child    *WidgetDef   `json:"child,omitempty"`
 	Children []*WidgetDef `json:"children,omitempty"`
@@ -241,6 +242,7 @@ func buildVStack(def *WidgetDef, ctx BuildContext) (*VStackWidget, error) {
 	}
 	vs := NewVStackWidget(children...)
 	vs.Align = def.Align
+	vs.Gap = def.Gap
 	return vs, nil
 }
 
@@ -277,5 +279,6 @@ func buildHStack(def *WidgetDef, ctx BuildContext) (*HStackWidget, error) {
 	}
 	hs := NewHStackWidget(children...)
 	hs.Align = def.Align
+	hs.Gap = def.Gap
 	return hs, nil
 }

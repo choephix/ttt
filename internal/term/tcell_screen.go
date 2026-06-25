@@ -92,6 +92,9 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	if c.Underline {
 		s = s.Underline(true)
 	}
+	if c.Bold {
+		s = s.Bold(true)
+	}
 	t.scr.SetContent(x, y, c.Ch, nil, s)
 }
 

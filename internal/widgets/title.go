@@ -56,7 +56,14 @@ func (t *TitleWidget) Render(surface Surface) {
 		maxTextW = w - dw
 		t.dropdown.Render(inner, w-dw, 0, style)
 	}
-	inner.DrawText(0, 0, t.Config.Title, maxTextW, style)
+	x := 0
+	for _, ch := range t.Config.Title {
+		if x >= maxTextW {
+			break
+		}
+		inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style, Bold: true})
+		x++
+	}
 }
 
 func (t *TitleWidget) HandleEvent(ev tcell.Event) bool {
