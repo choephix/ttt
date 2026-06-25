@@ -119,7 +119,7 @@ func TestSidebarTabOverflow(t *testing.T) {
 		t.Errorf("expected overflow » indicator in narrow sidebar, got: %s", row)
 	}
 
-	if len(h.app.Sidebar.TabBar.HiddenTabs) == 0 {
+	if len(h.app.Sidebar.Tabs.HiddenTabs()) == 0 {
 		t.Error("expected at least one hidden tab due to overflow")
 	}
 
@@ -134,8 +134,8 @@ func TestSidebarTabOverflow(t *testing.T) {
 		t.Errorf("expected no overflow with wide sidebar, got: %s", row)
 	}
 
-	if len(h.app.Sidebar.TabBar.HiddenTabs) != 0 {
-		t.Errorf("expected 0 hidden tabs with wide sidebar, got %d", len(h.app.Sidebar.TabBar.HiddenTabs))
+	if len(h.app.Sidebar.Tabs.HiddenTabs()) != 0 {
+		t.Errorf("expected 0 hidden tabs with wide sidebar, got %d", len(h.app.Sidebar.Tabs.HiddenTabs()))
 	}
 }
 

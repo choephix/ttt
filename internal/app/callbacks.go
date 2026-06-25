@@ -413,20 +413,12 @@ func registerWidgetCallbacks(app *App) {
 	}
 	app.SplitPanel.OnRightClick = func() {}
 
-	app.Sidebar.MoreButton.OnClick = app.ShowSidebarMoreMenu
-
-	app.Sidebar.OnPanelChange = func(id string) {
-		if id == "search" {
-			app.applySearchHighlights()
-		} else {
-			app.EditorGroup.ClearSearch()
-		}
-		if id == "changes" {
-			app.Changes.Refresh()
-		}
+	app.Sidebar.Tabs.Config.Actions = []widgets.TabAction{
+		{Icon: "⋮", OnClick: app.ShowSidebarMoreMenu},
 	}
 
-	app.Sidebar.OnTabOverflow = func(ids []string, titles []string, sx, sy int) {
+	app.Sidebar.Tabs.Config.OnOverflow = func(sx, sy int) {
+		ids, titles := app.Sidebar.HiddenTabs()
 		var items []ui.ContextMenuItem
 		for i, id := range ids {
 			panelID := id
@@ -438,6 +430,17 @@ func registerWidgetCallbacks(app *App) {
 			})
 		}
 		openContextMenu(app, items, sx, sy)
+	}
+
+	app.Sidebar.OnPanelChange = func(id string) {
+		if id == "search" {
+			app.applySearchHighlights()
+		} else {
+			app.EditorGroup.ClearSearch()
+		}
+		if id == "changes" {
+			app.Changes.Refresh()
+		}
 	}
 
 	app.EditorGroup.TabBar.OnTabClose = func(index int) {
@@ -603,7 +606,7 @@ func registerWidgetCallbacks(app *App) {
 		app.SetSidebarWidth(width)
 	}
 
-	app.BottomPanel.TabBar.OnTabClick = func(index int) {
+	app.BottomPanel.Tabs.Config.OnTabClick = func(index int) {
 		panels := app.BottomPanel.PanelIDs()
 		if index >= 0 && index < len(panels) {
 			app.BottomPanel.SetActivePanel(panels[index])
@@ -613,17 +616,17 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
-	app.BottomPanel.TabBar.OnAdd = func() {
-		reg.Execute("terminal.new")
-	}
-
-	app.BottomPanel.TabBar.MoreButton = ui.NewMoreButtonWidget()
-	app.BottomPanel.TabBar.MoreButton.OnClick = func(sx, sy int) {
-		items := []ui.ContextMenuItem{
-			{Label: "New Terminal", Command: "terminal.new"},
-			ui.MenuSep(),
-			{Label: "Close All Terminals", Command: "terminal.closeAll"},
-		}
-		openContextMenu(app, items, sx, sy)
+	app.BottomPanel.Tabs.Config.Actions = []widgets.TabAction{
+		{Icon: "+", OnClick: func(_, _ int) {
+			reg.Execute("terminal.new")
+		}},
+		{Icon: "⋮", OnClick: func(sx, sy int) {
+			items := []ui.ContextMenuItem{
+				{Label: "New Terminal", Command: "terminal.new"},
+				ui.MenuSep(),
+				{Label: "Close All Terminals", Command: "terminal.closeAll"},
+			}
+			openContextMenu(app, items, sx, sy)
+		}},
 	}
 }

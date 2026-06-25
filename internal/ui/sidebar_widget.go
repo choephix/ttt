@@ -1,40 +1,24 @@
 package ui
 
 import (
-	"github.com/eugenioenko/ttt/internal/term"
-
 	"github.com/gdamore/tcell/v2"
+
+	"github.com/eugenioenko/ttt/internal/term"
 )
 
 type SidebarWidget struct {
 	BaseWidget
 	TabbedPanel
-	Visible        bool
-	MoreButton     *MoreButtonWidget
-	OnSwitch       func(id string)
-	OnTabOverflow  func(hiddenIDs []string, hiddenTitles []string, screenX, screenY int)
+	Visible bool
+	Borders *term.BorderSet
 }
 
 func NewSidebarWidget() *SidebarWidget {
 	s := &SidebarWidget{
 		TabbedPanel: NewTabbedPanel(),
 		Visible:     true,
-		MoreButton:  NewMoreButtonWidget(),
 	}
 	s.InitTabClick()
-	s.TabBar.OnOverflow = func(screenX, screenY int) {
-		if s.OnTabOverflow == nil {
-			return
-		}
-		var ids, titles []string
-		for _, idx := range s.TabBar.HiddenTabs {
-			if idx >= 0 && idx < len(s.panels) {
-				ids = append(ids, s.panels[idx].ID)
-				titles = append(titles, s.panels[idx].Title)
-			}
-		}
-		s.OnTabOverflow(ids, titles, screenX, screenY)
-	}
 	return s
 }
 
@@ -49,20 +33,8 @@ func (s *SidebarWidget) Render(surface *RenderSurface) {
 		return
 	}
 
-	s.TabBar.MoreButton = s.MoreButton
-	s.TabBar.Borders = s.Borders
-	s.TabBar.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
-	tabSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: 1})
-	s.TabBar.Render(tabSurface)
-
-	bs := term.StyleBorder
-	horizontal := '─'
-	if s.Borders != nil {
-		horizontal = s.Borders.Horizontal
-	}
-	for x := 0; x < w; x++ {
-		surface.SetCell(x, 1, term.Cell{Ch: horizontal, Style: bs})
-	}
+	s.RenderTabs(surface, Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
+	s.RenderDivider(surface, 1, w, s.Borders)
 
 	active := s.ActiveWidget()
 	if active != nil {
@@ -74,16 +46,14 @@ func (s *SidebarWidget) Render(surface *RenderSurface) {
 }
 
 func (s *SidebarWidget) HandleEvent(ev tcell.Event) EventResult {
-	if s.MoreButton != nil {
-		if s.MoreButton.HandleEvent(ev) == EventConsumed {
-			return EventConsumed
-		}
-	}
 	if tev, ok := ev.(*tcell.EventMouse); ok {
 		_, my := tev.Position()
 		r := s.GetRect()
 		if my == r.Y {
-			return s.TabBar.HandleEvent(ev)
+			if s.Tabs.HandleEvent(ev) {
+				return EventConsumed
+			}
+			return EventIgnored
 		}
 	}
 	active := s.ActiveWidget()

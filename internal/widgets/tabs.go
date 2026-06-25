@@ -9,24 +9,32 @@ type TabItem struct {
 	ID     string `json:"id"`
 	Label  string `json:"label"`
 	Active bool   `json:"-"`
+	Dirty  bool   `json:"-"`
+}
+
+type TabAction struct {
+	Icon    string
+	OnClick func(screenX, screenY int)
 }
 
 type TabsConfig struct {
-	Items      []TabItem `json:"items"`
-	Style      term.Style `json:"-"`
+	Items      []TabItem   `json:"items"`
+	Actions    []TabAction `json:"-"`
+	Style      term.Style  `json:"-"`
 	OnTabClick func(index int)
 	OnOverflow func(screenX, screenY int)
 }
 
 type TabsWidget struct {
 	BaseWidget
-	Config     TabsConfig
-	tabSpans   [][2]int
-	overSpan   [2]int
-	hiddenTabs []int
-	wasPressed bool
-	focused    bool
-	selected   int
+	Config      TabsConfig
+	tabSpans    [][2]int
+	overSpan    [2]int
+	actionSpans [][2]int
+	hiddenTabs  []int
+	wasPressed  bool
+	focused     bool
+	selected    int
 }
 
 func NewTabsWidget(config TabsConfig) *TabsWidget {
@@ -51,6 +59,15 @@ func (t *TabsWidget) SetActive(id string) {
 	}
 }
 
+func (t *TabsWidget) SetDirty(id string, dirty bool) {
+	for i := range t.Config.Items {
+		if t.Config.Items[i].ID == id {
+			t.Config.Items[i].Dirty = dirty
+			return
+		}
+	}
+}
+
 func (t *TabsWidget) ActiveID() string {
 	for _, item := range t.Config.Items {
 		if item.Active {
@@ -71,18 +88,26 @@ func (t *TabsWidget) Render(surface Surface) {
 		inner.SetCell(x, 0, term.Cell{Ch: ' '})
 	}
 
+	actionsW := 0
+	for _, a := range t.Config.Actions {
+		actionsW += len([]rune(a.Icon)) + 2
+	}
+
 	overflowW := 3
 
 	tabWidths := make([]int, len(t.Config.Items))
 	total := 0
 	for i, item := range t.Config.Items {
 		tw := len([]rune(item.Label)) + 2
+		if item.Dirty {
+			tw += 2
+		}
 		tabWidths[i] = tw
 		total += tw
 	}
 
-	hasOverflow := total > w
-	tabAreaW := w
+	hasOverflow := total > w-actionsW
+	tabAreaW := w - actionsW
 	if hasOverflow {
 		tabAreaW -= overflowW
 	}
@@ -106,6 +131,12 @@ func (t *TabsWidget) Render(surface Surface) {
 		startX := x
 		inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 		x++
+		if item.Dirty {
+			inner.SetCell(x, 0, term.Cell{Ch: '●', Style: term.StyleWarning})
+			x++
+			inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+			x++
+		}
 		for _, ch := range item.Label {
 			if x >= tabAreaW {
 				break
@@ -132,6 +163,23 @@ func (t *TabsWidget) Render(surface Surface) {
 		inner.SetCell(ox+1, 0, term.Cell{Ch: '»', Style: style})
 		inner.SetCell(ox+2, 0, term.Cell{Ch: ' ', Style: style})
 	}
+
+	t.actionSpans = t.actionSpans[:0]
+	ax := w - actionsW
+	for _, action := range t.Config.Actions {
+		iconRunes := []rune(action.Icon)
+		aw := len(iconRunes) + 2
+		startX := ax
+		inner.SetCell(ax, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+		ax++
+		for _, ch := range iconRunes {
+			inner.SetCell(ax, 0, term.Cell{Ch: ch, Style: term.StyleInactiveTab})
+			ax++
+		}
+		inner.SetCell(ax, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
+		ax++
+		t.actionSpans = append(t.actionSpans, [2]int{startX, startX + aw})
+	}
 }
 
 func (t *TabsWidget) HandleEvent(ev tcell.Event) bool {
@@ -142,6 +190,10 @@ func (t *TabsWidget) HandleEvent(ev tcell.Event) bool {
 		return t.handleMouse(tev)
 	}
 	return false
+}
+
+func (t *TabsWidget) HiddenTabs() []int {
+	return t.hiddenTabs
 }
 
 func (t *TabsWidget) isHidden(idx int) bool {
@@ -210,6 +262,15 @@ func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) bool {
 		return false
 	}
 	lx := mx - r.X - t.Box.MarginLeft - t.Box.PaddingLeft
+
+	for i, span := range t.actionSpans {
+		if lx >= span[0] && lx < span[1] {
+			if i < len(t.Config.Actions) && t.Config.Actions[i].OnClick != nil {
+				t.Config.Actions[i].OnClick(mx, my+1)
+			}
+			return true
+		}
+	}
 
 	if t.Config.OnOverflow != nil && t.overSpan[1] > 0 && lx >= t.overSpan[0] && lx < t.overSpan[1] {
 		t.Config.OnOverflow(mx, my)
