@@ -8,6 +8,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
@@ -85,14 +86,14 @@ func (a *App) RemoveWorkspaceFolder() {
 		a.StatusWarn("Cannot remove the last folder")
 		return
 	}
-	var cmds []command.Command
-	for _, p := range paths {
-		cmds = append(cmds, command.Command{ID: p, Title: filepath.Base(p)})
+	items := make([]widgets.SelectItem, len(paths))
+	for i, p := range paths {
+		items[i] = widgets.SelectItem{ID: p, Label: filepath.Base(p)}
 	}
-	a.ShowPicker(cmds, func(path string) {
+	a.ShowSelectDialog("Remove Folder", items, func(path string) {
 		a.Workspace.RemoveFolder(path)
 		a.refreshWorkspaceWidgets()
-	})
+	}, nil)
 }
 
 func (a *App) OpenWorkspace() {

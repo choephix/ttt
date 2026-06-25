@@ -626,15 +626,24 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 	a.ShowFindBar(findBar)
 }
 
-func (a *App) ShowPicker(items []command.Command, onSelect func(id string)) {
-	picker := ui.NewSelectDialogWidget(items)
-	picker.Borders = a.Borders
-	picker.OnExecute = func(id string) {
-		a.DismissDialog()
-		onSelect(id)
-	}
-	picker.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(picker)
+func (a *App) ShowSelectDialog(title string, items []widgets.SelectItem, onSelect func(id string), onChange func(id string)) {
+	sel := widgets.NewSelectWidget(widgets.SelectConfig{
+		Items: items,
+		OnSelect: func(id string) {
+			a.DismissDialog()
+			onSelect(id)
+		},
+		OnChange:  onChange,
+		OnDismiss: func() { a.DismissDialog() },
+	})
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(sel)
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
