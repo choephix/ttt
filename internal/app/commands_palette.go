@@ -3,7 +3,6 @@ package app
 import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
-	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
@@ -93,41 +92,6 @@ func (a *App) ShowThemePicker() {
 
 	adapter := ui.NewWidgetAdapter(dialog)
 	a.ShowDialog(adapter)
-}
-
-func (a *App) showIndentDialog(title string, onApply func(useTabs bool, tabSize int)) {
-	useTabs := false
-	tabSize := 4
-	if a.EditorGroup.Editor != nil {
-		useTabs = a.EditorGroup.Editor.UseTabs
-		tabSize = a.EditorGroup.Editor.TabSize
-	}
-	if tabSize <= 0 {
-		tabSize = a.Settings.Editor.TabSize
-	}
-	dialog := ui.NewIndentDialogWidget(useTabs, tabSize)
-	dialog.Title = title
-	dialog.Borders = a.Borders
-	dialog.OnApply = func(ut bool, ts int) {
-		a.DismissDialog()
-		onApply(ut, ts)
-	}
-	dialog.OnAuto = func() {
-		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Buf != nil {
-			info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines)
-			useTabs := info.UseTabs
-			tabSize := dialog.TabSize
-			if info.Size > 0 {
-				tabSize = info.Size
-			}
-			a.DismissDialog()
-			onApply(useTabs, tabSize)
-		}
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
 }
 
 func (a *App) ShowIndentPicker() {
