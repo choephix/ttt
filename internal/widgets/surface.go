@@ -51,6 +51,10 @@ func hasFocusedChild(w Widget) bool {
 		if v.Child != nil {
 			return hasFocusedChild(v.Child)
 		}
+	case *ScrollViewWidget:
+		if v.Child != nil {
+			return hasFocusedChild(v.Child)
+		}
 	case *TabbedWidget:
 		if c := v.ActiveChild(); c != nil {
 			return hasFocusedChild(c)
@@ -68,6 +72,11 @@ func hasFocusedChild(w Widget) bool {
 
 type HeightForWidther interface {
 	HeightForWidth(w int) int
+}
+
+type ScrollableWidget interface {
+	Widget
+	ScrollSize() (w, h int)
 }
 
 type Surface interface {

@@ -43,6 +43,10 @@ func collectFocusable(w Widget, out *[]FocusableWidget) {
 		if v.Child != nil {
 			collectFocusable(v.Child, out)
 		}
+	case *ScrollViewWidget:
+		if v.Child != nil {
+			collectFocusable(v.Child, out)
+		}
 	case *TabbedWidget:
 		if c := v.ActiveChild(); c != nil {
 			collectFocusable(c, out)

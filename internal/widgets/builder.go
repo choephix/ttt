@@ -56,6 +56,9 @@ type WidgetDef struct {
 	Width        int              `json:"width,omitempty"`
 	DialogButtons []DialogButtonJSON `json:"buttons,omitempty"`
 
+	// scroll
+	Overflow string `json:"overflow,omitempty"`
+
 	// layout
 	Gap      int          `json:"gap,omitempty"`
 	Align    string       `json:"align,omitempty"`
@@ -128,6 +131,13 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 	}
 
 	w.SetBoxModel(boxModelFromDef(def, ctx))
+
+	if def.Overflow == "scroll" {
+		if sw, ok := w.(ScrollableWidget); ok {
+			return NewScrollViewWidget(sw), nil
+		}
+	}
+
 	return w, nil
 }
 

@@ -58,6 +58,10 @@ func (a *WidgetAdapter) wireTabbedCallbacks(w widgets.Widget) {
 		if v.Child != nil {
 			a.wireTabbedCallbacks(v.Child)
 		}
+	case *widgets.ScrollViewWidget:
+		if v.Child != nil {
+			a.wireTabbedCallbacks(v.Child)
+		}
 	}
 }
 
