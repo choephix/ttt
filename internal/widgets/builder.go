@@ -99,6 +99,8 @@ func buildWidget(def *WidgetDef, ctx BuildContext) (Widget, error) {
 		w = buildList(def)
 	case "label":
 		w = buildLabel(def)
+	case "paragraph":
+		w = NewParagraphWidget(def.Text)
 	case "button":
 		w = buildButton(def)
 	case "input":
