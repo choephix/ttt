@@ -34,6 +34,9 @@ type InputWidget struct {
 }
 
 func NewInputWidget(config InputConfig) *InputWidget {
+	if !config.Bordered && config.Prefix == "" {
+		config.Prefix = " ❯ "
+	}
 	return &InputWidget{
 		Config:   config,
 		selStart: -1,
