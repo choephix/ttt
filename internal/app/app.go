@@ -69,7 +69,6 @@ type App struct {
 	AllDiagnostics     map[string][]ui.Diagnostic
 	Keybindings        []config.KeyBinding
 	LspNotified        map[string]bool
-	WidgetPanel         *ui.WidgetAdapter
 	Navigation          *NavigationPanel
 	ExplorerContextNode *ui.TreeNode
 	NavigationContextNode *widgets.TreeNode
@@ -282,6 +281,7 @@ func (a *App) refreshWorkspaceWidgets() {
 	a.Search.SetWorkDirs(paths)
 	a.Changes.SetDirs(paths)
 	a.Changes.Refresh()
+	a.Navigation.Reload()
 }
 
 func (a *App) refreshProblems() {
@@ -567,7 +567,7 @@ func (a *App) ShowInfoDialogEx(title string, entries []widgets.KeyValueEntry, in
 	content := widgets.NewKeyValueListWidget(entries)
 	content.InvertStyles = invertStyles
 
-	dialog := widgets.NewDialogWidget(50)
+	dialog := widgets.NewDialogWidget(60)
 	dialog.Title = title
 	dialog.Borders = *a.Borders
 	dialog.SetContent(content)

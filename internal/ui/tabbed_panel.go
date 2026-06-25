@@ -112,12 +112,19 @@ func (tp *TabbedPanel) HiddenTabs() ([]string, []string) {
 }
 
 func (tp *TabbedPanel) syncTabs() {
+	dirty := make(map[string]bool)
+	for _, item := range tp.Tabs.Config.Items {
+		if item.Dirty {
+			dirty[item.ID] = true
+		}
+	}
 	items := make([]widgets.TabItem, len(tp.panels))
 	for i, p := range tp.panels {
 		items[i] = widgets.TabItem{
 			ID:     p.ID,
 			Label:  p.Title,
 			Active: p.ID == tp.ActivePanel,
+			Dirty:  dirty[p.ID],
 		}
 	}
 	tp.Tabs.Config.Items = items

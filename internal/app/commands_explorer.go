@@ -51,18 +51,21 @@ func (a *App) CopyRelativePath() {
 }
 
 func (a *App) ExplorerCopyAbsolutePath() {
+	path := a.explorerNodePath()
 	a.ExplorerContextNode = nil
-	a.FileOpCopyAbsolutePath(a.explorerNodePath())
+	a.FileOpCopyAbsolutePath(path)
 }
 
 func (a *App) ExplorerCopyRelativePath() {
+	path := a.explorerNodePath()
 	a.ExplorerContextNode = nil
-	a.FileOpCopyRelativePath(a.explorerNodePath())
+	a.FileOpCopyRelativePath(path)
 }
 
 func (a *App) ExplorerRemoveRoot() {
+	path := a.explorerNodePath()
 	a.ExplorerContextNode = nil
-	a.FileOpRemoveRoot(a.explorerNodePath())
+	a.FileOpRemoveRoot(path)
 }
 
 func (a *App) activeFilePath() string {

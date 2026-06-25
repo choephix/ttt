@@ -45,7 +45,7 @@ func (d *DropdownWidget) Render(surface Surface) {
 func (d *DropdownWidget) HandleEvent(ev tcell.Event) bool {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
-		if e.Buttons() == tcell.Button1 {
+		if e.Buttons()&tcell.Button1 != 0 {
 			mx, my := e.Position()
 			r := d.GetRect()
 			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {

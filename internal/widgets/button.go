@@ -2,6 +2,7 @@ package widgets
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v2"
@@ -82,12 +83,12 @@ func (b *ButtonWidget) Render(surface Surface) {
 	}
 
 	x := 0
-	for i, ch := range b.label {
+	for _, ch := range b.label {
 		if x >= w {
 			break
 		}
 		cell := term.Cell{Ch: ch, Style: style}
-		if i == b.accelIndex {
+		if x == b.accelIndex {
 			cell.Underline = true
 		}
 		inner.SetCell(x, 0, cell)
@@ -114,8 +115,7 @@ func (b *ButtonWidget) HandleEvent(ev tcell.Event) bool {
 			}
 		}
 		if b.accelRune != 0 && e.Key() == tcell.KeyRune {
-			r := e.Rune()
-			if r == b.accelRune || r == b.accelRune+32 || r == b.accelRune-32 {
+			if unicode.ToLower(e.Rune()) == unicode.ToLower(b.accelRune) {
 				b.trigger()
 				return true
 			}

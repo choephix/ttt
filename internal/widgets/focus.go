@@ -133,6 +133,9 @@ func (fm *FocusManager) HandleEvent(ev tcell.Event) bool {
 	case *tcell.EventMouse:
 		if tev.Buttons()&tcell.Button1 != 0 {
 			fm.FocusByClick(tev.Position())
+			if fw := fm.Focused(); fw != nil {
+				return fw.HandleEvent(ev)
+			}
 		}
 	}
 	return false

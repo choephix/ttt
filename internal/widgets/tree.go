@@ -448,7 +448,8 @@ func (t *TreeWidget) handleShortcutKey(r rune) bool {
 		return false
 	}
 	for _, action := range node.Actions {
-		if len(action.Icon) == 1 && rune(action.Icon[0]) == r {
+		iconRunes := []rune(action.Icon)
+		if len(iconRunes) == 1 && iconRunes[0] == r {
 			if t.Config.OnCommand != nil {
 				t.Config.OnCommand(action.Command, node)
 			}

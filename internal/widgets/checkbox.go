@@ -78,6 +78,9 @@ func (c *CheckboxWidget) toggle() {
 func (c *CheckboxWidget) HandleEvent(ev tcell.Event) bool {
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
+		if !c.focused {
+			return false
+		}
 		if tev.Key() == tcell.KeyEnter || (tev.Key() == tcell.KeyRune && tev.Rune() == ' ') {
 			c.toggle()
 			return true

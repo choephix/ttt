@@ -4,14 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"log"
 
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
-	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
@@ -155,7 +153,6 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
-	widgetPanel := loadWidgetPanel(borders)
 	navigation := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
@@ -163,7 +160,6 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	sidebar.AddPanel("navigation", "Navigate", navigation.Adapter)
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes)
-	sidebar.AddPanel("widgets", "Widget", widgetPanel)
 	hasFolders := len(ws.Paths()) > 0
 	sidebar.Visible = hasFolders
 	sidebar.Borders = borders
@@ -204,7 +200,6 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		Palette:           BuildTerminalPalettePtr(cfg.Theme),
 		TerminalPanel:     terminalPanel,
 		Problems:          problems,
-		WidgetPanel:       widgetPanel,
 		Navigation:        navigation,
 		References:        references,
 		DocVersions:       make(map[string]int),
@@ -213,25 +208,3 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	}
 }
 
-const widgetJSONPath = "widget.json"
-
-func loadWidgetPanel(borders *term.BorderSet) *ui.WidgetAdapter {
-	data, err := os.ReadFile(widgetJSONPath)
-	if err != nil {
-		log.Printf("widget.json: %v", err)
-		return ui.NewWidgetAdapter(widgets.NewVStackWidget())
-	}
-	w, err := widgets.BuildFromJSON(data, widgets.BuildContext{Borders: *borders})
-	if err != nil {
-		log.Printf("widget.json: %v", err)
-		return ui.NewWidgetAdapter(widgets.NewVStackWidget())
-	}
-	return ui.NewWidgetAdapter(w)
-}
-
-func (a *App) ReloadWidgetPanel() {
-	panel := loadWidgetPanel(a.Borders)
-	a.WidgetPanel.W = panel.W
-	a.WidgetPanel.RewireTabbedCallbacks()
-	a.WidgetPanel.RebuildFocus()
-}

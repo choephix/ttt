@@ -122,26 +122,31 @@ func (a *App) NavigateNewFolder() {
 }
 
 func (a *App) NavigateRename() {
+	path := a.navigationNodePath()
 	a.NavigationContextNode = nil
-	a.FileOpRename(a.navigationNodePath(), a.navigationReload)
+	a.FileOpRename(path, a.navigationReload)
 }
 
 func (a *App) NavigateDelete() {
+	path := a.navigationNodePath()
 	a.NavigationContextNode = nil
-	a.FileOpDelete(a.navigationNodePath(), a.navigationReload)
+	a.FileOpDelete(path, a.navigationReload)
 }
 
 func (a *App) NavigateCopyAbsolutePath() {
+	path := a.navigationNodePath()
 	a.NavigationContextNode = nil
-	a.FileOpCopyAbsolutePath(a.navigationNodePath())
+	a.FileOpCopyAbsolutePath(path)
 }
 
 func (a *App) NavigateCopyRelativePath() {
+	path := a.navigationNodePath()
 	a.NavigationContextNode = nil
-	a.FileOpCopyRelativePath(a.navigationNodePath())
+	a.FileOpCopyRelativePath(path)
 }
 
 func (a *App) NavigateRemoveRoot() {
+	path := a.navigationNodePath()
 	a.NavigationContextNode = nil
-	a.FileOpRemoveRoot(a.navigationNodePath())
+	a.FileOpRemoveRoot(path)
 }

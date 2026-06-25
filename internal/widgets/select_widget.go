@@ -283,7 +283,11 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
 		s.scrollTop += 3
 		visibleH := s.popupHeight()
 		if !s.Config.Collapsible {
-			visibleH = r.H - 1
+			listStart := 1
+			if s.Config.ShowDivider {
+				listStart = 2
+			}
+			visibleH = r.H - listStart
 		}
 		maxScroll := len(s.filtered) - visibleH
 		if maxScroll < 0 {
