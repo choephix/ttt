@@ -66,6 +66,10 @@ func hasFocusedChild(w Widget) bool {
 		if v.footer != nil {
 			return hasFocusedChild(v.footer)
 		}
+	case *DrawerWidget:
+		if v.Content != nil {
+			return hasFocusedChild(v.Content)
+		}
 	}
 	return false
 }

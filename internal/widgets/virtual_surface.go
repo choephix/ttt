@@ -29,7 +29,7 @@ func (v *virtualSurface) SetCell(x, y int, c term.Cell) {
 
 func (v *virtualSurface) DrawText(x, y int, text string, maxW int, style term.Style) int {
 	for _, ch := range text {
-		if x >= maxW {
+		if maxW > 0 && x >= maxW {
 			break
 		}
 		v.SetCell(x, y, term.Cell{Ch: ch, Style: style})
@@ -94,7 +94,7 @@ func (s *subVirtualSurface) SetCell(x, y int, c term.Cell) {
 
 func (s *subVirtualSurface) DrawText(x, y int, text string, maxW int, style term.Style) int {
 	for _, ch := range text {
-		if x >= maxW {
+		if maxW > 0 && x >= maxW {
 			break
 		}
 		s.SetCell(x, y, term.Cell{Ch: ch, Style: style})
