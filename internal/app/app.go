@@ -40,7 +40,6 @@ type App struct {
 	ContentSplit       *ui.ContentSplitWidget
 	BottomPanel        *ui.BottomPanelWidget
 	Search             *ui.SearchWidget
-	Changes            *ui.ChangesWidget
 	MenuBar            *ui.MenuBarWidget
 	StatusBar          *ui.StatusBarWidget
 	Status             *view.StatusBar
@@ -70,6 +69,7 @@ type App struct {
 	LspNotified        map[string]bool
 	Explorer            *NavigationPanel
 	ExplorerContextNode *widgets.TreeNode
+	Changes             *ChangesPanel
 	Reg                *command.Registry
 	Running            *bool
 	quitPending        bool
@@ -264,7 +264,6 @@ func (a *App) refreshWorkspaceWidgets() {
 
 	a.Search.SetWorkDirs(paths)
 	a.Changes.SetDirs(paths)
-	a.Changes.Refresh()
 }
 
 func (a *App) refreshProblems() {

@@ -9,6 +9,7 @@ type TreeNode struct {
 	ID         string      `json:"id"`
 	Label      string      `json:"label"`
 	Icon       string      `json:"icon,omitempty"`
+	IconStyle  term.Style  `json:"-"`
 	Badge      string      `json:"badge,omitempty"`
 	BadgeStyle term.Style  `json:"-"`
 	Children   []*TreeNode `json:"children,omitempty"`
@@ -44,11 +45,14 @@ type TreeConfig struct {
 	NodeMenu       []MenuEntry `json:"nodeMenu,omitempty"`
 	MenuIcon       string      `json:"menuIcon,omitempty"`
 	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
+	Indent         int         `json:"indent,omitempty"`
 	ActiveID       string      `json:"-"`
+	EmptyText      string      `json:"emptyText,omitempty"`
 
 	OnCommand func(command string, node *TreeNode)
 	OnMenu    func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
 	OnExpand  func(node *TreeNode)
+	OnKey     func(ev *tcell.EventKey, node *TreeNode) bool
 }
 
 type TreeWidget struct {
@@ -65,6 +69,11 @@ type TreeWidget struct {
 }
 
 func NewTreeWidget(cfg TreeConfig) *TreeWidget {
+	if cfg.Indent == 0 {
+		cfg.Indent = 2
+	} else if cfg.Indent < 0 {
+		cfg.Indent = 0
+	}
 	t := &TreeWidget{Config: cfg}
 	t.flatten()
 	return t
@@ -179,6 +188,18 @@ func (t *TreeWidget) Render(surface Surface) {
 		return
 	}
 
+	if len(t.flatList) == 0 && t.Config.EmptyText != "" {
+		x := 1
+		for _, ch := range t.Config.EmptyText {
+			if x >= w {
+				break
+			}
+			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
+			x++
+		}
+		return
+	}
+
 	t.ensureVisible(h)
 
 	t.scrollbar.X = t.rect.X + w - 1
@@ -199,6 +220,28 @@ func (t *TreeWidget) Render(surface Surface) {
 	t.scrollbar.Render(surface, w-1, 0)
 }
 
+func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
+	rw := 0
+	if len(t.Config.NodeMenu) > 0 {
+		label := t.Config.MenuIcon
+		if label == "" {
+			label = "⋮"
+		}
+		if t.Config.MenuIconPadded {
+			rw += len([]rune(label)) + 2
+		} else {
+			rw += len([]rune(label)) + 2
+		}
+	}
+	for i, action := range node.Actions {
+		rw += len([]rune(action.Icon))
+		if i > 0 {
+			rw++
+		}
+	}
+	return rw
+}
+
 func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) {
 	style := term.StyleDefault
 	if idx == t.selected {
@@ -211,7 +254,9 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 	}
 
-	x := node.depth * 2
+	maxX := w - 2 - t.rightSideWidth(node)
+
+	x := node.depth * t.Config.Indent
 
 	hasChildren := len(node.Children) > 0 || node.Expandable
 	if hasChildren {
@@ -230,14 +275,21 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 
 	if node.Icon != "" {
+		iconStyle := node.IconStyle
+		if iconStyle == term.StyleDefault {
+			iconStyle = style
+		}
+		if idx == t.selected {
+			iconStyle = style
+		}
 		for _, ch := range node.Icon {
-			if x >= w-1 {
+			if x >= maxX {
 				break
 			}
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: iconStyle})
 			x++
 		}
-		if x < w-1 {
+		if x < maxX {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 			x++
 		}
@@ -248,7 +300,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		labelStyle = term.StyleMuted
 	}
 	for _, ch := range node.Label {
-		if x >= w-1 {
+		if x >= maxX {
 			break
 		}
 		surface.SetCell(x, y, term.Cell{Ch: ch, Style: labelStyle})
@@ -265,7 +317,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		}
 		x++
 		for _, ch := range node.Badge {
-			if x >= w-1 {
+			if x >= maxX {
 				break
 			}
 			surface.SetCell(x, y, term.Cell{Ch: ch, Style: badgeStyle})
@@ -298,7 +350,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		dd.Render(ddSurface)
 		rightX -= dw
 		if !t.Config.MenuIconPadded {
-			if rightX > x && rightX < w {
+			if rightX >= 0 && rightX < w {
 				surface.SetCell(rightX, y, term.Cell{Ch: ' ', Style: style})
 			}
 			rightX--
@@ -308,13 +360,13 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	for i := len(node.Actions) - 1; i >= 0; i-- {
 		action := node.Actions[i]
 		for _, ch := range action.Icon {
-			if rightX > x && rightX < w {
+			if rightX >= 0 && rightX < w {
 				surface.SetCell(rightX, y, term.Cell{Ch: ch, Style: style})
 			}
 			rightX--
 		}
 		if i > 0 {
-			if rightX > x && rightX < w {
+			if rightX >= 0 && rightX < w {
 				surface.SetCell(rightX, y, term.Cell{Ch: ' ', Style: style})
 			}
 			rightX--
@@ -433,11 +485,16 @@ func (t *TreeWidget) handleKey(ev *tcell.EventKey) bool {
 		t.ActivateSelected()
 		return true
 	case tcell.KeyRune:
+		if t.Config.OnKey != nil && t.Config.OnKey(ev, t.Selected()) {
+			return true
+		}
 		if ev.Rune() == ' ' {
 			t.ActivateSelected()
 			return true
 		}
-		return t.handleShortcutKey(ev.Rune())
+		if t.handleShortcutKey(ev.Rune()) {
+			return true
+		}
 	}
 	return false
 }

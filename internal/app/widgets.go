@@ -150,14 +150,14 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search := ui.NewSearchWidget()
 	search.SetWorkDirs(ws.Paths())
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
-	changes := ui.NewChangesWidget(ws.Paths()...)
+	changes := NewChangesPanel(ws.Paths()...)
 
 	explorer := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Explore", explorer.Adapter)
 	sidebar.AddPanel("search", "Find", search)
-	sidebar.AddPanel("changes", "Changes", changes)
+	sidebar.AddPanel("changes", "Changes", changes.Adapter)
 	hasFolders := len(ws.Paths()) > 0
 	sidebar.Visible = hasFolders
 	sidebar.Borders = borders

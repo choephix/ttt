@@ -181,7 +181,9 @@ func registerGitCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "changes.refresh", Title: "Git: Refresh Changes",
 		Keywords: []string{"git", "changes", "reload"},
-		Handler:  func() { app.Changes.Refresh() },
+		Handler: func() {
+			app.Changes.Refresh()
+		},
 	})
 
 	reg.Register(command.Command{
@@ -307,6 +309,8 @@ func registerPRCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "pr.close", Title: "Git: Close PR",
 		Keywords: []string{"git", "pull request", "github"},
-		Handler:  func() { app.Changes.RemovePRGroups() },
+		Handler: func() {
+			app.Changes.RemovePRGroups()
+		},
 	})
 }

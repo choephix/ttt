@@ -64,7 +64,7 @@ func (a *App) DiffSearchSources() []ui.DiffSearchSource {
 	for _, s := range sources {
 		seen[s.TabName] = true
 	}
-	for _, g := range a.Changes.Groups {
+	for _, g := range a.Changes.Groups() {
 		if !g.IsPR {
 			continue
 		}
@@ -85,7 +85,7 @@ func (a *App) NavigateToSearchMatch(path string, line, col int) {
 	if strings.HasSuffix(path, " (diff)") {
 		if !a.EditorGroup.SwitchToTabByPath(path) {
 			filePath := strings.TrimSuffix(path, " (diff)")
-			for _, g := range a.Changes.Groups {
+			for _, g := range a.Changes.Groups() {
 				if !g.IsPR {
 					continue
 				}
@@ -349,12 +349,8 @@ func (a *App) CommitChanges(dir string, message string) {
 	if err := git.Commit(dir, message); err != nil {
 		a.StatusError("Commit failed: " + err.Error())
 	} else {
-		for i := range a.Changes.Groups {
-			if a.Changes.Groups[i].Dir == dir {
-				a.Changes.Groups[i].Input.Clear()
-			}
-		}
 		a.StatusNotify("Committed: " + message)
+		a.Changes.ClearInput(dir)
 		a.Changes.Refresh()
 	}
 }

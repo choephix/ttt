@@ -187,7 +187,7 @@ func registerViewCommands(app *App) {
 		Keywords: []string{"view", "git", "diff", "source control"},
 		Handler: func() {
 			app.Changes.Refresh()
-			app.ShowPanel("changes", app.Changes)
+			app.ShowPanel("changes", app.Changes.Adapter)
 		},
 	})
 

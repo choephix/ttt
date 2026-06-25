@@ -300,7 +300,6 @@ func RunEventLoop(
 					}
 				}
 			case *PrFetchResult:
-				app.Changes.Loading = false
 				if v.Err != nil {
 					app.StatusError("PR fetch failed: " + v.Err.Error())
 				} else {
@@ -317,7 +316,7 @@ func RunEventLoop(
 					if !app.Sidebar.Visible {
 						app.ShowSidebar()
 					}
-					app.Root.SetFocus(app.Changes)
+					app.Root.SetFocus(app.Changes.Adapter)
 					app.Sidebar.SetPanelDirty("changes", app.Changes.TotalChanges() > 0)
 					app.StatusNotify(fmt.Sprintf("Opened PR #%d: %s (%d files)", v.Info.Number, v.Info.Title, len(v.Info.Files)))
 				}
