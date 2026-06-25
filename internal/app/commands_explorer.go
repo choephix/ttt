@@ -10,7 +10,6 @@ import (
 
 func (a *App) explorerReload() {
 	a.Explorer.Reload()
-	a.Navigation.Reload()
 }
 
 func (a *App) ExplorerNewFile() {
@@ -84,10 +83,10 @@ func (a *App) activeFilePath() string {
 
 func (a *App) explorerNodePath() string {
 	if a.ExplorerContextNode != nil {
-		return a.ExplorerContextNode.Path
+		return a.ExplorerContextNode.ID
 	}
-	if node := a.Explorer.SelectedNode(); node != nil {
-		return node.Path
+	if node := a.Explorer.Tree.Selected(); node != nil {
+		return node.ID
 	}
 	return ""
 }
@@ -119,7 +118,7 @@ func registerExplorerCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "explorer.open", Title: "Explorer: Toggle Node",
 		Keywords: []string{"view", "file"},
-		Handler:  func() { app.Explorer.ActivateSelected() },
+		Handler:  func() { app.Explorer.Tree.ActivateSelected() },
 	})
 
 	reg.Register(command.Command{

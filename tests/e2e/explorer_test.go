@@ -12,31 +12,31 @@ func TestExplorerKeyNavigation(t *testing.T) {
 
 	h.exec("sidebar.explorer")
 
-	if len(h.app.Explorer.FlatList) < 3 {
-		t.Skipf("expected at least 3 explorer items, got %d", len(h.app.Explorer.FlatList))
+	if h.app.Explorer.Tree.ItemCount() < 3 {
+		t.Skipf("expected at least 3 explorer items, got %d", h.app.Explorer.Tree.ItemCount())
 	}
 
-	h.app.Explorer.Selected = 0
+	h.app.Explorer.Tree.SetSelectedIndex(0)
 
 	h.pressKey(tcell.KeyDown, tcell.ModNone)
-	if h.app.Explorer.Selected != 1 {
-		t.Errorf("expected Selected 1 after Down, got %d", h.app.Explorer.Selected)
+	if h.app.Explorer.Tree.SelectedIndex() != 1 {
+		t.Errorf("expected Selected 1 after Down, got %d", h.app.Explorer.Tree.SelectedIndex())
 	}
 
 	h.pressKey(tcell.KeyDown, tcell.ModNone)
-	if h.app.Explorer.Selected != 2 {
-		t.Errorf("expected Selected 2 after second Down, got %d", h.app.Explorer.Selected)
+	if h.app.Explorer.Tree.SelectedIndex() != 2 {
+		t.Errorf("expected Selected 2 after second Down, got %d", h.app.Explorer.Tree.SelectedIndex())
 	}
 
 	h.pressKey(tcell.KeyUp, tcell.ModNone)
-	if h.app.Explorer.Selected != 1 {
-		t.Errorf("expected Selected 1 after Up, got %d", h.app.Explorer.Selected)
+	if h.app.Explorer.Tree.SelectedIndex() != 1 {
+		t.Errorf("expected Selected 1 after Up, got %d", h.app.Explorer.Tree.SelectedIndex())
 	}
 
-	h.app.Explorer.Selected = 0
+	h.app.Explorer.Tree.SetSelectedIndex(0)
 	h.pressKey(tcell.KeyUp, tcell.ModNone)
-	if h.app.Explorer.Selected != 0 {
-		t.Errorf("expected Selected 0 (clamped at top), got %d", h.app.Explorer.Selected)
+	if h.app.Explorer.Tree.SelectedIndex() != 0 {
+		t.Errorf("expected Selected 0 (clamped at top), got %d", h.app.Explorer.Tree.SelectedIndex())
 	}
 }
 
@@ -46,19 +46,19 @@ func TestExplorerDirExpandCollapse(t *testing.T) {
 
 	h.exec("sidebar.explorer")
 
-	h.app.Explorer.Selected = 0
-	root := h.app.Explorer.FlatList[0]
-	if !root.IsDir {
+	h.app.Explorer.Tree.SetSelectedIndex(0)
+	root := h.app.Explorer.Tree.FlatList()[0]
+	if !root.Expandable {
 		t.Fatal("expected root to be a directory")
 	}
 
-	initialCount := len(h.app.Explorer.FlatList)
+	initialCount := h.app.Explorer.Tree.ItemCount()
 
 	h.pressKey(tcell.KeyLeft, tcell.ModNone)
 	if root.Expanded {
 		t.Error("expected root to be collapsed after Left")
 	}
-	if len(h.app.Explorer.FlatList) >= initialCount {
+	if h.app.Explorer.Tree.ItemCount() >= initialCount {
 		t.Error("expected fewer items after collapsing root")
 	}
 
@@ -66,8 +66,8 @@ func TestExplorerDirExpandCollapse(t *testing.T) {
 	if !root.Expanded {
 		t.Error("expected root to be expanded after Right")
 	}
-	if len(h.app.Explorer.FlatList) != initialCount {
-		t.Errorf("expected %d items after re-expanding, got %d", initialCount, len(h.app.Explorer.FlatList))
+	if h.app.Explorer.Tree.ItemCount() != initialCount {
+		t.Errorf("expected %d items after re-expanding, got %d", initialCount, h.app.Explorer.Tree.ItemCount())
 	}
 }
 
@@ -78,8 +78,8 @@ func TestExplorerEnterOpensFile(t *testing.T) {
 	h.exec("sidebar.explorer")
 
 	fileIdx := -1
-	for i, node := range h.app.Explorer.FlatList {
-		if !node.IsDir {
+	for i, node := range h.app.Explorer.Tree.FlatList() {
+		if !node.Expandable {
 			fileIdx = i
 			break
 		}
@@ -88,8 +88,8 @@ func TestExplorerEnterOpensFile(t *testing.T) {
 		t.Skip("no file found in explorer")
 	}
 
-	h.app.Explorer.Selected = fileIdx
-	expectedPath := h.app.Explorer.FlatList[fileIdx].Path
+	h.app.Explorer.Tree.SetSelectedIndex(fileIdx)
+	expectedPath := h.app.Explorer.Tree.FlatList()[fileIdx].ID
 
 	h.pressKey(tcell.KeyEnter, tcell.ModNone)
 
@@ -104,9 +104,9 @@ func TestExplorerEnterToggleDir(t *testing.T) {
 
 	h.exec("sidebar.explorer")
 
-	h.app.Explorer.Selected = 0
-	root := h.app.Explorer.FlatList[0]
-	if !root.IsDir || !root.Expanded {
+	h.app.Explorer.Tree.SetSelectedIndex(0)
+	root := h.app.Explorer.Tree.FlatList()[0]
+	if !root.Expandable || !root.Expanded {
 		t.Fatal("expected root to be an expanded directory")
 	}
 
@@ -129,8 +129,8 @@ func TestExplorerClickOpensFile(t *testing.T) {
 	h.redraw()
 
 	fileIdx := -1
-	for i, node := range h.app.Explorer.FlatList {
-		if !node.IsDir {
+	for i, node := range h.app.Explorer.Tree.FlatList() {
+		if !node.Expandable {
 			fileIdx = i
 			break
 		}
@@ -139,15 +139,15 @@ func TestExplorerClickOpensFile(t *testing.T) {
 		t.Skip("no file found in explorer")
 	}
 
-	r := h.app.Explorer.GetRect()
-	clickY := r.Y + (fileIdx - h.app.Explorer.ScrollTop)
+	r := h.app.Explorer.Adapter.GetRect()
+	clickY := r.Y + (fileIdx - h.app.Explorer.Tree.ScrollTop())
 	h.click(r.X+5, clickY)
 
-	if h.app.Explorer.Selected != fileIdx {
-		t.Errorf("expected Selected %d after click, got %d", fileIdx, h.app.Explorer.Selected)
+	if h.app.Explorer.Tree.SelectedIndex() != fileIdx {
+		t.Errorf("expected Selected %d after click, got %d", fileIdx, h.app.Explorer.Tree.SelectedIndex())
 	}
 
-	expectedPath := h.app.Explorer.FlatList[fileIdx].Path
+	expectedPath := h.app.Explorer.Tree.FlatList()[fileIdx].ID
 	if h.app.EditorGroup.ActiveFilePath() != expectedPath {
 		t.Errorf("expected editor to open %q, got %q", expectedPath, h.app.EditorGroup.ActiveFilePath())
 	}
@@ -159,19 +159,19 @@ func TestExplorerScrollFollowing(t *testing.T) {
 
 	h.exec("sidebar.explorer")
 
-	itemCount := len(h.app.Explorer.FlatList)
+	itemCount := h.app.Explorer.Tree.ItemCount()
 	if itemCount < 5 {
 		t.Skipf("need at least 5 items for scroll test, got %d", itemCount)
 	}
 
-	h.app.Explorer.Selected = itemCount - 1
-	r := h.app.Explorer.GetRect()
+	h.app.Explorer.Tree.SetSelectedIndex(itemCount - 1)
+	r := h.app.Explorer.Adapter.GetRect()
 	contentH := r.H
 
 	h.redraw()
 
 	if contentH > 0 && itemCount > contentH {
-		if h.app.Explorer.ScrollTop == 0 {
+		if h.app.Explorer.Tree.ScrollTop() == 0 {
 			t.Error("expected ScrollTop > 0 when selected item is past visible area")
 		}
 	}

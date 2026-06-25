@@ -23,11 +23,6 @@ func TestSidebarTabClick(t *testing.T) {
 	sidebarX := h.app.Sidebar.GetRect().X
 
 	h.click(sidebarX+12, sidebarY)
-	if h.app.Sidebar.ActivePanel != "navigation" {
-		t.Errorf("expected active panel 'navigation' after click, got %q", h.app.Sidebar.ActivePanel)
-	}
-
-	h.click(sidebarX+22, sidebarY)
 	if h.app.Sidebar.ActivePanel != "search" {
 		t.Errorf("expected active panel 'search' after click, got %q", h.app.Sidebar.ActivePanel)
 	}

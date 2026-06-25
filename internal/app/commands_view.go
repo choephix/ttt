@@ -164,63 +164,8 @@ func registerViewCommands(app *App) {
 		Keywords: []string{"view", "file", "tree", "browser"},
 		Handler: func() {
 			app.Explorer.Reload()
-			app.ShowPanel("explorer", app.Explorer)
+			app.ShowPanel("explorer", app.Explorer.Adapter)
 		},
-	})
-
-	reg.Register(command.Command{
-		ID: "sidebar.navigation", Title: "Show Navigation",
-		Keywords: []string{"view", "file", "tree", "browse", "navigate"},
-		Handler: func() {
-			app.Navigation.Reload()
-			app.ShowPanel("navigation", app.Navigation.Adapter)
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "navigate.open", Title: "Navigate: Open File",
-		Handler: func() {
-			if node := app.NavigationContextNode; node != nil {
-				app.EditorGroup.OpenFile(node.ID)
-				app.FocusEditorIfEnabled()
-			}
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "navigate.refresh", Title: "Navigate: Refresh",
-		Handler: func() {
-			app.Navigation.Reload()
-		},
-	})
-
-	reg.Register(command.Command{
-		ID: "navigate.newFile", Title: "Navigate: New File",
-		Handler: func() { app.NavigateNewFile() },
-	})
-	reg.Register(command.Command{
-		ID: "navigate.newFolder", Title: "Navigate: New Folder",
-		Handler: func() { app.NavigateNewFolder() },
-	})
-	reg.Register(command.Command{
-		ID: "navigate.rename", Title: "Navigate: Rename",
-		Handler: func() { app.NavigateRename() },
-	})
-	reg.Register(command.Command{
-		ID: "navigate.delete", Title: "Navigate: Delete",
-		Handler: func() { app.NavigateDelete() },
-	})
-	reg.Register(command.Command{
-		ID: "navigate.copyAbsolutePath", Title: "Navigate: Copy Absolute Path",
-		Handler: func() { app.NavigateCopyAbsolutePath() },
-	})
-	reg.Register(command.Command{
-		ID: "navigate.copyRelativePath", Title: "Navigate: Copy Relative Path",
-		Handler: func() { app.NavigateCopyRelativePath() },
-	})
-	reg.Register(command.Command{
-		ID: "navigate.removeRoot", Title: "Navigate: Remove from Workspace",
-		Handler: func() { app.NavigateRemoveRoot() },
 	})
 
 	reg.Register(command.Command{

@@ -76,8 +76,6 @@ describe("tab management", () => {
     tui.press("ctrl+w");
     tui.waitFor("Save changes");
 
-    // Press tab to select Discard, then enter
-    tui.press("tab");
     tui.press("enter");
     tui.waitStable();
 

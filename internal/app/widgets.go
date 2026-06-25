@@ -147,17 +147,15 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		{Name: "Help"},
 	})
 
-	explorer := ui.NewExplorerWidget(cfg.Settings.Explorer, ws.Paths()...)
 	search := ui.NewSearchWidget()
 	search.SetWorkDirs(ws.Paths())
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := ui.NewChangesWidget(ws.Paths()...)
 
-	navigation := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
+	explorer := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
-	sidebar.AddPanel("explorer", "Explore", explorer)
-	sidebar.AddPanel("navigation", "Navigate", navigation.Adapter)
+	sidebar.AddPanel("explorer", "Explore", explorer.Adapter)
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes)
 	hasFolders := len(ws.Paths()) > 0
@@ -200,7 +198,6 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		Palette:           BuildTerminalPalettePtr(cfg.Theme),
 		TerminalPanel:     terminalPanel,
 		Problems:          problems,
-		Navigation:        navigation,
 		References:        references,
 		DocVersions:       make(map[string]int),
 		AllDiagnostics:    make(map[string][]ui.Diagnostic),

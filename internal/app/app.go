@@ -39,7 +39,6 @@ type App struct {
 	SplitPanel         *ui.SplitPanelWidget
 	ContentSplit       *ui.ContentSplitWidget
 	BottomPanel        *ui.BottomPanelWidget
-	Explorer           *ui.ExplorerWidget
 	Search             *ui.SearchWidget
 	Changes            *ui.ChangesWidget
 	MenuBar            *ui.MenuBarWidget
@@ -69,9 +68,8 @@ type App struct {
 	AllDiagnostics     map[string][]ui.Diagnostic
 	Keybindings        []config.KeyBinding
 	LspNotified        map[string]bool
-	Navigation          *NavigationPanel
-	ExplorerContextNode *ui.TreeNode
-	NavigationContextNode *widgets.TreeNode
+	Explorer            *NavigationPanel
+	ExplorerContextNode *widgets.TreeNode
 	Reg                *command.Registry
 	Running            *bool
 	quitPending        bool
@@ -261,27 +259,12 @@ func (a *App) CloseAllTerminals() {
 func (a *App) refreshWorkspaceWidgets() {
 	paths := a.Workspace.Paths()
 
-	existing := make(map[string]bool)
-	for _, r := range a.Explorer.Roots {
-		existing[r.Path] = true
-	}
-	wanted := make(map[string]bool)
-	for _, p := range paths {
-		wanted[p] = true
-		if !existing[p] {
-			a.Explorer.AddRoot(p)
-		}
-	}
-	for _, r := range a.Explorer.Roots {
-		if !wanted[r.Path] {
-			a.Explorer.RemoveRoot(r.Path)
-		}
-	}
+	a.Explorer.Roots = paths
+	a.Explorer.Reload()
 
 	a.Search.SetWorkDirs(paths)
 	a.Changes.SetDirs(paths)
 	a.Changes.Refresh()
-	a.Navigation.Reload()
 }
 
 func (a *App) refreshProblems() {

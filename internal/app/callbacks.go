@@ -27,14 +27,6 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			ui.MenuSep(),
 			{Label: "Help", Command: "explorer.help"},
 		}
-	case "navigation":
-		items = []ui.ContextMenuItem{
-			{Label: "New File", Command: "file.new"},
-			{Label: "Add Folder", Command: "workspace.addFolder"},
-			{Label: "Refresh", Command: "navigate.refresh"},
-			ui.MenuSep(),
-			{Label: "Help", Command: "navigate.help"},
-		}
 	case "search":
 		replaceLabel := "Replace"
 		if a.Search.IsReplaceMode() {
@@ -478,62 +470,7 @@ func registerWidgetCallbacks(app *App) {
 		app.EditorGroup.OpenFile(path)
 		app.FocusEditorIfEnabled()
 	}
-
-	app.Search.OnClear = func() {
-		app.EditorGroup.ClearSearch()
-	}
-	app.Search.PostBatch = func(batch *ui.SearchBatch) {
-		app.Screen.PostEvent(tcell.NewEventInterrupt(batch))
-	}
-	app.Search.DiffSources = app.DiffSearchSources
-	app.Search.OnOpenMatch = app.NavigateToSearchMatch
-	app.Search.OnPreview = app.PreviewSearchReplace
-	app.Search.OnReplace = app.ApplySearchReplace
-	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
-
-	app.Navigation.OnOpenFile = func(path string) {
-		app.EditorGroup.OpenFile(path)
-		app.FocusEditorIfEnabled()
-	}
-	app.Navigation.OnRightClick = func(node *widgets.TreeNode, sx, sy int) {
-		app.NavigationContextNode = node
-		items := []ui.ContextMenuItem{
-			{Label: "Open", Command: "navigate.open"},
-			ui.MenuSep(),
-			{Label: "New File", Command: "navigate.newFile"},
-			{Label: "New Folder", Command: "navigate.newFolder"},
-			ui.MenuSep(),
-			{Label: "Copy Absolute Path", Command: "navigate.copyAbsolutePath"},
-			{Label: "Copy Relative Path", Command: "navigate.copyRelativePath"},
-			ui.MenuSep(),
-			{Label: "Rename", Command: "navigate.rename"},
-			{Label: "Delete", Command: "navigate.delete"},
-		}
-		openContextMenu(app, items, sx, sy)
-	}
-	app.Navigation.OnRootMenu = func(node *widgets.TreeNode, sx, sy int) {
-		app.NavigationContextNode = node
-		items := []ui.ContextMenuItem{
-			{Label: "Refresh", Command: "navigate.refresh"},
-			{Label: "Copy Path", Command: "navigate.copyAbsolutePath"},
-			ui.MenuSep(),
-			{Label: "Remove from Workspace", Command: "navigate.removeRoot"},
-		}
-		openContextMenu(app, items, sx, sy)
-	}
-
-	app.Explorer.OnRootMenu = func(node *ui.TreeNode, sx, sy int) {
-		app.ExplorerContextNode = node
-		items := []ui.ContextMenuItem{
-			{Label: "Refresh", Command: "explorer.refresh"},
-			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
-			ui.MenuSep(),
-			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
-		}
-		openContextMenu(app, items, sx, sy)
-	}
-
-	app.Explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {
+	app.Explorer.OnRightClick = func(node *widgets.TreeNode, sx, sy int) {
 		app.ExplorerContextNode = node
 		items := []ui.ContextMenuItem{
 			{Label: "Open", Command: "explorer.open"},
@@ -549,6 +486,28 @@ func registerWidgetCallbacks(app *App) {
 		}
 		openContextMenu(app, items, sx, sy)
 	}
+	app.Explorer.OnRootMenu = func(node *widgets.TreeNode, sx, sy int) {
+		app.ExplorerContextNode = node
+		items := []ui.ContextMenuItem{
+			{Label: "Refresh", Command: "explorer.refresh"},
+			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
+			ui.MenuSep(),
+			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
+		}
+		openContextMenu(app, items, sx, sy)
+	}
+
+	app.Search.OnClear = func() {
+		app.EditorGroup.ClearSearch()
+	}
+	app.Search.PostBatch = func(batch *ui.SearchBatch) {
+		app.Screen.PostEvent(tcell.NewEventInterrupt(batch))
+	}
+	app.Search.DiffSources = app.DiffSearchSources
+	app.Search.OnOpenMatch = app.NavigateToSearchMatch
+	app.Search.OnPreview = app.PreviewSearchReplace
+	app.Search.OnReplace = app.ApplySearchReplace
+	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
 
 	app.Changes.OnRightClick = func(dir string, status git.FileStatus, sx, sy int) {
 		if status.Staged {

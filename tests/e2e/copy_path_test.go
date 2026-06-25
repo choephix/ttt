@@ -51,22 +51,21 @@ func TestCopyAbsolutePathFromExplorer(t *testing.T) {
 
 	h.exec("sidebar.explorer")
 
-	// Find a non-directory node in the explorer
 	var fileIdx int
-	for i, node := range h.app.Explorer.FlatList {
-		if !node.IsDir {
+	for i, node := range h.app.Explorer.Tree.FlatList() {
+		if !node.Expandable {
 			fileIdx = i
 			break
 		}
 	}
-	h.app.Explorer.Selected = fileIdx
-	h.app.ExplorerContextNode = h.app.Explorer.FlatList[fileIdx]
+	h.app.Explorer.Tree.SetSelectedIndex(fileIdx)
+	h.app.ExplorerContextNode = h.app.Explorer.Tree.FlatList()[fileIdx]
 	h.redraw()
 
 	h.exec("explorer.copyAbsolutePath")
 
 	got := clipboard.Get()
-	want := h.app.Explorer.FlatList[fileIdx].Path
+	want := h.app.Explorer.Tree.FlatList()[fileIdx].ID
 	if got != want {
 		t.Errorf("expected %q, got %q", want, got)
 	}

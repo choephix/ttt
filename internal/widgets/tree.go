@@ -398,7 +398,7 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 			}
 		}
 
-		t.activateSelected()
+		t.ActivateSelected()
 		return true
 	}
 
@@ -430,11 +430,11 @@ func (t *TreeWidget) handleKey(ev *tcell.EventKey) bool {
 			}
 			return true
 		}
-		t.activateSelected()
+		t.ActivateSelected()
 		return true
 	case tcell.KeyRune:
 		if ev.Rune() == ' ' {
-			t.activateSelected()
+			t.ActivateSelected()
 			return true
 		}
 		return t.handleShortcutKey(ev.Rune())
@@ -463,7 +463,13 @@ func (n *TreeNode) isExpandable() bool {
 	return len(n.Children) > 0 || n.Expandable
 }
 
-func (t *TreeWidget) activateSelected() {
+func (t *TreeWidget) FlatList() []*TreeNode       { return t.flatList }
+func (t *TreeWidget) SelectedIndex() int           { return t.selected }
+func (t *TreeWidget) SetSelectedIndex(i int)       { t.selected = i; t.clampSelected() }
+func (t *TreeWidget) ScrollTop() int               { return t.scrollTop }
+func (t *TreeWidget) ItemCount() int               { return len(t.flatList) }
+
+func (t *TreeWidget) ActivateSelected() {
 	if t.selected < 0 || t.selected >= len(t.flatList) {
 		return
 	}
