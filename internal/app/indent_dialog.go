@@ -22,6 +22,7 @@ func (a *App) showIndentDialog(title string, onApply func(useTabs bool, tabSize 
 	}
 
 	styleTab := widgets.NewTabsWidget(widgets.TabsConfig{
+		Align: "center",
 		Items: []widgets.TabItem{
 			{ID: "spaces", Label: "Spaces"},
 			{ID: "tabs", Label: "Tabs"},
@@ -48,6 +49,7 @@ func (a *App) showIndentDialog(title string, onApply func(useTabs bool, tabSize 
 		}
 	}
 	sizeTab := widgets.NewTabsWidget(widgets.TabsConfig{
+		Align: "center",
 		Items: sizeItems,
 	})
 	sizeTab.SetActive(fmt.Sprintf("%d", tabSize))

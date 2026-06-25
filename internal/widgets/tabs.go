@@ -21,6 +21,7 @@ type TabsConfig struct {
 	Items      []TabItem   `json:"items"`
 	Actions    []TabAction `json:"-"`
 	Style      term.Style  `json:"-"`
+	Align      string      `json:"align,omitempty"`
 	OnTabClick func(index int)
 	OnOverflow func(screenX, screenY int)
 }
@@ -115,6 +116,12 @@ func (t *TabsWidget) Render(surface Surface) {
 	t.tabSpans = t.tabSpans[:0]
 	t.hiddenTabs = t.hiddenTabs[:0]
 	x := 0
+	if !hasOverflow && t.Config.Align == "center" {
+		used := total
+		if used < tabAreaW {
+			x = (tabAreaW - used) / 2
+		}
+	}
 	for i, item := range t.Config.Items {
 		if x+tabWidths[i] > tabAreaW && hasOverflow {
 			t.hiddenTabs = append(t.hiddenTabs, i)
@@ -279,6 +286,7 @@ func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) bool {
 
 	for i, span := range t.tabSpans {
 		if lx >= span[0] && lx < span[1] {
+			t.selected = i
 			if t.Config.OnTabClick != nil {
 				t.Config.OnTabClick(i)
 			}
