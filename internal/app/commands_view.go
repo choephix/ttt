@@ -370,17 +370,24 @@ func registerViewCommands(app *App) {
 				return
 			}
 			drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
-				Title:   "Drawer",
 				Width:   40,
 				Borders: *app.Borders,
 				OnDismiss: func() {
 					app.DismissDialog()
 				},
 			})
-			label := widgets.NewLabelWidget(widgets.LabelConfig{
-				Text: "Drawer content goes here",
-			})
-			drawer.SetContent(label)
+			title := widgets.NewTitleWidget(widgets.TitleConfig{Title: "Drawer"})
+			title.Box.PaddingLeft = 1
+			title.Box.PaddingRight = 1
+			label := widgets.NewLabelWidget(widgets.LabelConfig{Text: "Drawer content goes here"})
+			label.Box.PaddingLeft = 1
+			label.Box.PaddingRight = 1
+			content := widgets.NewVStackWidget(
+				title,
+				widgets.NewDividerWidget(widgets.DividerConfig{}),
+				label,
+			)
+			drawer.SetContent(content)
 			app.ShowDrawer(drawer)
 		},
 	})

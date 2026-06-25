@@ -6,11 +6,10 @@ import (
 )
 
 type DrawerConfig struct {
-	Title      string
-	Width      int
-	MinWidth   int
-	Borders    term.BorderSet
-	OnDismiss  func()
+	Width     int
+	MinWidth  int
+	Borders   term.BorderSet
+	OnDismiss func()
 }
 
 type DrawerWidget struct {
@@ -93,30 +92,10 @@ func (d *DrawerWidget) Render(surface Surface) {
 		}
 	}
 
-	y := 1
-	if d.Config.Title != "" {
-		tx := innerX + 1
-		for _, ch := range d.Config.Title {
-			if tx >= sw-2 {
-				break
-			}
-			surface.SetCell(tx, y, term.Cell{Ch: ch, Style: term.StyleDefault, Bold: true})
-			tx++
-		}
-		y++
-
-		surface.SetCell(x, y, term.Cell{Ch: b.LeftTee, Style: bs})
-		for ix := range innerW {
-			surface.SetCell(innerX+ix, y, term.Cell{Ch: b.Horizontal, Style: bs})
-		}
-		surface.SetCell(sw-1, y, term.Cell{Ch: b.RightTee, Style: bs})
-		y++
-	}
-
-	contentH := sh - y - 1
-	if d.Content != nil && contentH > 0 {
-		d.Content.SetRect(Rect{X: innerX, Y: y, W: innerW, H: contentH})
-		contentSurface := surface.Sub(Rect{X: innerX, Y: y, W: innerW, H: contentH})
+	contentH := sh - 2
+	if d.Content != nil && innerW > 0 && contentH > 0 {
+		d.Content.SetRect(Rect{X: innerX, Y: 1, W: innerW, H: contentH})
+		contentSurface := surface.Sub(Rect{X: innerX, Y: 1, W: innerW, H: contentH})
 		d.Content.Render(contentSurface)
 	}
 }
