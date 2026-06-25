@@ -376,17 +376,84 @@ func registerViewCommands(app *App) {
 					app.DismissDialog()
 				},
 			})
-			title := widgets.NewTitleWidget(widgets.TitleConfig{Title: "Drawer"})
+
+			title := widgets.NewTitleWidget(widgets.TitleConfig{Title: "Widget Demo"})
 			title.Box.PaddingLeft = 1
 			title.Box.PaddingRight = 1
-			label := widgets.NewLabelWidget(widgets.LabelConfig{Text: "Drawer content goes here"})
-			label.Box.PaddingLeft = 1
-			label.Box.PaddingRight = 1
+
+			nameInput := widgets.NewInputWidget(widgets.InputConfig{
+				Placeholder: "Enter your name",
+				Bordered:    true,
+			})
+			nameInput.Box.PaddingLeft = 1
+			nameInput.Box.PaddingRight = 1
+
+			emailInput := widgets.NewInputWidget(widgets.InputConfig{
+				Placeholder: "Enter your email",
+				Bordered:    true,
+			})
+			emailInput.Box.PaddingLeft = 1
+			emailInput.Box.PaddingRight = 1
+
+			darkMode := widgets.NewCheckboxWidget(widgets.CheckboxConfig{
+				Label:   "Dark Mode",
+				Checked: true,
+			})
+			darkMode.Box.PaddingLeft = 1
+
+			notifications := widgets.NewCheckboxWidget(widgets.CheckboxConfig{
+				Label: "Enable Notifications",
+			})
+			notifications.Box.PaddingLeft = 1
+
+			sel := widgets.NewSelectWidget(widgets.SelectConfig{
+				Items: []widgets.SelectItem{
+					{ID: "small", Label: "Small"},
+					{ID: "medium", Label: "Medium"},
+					{ID: "large", Label: "Large"},
+				},
+				Collapsible: true,
+			})
+			sel.Box.PaddingLeft = 1
+			sel.Box.PaddingRight = 1
+
+			saveBtn := widgets.NewButtonWidget(widgets.ButtonConfig{
+				Label: "Save",
+				OnClick: func() {
+					app.DismissDialog()
+				},
+			})
+
+			cancelBtn := widgets.NewButtonWidget(widgets.ButtonConfig{
+				Label: "Cancel",
+				OnClick: func() {
+					app.DismissDialog()
+				},
+			})
+
+			footer := widgets.NewHStackWidget(saveBtn, cancelBtn)
+			footer.Align = "right"
+			footer.Gap = 1
+			footer.Box.PaddingRight = 1
+
+			sizeLabel := widgets.NewLabelWidget(widgets.LabelConfig{Text: "Size:"})
+			sizeLabel.Box.PaddingLeft = 1
+
 			content := widgets.NewVStackWidget(
 				title,
 				widgets.NewDividerWidget(widgets.DividerConfig{}),
-				label,
+				nameInput,
+				emailInput,
+				widgets.NewDividerWidget(widgets.DividerConfig{}),
+				darkMode,
+				notifications,
+				widgets.NewDividerWidget(widgets.DividerConfig{}),
+				sizeLabel,
+				sel,
+				widgets.NewDividerWidget(widgets.DividerConfig{}),
+				footer,
 			)
+
 			drawer.SetContent(content)
 			app.ShowDrawer(drawer)
 		},

@@ -71,6 +71,14 @@ func (a *WidgetAdapter) Render(surface *RenderSurface) {
 	r := a.GetRect()
 	a.W.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
 	a.W.Render(&surfaceAdapter{surface: surface})
+
+	if fw := a.focus.Focused(); fw != nil {
+		if pr, ok := fw.(widgets.PopupRenderer); ok && pr.HasPopup() {
+			rect := pr.PopupRect()
+			popupSurface := surface.Sub(Rect{X: rect.X, Y: rect.Y, W: rect.W, H: rect.H})
+			pr.RenderPopup(&surfaceAdapter{surface: popupSurface})
+		}
+	}
 }
 
 func (a *WidgetAdapter) RebuildFocus() {

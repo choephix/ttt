@@ -59,6 +59,10 @@ func collectFocusable(w Widget, out *[]FocusableWidget) {
 		if v.footer != nil {
 			collectFocusable(v.footer, out)
 		}
+	case *DrawerWidget:
+		if v.Content != nil {
+			collectFocusable(v.Content, out)
+		}
 	}
 }
 

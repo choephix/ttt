@@ -16,6 +16,7 @@ type SelectConfig struct {
 	Items       []SelectItem
 	Placeholder string
 	ShowDivider bool
+	Collapsible bool
 	OnSelect    func(id string)
 	OnChange    func(id string)
 	OnDismiss   func()
@@ -55,6 +56,9 @@ func NewSelectWidget(config SelectConfig) *SelectWidget {
 }
 
 func (s *SelectWidget) Height() int {
+	if s.Config.Collapsible {
+		return 1
+	}
 	h := len(s.Config.Items) + 1
 	if s.Config.ShowDivider {
 		h += 2
@@ -64,6 +68,58 @@ func (s *SelectWidget) Height() int {
 		h = max
 	}
 	return h
+}
+
+func (s *SelectWidget) popupHeight() int {
+	h := len(s.filtered)
+	max := 8
+	if h > max {
+		h = max
+	}
+	if h < 1 {
+		h = 1
+	}
+	return h
+}
+
+func (s *SelectWidget) HasPopup() bool {
+	return s.Config.Collapsible && s.focused
+}
+
+func (s *SelectWidget) PopupRect() Rect {
+	r := s.GetRect()
+	return Rect{X: r.X, Y: r.Y + 1, W: r.W, H: s.popupHeight()}
+}
+
+func (s *SelectWidget) RenderPopup(surface Surface) {
+	pr := s.PopupRect()
+	w, h := pr.W, pr.H
+
+	s.ensureVisible(h)
+
+	s.scrollbar.X = pr.X + w - 1
+	s.scrollbar.Y = pr.Y
+	s.scrollbar.Height = h
+	s.scrollbar.TotalItems = len(s.filtered)
+	s.scrollbar.TopItem = s.scrollTop
+
+	for i := range h {
+		idx := s.scrollTop + i
+		if idx >= len(s.filtered) {
+			break
+		}
+		item := s.Config.Items[s.filtered[idx]]
+		style := term.StylePaletteItem
+		if idx == s.selected {
+			style = term.StylePaletteSelected
+		}
+		for x := range w {
+			surface.SetCell(x, i, term.Cell{Ch: ' ', Style: style})
+		}
+		surface.DrawText(1, i, item.Label, w-1, style)
+	}
+
+	s.scrollbar.Render(surface, w-1, 0)
 }
 func (s *SelectWidget) Width() int  { return 0 }
 
@@ -114,7 +170,17 @@ func (s *SelectWidget) Render(surface Surface) {
 	s.input.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: s.rect.W, H: 1})
 	inputSurface := surface.Sub(Rect{X: 0, Y: y, W: w, H: 1})
 	s.input.Render(inputSurface)
+
+	chevron := '▼'
+	if s.focused {
+		chevron = '▲'
+	}
+	surface.SetCell(w-1, y, term.Cell{Ch: chevron, Style: term.StyleMuted})
 	y++
+
+	if s.Config.Collapsible {
+		return
+	}
 
 	if s.Config.ShowDivider {
 		s.divider.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: s.rect.W, H: 1})
@@ -215,17 +281,36 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
 	}
 	if btn&tcell.WheelDown != 0 {
 		s.scrollTop += 3
-		max := len(s.filtered) - (r.H - 1)
-		if max < 0 {
-			max = 0
+		visibleH := s.popupHeight()
+		if !s.Config.Collapsible {
+			visibleH = r.H - 1
 		}
-		if s.scrollTop > max {
-			s.scrollTop = max
+		maxScroll := len(s.filtered) - visibleH
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		if s.scrollTop > maxScroll {
+			s.scrollTop = maxScroll
 		}
 		return true
 	}
 
 	if btn&tcell.Button1 != 0 {
+		if s.Config.Collapsible && s.focused {
+			pr := s.PopupRect()
+			if my >= pr.Y && my < pr.Y+pr.H {
+				idx := s.scrollTop + (my - pr.Y)
+				if idx >= 0 && idx < len(s.filtered) {
+					s.selected = idx
+					s.notifyChange()
+					if s.Config.OnSelect != nil {
+						s.Config.OnSelect(s.Config.Items[s.filtered[s.selected]].ID)
+					}
+				}
+				return true
+			}
+			return s.input.HandleEvent(ev)
+		}
 		listStart := r.Y + 1
 		if s.Config.ShowDivider {
 			listStart += 2

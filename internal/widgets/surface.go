@@ -70,6 +70,12 @@ func hasFocusedChild(w Widget) bool {
 	return false
 }
 
+type PopupRenderer interface {
+	HasPopup() bool
+	PopupRect() Rect
+	RenderPopup(surface Surface)
+}
+
 type HeightForWidther interface {
 	HeightForWidth(w int) int
 }
