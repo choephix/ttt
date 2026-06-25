@@ -511,6 +511,12 @@ func (a *App) ShowFindBar(w ui.Widget) {
 	a.Root.PushOverlay(ui.Overlay{Widget: w, Modal: false})
 }
 
+func (a *App) ShowDrawer(drawer *widgets.DrawerWidget) {
+	adapter := ui.NewWidgetAdapter(drawer)
+	a.Root.PushOverlay(ui.Overlay{Widget: adapter, Modal: true})
+	a.Root.SetFocus(adapter)
+}
+
 func (a *App) DismissDialog() {
 	a.Root.PopOverlay()
 	a.FocusEditor()

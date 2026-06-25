@@ -361,4 +361,27 @@ func registerViewCommands(app *App) {
 			}, true)
 		},
 	})
+
+	reg.Register(command.Command{
+		ID: "drawer.open", Title: "Open Drawer",
+		Keywords: []string{"view", "panel", "drawer", "right"},
+		Handler: func() {
+			if app.Root.HasOverlay() {
+				return
+			}
+			drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
+				Title:   "Drawer",
+				Width:   40,
+				Borders: *app.Borders,
+				OnDismiss: func() {
+					app.DismissDialog()
+				},
+			})
+			label := widgets.NewLabelWidget(widgets.LabelConfig{
+				Text: "Drawer content goes here",
+			})
+			drawer.SetContent(label)
+			app.ShowDrawer(drawer)
+		},
+	})
 }
