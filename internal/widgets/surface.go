@@ -9,13 +9,22 @@ type Rect struct {
 	X, Y, W, H int
 }
 
+type EventResult int
+
+const (
+	EventIgnored  EventResult = iota
+	EventConsumed
+	EventDismissed
+	EventCaptured
+)
+
 type Widget interface {
 	Height() int
 	Width() int
 	SetRect(r Rect)
 	GetRect() Rect
 	Render(surface Surface)
-	HandleEvent(ev tcell.Event) bool
+	HandleEvent(ev tcell.Event) EventResult
 	SetBoxModel(bm BoxModel)
 }
 

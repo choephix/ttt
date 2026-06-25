@@ -116,16 +116,16 @@ func (fm *FocusManager) Focused() Widget {
 	return nil
 }
 
-func (fm *FocusManager) HandleEvent(ev tcell.Event) bool {
+func (fm *FocusManager) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		if tev.Key() == tcell.KeyTab {
 			fm.FocusNext()
-			return true
+			return EventConsumed
 		}
 		if tev.Key() == tcell.KeyBacktab {
 			fm.FocusPrev()
-			return true
+			return EventConsumed
 		}
 		if fw := fm.Focused(); fw != nil {
 			return fw.HandleEvent(ev)
@@ -138,5 +138,5 @@ func (fm *FocusManager) HandleEvent(ev tcell.Event) bool {
 			}
 		}
 	}
-	return false
+	return EventIgnored
 }

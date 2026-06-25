@@ -189,14 +189,14 @@ func (t *TabsWidget) Render(surface Surface) {
 	}
 }
 
-func (t *TabsWidget) HandleEvent(ev tcell.Event) bool {
+func (t *TabsWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		return t.handleKey(tev)
 	case *tcell.EventMouse:
 		return t.handleMouse(tev)
 	}
-	return false
+	return EventIgnored
 }
 
 func (t *TabsWidget) HiddenTabs() []int {
@@ -221,13 +221,13 @@ func (t *TabsWidget) activeIndex() int {
 	return 0
 }
 
-func (t *TabsWidget) handleKey(ev *tcell.EventKey) bool {
+func (t *TabsWidget) handleKey(ev *tcell.EventKey) EventResult {
 	if !t.focused {
-		return false
+		return EventIgnored
 	}
 	n := len(t.Config.Items)
 	if n == 0 {
-		return false
+		return EventIgnored
 	}
 	switch ev.Key() {
 	case tcell.KeyLeft:
@@ -235,13 +235,13 @@ func (t *TabsWidget) handleKey(ev *tcell.EventKey) bool {
 		if t.selected < 0 {
 			t.selected = n - 1
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyRight:
 		t.selected = (t.selected + 1) % n
-		return true
+		return EventConsumed
 	case tcell.KeyEnter, tcell.KeyRune:
 		if ev.Key() == tcell.KeyRune && ev.Rune() != ' ' {
-			return false
+			return EventIgnored
 		}
 		if t.isHidden(t.selected) {
 			if t.Config.OnOverflow != nil {
@@ -251,22 +251,22 @@ func (t *TabsWidget) handleKey(ev *tcell.EventKey) bool {
 		} else if t.Config.OnTabClick != nil {
 			t.Config.OnTabClick(t.selected)
 		}
-		return true
+		return EventConsumed
 	}
-	return false
+	return EventIgnored
 }
 
-func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) bool {
+func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) EventResult {
 	pressed := mev.Buttons()&tcell.Button1 != 0
 	freshClick := pressed && !t.wasPressed
 	t.wasPressed = pressed
 	if !freshClick {
-		return false
+		return EventIgnored
 	}
 	mx, my := mev.Position()
 	r := t.GetRect()
 	if my < r.Y || my >= r.Y+r.H || mx < r.X || mx >= r.X+r.W {
-		return false
+		return EventIgnored
 	}
 	lx := mx - r.X - t.Box.MarginLeft - t.Box.PaddingLeft
 
@@ -275,13 +275,13 @@ func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) bool {
 			if i < len(t.Config.Actions) && t.Config.Actions[i].OnClick != nil {
 				t.Config.Actions[i].OnClick(mx, my+1)
 			}
-			return true
+			return EventConsumed
 		}
 	}
 
 	if t.Config.OnOverflow != nil && t.overSpan[1] > 0 && lx >= t.overSpan[0] && lx < t.overSpan[1] {
 		t.Config.OnOverflow(mx, my)
-		return true
+		return EventConsumed
 	}
 
 	for i, span := range t.tabSpans {
@@ -290,8 +290,8 @@ func (t *TabsWidget) handleMouse(mev *tcell.EventMouse) bool {
 			if t.Config.OnTabClick != nil {
 				t.Config.OnTabClick(i)
 			}
-			return true
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }

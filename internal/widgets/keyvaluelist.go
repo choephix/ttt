@@ -78,6 +78,6 @@ func (kv *KeyValueListWidget) Render(surface Surface) {
 	}
 }
 
-func (kv *KeyValueListWidget) HandleEvent(ev tcell.Event) bool {
-	return false
+func (kv *KeyValueListWidget) HandleEvent(ev tcell.Event) EventResult {
+	return EventIgnored
 }

@@ -99,11 +99,8 @@ func (a *WidgetAdapter) CursorPosition() (int, int, bool) {
 }
 
 func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
-	if a.focus.HandleEvent(ev) {
+	if a.focus.HandleEvent(ev) == EventConsumed {
 		return EventConsumed
 	}
-	if a.W.HandleEvent(ev) {
-		return EventConsumed
-	}
-	return EventIgnored
+	return a.W.HandleEvent(ev)
 }

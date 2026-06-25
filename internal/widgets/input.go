@@ -224,19 +224,19 @@ func (inp *InputWidget) renderText(surface Surface, x, y, textW int) {
 	}
 }
 
-func (inp *InputWidget) HandleEvent(ev tcell.Event) bool {
+func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		return inp.handleKey(tev)
 	case *tcell.EventMouse:
 		return inp.handleMouse(tev)
 	}
-	return false
+	return EventIgnored
 }
 
-func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
+func (inp *InputWidget) handleKey(ev *tcell.EventKey) EventResult {
 	if !inp.focused {
-		return false
+		return EventIgnored
 	}
 	shift := ev.Modifiers()&tcell.ModShift != 0
 	ctrl := ev.Modifiers()&tcell.ModCtrl != 0
@@ -251,12 +251,12 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 		inp.text = string(runes)
 		inp.cursorPos++
 		inp.notify()
-		return true
+		return EventConsumed
 	case tcell.KeyEnter:
 		if !shift && inp.Config.OnSubmit != nil {
 			inp.Config.OnSubmit(inp.text)
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if inp.hasSelection() {
 			inp.deleteSelection()
@@ -270,7 +270,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 			inp.cursorPos = newPos
 			inp.notify()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyDelete:
 		if inp.hasSelection() {
 			inp.deleteSelection()
@@ -285,7 +285,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 				inp.notify()
 			}
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyLeft:
 		if shift {
 			inp.startSel()
@@ -300,7 +300,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 		} else {
 			inp.clearSel()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyRight:
 		if shift {
 			inp.startSel()
@@ -315,7 +315,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 		} else {
 			inp.clearSel()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyHome:
 		if shift {
 			inp.startSel()
@@ -326,7 +326,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 		} else {
 			inp.clearSel()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyEnd:
 		if shift {
 			inp.startSel()
@@ -337,31 +337,31 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 		} else {
 			inp.clearSel()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyCtrlV:
 		inp.pasteClipboard()
-		return true
+		return EventConsumed
 	case tcell.KeyCtrlA:
 		inp.selectAll()
-		return true
+		return EventConsumed
 	case tcell.KeyCtrlC:
 		inp.copySelection()
-		return true
+		return EventConsumed
 	case tcell.KeyCtrlX:
 		inp.cutSelection()
-		return true
+		return EventConsumed
 	}
-	return false
+	return EventIgnored
 }
 
-func (inp *InputWidget) handleMouse(ev *tcell.EventMouse) bool {
+func (inp *InputWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	if ev.Buttons()&tcell.Button1 == 0 {
-		return false
+		return EventIgnored
 	}
 	mx, my := ev.Position()
 	r := inp.GetRect()
 	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
-		return false
+		return EventIgnored
 	}
 
 	textX := r.X + inp.Box.MarginLeft + inp.Box.PaddingLeft + len([]rune(inp.Config.Prefix))
@@ -392,7 +392,7 @@ func (inp *InputWidget) handleMouse(ev *tcell.EventMouse) bool {
 		inp.cursorPos = pos
 		inp.clearSel()
 	}
-	return true
+	return EventConsumed
 }
 
 // selection helpers

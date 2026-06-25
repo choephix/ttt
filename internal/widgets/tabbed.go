@@ -87,14 +87,14 @@ func (t *TabbedWidget) Render(surface Surface) {
 	child.Render(contentSurface)
 }
 
-func (t *TabbedWidget) HandleEvent(ev tcell.Event) bool {
-	if t.Tabs.HandleEvent(ev) {
-		return true
+func (t *TabbedWidget) HandleEvent(ev tcell.Event) EventResult {
+	if t.Tabs.HandleEvent(ev) == EventConsumed {
+		return EventConsumed
 	}
 	if t.active < len(t.Children) {
 		return t.Children[t.active].HandleEvent(ev)
 	}
-	return false
+	return EventIgnored
 }
 
 func (t *TabbedWidget) ActiveChild() Widget {

@@ -50,7 +50,7 @@ func (bp *BottomPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 		_, my := mev.Position()
 		r := bp.GetRect()
 		if my == r.Y {
-			if bp.Tabs.HandleEvent(ev) {
+			if bp.Tabs.HandleEvent(ev) == EventConsumed {
 				return EventConsumed
 			}
 			return EventIgnored

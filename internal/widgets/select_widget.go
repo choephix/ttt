@@ -223,10 +223,10 @@ func (s *SelectWidget) Render(surface Surface) {
 	s.scrollbar.Render(surface, w-1, listStart)
 }
 
-func (s *SelectWidget) HandleEvent(ev tcell.Event) bool {
+func (s *SelectWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := s.scrollbar.HandleEvent(ev); consumed {
 		s.scrollTop = newTop
-		return true
+		return EventConsumed
 	}
 
 	switch tev := ev.(type) {
@@ -235,39 +235,39 @@ func (s *SelectWidget) HandleEvent(ev tcell.Event) bool {
 	case *tcell.EventMouse:
 		return s.handleMouse(tev)
 	}
-	return false
+	return EventIgnored
 }
 
-func (s *SelectWidget) handleKey(ev *tcell.EventKey) bool {
+func (s *SelectWidget) handleKey(ev *tcell.EventKey) EventResult {
 	switch ev.Key() {
 	case tcell.KeyUp:
 		if s.selected > 0 {
 			s.selected--
 			s.notifyChange()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyDown:
 		if s.selected < len(s.filtered)-1 {
 			s.selected++
 			s.notifyChange()
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyEnter:
 		if s.selected >= 0 && s.selected < len(s.filtered) && s.Config.OnSelect != nil {
 			s.Config.OnSelect(s.Config.Items[s.filtered[s.selected]].ID)
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyEscape:
 		if s.Config.OnDismiss != nil {
 			s.Config.OnDismiss()
 		}
-		return true
+		return EventConsumed
 	default:
 		return s.input.HandleEvent(ev)
 	}
 }
 
-func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
+func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	btn := ev.Buttons()
 	_, my := ev.Position()
 	r := s.rect
@@ -277,7 +277,7 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
 		if s.scrollTop < 0 {
 			s.scrollTop = 0
 		}
-		return true
+		return EventConsumed
 	}
 	if btn&tcell.WheelDown != 0 {
 		s.scrollTop += 3
@@ -296,7 +296,7 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
 		if s.scrollTop > maxScroll {
 			s.scrollTop = maxScroll
 		}
-		return true
+		return EventConsumed
 	}
 
 	if btn&tcell.Button1 != 0 {
@@ -311,7 +311,7 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
 						s.Config.OnSelect(s.Config.Items[s.filtered[s.selected]].ID)
 					}
 				}
-				return true
+				return EventConsumed
 			}
 			return s.input.HandleEvent(ev)
 		}
@@ -329,10 +329,10 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) bool {
 			if s.Config.OnSelect != nil {
 				s.Config.OnSelect(s.Config.Items[s.filtered[s.selected]].ID)
 			}
-			return true
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }
 
 func (s *SelectWidget) notifyChange() {

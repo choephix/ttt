@@ -98,11 +98,11 @@ func (s *HStackWidget) Render(surface Surface) {
 	}
 }
 
-func (s *HStackWidget) HandleEvent(ev tcell.Event) bool {
+func (s *HStackWidget) HandleEvent(ev tcell.Event) EventResult {
 	for _, child := range s.Children {
-		if child.HandleEvent(ev) {
-			return true
+		if child.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }

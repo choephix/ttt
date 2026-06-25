@@ -100,7 +100,7 @@ func (d *DrawerWidget) Render(surface Surface) {
 	}
 }
 
-func (d *DrawerWidget) HandleEvent(ev tcell.Event) bool {
+func (d *DrawerWidget) HandleEvent(ev tcell.Event) EventResult {
 	mev, ok := ev.(*tcell.EventMouse)
 	if !ok {
 		if kev, ok := ev.(*tcell.EventKey); ok {
@@ -108,13 +108,13 @@ func (d *DrawerWidget) HandleEvent(ev tcell.Event) bool {
 				if d.Config.OnDismiss != nil {
 					d.Config.OnDismiss()
 				}
-				return true
+				return EventConsumed
 			}
 			if d.Content != nil {
 				return d.Content.HandleEvent(ev)
 			}
 		}
-		return false
+		return EventIgnored
 	}
 
 	r := d.GetRect()
@@ -141,29 +141,29 @@ func (d *DrawerWidget) HandleEvent(ev tcell.Event) bool {
 				newW = sw - 2
 			}
 			d.width = newW
-			return true
+			return EventConsumed
 		}
 		d.dragging = false
 		if d.width < d.Config.MinWidth {
 			d.width = d.Config.MinWidth
 		}
-		return true
+		return EventConsumed
 	}
 
 	if freshClick && mx >= borderX-1 && mx <= borderX {
 		d.dragging = true
-		return true
+		return EventConsumed
 	}
 
 	if freshClick && mx < borderX {
 		if d.Config.OnDismiss != nil {
 			d.Config.OnDismiss()
 		}
-		return true
+		return EventConsumed
 	}
 
 	if d.Content != nil {
 		return d.Content.HandleEvent(ev)
 	}
-	return true
+	return EventConsumed
 }

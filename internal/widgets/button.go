@@ -96,7 +96,7 @@ func (b *ButtonWidget) Render(surface Surface) {
 	}
 }
 
-func (b *ButtonWidget) HandleEvent(ev tcell.Event) bool {
+func (b *ButtonWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		if e.Buttons()&tcell.Button1 != 0 {
@@ -104,24 +104,24 @@ func (b *ButtonWidget) HandleEvent(ev tcell.Event) bool {
 			r := b.GetRect()
 			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
 				b.trigger()
-				return true
+				return EventConsumed
 			}
 		}
 	case *tcell.EventKey:
 		if b.focused {
 			if e.Key() == tcell.KeyEnter || (e.Key() == tcell.KeyRune && e.Rune() == ' ') {
 				b.trigger()
-				return true
+				return EventConsumed
 			}
 		}
 		if b.accelRune != 0 && e.Key() == tcell.KeyRune {
 			if unicode.ToLower(e.Rune()) == unicode.ToLower(b.accelRune) {
 				b.trigger()
-				return true
+				return EventConsumed
 			}
 		}
 	}
-	return false
+	return EventIgnored
 }
 
 func (b *ButtonWidget) trigger() {

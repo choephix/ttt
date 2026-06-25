@@ -374,10 +374,10 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 }
 
-func (t *TreeWidget) HandleEvent(ev tcell.Event) bool {
+func (t *TreeWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := t.scrollbar.HandleEvent(ev); consumed {
 		t.scrollTop = newTop
-		return true
+		return EventConsumed
 	}
 
 	switch tev := ev.(type) {
@@ -386,15 +386,15 @@ func (t *TreeWidget) HandleEvent(ev tcell.Event) bool {
 	case *tcell.EventKey:
 		return t.handleKey(tev)
 	}
-	return false
+	return EventIgnored
 }
 
-func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
+func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	btn := ev.Buttons()
 	mx, my := ev.Position()
 	r := t.rect
 	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
-		return false
+		return EventIgnored
 	}
 
 	if btn&tcell.WheelUp != 0 {
@@ -402,7 +402,7 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 		if t.scrollTop < 0 {
 			t.scrollTop = 0
 		}
-		return true
+		return EventConsumed
 	}
 	if btn&tcell.WheelDown != 0 {
 		max := len(t.flatList) - r.H
@@ -413,12 +413,12 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 		if t.scrollTop > max {
 			t.scrollTop = max
 		}
-		return true
+		return EventConsumed
 	}
 
 	idx := t.scrollTop + (my - r.Y)
 	if idx < 0 || idx >= len(t.flatList) {
-		return false
+		return EventIgnored
 	}
 
 	if btn&tcell.Button2 != 0 {
@@ -426,7 +426,7 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 		if t.Config.OnMenu != nil {
 			t.Config.OnMenu(t.Config.NodeMenu, t.flatList[idx], mx, my)
 		}
-		return true
+		return EventConsumed
 	}
 
 	if btn&tcell.Button1 != 0 {
@@ -437,7 +437,7 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 			if t.Config.OnMenu != nil {
 				t.Config.OnMenu(t.Config.NodeMenu, node, mx, my)
 			}
-			return true
+			return EventConsumed
 		}
 
 		for _, action := range node.Actions {
@@ -446,63 +446,63 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) bool {
 				if t.Config.OnCommand != nil {
 					t.Config.OnCommand(action.Command, node)
 				}
-				return true
+				return EventConsumed
 			}
 		}
 
 		t.ActivateSelected()
-		return true
+		return EventConsumed
 	}
 
-	return false
+	return EventIgnored
 }
 
-func (t *TreeWidget) handleKey(ev *tcell.EventKey) bool {
+func (t *TreeWidget) handleKey(ev *tcell.EventKey) EventResult {
 	switch ev.Key() {
 	case tcell.KeyUp:
 		if t.selected > 0 {
 			t.selected--
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyDown:
 		if t.selected < len(t.flatList)-1 {
 			t.selected++
 		}
-		return true
+		return EventConsumed
 	case tcell.KeyLeft:
 		t.collapseSelected()
-		return true
+		return EventConsumed
 	case tcell.KeyRight:
 		t.expandSelected()
-		return true
+		return EventConsumed
 	case tcell.KeyEnter:
 		if ev.Modifiers()&tcell.ModShift != 0 {
 			if t.Config.OnMenu != nil && t.selected >= 0 && t.selected < len(t.flatList) {
 				t.Config.OnMenu(t.Config.NodeMenu, t.flatList[t.selected], t.rect.X, t.rect.Y+t.selected-t.scrollTop)
 			}
-			return true
+			return EventConsumed
 		}
 		t.ActivateSelected()
-		return true
+		return EventConsumed
 	case tcell.KeyRune:
 		if t.Config.OnKey != nil && t.Config.OnKey(ev, t.Selected()) {
-			return true
+			return EventConsumed
 		}
 		if ev.Rune() == ' ' {
 			t.ActivateSelected()
-			return true
+			return EventConsumed
 		}
-		if t.handleShortcutKey(ev.Rune()) {
-			return true
+		if t.handleShortcutKey(ev.Rune()) == EventConsumed {
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }
 
-func (t *TreeWidget) handleShortcutKey(r rune) bool {
+func (t *TreeWidget) handleShortcutKey(r rune) EventResult {
 	node := t.Selected()
 	if node == nil {
-		return false
+		return EventIgnored
 	}
 	for _, action := range node.Actions {
 		iconRunes := []rune(action.Icon)
@@ -510,10 +510,10 @@ func (t *TreeWidget) handleShortcutKey(r rune) bool {
 			if t.Config.OnCommand != nil {
 				t.Config.OnCommand(action.Command, node)
 			}
-			return true
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }
 
 func (n *TreeNode) isExpandable() bool {

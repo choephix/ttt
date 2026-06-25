@@ -123,10 +123,10 @@ func (sv *ScrollViewWidget) renderHBar(surface Surface, barW, y, totalW int) {
 	}
 }
 
-func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) bool {
+func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := sv.vbar.HandleEvent(ev); consumed {
 		sv.scrollY = newTop
-		return true
+		return EventConsumed
 	}
 
 	switch e := ev.(type) {
@@ -137,18 +137,18 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) bool {
 			if sv.scrollY < 0 {
 				sv.scrollY = 0
 			}
-			return true
+			return EventConsumed
 		}
 		if btn&tcell.WheelDown != 0 {
 			sv.scrollY += 3
-			return true
+			return EventConsumed
 		}
 	}
 
 	if sv.Child != nil {
 		return sv.Child.HandleEvent(ev)
 	}
-	return false
+	return EventIgnored
 }
 
 func (sv *ScrollViewWidget) clamp(contentW, contentH, viewW, viewH int) {

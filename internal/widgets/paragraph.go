@@ -56,8 +56,8 @@ func (p *ParagraphWidget) Render(surface Surface) {
 	}
 }
 
-func (p *ParagraphWidget) HandleEvent(ev tcell.Event) bool {
-	return false
+func (p *ParagraphWidget) HandleEvent(ev tcell.Event) EventResult {
+	return EventIgnored
 }
 
 func wrapText(text string, width int) []string {

@@ -50,7 +50,7 @@ func (s *SidebarWidget) HandleEvent(ev tcell.Event) EventResult {
 		_, my := tev.Position()
 		r := s.GetRect()
 		if my == r.Y {
-			if s.Tabs.HandleEvent(ev) {
+			if s.Tabs.HandleEvent(ev) == EventConsumed {
 				return EventConsumed
 			}
 			return EventIgnored

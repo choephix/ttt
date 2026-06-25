@@ -75,15 +75,15 @@ func (c *CheckboxWidget) toggle() {
 	}
 }
 
-func (c *CheckboxWidget) HandleEvent(ev tcell.Event) bool {
+func (c *CheckboxWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
 		if !c.focused {
-			return false
+			return EventIgnored
 		}
 		if tev.Key() == tcell.KeyEnter || (tev.Key() == tcell.KeyRune && tev.Rune() == ' ') {
 			c.toggle()
-			return true
+			return EventConsumed
 		}
 	case *tcell.EventMouse:
 		if tev.Buttons()&tcell.Button1 != 0 {
@@ -91,9 +91,9 @@ func (c *CheckboxWidget) HandleEvent(ev tcell.Event) bool {
 			r := c.GetRect()
 			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
 				c.toggle()
-				return true
+				return EventConsumed
 			}
 		}
 	}
-	return false
+	return EventIgnored
 }

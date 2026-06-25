@@ -111,11 +111,11 @@ func (v *VStackWidget) Render(surface Surface) {
 	}
 }
 
-func (v *VStackWidget) HandleEvent(ev tcell.Event) bool {
+func (v *VStackWidget) HandleEvent(ev tcell.Event) EventResult {
 	for _, child := range v.Children {
-		if child.HandleEvent(ev) {
-			return true
+		if child.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }

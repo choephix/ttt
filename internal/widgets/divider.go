@@ -43,6 +43,6 @@ func (d *DividerWidget) Render(surface Surface) {
 	}
 }
 
-func (d *DividerWidget) HandleEvent(ev tcell.Event) bool {
-	return false
+func (d *DividerWidget) HandleEvent(ev tcell.Event) EventResult {
+	return EventIgnored
 }

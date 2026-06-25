@@ -82,9 +82,9 @@ func (b *BoxWidget) Render(surface Surface) {
 	}
 }
 
-func (b *BoxWidget) HandleEvent(ev tcell.Event) bool {
+func (b *BoxWidget) HandleEvent(ev tcell.Event) EventResult {
 	if b.Child != nil {
 		return b.Child.HandleEvent(ev)
 	}
-	return false
+	return EventIgnored
 }

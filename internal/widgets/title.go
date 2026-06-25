@@ -75,11 +75,11 @@ func (t *TitleWidget) Render(surface Surface) {
 	}
 }
 
-func (t *TitleWidget) HandleEvent(ev tcell.Event) bool {
+func (t *TitleWidget) HandleEvent(ev tcell.Event) EventResult {
 	if t.dropdown != nil {
-		if t.dropdown.HandleEvent(ev) {
-			return true
+		if t.dropdown.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
 		}
 	}
-	return false
+	return EventIgnored
 }

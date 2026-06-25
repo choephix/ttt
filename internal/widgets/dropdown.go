@@ -42,7 +42,7 @@ func (d *DropdownWidget) Render(surface Surface) {
 	d.button.Render(surface)
 }
 
-func (d *DropdownWidget) HandleEvent(ev tcell.Event) bool {
+func (d *DropdownWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		if e.Buttons()&tcell.Button1 != 0 {
@@ -51,10 +51,10 @@ func (d *DropdownWidget) HandleEvent(ev tcell.Event) bool {
 			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
 				if d.Config.OnMenu != nil && len(d.Config.Entries) > 0 {
 					d.Config.OnMenu(d.Config.Entries, r.X, r.Y+r.H)
-					return true
+					return EventConsumed
 				}
 			}
 		}
 	}
-	return false
+	return EventIgnored
 }

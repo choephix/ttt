@@ -35,6 +35,6 @@ func (l *LabelWidget) Render(surface Surface) {
 	inner.DrawText(0, 0, l.Config.Text, w, style)
 }
 
-func (l *LabelWidget) HandleEvent(ev tcell.Event) bool {
-	return false
+func (l *LabelWidget) HandleEvent(ev tcell.Event) EventResult {
+	return EventIgnored
 }

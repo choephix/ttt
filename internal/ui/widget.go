@@ -1,18 +1,21 @@
 package ui
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"github.com/eugenioenko/ttt/internal/widgets"
+	"github.com/gdamore/tcell/v2"
+)
 
 type Rect struct {
 	X, Y, W, H int
 }
 
-type EventResult int
+type EventResult = widgets.EventResult
 
 const (
-	EventIgnored   EventResult = iota
-	EventConsumed
-	EventDismissed
-	EventCaptured
+	EventIgnored   = widgets.EventIgnored
+	EventConsumed  = widgets.EventConsumed
+	EventDismissed = widgets.EventDismissed
+	EventCaptured  = widgets.EventCaptured
 )
 
 type ConstraintType int

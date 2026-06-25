@@ -156,18 +156,18 @@ func (d *DialogWidget) Render(surface Surface) {
 	}
 }
 
-func (d *DialogWidget) HandleEvent(ev tcell.Event) bool {
+func (d *DialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
 		if e.Key() == tcell.KeyEscape {
 			if d.OnDismiss != nil {
 				d.OnDismiss()
 			}
-			return true
+			return EventConsumed
 		}
 		if d.footer != nil {
-			if d.footer.HandleEvent(e) {
-				return true
+			if d.footer.HandleEvent(e) == EventConsumed {
+				return EventConsumed
 			}
 		}
 		if d.Content != nil {
@@ -181,5 +181,5 @@ func (d *DialogWidget) HandleEvent(ev tcell.Event) bool {
 			d.Content.HandleEvent(e)
 		}
 	}
-	return true
+	return EventConsumed
 }
