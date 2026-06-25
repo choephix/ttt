@@ -56,11 +56,18 @@ func hasFocusedChild(w Widget) bool {
 			return hasFocusedChild(c)
 		}
 	case *DialogWidget:
-		if v.Content != nil {
-			return hasFocusedChild(v.Content)
+		if v.Content != nil && hasFocusedChild(v.Content) {
+			return true
+		}
+		if v.footer != nil {
+			return hasFocusedChild(v.footer)
 		}
 	}
 	return false
+}
+
+type HeightForWidther interface {
+	HeightForWidth(w int) int
 }
 
 type Surface interface {

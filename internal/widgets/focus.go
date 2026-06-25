@@ -52,6 +52,9 @@ func collectFocusable(w Widget, out *[]FocusableWidget) {
 		if v.Content != nil {
 			collectFocusable(v.Content, out)
 		}
+		if v.footer != nil {
+			collectFocusable(v.footer, out)
+		}
 	}
 }
 

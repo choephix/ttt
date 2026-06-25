@@ -27,6 +27,10 @@ func (p *ParagraphWidget) Height() int {
 
 func (p *ParagraphWidget) Width() int { return 0 }
 
+func (p *ParagraphWidget) HeightForWidth(w int) int {
+	return len(wrapText(p.Text, w))
+}
+
 func (p *ParagraphWidget) Render(surface Surface) {
 	inner := p.RenderBox(surface)
 	w, h := inner.Size()

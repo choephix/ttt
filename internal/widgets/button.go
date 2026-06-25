@@ -8,10 +8,12 @@ import (
 )
 
 type ButtonConfig struct {
-	Label   string `json:"label"`
-	Command string `json:"command"`
+	Label   string     `json:"label"`
+	Command string     `json:"command"`
 	Style   term.Style `json:"-"`
+	Box     *BoxModel
 
+	OnClick   func()
 	OnCommand func(command string)
 }
 
@@ -26,6 +28,12 @@ type ButtonWidget struct {
 
 func NewButtonWidget(config ButtonConfig) *ButtonWidget {
 	b := &ButtonWidget{Config: config, accelIndex: -1}
+	if config.Box != nil {
+		b.Box = *config.Box
+	} else {
+		b.Box.PaddingLeft = 1
+		b.Box.PaddingRight = 1
+	}
 	idx := strings.IndexByte(config.Label, '&')
 	if idx >= 0 && idx < len(config.Label)-1 {
 		runes := []rune(config.Label)
@@ -117,6 +125,9 @@ func (b *ButtonWidget) HandleEvent(ev tcell.Event) bool {
 }
 
 func (b *ButtonWidget) trigger() {
+	if b.Config.OnClick != nil {
+		b.Config.OnClick()
+	}
 	if b.Config.OnCommand != nil && b.Config.Command != "" {
 		b.Config.OnCommand(b.Config.Command)
 	}

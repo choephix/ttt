@@ -137,6 +137,10 @@ func RunEventLoop(
 	syncStatus()
 	redraw()
 
+	// Demo dialog
+	showDemoDialog(app)
+	redraw()
+
 	for *running {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {

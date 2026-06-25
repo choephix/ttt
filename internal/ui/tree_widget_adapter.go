@@ -90,10 +90,8 @@ func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
 	if a.focus.HandleEvent(ev) {
 		return EventConsumed
 	}
-	if _, ok := ev.(*tcell.EventMouse); ok {
-		if a.W.HandleEvent(ev) {
-			return EventConsumed
-		}
+	if a.W.HandleEvent(ev) {
+		return EventConsumed
 	}
 	return EventIgnored
 }
