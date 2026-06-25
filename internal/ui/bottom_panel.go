@@ -40,7 +40,7 @@ func (bp *BottomPanelWidget) Render(surface *RenderSurface) {
 	active := bp.ActiveWidget()
 	if active != nil && contentH > 0 {
 		active.SetRect(Rect{X: r.X, Y: r.Y + 2, W: r.W, H: contentH})
-		contentSurface := surface.Sub(Rect{X: 0, Y: 2, W: w, H: contentH})
+		contentSurface := surface.sub(Rect{X: 0, Y: 2, W: w, H: contentH})
 		active.Render(contentSurface)
 	}
 }

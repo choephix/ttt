@@ -133,11 +133,11 @@ func (tp *TerminalPanelWidget) Render(surface *RenderSurface) {
 
 	tp.TabBar.Borders = tp.Borders
 	tp.TabBar.SetRect(Rect{X: r.X, Y: r.Y, W: stripW, H: h})
-	tp.TabBar.Render(surface.Sub(Rect{X: 0, Y: 0, W: stripW, H: h}))
+	tp.TabBar.Render(surface.sub(Rect{X: 0, Y: 0, W: stripW, H: h}))
 
 	active := tp.widgets[tp.active]
 	active.SetRect(Rect{X: r.X + stripW, Y: r.Y, W: contentW, H: h})
-	active.Render(surface.Sub(Rect{X: stripW, Y: 0, W: contentW, H: h}))
+	active.Render(surface.sub(Rect{X: stripW, Y: 0, W: contentW, H: h}))
 }
 
 func (tp *TerminalPanelWidget) HandleEvent(ev tcell.Event) EventResult {

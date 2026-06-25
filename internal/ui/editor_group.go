@@ -1049,12 +1049,12 @@ func (g *EditorGroupWidget) Render(surface *RenderSurface) {
 	}
 
 	g.TabBar.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: tabBarH})
-	tabSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: tabBarH})
+	tabSurface := surface.sub(Rect{X: 0, Y: 0, W: w, H: tabBarH})
 	g.TabBar.Render(tabSurface)
 
 	contentH := h - tabBarH
 	contentRect := Rect{X: r.X, Y: r.Y + tabBarH, W: r.W, H: contentH}
-	contentSurface := surface.Sub(Rect{X: 0, Y: tabBarH, W: w, H: contentH})
+	contentSurface := surface.sub(Rect{X: 0, Y: tabBarH, W: w, H: contentH})
 
 	t := g.activeTab()
 	if t == nil {

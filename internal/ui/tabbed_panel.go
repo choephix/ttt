@@ -131,9 +131,8 @@ func (tp *TabbedPanel) syncTabs() {
 }
 
 func (tp *TabbedPanel) RenderTabs(surface *RenderSurface, r Rect) {
-	tp.Tabs.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
-	tabSurface := &surfaceAdapter{surface: surface.Sub(Rect{X: 0, Y: 0, W: r.W, H: 1})}
-	tp.Tabs.Render(tabSurface)
+	tp.Tabs.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
+	tp.Tabs.Render(surface.sub(Rect{X: 0, Y: 0, W: r.W, H: 1}))
 }
 
 func (tp *TabbedPanel) RenderDivider(surface *RenderSurface, y, w int, borders *term.BorderSet) {

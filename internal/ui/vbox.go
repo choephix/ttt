@@ -66,7 +66,7 @@ func (v *VBox) Render(surface *RenderSurface) {
 			continue
 		}
 		cr := child.Widget.GetRect()
-		sub := surface.Sub(Rect{X: cr.X - v.rect.X, Y: cr.Y - v.rect.Y, W: cr.W, H: cr.H})
+		sub := surface.sub(Rect{X: cr.X - v.rect.X, Y: cr.Y - v.rect.Y, W: cr.W, H: cr.H})
 		child.Widget.Render(sub)
 	}
 }

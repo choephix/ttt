@@ -61,7 +61,7 @@ func (h *HBox) Render(surface *RenderSurface) {
 			continue
 		}
 		cr := child.Widget.GetRect()
-		sub := surface.Sub(Rect{X: cr.X - h.rect.X, Y: cr.Y - h.rect.Y, W: cr.W, H: cr.H})
+		sub := surface.sub(Rect{X: cr.X - h.rect.X, Y: cr.Y - h.rect.Y, W: cr.W, H: cr.H})
 		child.Widget.Render(sub)
 	}
 }
