@@ -17,6 +17,7 @@ type InputConfig struct {
 	Style       term.Style `json:"-"`
 
 	OnChange func(text string)
+	OnSubmit func(text string)
 }
 
 type InputWidget struct {
@@ -250,6 +251,11 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) bool {
 		inp.text = string(runes)
 		inp.cursorPos++
 		inp.notify()
+		return true
+	case tcell.KeyEnter:
+		if !shift && inp.Config.OnSubmit != nil {
+			inp.Config.OnSubmit(inp.text)
+		}
 		return true
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if inp.hasSelection() {

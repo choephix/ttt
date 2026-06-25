@@ -521,8 +521,15 @@ func (a *App) ShowInputDialog(title, placeholder, initial string, onSubmit func(
 }
 
 func (a *App) ShowInputDialogEx(title, placeholder, initial, confirmLabel string, onSubmit func(string)) {
+	submit := func(text string) {
+		if text != "" {
+			a.DismissDialog()
+			onSubmit(text)
+		}
+	}
 	input := widgets.NewInputWidget(widgets.InputConfig{
 		Placeholder: placeholder,
+		OnSubmit:    submit,
 	})
 	input.SetText(initial)
 

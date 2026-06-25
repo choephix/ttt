@@ -163,7 +163,7 @@ func (a *App) Quit() {
 		return
 	}
 	a.quitPending = true
-	a.ShowConfirmDialog("Unsaved changes! Press Ctrl+Q to force quit", []string{"Cancel", "Quit"}, []func(){
+	a.ShowConfirmDialogEx("Unsaved Changes", "Press Ctrl+Q to force quit.", []string{"Cancel", "Quit"}, []func(){
 		func() { a.quitPending = false; a.DismissDialog() },
 		func() { a.forceQuit() },
 	})
