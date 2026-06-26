@@ -290,30 +290,34 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) EventResult {
 		if shift {
 			inp.startSel()
 		}
-		if ctrl {
+		if !shift && inp.hasSelection() {
+			lo, _ := inp.selRange()
+			inp.cursorPos = lo
+			inp.clearSel()
+		} else if ctrl {
 			inp.cursorPos = inp.wordLeft()
 		} else if inp.cursorPos > 0 {
 			inp.cursorPos--
 		}
 		if shift {
 			inp.selEnd = inp.cursorPos
-		} else {
-			inp.clearSel()
 		}
 		return EventConsumed
 	case tcell.KeyRight:
 		if shift {
 			inp.startSel()
 		}
-		if ctrl {
+		if !shift && inp.hasSelection() {
+			_, hi := inp.selRange()
+			inp.cursorPos = hi
+			inp.clearSel()
+		} else if ctrl {
 			inp.cursorPos = inp.wordRight()
 		} else if inp.cursorPos < len([]rune(inp.text)) {
 			inp.cursorPos++
 		}
 		if shift {
 			inp.selEnd = inp.cursorPos
-		} else {
-			inp.clearSel()
 		}
 		return EventConsumed
 	case tcell.KeyHome:
