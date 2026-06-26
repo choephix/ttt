@@ -2,6 +2,7 @@ package app
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
@@ -51,6 +52,27 @@ func registerPluginCommands(app *App) {
 			app.Sidebar.SetActivePanel("plugins")
 			app.SplitPanel.ShowLeft = true
 		},
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.reload",
+		Title:    "Plugins: Reload",
+		Keywords: []string{"plugin", "reload", "refresh"},
+		Handler:  func() { app.pluginReload() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.reloadAll",
+		Title:    "Plugins: Reload All",
+		Keywords: []string{"plugin", "reload", "refresh", "all"},
+		Handler:  func() { app.pluginReloadAll() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.clearOutput",
+		Title:    "Plugins: Clear Output",
+		Keywords: []string{"plugin", "output", "clear", "log"},
+		Handler:  func() { app.Output.Clear() },
 	})
 }
 
@@ -269,8 +291,21 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.Filesystem = NewPluginFilesystemAPI()
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
+	a.wirePluginLog(p)
 
 	a.registerPluginCommandsAndKeys(p)
+}
+
+func (a *App) wirePluginLog(p *plugin.Plugin) {
+	p.Log = func(level, message string) {
+		a.Output.AddLine(ui.OutputLine{
+			Time:       time.Now().Format("15:04:05"),
+			PluginName: p.Name,
+			Level:      level,
+			Message:    message,
+		})
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
 }
 
 func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
@@ -317,6 +352,75 @@ func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
 func (a *App) RegisterStartupPluginCommands() {
 	for _, p := range a.PluginManager.Plugins() {
 		a.registerPluginCommandsAndKeys(p)
+	}
+}
+
+func (a *App) pluginReload() {
+	plugins := a.PluginManager.Plugins()
+	if len(plugins) == 0 {
+		a.ShowConfirmDialogEx("Reload", "No plugins loaded.", []string{"Close"}, []func(){
+			func() { a.DismissDialog() },
+		})
+		return
+	}
+
+	if len(plugins) == 1 {
+		a.doPluginReload(plugins[0].Name)
+		return
+	}
+
+	var items []widgets.SelectItem
+	for _, p := range plugins {
+		items = append(items, widgets.SelectItem{ID: p.Name, Label: p.Name})
+	}
+	a.ShowSelectDialog("Reload Plugin", items, func(name string) {
+		a.doPluginReload(name)
+	}, nil)
+}
+
+func (a *App) doPluginReload(name string) {
+	a.Sidebar.RemovePanel("plugin." + name)
+	a.BottomPanel.RemovePanel("plugin." + name)
+
+	p, err := a.PluginManager.Reload(name)
+	if err != nil {
+		a.Output.AddLine(ui.OutputLine{
+			Time:       time.Now().Format("15:04:05"),
+			PluginName: name,
+			Level:      "error",
+			Message:    "reload failed: " + err.Error(),
+		})
+		if a.PluginsPanel != nil {
+			a.PluginsPanel.Refresh()
+		}
+		return
+	}
+
+	a.wirePlugin(p)
+
+	a.Output.AddLine(ui.OutputLine{
+		Time:       time.Now().Format("15:04:05"),
+		PluginName: name,
+		Level:      "info",
+		Message:    "reloaded successfully",
+	})
+	if a.PluginsPanel != nil {
+		a.PluginsPanel.Refresh()
+	}
+}
+
+func (a *App) pluginReloadAll() {
+	plugins := a.PluginManager.Plugins()
+	if len(plugins) == 0 {
+		return
+	}
+
+	var names []string
+	for _, p := range plugins {
+		names = append(names, p.Name)
+	}
+	for _, name := range names {
+		a.doPluginReload(name)
 	}
 }
 

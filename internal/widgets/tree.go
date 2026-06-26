@@ -21,14 +21,6 @@ type TreeNode struct {
 	depth    int
 }
 
-type ListItem struct {
-	ID      string   `json:"id"`
-	Label   string   `json:"label"`
-	Icon    string   `json:"icon,omitempty"`
-	Badge   string   `json:"badge,omitempty"`
-	Actions []Action `json:"actions,omitempty"`
-}
-
 type Action struct {
 	Icon    string `json:"icon"`
 	Command string `json:"command"`
@@ -49,11 +41,12 @@ type TreeConfig struct {
 	ActiveID       string      `json:"-"`
 	EmptyText      string      `json:"emptyText,omitempty"`
 
-	OnCommand func(command string, node *TreeNode)
-	OnMenu    func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
-	OnExpand  func(node *TreeNode)
-	OnSelect  func(node *TreeNode)
-	OnKey     func(ev *tcell.EventKey, node *TreeNode) bool
+	OnCommand  func(command string, node *TreeNode)
+	OnMenu     func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
+	OnExpand   func(node *TreeNode)
+	OnSelect   func(node *TreeNode)
+	OnKey      func(ev *tcell.EventKey, node *TreeNode) bool
+	RenderItem func(surface Surface, node *TreeNode, idx, y, w int, selected bool)
 }
 
 type TreeWidget struct {
@@ -67,20 +60,6 @@ type TreeWidget struct {
 	focused   bool
 
 	scrollbar scrollbar
-}
-
-func NewListWidget(items []ListItem) *TreeWidget {
-	nodes := make([]*TreeNode, len(items))
-	for i, li := range items {
-		nodes[i] = &TreeNode{
-			ID:      li.ID,
-			Label:   li.Label,
-			Icon:    li.Icon,
-			Badge:   li.Badge,
-			Actions: li.Actions,
-		}
-	}
-	return NewTreeWidget(TreeConfig{Items: nodes})
 }
 
 func NewTreeWidget(cfg TreeConfig) *TreeWidget {
@@ -290,6 +269,11 @@ func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
 }
 
 func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) {
+	if t.Config.RenderItem != nil {
+		t.Config.RenderItem(surface, node, idx, y, w, idx == t.selected)
+		return
+	}
+
 	style := term.StyleDefault
 	if idx == t.selected {
 		style = term.StyleSidebarSelected

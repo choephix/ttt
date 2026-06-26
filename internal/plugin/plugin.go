@@ -40,6 +40,7 @@ type Plugin struct {
 
 	RequestRedraw func()
 	PostAsync     func(*PluginAsyncResult)
+	Log           func(level, message string)
 
 	Editor     EditorAPI
 	Filesystem FilesystemAPI
@@ -66,12 +67,19 @@ func (p *Plugin) Init() error {
 		p.LastError = err
 		p.State.Close()
 		p.State = nil
-		slog.Error("plugin init failed", "plugin", p.Name, "error", err)
+		p.logError("init", err)
 		return err
 	}
 
 	p.Enabled = true
 	return nil
+}
+
+func (p *Plugin) logError(context string, err error) {
+	slog.Error("plugin error", "plugin", p.Name, "context", context, "error", err)
+	if p.Log != nil {
+		p.Log("error", context+": "+err.Error())
+	}
 }
 
 func (p *Plugin) Destroy() {
@@ -88,6 +96,7 @@ func (p *Plugin) Destroy() {
 	p.PluginKeybindings = nil
 	p.RequestRedraw = nil
 	p.PostAsync = nil
+	p.Log = nil
 	p.EventListeners = nil
 }
 
@@ -98,7 +107,7 @@ func (p *Plugin) DispatchEvent(name string, args ...lua.LValue) {
 	}
 	for _, fn := range listeners {
 		if err := p.CallLuaFunc(fn, args...); err != nil {
-			slog.Error("plugin event error", "plugin", p.Name, "event", name, "error", err)
+			p.logError("event "+name, err)
 		}
 	}
 }
@@ -120,7 +129,7 @@ func (p *Plugin) CallRenderWith(renderFunc *lua.LFunction, proxy *PanelProxy) er
 	}, ud)
 	if err != nil {
 		p.LastError = err
-		slog.Error("plugin render error", "plugin", p.Name, "error", err)
+		p.logError("render", err)
 	}
 	return err
 }

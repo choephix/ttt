@@ -125,6 +125,22 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "log", L.NewFunction(func(L *lua.LState) int {
+			nargs := L.GetTop()
+			var level, message string
+			if nargs >= 2 {
+				level = L.CheckString(1)
+				message = L.CheckString(2)
+			} else {
+				level = "info"
+				message = L.CheckString(1)
+			}
+			if p.Log != nil {
+				p.Log(level, message)
+			}
+			return 0
+		}))
+
 		L.Push(mod)
 		return 1
 	}

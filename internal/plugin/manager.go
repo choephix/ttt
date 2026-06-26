@@ -166,6 +166,12 @@ func (m *Manager) SetNetworkAPI(api NetworkAPI) {
 	}
 }
 
+func (m *Manager) SetLogFactory(factory func(pluginName string) func(level, message string)) {
+	for _, p := range m.plugins {
+		p.Log = factory(p.Name)
+	}
+}
+
 func (m *Manager) DispatchEvent(name string, args ...interface{}) {
 	for _, p := range m.plugins {
 		if p.State == nil || len(p.EventListeners[name]) == 0 {
@@ -347,6 +353,64 @@ func (m *Manager) SetEnabled(name string, enabled bool) error {
 	m.plugins = append(m.plugins, p)
 	m.collectRegistrations(p)
 	return nil
+}
+
+func (m *Manager) Reload(name string) (*Plugin, error) {
+	var old *Plugin
+	var idx int
+	for i, p := range m.plugins {
+		if p.Name == name {
+			old = p
+			idx = i
+			break
+		}
+	}
+	if old == nil {
+		return nil, fmt.Errorf("plugin %q not loaded", name)
+	}
+
+	granted := old.Granted
+	repo := old.Repo
+	dir := old.Dir
+	logFn := old.Log
+
+	old.Destroy()
+
+	manifest, err := LoadManifest(dir)
+	if err != nil {
+		m.plugins = append(m.plugins[:idx], m.plugins[idx+1:]...)
+		return nil, fmt.Errorf("reload manifest: %w", err)
+	}
+
+	p := &Plugin{
+		Name:     manifest.Name,
+		Dir:      dir,
+		Repo:     repo,
+		Manifest: manifest,
+		Granted:  granted,
+		Log:      logFn,
+	}
+
+	if err := p.Init(); err != nil {
+		m.plugins = append(m.plugins[:idx], m.plugins[idx+1:]...)
+		return nil, fmt.Errorf("reload init: %w", err)
+	}
+
+	m.plugins[idx] = p
+
+	for i := len(m.SidebarPanels) - 1; i >= 0; i-- {
+		if m.SidebarPanels[i].ID == "plugin."+name {
+			m.SidebarPanels = append(m.SidebarPanels[:i], m.SidebarPanels[i+1:]...)
+		}
+	}
+	for i := len(m.BottomPanels) - 1; i >= 0; i-- {
+		if m.BottomPanels[i].ID == "plugin."+name {
+			m.BottomPanels = append(m.BottomPanels[:i], m.BottomPanels[i+1:]...)
+		}
+	}
+	m.collectRegistrations(p)
+
+	return p, nil
 }
 
 func (m *Manager) PluginsDir() string {

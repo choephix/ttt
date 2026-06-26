@@ -179,6 +179,17 @@ Docs: https://tttedit.dev
 			screen.PostEvent(tcell.NewEventInterrupt(result))
 		}
 	}
+	pluginManager.SetLogFactory(func(pluginName string) func(string, string) {
+		return func(level, message string) {
+			editor.Output.AddLine(ui.OutputLine{
+				Time:       time.Now().Format("15:04:05"),
+				PluginName: pluginName,
+				Level:      level,
+				Message:    message,
+			})
+			screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
+	})
 
 	editor.RegisterStartupPluginCommands()
 

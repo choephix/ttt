@@ -28,6 +28,7 @@ ttt supports Lua plugins that can render panels in the sidebar and bottom panel 
 - [Network API](#network-api)
 - [Events API](#events-api)
 - [Styles](#styles)
+- [Logging](#logging)
 - [Error Handling and Debugging](#error-handling-and-debugging)
 - [Permissions Reference](#permissions-reference)
 - [Lua Sandbox](#lua-sandbox)
@@ -122,13 +123,13 @@ When ttt exits, all plugin Lua VMs are closed. Plugins don't need cleanup logic 
 
 ### Reloading
 
-Currently, plugins are only loaded at startup. To reload a plugin after editing its Lua files, restart ttt.
+Run **Plugins: Reload** from the command palette to reload a plugin without restarting ttt. This destroys the plugin's Lua VM, re-reads the manifest, and re-initializes. State is reset — local variables start fresh. Use **Plugins: Reload All** to reload every loaded plugin at once.
 
 ---
 
 ## Registration
 
-The entry point Lua file must call `ttt.register()` to declare what the plugin provides. This is the only function available on the `ttt` module.
+The entry point Lua file must call `ttt.register()` to declare what the plugin provides. The `ttt` module also provides `ttt.log()` for logging (see [Logging](#logging)).
 
 `ttt.register()` accepts a table with `sidebar`, `bottom`, `commands`, and/or `keybindings` fields. A plugin can register any combination:
 
@@ -867,6 +868,35 @@ If an unrecognized style name is used, it falls back to `default`.
 
 ---
 
+## Logging
+
+Plugins can write messages to the **OUTPUT** bottom panel using `ttt.log()`. No permission is required.
+
+```lua
+local ttt = require("ttt")
+
+-- Single argument defaults to "info" level
+ttt.log("plugin loaded successfully")
+
+-- Two arguments: level and message
+ttt.log("warn", "config file not found, using defaults")
+ttt.log("error", "failed to connect to service")
+```
+
+| Level   | Display                          |
+|---------|----------------------------------|
+| `info`  | Default text color               |
+| `warn`  | Warning color (yellow)           |
+| `error` | Danger color (red)               |
+
+Messages appear in the OUTPUT panel with a timestamp and plugin name prefix: `15:04:05 [my-plugin] message`. Open the OUTPUT panel via the bottom panel tabs.
+
+Plugin errors (init failures, render crashes, callback errors) are automatically routed to the OUTPUT panel as error-level messages, so you don't need to wrap everything in `pcall` for visibility.
+
+Use **Plugins: Clear Output** from the command palette to clear the OUTPUT panel.
+
+---
+
 ## Error Handling and Debugging
 
 ### Render Errors
@@ -882,8 +912,10 @@ If a callback function (`on_select`, `on_click`, etc.) throws an error, it is ca
 ### Debugging Tips
 
 - **Start simple.** Begin with a single `panel:label()` to verify your plugin loads, then add complexity.
-- **Use labels for debugging.** Since there's no `print()` to the console, use `panel:label()` to display variable values in your panel.
+- **Use `ttt.log()` for debugging.** Write diagnostic messages to the OUTPUT panel: `ttt.log("value is: " .. tostring(x))`.
+- **Check the OUTPUT panel.** Plugin errors automatically appear here. Open it from the bottom panel tabs.
 - **Check the plugin list.** Open the command palette and run **Plugins: List Installed** to see status (enabled/disabled/error) and version for each plugin.
+- **Use reload for fast iteration.** Run **Plugins: Reload** from the command palette to reload your plugin without restarting ttt.
 - **Watch stderr.** Run ttt from a terminal to see error logs: `ttt 2>plugin-errors.log`.
 
 ---

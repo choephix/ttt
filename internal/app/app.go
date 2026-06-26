@@ -81,6 +81,7 @@ type App struct {
 	PluginManager           *plugin.Manager
 	PendingPluginApprovals  []*plugin.Plugin
 	PluginsPanel            *PluginsPanel
+	Output                  *ui.OutputWidget
 }
 
 func (a *App) KeyFor(cmd string) string {

@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"log/slog"
-
 	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -18,7 +16,7 @@ func (p *Plugin) CallLuaFunc(fn *lua.LFunction, args ...lua.LValue) error {
 	}, args...)
 	if err != nil {
 		p.LastError = err
-		slog.Error("plugin callback error", "plugin", p.Name, "error", err)
+		p.logError("callback", err)
 	}
 	return err
 }

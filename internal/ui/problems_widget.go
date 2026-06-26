@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -18,28 +19,50 @@ type ProblemItem struct {
 }
 
 type ProblemsWidget struct {
-	BaseWidget
 	Items      []ProblemItem
-	selected   int
-	scrollTop  int
-	scrollbar  Scrollbar
 	OnNavigate func(file string, line, col int)
+	tree       *widgets.TreeWidget
 }
 
 func NewProblemsWidget() *ProblemsWidget {
-	return &ProblemsWidget{}
+	p := &ProblemsWidget{}
+	p.tree = widgets.NewListWidgetFromConfig(widgets.ListConfig{
+		EmptyText: "No problems detected",
+		RenderItem: func(surface widgets.Surface, node *widgets.TreeNode, idx, y, w int, selected bool) {
+			p.renderLine(surface, idx, y, w, selected)
+		},
+		OnCommand: func(command string, node *widgets.TreeNode) {
+			if command == "activate" {
+				p.navigateSelected()
+			}
+		},
+	})
+	return p
 }
 
-func (p *ProblemsWidget) Focusable() bool { return true }
+func (p *ProblemsWidget) Focusable() bool                       { return true }
+func (p *ProblemsWidget) SetFocused(f bool)                      { p.tree.SetFocused(f) }
+func (p *ProblemsWidget) IsFocused() bool                        { return p.tree.IsFocused() }
+func (p *ProblemsWidget) GetRect() Rect                          { return Rect(p.tree.GetRect()) }
+func (p *ProblemsWidget) SetRect(r Rect)                         { p.tree.SetRect(widgets.Rect(r)) }
+func (p *ProblemsWidget) Height() int                            { return 0 }
+func (p *ProblemsWidget) Width() int                             { return 0 }
+func (p *ProblemsWidget) SetBoxModel(bm widgets.BoxModel)        { p.tree.SetBoxModel(bm) }
+func (p *ProblemsWidget) Render(surface Surface)                 { p.tree.Render(surface) }
+func (p *ProblemsWidget) HandleEvent(ev tcell.Event) EventResult {
+	return EventResult(p.tree.HandleEvent(ev))
+}
 
 func (p *ProblemsWidget) SetItems(items []ProblemItem) {
 	p.Items = items
-	if p.selected >= len(items) {
-		p.selected = len(items) - 1
+	nodes := make([]*widgets.TreeNode, len(items))
+	for i, item := range items {
+		nodes[i] = &widgets.TreeNode{
+			ID:    fmt.Sprintf("%s:%d:%d", item.File, item.Line, item.Col),
+			Label: item.Message,
+		}
 	}
-	if p.selected < 0 {
-		p.selected = 0
-	}
+	p.tree.SetItems(nodes)
 }
 
 func (p *ProblemsWidget) HasProblems() bool {
@@ -51,157 +74,66 @@ func (p *ProblemsWidget) HasProblems() bool {
 	return false
 }
 
-func (p *ProblemsWidget) Render(surface Surface) {
-	w, h := surface.Size()
-
-	if len(p.Items) == 0 {
-		msg := "No problems detected"
-		x := 1
-		for _, ch := range msg {
-			if x >= w {
-				break
-			}
-			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: term.StyleMuted})
-			x++
-		}
-		return
-	}
-
-	if p.scrollTop > p.selected {
-		p.scrollTop = p.selected
-	}
-	if p.selected >= p.scrollTop+h {
-		p.scrollTop = p.selected - h + 1
-	}
-
-	r := p.GetRect()
-	p.scrollbar.X = r.X + w - 1
-	p.scrollbar.Y = r.Y
-	p.scrollbar.Height = h
-	p.scrollbar.TotalItems = len(p.Items)
-	p.scrollbar.TopItem = p.scrollTop
-
-	contentW := w
-	if p.scrollbar.Visible() {
-		contentW = w - 1
-	}
-
-	for y := 0; y < h; y++ {
-		idx := p.scrollTop + y
-		if idx >= len(p.Items) {
-			break
-		}
+func (p *ProblemsWidget) navigateSelected() {
+	idx := p.tree.SelectedIndex()
+	if idx >= 0 && idx < len(p.Items) && p.OnNavigate != nil {
 		item := p.Items[idx]
-
-		style := term.StyleDefault
-		if idx == p.selected {
-			style = term.StyleSidebarSelected
-		}
-
-		for x := 0; x < contentW; x++ {
-			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
-		}
-
-		x := 1
-		// Severity icon
-		icon := 'E'
-		iconStyle := term.StyleDanger
-		switch item.Severity {
-		case DiagWarning:
-			icon = 'W'
-			iconStyle = term.StyleWarning
-		case DiagInformation:
-			icon = 'I'
-			iconStyle = term.StyleMuted
-		case DiagHint:
-			icon = 'H'
-			iconStyle = term.StyleMuted
-		}
-		surface.SetCell(x, y, term.Cell{Ch: icon, Style: iconStyle})
-		x += 2
-
-		// File:line
-		loc := fmt.Sprintf("%s:%d", filepath.Base(item.File), item.Line+1)
-		for _, ch := range loc {
-			if x >= contentW {
-				break
-			}
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
-			x++
-		}
-		x++
-
-		// Message
-		msgStyle := style
-		if idx != p.selected {
-			msgStyle = term.StyleMuted
-		}
-		for _, ch := range item.Message {
-			if x >= contentW {
-				break
-			}
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: msgStyle})
-			x++
-		}
+		p.OnNavigate(item.File, item.Line, item.Col)
 	}
-
-	p.scrollbar.Render(surface, w-1, 0)
 }
 
-func (p *ProblemsWidget) HandleEvent(ev tcell.Event) EventResult {
-	if newTop, consumed := p.scrollbar.HandleEvent(ev); consumed {
-		p.scrollTop = newTop
-		if p.scrollbar.IsDragging() {
-			return EventCaptured
-		}
-		return EventConsumed
+func (p *ProblemsWidget) renderLine(surface widgets.Surface, idx, y, w int, selected bool) {
+	if idx >= len(p.Items) {
+		return
 	}
-	switch tev := ev.(type) {
-	case *tcell.EventKey:
-		switch tev.Key() {
-		case tcell.KeyUp:
-			if p.selected > 0 {
-				p.selected--
-			}
-			return EventConsumed
-		case tcell.KeyDown:
-			if p.selected < len(p.Items)-1 {
-				p.selected++
-			}
-			return EventConsumed
-		case tcell.KeyEnter:
-			if p.selected < len(p.Items) && p.OnNavigate != nil {
-				item := p.Items[p.selected]
-				p.OnNavigate(item.File, item.Line, item.Col)
-			}
-			return EventConsumed
-		}
-	case *tcell.EventMouse:
-		btn := tev.Buttons()
-		_, my := tev.Position()
-		r := p.GetRect()
-		row := my - r.Y
-		idx := p.scrollTop + row
-		if btn&tcell.Button1 != 0 && idx >= 0 && idx < len(p.Items) {
-			p.selected = idx
-			if p.OnNavigate != nil {
-				item := p.Items[p.selected]
-				p.OnNavigate(item.File, item.Line, item.Col)
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelUp != 0 {
-			if p.scrollTop > 0 {
-				p.scrollTop--
-			}
-			return EventConsumed
-		}
-		if btn&tcell.WheelDown != 0 {
-			if p.scrollTop < len(p.Items)-1 {
-				p.scrollTop++
-			}
-			return EventConsumed
-		}
+	item := p.Items[idx]
+
+	style := term.StyleDefault
+	if selected {
+		style = term.StyleSidebarSelected
 	}
-	return EventIgnored
+
+	for x := 0; x < w; x++ {
+		surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
+	}
+
+	x := 1
+
+	icon := 'E'
+	iconStyle := term.StyleDanger
+	switch item.Severity {
+	case DiagWarning:
+		icon = 'W'
+		iconStyle = term.StyleWarning
+	case DiagInformation:
+		icon = 'I'
+		iconStyle = term.StyleMuted
+	case DiagHint:
+		icon = 'H'
+		iconStyle = term.StyleMuted
+	}
+	surface.SetCell(x, y, term.Cell{Ch: icon, Style: iconStyle})
+	x += 2
+
+	loc := fmt.Sprintf("%s:%d", filepath.Base(item.File), item.Line+1)
+	for _, ch := range loc {
+		if x >= w {
+			break
+		}
+		surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+		x++
+	}
+	x++
+
+	msgStyle := style
+	if !selected {
+		msgStyle = term.StyleMuted
+	}
+	for _, ch := range item.Message {
+		if x >= w {
+			break
+		}
+		surface.SetCell(x, y, term.Cell{Ch: ch, Style: msgStyle})
+		x++
+	}
 }
