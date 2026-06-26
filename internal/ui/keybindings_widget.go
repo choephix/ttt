@@ -194,10 +194,7 @@ func (w *KeybindingsWidget) Render(surface Surface) {
 
 	footerY := boxY + boxH - 2
 	surface.ClearRect(boxX+1, footerY, boxW-2, 1, term.StyleDefault)
-	var ox, oy int
-	if rs, ok := surface.(*RenderSurface); ok {
-		ox, oy = rs.Origin()
-	}
+	ox, oy := surface.Origin()
 	if w.recording {
 		hint := "Press key combination, Enter to confirm"
 		surface.DrawText(boxX+2, footerY, hint, boxX+boxW-2, term.StyleMuted)

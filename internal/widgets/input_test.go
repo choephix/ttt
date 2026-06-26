@@ -22,7 +22,8 @@ func newTestSurface(w, h int) *testSurface {
 	return &testSurface{w: w, h: h, cells: cells}
 }
 
-func (s *testSurface) Size() (int, int) { return s.w, s.h }
+func (s *testSurface) Size() (int, int)   { return s.w, s.h }
+func (s *testSurface) Origin() (int, int) { return s.ox, s.oy }
 func (s *testSurface) SetCell(x, y int, c term.Cell) {
 	ax, ay := x+s.ox, y+s.oy
 	if ax >= 0 && ax < len(s.cells[0]) && ay >= 0 && ay < len(s.cells) {

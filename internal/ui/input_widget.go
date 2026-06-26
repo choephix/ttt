@@ -84,10 +84,7 @@ func (inp *InputWidget) Render(surface Surface, x, y, w int) {
 	prefixW := len(prefixRunes)
 	textW := w - actionsW - prefixW
 
-	var ox, oy int
-	if rs, ok := surface.(*RenderSurface); ok {
-		ox, oy = rs.Origin()
-	}
+	ox, oy := surface.Origin()
 	inp.renderX = ox + x + prefixW
 	inp.renderY = oy + y
 	for i, ch := range prefixRunes {

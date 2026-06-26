@@ -100,6 +100,7 @@ type ScrollableWidget interface {
 
 type Surface interface {
 	Size() (w, h int)
+	Origin() (x, y int)
 	SetCell(x, y int, c term.Cell)
 	DrawText(x, y int, text string, maxW int, style term.Style) int
 	DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style)

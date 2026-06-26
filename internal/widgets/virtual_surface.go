@@ -19,7 +19,8 @@ func newVirtualSurface(w, h int) *virtualSurface {
 	return &virtualSurface{w: w, h: h, cells: cells}
 }
 
-func (v *virtualSurface) Size() (int, int) { return v.w, v.h }
+func (v *virtualSurface) Size() (int, int)   { return v.w, v.h }
+func (v *virtualSurface) Origin() (int, int) { return 0, 0 }
 
 func (v *virtualSurface) SetCell(x, y int, c term.Cell) {
 	if x >= 0 && x < v.w && y >= 0 && y < v.h {
@@ -84,7 +85,8 @@ type subVirtualSurface struct {
 	h      int
 }
 
-func (s *subVirtualSurface) Size() (int, int) { return s.w, s.h }
+func (s *subVirtualSurface) Size() (int, int)   { return s.w, s.h }
+func (s *subVirtualSurface) Origin() (int, int) { return s.offX, s.offY }
 
 func (s *subVirtualSurface) SetCell(x, y int, c term.Cell) {
 	if x >= 0 && x < s.w && y >= 0 && y < s.h {
