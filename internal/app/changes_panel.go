@@ -758,8 +758,6 @@ func (cp *ChangesPanel) toUIChangesGroup(pg *prGroup) *ui.ChangesGroup {
 		PRRepo:          pg.PRRepo,
 		PRBaseSHA:       pg.PRBaseSHA,
 		PRHeadSHA:       pg.PRHeadSHA,
-		Expanded:        true,
-		ChangesExpanded: true,
 	}
 }
 

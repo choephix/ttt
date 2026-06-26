@@ -6,15 +6,11 @@ import (
 )
 
 type ChangesGroup struct {
-	Dir             string
-	Name            string
-	Staged          []git.FileStatus
-	Unstaged        []git.FileStatus
-	Expanded        bool
-	StagedExpanded  bool
-	ChangesExpanded bool
-	Input           *InputWidget
-	IsPR            bool
+	Dir      string
+	Name     string
+	Staged   []git.FileStatus
+	Unstaged []git.FileStatus
+	IsPR     bool
 	PRURL           string
 	PRDiffs         map[string]string
 	PROwner         string
