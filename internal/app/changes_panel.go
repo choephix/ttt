@@ -514,7 +514,7 @@ func (cp *ChangesPanel) handleMenu(node *widgets.TreeNode, sx, sy int) {
 		return
 	}
 	for _, pg := range cp.PRGroups {
-		if node.ID == fmt.Sprintf("pr:%s", pg.Name) || node.Label == pg.Name {
+		if node.Label == pg.Name {
 			if cp.OnPRGroupMenu != nil {
 				uiGroup := cp.toUIChangesGroup(&pg)
 				cp.OnPRGroupMenu(uiGroup, sx, sy)
