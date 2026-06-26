@@ -89,7 +89,7 @@ func TestRootModalOverlayCaptures(t *testing.T) {
 
 func TestRootGlobalKeysFire(t *testing.T) {
 	main := &mockWidget{}
-	focused := &mockWidget{focusable: true}
+	focused := &passThroughWidget{}
 	fired := false
 
 	root := NewRoot(main)
@@ -102,8 +102,25 @@ func TestRootGlobalKeysFire(t *testing.T) {
 	if !fired {
 		t.Fatal("global key handler did not fire")
 	}
-	if focused.eventCount != 0 {
-		t.Fatal("focused widget received event that global key should have consumed")
+}
+
+func TestRootFocusedWidgetBlocksGlobalKey(t *testing.T) {
+	main := &mockWidget{}
+	focused := &mockWidget{focusable: true}
+	fired := false
+
+	root := NewRoot(main)
+	root.SetFocus(focused)
+	root.AddGlobalKey(tcell.KeyCtrlB, tcell.ModCtrl, 0, func() { fired = true })
+
+	ev := makeKeyEvent(tcell.KeyCtrlB, tcell.ModCtrl)
+	root.HandleEvent(ev)
+
+	if fired {
+		t.Fatal("global key fired despite focused widget consuming the event")
+	}
+	if focused.eventCount != 1 {
+		t.Fatal("focused widget did not receive the event")
 	}
 }
 
