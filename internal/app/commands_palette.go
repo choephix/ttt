@@ -8,7 +8,7 @@ import (
 )
 
 func (a *App) OpenCommandPalette(fileMode bool, initialText ...string) {
-	if a.Root.HasOverlay() {
+	if a.Root.HasModalOverlay() {
 		return
 	}
 	palette := ui.NewSelectDialogWidget(a.Reg.List())

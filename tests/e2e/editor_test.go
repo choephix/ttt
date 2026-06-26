@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -98,6 +99,57 @@ func TestFindDialog(t *testing.T) {
 	h.pressKey(tcell.KeyEscape, tcell.ModNone)
 	if len(h.app.Root.Overlays) != 0 {
 		t.Fatalf("expected 0 overlays after Escape, got %d", len(h.app.Root.Overlays))
+	}
+}
+
+func TestFindDialogRefocus(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("search.find")
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay, got %d", len(h.app.Root.Overlays))
+	}
+
+	fb, ok := h.app.Root.TopOverlayWidget().(*ui.FindBarWidget)
+	if !ok {
+		t.Fatal("expected FindBarWidget overlay")
+	}
+
+	h.click(40, 12)
+	_, _, vis := fb.CursorPosition()
+	if vis {
+		t.Fatal("expected find bar cursor hidden after clicking editor")
+	}
+
+	h.exec("search.find")
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected still 1 overlay, got %d", len(h.app.Root.Overlays))
+	}
+	_, _, vis = fb.CursorPosition()
+	if !vis {
+		t.Fatal("expected find bar cursor visible after re-invoking search.find")
+	}
+}
+
+func TestCommandPaletteOpensOverFindBar(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("search.find")
+	if len(h.app.Root.Overlays) != 1 {
+		t.Fatalf("expected 1 overlay, got %d", len(h.app.Root.Overlays))
+	}
+	if _, ok := h.app.Root.TopOverlayWidget().(*ui.FindBarWidget); !ok {
+		t.Fatal("expected FindBarWidget overlay")
+	}
+
+	h.exec("command.palette")
+	if len(h.app.Root.Overlays) != 2 {
+		t.Fatalf("expected 2 overlays after command.palette, got %d", len(h.app.Root.Overlays))
+	}
+	if _, ok := h.app.Root.TopOverlayWidget().(*ui.SelectDialogWidget); !ok {
+		t.Fatalf("expected SelectDialogWidget on top, got %T", h.app.Root.TopOverlayWidget())
 	}
 }
 
