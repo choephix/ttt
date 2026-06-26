@@ -130,7 +130,7 @@ func (t *TreeWidget) Reload() {
 	expanded := map[string]bool{}
 	t.collectExpanded(t.Config.Items, expanded)
 	for _, root := range t.Config.Items {
-		if t.Config.OnExpand != nil {
+		if root.Expanded && t.Config.OnExpand != nil {
 			t.Config.OnExpand(root)
 		}
 		t.restoreExpanded(root, expanded)
@@ -150,8 +150,11 @@ func (t *TreeWidget) collectExpanded(nodes []*TreeNode, out map[string]bool) {
 
 func (t *TreeWidget) restoreExpanded(node *TreeNode, expanded map[string]bool) {
 	for _, child := range node.Children {
-		if expanded[child.ID] && len(child.Children) > 0 {
+		if expanded[child.ID] && child.isExpandable() {
 			child.Expanded = true
+			if t.Config.OnExpand != nil {
+				t.Config.OnExpand(child)
+			}
 			t.restoreExpanded(child, expanded)
 		}
 	}
