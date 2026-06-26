@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
@@ -38,8 +39,28 @@ var changesHelpEntries = []widgets.KeyValueEntry{
 	{Key: "Up / Down", Value: "Navigate files"},
 }
 
-func (a *App) ShowPanelHelp(title string, entries []widgets.KeyValueEntry) {
-	a.ShowInfoDialog(title, entries)
+func (a *App) ShowPanelHelp(title string, entries []widgets.KeyValueEntry, description ...string) {
+	if len(description) == 0 {
+		a.ShowInfoDialog(title, entries)
+		return
+	}
+	kv := widgets.NewKeyValueListWidget(entries)
+	para := widgets.NewParagraphWidget(description[0])
+	para.Box.MarginTop = 1
+	vstack := widgets.NewVStackWidget(kv, para)
+
+	dialog := widgets.NewDialogWidget(60)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(vstack)
+	dialog.Buttons = []widgets.DialogButton{
+		{Label: "&Close", Handler: func() { a.DismissDialog() }},
+	}
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func registerHelpCommands(app *App) {
@@ -68,7 +89,8 @@ func registerHelpCommands(app *App) {
 		Title:    "Changes: Keyboard Shortcuts",
 		Keywords: []string{"git", "help", "keybindings"},
 		Handler: func() {
-			app.ShowPanelHelp("Changes Shortcuts", changesHelpEntries)
+			app.ShowPanelHelp("Changes Shortcuts", changesHelpEntries,
+				"Type a commit message in the input above and press Enter to commit. The commit applies to the currently selected group.")
 		},
 	})
 }

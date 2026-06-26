@@ -83,9 +83,8 @@ func NewChangesPanel(dirs ...string) *ChangesPanel {
 	})
 
 	divTop := widgets.NewDividerWidget(widgets.DividerConfig{})
-	divBottom := widgets.NewDividerWidget(widgets.DividerConfig{})
 
-	vstack := widgets.NewVStackWidget(cp.Input, divTop, cp.Tree, divBottom)
+	vstack := widgets.NewVStackWidget(cp.Input, divTop, cp.Tree)
 
 	cp.Adapter = ui.NewWidgetAdapter(vstack)
 

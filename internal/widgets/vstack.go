@@ -29,7 +29,27 @@ func (v *VStackWidget) Height() int {
 	}
 	return total + v.BoxOverheadH()
 }
-func (v *VStackWidget) Width() int  { return 0 }
+func (v *VStackWidget) Width() int { return 0 }
+
+func (v *VStackWidget) HeightForWidth(w int) int {
+	total := 0
+	for _, child := range v.Children {
+		ch := child.Height()
+		if ch == 0 {
+			if hfw, ok := child.(HeightForWidther); ok {
+				ch = hfw.HeightForWidth(w)
+			}
+		}
+		if ch == 0 {
+			return 0
+		}
+		total += ch
+	}
+	if len(v.Children) > 1 {
+		total += (len(v.Children) - 1) * v.Gap
+	}
+	return total + v.BoxOverheadH()
+}
 
 func (v *VStackWidget) Render(surface Surface) {
 	inner := v.RenderBox(surface)
@@ -47,6 +67,11 @@ func (v *VStackWidget) Render(surface Surface) {
 	growCount := 0
 	for _, child := range v.Children {
 		ch := child.Height()
+		if ch == 0 {
+			if hfw, ok := child.(HeightForWidther); ok {
+				ch = hfw.HeightForWidth(w)
+			}
+		}
 		if ch > 0 {
 			fixedTotal += ch
 		} else {
@@ -88,6 +113,11 @@ func (v *VStackWidget) Render(surface Surface) {
 	growIndex := 0
 	for i, child := range v.Children {
 		ch := child.Height()
+		if ch == 0 {
+			if hfw, ok := child.(HeightForWidther); ok {
+				ch = hfw.HeightForWidth(w)
+			}
+		}
 		if ch == 0 {
 			ch = growH
 			if growIndex < growRemainder {
