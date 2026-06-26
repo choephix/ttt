@@ -440,13 +440,20 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 			return EventConsumed
 		}
 
-		for _, action := range node.Actions {
-			actionX := t.rect.X + t.rect.W - 2 - len([]rune(action.Icon))
-			if mx >= actionX && mx < actionX+len([]rune(action.Icon))+1 {
+		rightX := t.rect.X + t.rect.W - 2
+		for i := len(node.Actions) - 1; i >= 0; i-- {
+			action := node.Actions[i]
+			iconW := len([]rune(action.Icon))
+			actionX := rightX - iconW + 1
+			if mx >= actionX && mx <= rightX {
 				if t.Config.OnCommand != nil {
 					t.Config.OnCommand(action.Command, node)
 				}
 				return EventConsumed
+			}
+			rightX = actionX - 1
+			if i > 0 {
+				rightX--
 			}
 		}
 

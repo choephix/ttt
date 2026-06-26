@@ -648,3 +648,44 @@ func TestTreeReload(t *testing.T) {
 		t.Error("root should still be expanded after reload")
 	}
 }
+
+func TestTreeActionClickMultipleActions(t *testing.T) {
+	var commands []string
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{
+				ID:    "changes",
+				Label: "Changes (3)",
+				Actions: []Action{
+					{Icon: "✕", Command: "discardAll"},
+					{Icon: "+", Command: "stageAll"},
+				},
+			},
+		},
+		OnCommand: func(cmd string, node *TreeNode) {
+			commands = append(commands, cmd)
+		},
+	})
+	renderWidget(tree, 0, 0, 40, 10)
+
+	// Render places actions right-to-left from w-2=38:
+	// "+" (last action) at x=38, space at 37, "✕" at x=36
+	// Click on "+" at x=38 should trigger "stageAll"
+	plusClick := mouseClick(38, 0)
+	tree.HandleEvent(plusClick)
+	tree.HandleEvent(mouseRelease(38, 0))
+
+	if len(commands) != 1 || commands[0] != "stageAll" {
+		t.Fatalf("clicking '+' action should trigger stageAll, got %v", commands)
+	}
+
+	// Click on "✕" at x=36 should trigger "discardAll"
+	commands = nil
+	discardClick := mouseClick(36, 0)
+	tree.HandleEvent(discardClick)
+	tree.HandleEvent(mouseRelease(36, 0))
+
+	if len(commands) != 1 || commands[0] != "discardAll" {
+		t.Fatalf("clicking '✕' action should trigger discardAll, got %v", commands)
+	}
+}
