@@ -310,7 +310,10 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	}
 
 	if btn&tcell.Button1 != 0 {
-		if s.Config.Collapsible && s.focused {
+		if s.Config.Collapsible {
+			if !s.focused {
+				return EventIgnored
+			}
 			pr := s.PopupRect()
 			if my >= pr.Y && my < pr.Y+pr.H {
 				idx := s.scrollTop + (my - pr.Y)
