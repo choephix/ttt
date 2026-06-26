@@ -402,9 +402,10 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 	for i := len(node.Actions) - 1; i >= 0; i-- {
 		action := node.Actions[i]
-		for _, ch := range action.Icon {
+		iconRunes := []rune(action.Icon)
+		for j := len(iconRunes) - 1; j >= 0; j-- {
 			if rightX >= 0 && rightX < w {
-				surface.SetCell(rightX, y, term.Cell{Ch: ch, Style: actionStyle})
+				surface.SetCell(rightX, y, term.Cell{Ch: iconRunes[j], Style: actionStyle})
 			}
 			rightX--
 		}
