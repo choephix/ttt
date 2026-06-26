@@ -484,6 +484,9 @@ func (cp *ChangesPanel) openDiff(dir string, status git.FileStatus, staged bool,
 }
 
 func (cp *ChangesPanel) parseFileNode(node *widgets.TreeNode) (dir string, status git.FileStatus, staged bool, ok bool) {
+	if node == nil {
+		return
+	}
 	id := node.ID
 	if len(id) < 6 || id[:5] != "file:" {
 		return
