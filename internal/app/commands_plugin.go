@@ -88,6 +88,13 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 				p.RequestRedraw = func() {
 					a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 				}
+				p.PostAsync = func(result *plugin.PluginAsyncResult) {
+					a.Screen.PostEvent(tcell.NewEventInterrupt(result))
+				}
+				p.Editor = NewPluginEditorAPI(a)
+				p.Filesystem = NewPluginFilesystemAPI()
+				p.System = NewPluginSystemAPI()
+				p.Network = NewPluginNetworkAPI()
 			}
 			a.showNextPluginApproval()
 		}},

@@ -83,10 +83,19 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 
 	L.PreloadModule("ttt", loader)
 
+	allowedModules := map[string]bool{
+		"ttt":        true,
+		"ttt.editor": true,
+		"ttt.fs":     true,
+		"ttt.system": true,
+		"ttt.net":    true,
+		"ttt.events": true,
+	}
+
 	origRequire := L.GetGlobal("require")
 	L.SetGlobal("require", L.NewFunction(func(L *lua.LState) int {
 		name := L.CheckString(1)
-		if name != "ttt" {
+		if !allowedModules[name] {
 			L.ArgError(1, fmt.Sprintf("module %q is not available", name))
 			return 0
 		}

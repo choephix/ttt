@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/eugenioenko/ttt/internal/config"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type SidebarRegistration struct {
@@ -135,6 +136,50 @@ func (m *Manager) ApproveAndLoad(p *Plugin) error {
 	m.plugins = append(m.plugins, p)
 	m.collectRegistrations(p)
 	return nil
+}
+
+func (m *Manager) SetEditorAPI(api EditorAPI) {
+	for _, p := range m.plugins {
+		p.Editor = api
+	}
+}
+
+func (m *Manager) SetFilesystemAPI(api FilesystemAPI) {
+	for _, p := range m.plugins {
+		p.Filesystem = api
+	}
+}
+
+func (m *Manager) SetSystemAPI(api SystemAPI) {
+	for _, p := range m.plugins {
+		p.System = api
+	}
+}
+
+func (m *Manager) SetNetworkAPI(api NetworkAPI) {
+	for _, p := range m.plugins {
+		p.Network = api
+	}
+}
+
+func (m *Manager) DispatchEvent(name string, args ...interface{}) {
+	for _, p := range m.plugins {
+		if p.State == nil || len(p.EventListeners[name]) == 0 {
+			continue
+		}
+		var largs []lua.LValue
+		for _, a := range args {
+			switch v := a.(type) {
+			case string:
+				largs = append(largs, lua.LString(v))
+			case int:
+				largs = append(largs, lua.LNumber(v))
+			case bool:
+				largs = append(largs, lua.LBool(v))
+			}
+		}
+		p.DispatchEvent(name, largs...)
+	}
 }
 
 func (m *Manager) Shutdown() {

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -300,6 +301,10 @@ func RunEventLoop(
 						dv.SetNewLines(v.NewLines)
 						dv.FinishLoading()
 					}
+				}
+			case *plugin.PluginAsyncResult:
+				if v.Callback != nil {
+					v.Callback()
 				}
 			case *PrFetchResult:
 				if v.Err != nil {

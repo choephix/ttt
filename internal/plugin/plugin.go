@@ -24,13 +24,27 @@ type Plugin struct {
 	BottomEventFunc  *lua.LFunction
 
 	RequestRedraw func()
+	PostAsync     func(*PluginAsyncResult)
+
+	Editor     EditorAPI
+	Filesystem FilesystemAPI
+	System     SystemAPI
+	Network    NetworkAPI
+
+	EventListeners map[string][]*lua.LFunction
 
 	LastError error
 }
 
 func (p *Plugin) Init() error {
+	p.EventListeners = make(map[string][]*lua.LFunction)
 	p.State = NewSandbox()
 	setupTTTModule(p.State, p)
+	setupEditorModule(p.State, p)
+	setupFsModule(p.State, p)
+	setupSystemModule(p.State, p)
+	setupNetModule(p.State, p)
+	setupEventsModule(p.State, p)
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
 	if err := p.State.DoFile(entry); err != nil {
@@ -56,6 +70,20 @@ func (p *Plugin) Destroy() {
 	p.BottomRenderFunc = nil
 	p.BottomEventFunc = nil
 	p.RequestRedraw = nil
+	p.PostAsync = nil
+	p.EventListeners = nil
+}
+
+func (p *Plugin) DispatchEvent(name string, args ...lua.LValue) {
+	listeners := p.EventListeners[name]
+	if len(listeners) == 0 || p.State == nil {
+		return
+	}
+	for _, fn := range listeners {
+		if err := p.CallLuaFunc(fn, args...); err != nil {
+			slog.Error("plugin event error", "plugin", p.Name, "event", name, "error", err)
+		}
+	}
 }
 
 func (p *Plugin) CallRender(proxy *PanelProxy) error {

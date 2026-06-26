@@ -365,9 +365,15 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.EditorGroup.OnFileOpen = func(path, lang, text string) {
 		a.NotifyLSPOpen(path, lang, text)
 		a.RequestGitGutterForActiveFile()
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("file.open", path)
+		}
 	}
 	a.EditorGroup.OnFileClose = func(path, lang string) {
 		a.NotifyLSPClose(path, lang)
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("file.close", path)
+		}
 	}
 	if path := a.EditorGroup.ActiveFilePath(); path != "" {
 		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {
@@ -397,6 +403,9 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		a.ScheduleAutocomplete()
 		a.CheckSignatureHelpTrigger()
 		a.ScheduleGitGutter()
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("editor.change", path)
+		}
 	}
 
 	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {

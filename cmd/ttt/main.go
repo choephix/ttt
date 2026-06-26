@@ -166,9 +166,17 @@ Docs: https://tttedit.dev
 	for _, reg := range pluginManager.BottomPanels {
 		editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
 	}
+	pluginManager.SetEditorAPI(app.NewPluginEditorAPI(editor))
+	pluginManager.SetFilesystemAPI(app.NewPluginFilesystemAPI())
+	pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
+	pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
+
 	for _, p := range pluginManager.Plugins() {
 		p.RequestRedraw = func() {
 			screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
+		p.PostAsync = func(result *plugin.PluginAsyncResult) {
+			screen.PostEvent(tcell.NewEventInterrupt(result))
 		}
 	}
 	if len(pendingApprovals) > 0 {

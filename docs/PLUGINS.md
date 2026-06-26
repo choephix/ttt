@@ -20,6 +20,11 @@ ttt supports Lua plugins that can render panels in the sidebar and bottom panel 
 - [Reconciliation and State Preservation](#reconciliation-and-state-preservation)
 - [Focus and Keyboard Navigation](#focus-and-keyboard-navigation)
 - [Event Handling](#event-handling)
+- [Editor API](#editor-api)
+- [Filesystem API](#filesystem-api)
+- [System API](#system-api)
+- [Network API](#network-api)
+- [Events API](#events-api)
 - [Styles](#styles)
 - [Error Handling and Debugging](#error-handling-and-debugging)
 - [Permissions Reference](#permissions-reference)
@@ -576,6 +581,226 @@ end
 
 ---
 
+## Editor API
+
+The `ttt.editor` module provides read and write access to the active editor buffer. All line and column numbers are **1-based** in Lua.
+
+```lua
+local editor = require("ttt.editor")
+```
+
+### Read Functions
+
+Require the `editor.read` permission.
+
+| Function               | Returns                                                   | Description                          |
+|------------------------|-----------------------------------------------------------|--------------------------------------|
+| `editor.buffer_text()` | string                                                    | Full buffer content as a single string. |
+| `editor.buffer_lines()`| table of strings                                          | Array of lines.                      |
+| `editor.current_line()`| string                                                    | Text of the line at cursor.          |
+| `editor.cursor()`      | `{line, col}`                                             | Current cursor position (1-based).   |
+| `editor.selection()`   | `{active, start_line, start_col, end_line, end_col}`     | Selection state (1-based). `active` is boolean. |
+| `editor.selection_text()` | string                                                 | Selected text (empty if no selection).|
+| `editor.file_path()`   | string                                                    | Absolute path of the active file.    |
+| `editor.file_name()`   | string                                                    | Filename only.                       |
+| `editor.language()`    | string                                                    | Detected language (e.g. `"go"`, `"lua"`). |
+
+### Write Functions
+
+Require the `editor.write` permission.
+
+| Function                                          | Description                                    |
+|---------------------------------------------------|------------------------------------------------|
+| `editor.insert(line, col, text)`                  | Insert text at position.                       |
+| `editor.replace(start_line, start_col, end_line, end_col, text)` | Replace a range with text.     |
+| `editor.set_cursor(line, col)`                    | Move the cursor.                               |
+| `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range.           |
+| `editor.clear_selection()`                        | Clear the current selection.                   |
+
+All write operations go through the undo system — they can be undone with Ctrl+Z.
+
+**Example:**
+
+```lua
+local editor = require("ttt.editor")
+
+-- Read cursor position and current line
+local pos = editor.cursor()
+local line = editor.current_line()
+
+-- Insert text at cursor
+editor.insert(pos.line, pos.col, "// TODO: ")
+```
+
+---
+
+## Filesystem API
+
+The `ttt.fs` module provides file system access.
+
+```lua
+local fs = require("ttt.fs")
+```
+
+| Function             | Permission | Returns                    | Description                    |
+|----------------------|------------|----------------------------|--------------------------------|
+| `fs.read(path)`      | `fs.read`  | string, or nil + error     | Read file contents.            |
+| `fs.write(path, content)` | `fs.write` | nil, or error string  | Write content to file.         |
+| `fs.exists(path)`    | `fs.read`  | boolean                    | Check if path exists.          |
+| `fs.list(path)`      | `fs.read`  | table of `{name, is_dir}`, or nil + error | List directory entries. |
+
+**Example:**
+
+```lua
+local fs = require("ttt.fs")
+
+if fs.exists("/tmp/config.json") then
+  local content = fs.read("/tmp/config.json")
+  -- process content
+end
+
+local entries = fs.list("/home/user/project")
+for _, entry in ipairs(entries) do
+  if entry.is_dir then
+    -- it's a directory
+  end
+end
+```
+
+---
+
+## System API
+
+The `ttt.system` module provides command execution and environment variable access.
+
+```lua
+local sys = require("ttt.system")
+```
+
+### `sys.exec(binary, args)`
+
+Execute a command synchronously. Requires `system.exec` permission with the binary listed in the allowlist.
+
+**Returns** a table: `{stdout, stderr, exit_code}`.
+
+```lua
+local result = sys.exec("git", {"status", "--porcelain"})
+if result.exit_code == 0 then
+  -- parse result.stdout
+end
+```
+
+### `sys.exec_async(binary, args, callback)`
+
+Execute a command asynchronously. The callback receives the same result table and is called on the main thread when the command completes. The UI remains responsive during execution.
+
+```lua
+sys.exec_async("docker", {"ps", "--format", "{{.Names}}"}, function(result)
+  -- process result.stdout
+  panel:redraw()
+end)
+```
+
+### `sys.env(name)`
+
+Read an environment variable. Requires `system.env` permission.
+
+```lua
+local home = sys.env("HOME")
+```
+
+---
+
+## Network API
+
+The `ttt.net` module provides HTTP request capabilities. Requires the `network.http` permission.
+
+```lua
+local net = require("ttt.net")
+```
+
+### `net.get(url, [opts])`
+
+Synchronous HTTP GET.
+
+```lua
+local resp = net.get("https://api.example.com/data")
+-- resp.status (number), resp.body (string), resp.headers (table), resp.error (string or nil)
+
+-- With custom headers:
+local resp = net.get("https://api.example.com/data", {
+  headers = { ["Authorization"] = "Bearer token" },
+})
+```
+
+### `net.post(url, opts)`
+
+Synchronous HTTP POST.
+
+```lua
+local resp = net.post("https://api.example.com/data", {
+  headers = { ["Content-Type"] = "application/json" },
+  body = '{"key": "value"}',
+})
+```
+
+### Async Variants
+
+`net.get_async(url, [opts], callback)` and `net.post_async(url, opts, callback)` work like their sync counterparts but don't block the UI. The callback receives the response table.
+
+```lua
+net.get_async("https://api.example.com/data", function(resp)
+  if resp.status == 200 then
+    -- process resp.body
+    panel:redraw()
+  end
+end)
+```
+
+---
+
+## Events API
+
+The `ttt.events` module lets plugins react to editor lifecycle events.
+
+```lua
+local events = require("ttt.events")
+```
+
+### `events.on(event_name, callback)`
+
+Register an event listener. Multiple listeners can be registered for the same event.
+
+**File events** (require `events.file` permission):
+
+| Event         | Callback argument | Description                 |
+|---------------|-------------------|-----------------------------|
+| `file.open`   | path (string)     | A file was opened.          |
+| `file.close`  | path (string)     | A file tab was closed.      |
+| `file.save`   | path (string)     | A file was saved.           |
+
+**Editor events** (require `events.editor` permission):
+
+| Event           | Callback argument | Description                 |
+|-----------------|-------------------|-----------------------------|
+| `editor.change` | path (string)     | Buffer content changed.     |
+
+**Example:**
+
+```lua
+local events = require("ttt.events")
+
+events.on("file.save", function(path)
+  -- auto-format or run linter after save
+end)
+
+events.on("file.open", function(path)
+  -- load file-specific config
+end)
+```
+
+---
+
 ## Styles
 
 Named styles available for both widget and raw cell rendering. Actual colors depend on the user's theme.
@@ -660,7 +885,7 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 }
 ```
 
-Note: Many permissions are reserved for future phases. Currently implemented: `panel.sidebar`, `panel.bottom`.
+Currently implemented: `panel.sidebar`, `panel.bottom`, `editor.read`, `editor.write`, `fs.read`, `fs.write`, `system.exec`, `system.env`, `network.http`, `events.file`, `events.editor`.
 
 ---
 
@@ -680,7 +905,7 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 
 **Removed globals:** `dofile`, `loadfile` are set to nil.
 
-**Module loading:** `require()` only allows `"ttt"`. Any other module name raises an error.
+**Module loading:** `require()` allows `"ttt"`, `"ttt.editor"`, `"ttt.fs"`, `"ttt.system"`, `"ttt.net"`, and `"ttt.events"`. Any other module name raises an error.
 
 ---
 
@@ -969,4 +1194,105 @@ ttt.register({
     end,
   },
 })
+```
+
+### Git Status Panel (Editor + System + Events)
+
+A sidebar panel that shows `git status` output and refreshes on file save:
+
+```json
+{
+  "name": "git-status",
+  "entry": "init.lua",
+  "version": "0.1.0",
+  "permissions": {
+    "panel.sidebar": true,
+    "system.exec": ["git"],
+    "events.file": true
+  }
+}
+```
+
+```lua
+local ttt = require("ttt")
+local sys = require("ttt.system")
+local events = require("ttt.events")
+
+local files = {}
+local error_msg = nil
+
+local function refresh(panel)
+  local result = sys.exec("git", {"status", "--porcelain"})
+  if result.exit_code ~= 0 then
+    error_msg = result.stderr
+    files = {}
+  else
+    error_msg = nil
+    files = {}
+    for line in result.stdout:gmatch("[^\n]+") do
+      local status = line:sub(1, 2):match("%S+") or "?"
+      local path = line:sub(4)
+      table.insert(files, {
+        id = path,
+        label = path,
+        badge = status,
+        muted = status == "?",
+      })
+    end
+  end
+  if panel then panel:redraw() end
+end
+
+ttt.register({
+  sidebar = {
+    title = "Git",
+    render = function(panel)
+      if error_msg then
+        panel:label({ text = error_msg, style = "danger" })
+        return
+      end
+      if #files == 0 then
+        panel:label({ text = "Working tree clean", style = "muted" })
+        return
+      end
+      panel:label({ text = #files .. " changed files", style = "muted" })
+      panel:list({
+        items = files,
+        on_select = function(node)
+          -- could open the file here with editor API
+        end,
+      })
+      panel:button({
+        label = "&Refresh",
+        on_click = function()
+          refresh(panel)
+        end,
+      })
+    end,
+  },
+})
+
+-- Refresh on startup
+refresh(nil)
+
+-- Auto-refresh after file saves
+events.on("file.save", function(path)
+  -- Use exec_async to avoid blocking the UI
+  sys.exec_async("git", {"status", "--porcelain"}, function(result)
+    if result.exit_code == 0 then
+      error_msg = nil
+      files = {}
+      for line in result.stdout:gmatch("[^\n]+") do
+        local status = line:sub(1, 2):match("%S+") or "?"
+        local fpath = line:sub(4)
+        table.insert(files, {
+          id = fpath,
+          label = fpath,
+          badge = status,
+          muted = status == "?",
+        })
+      end
+    end
+  end)
+end)
 ```

@@ -38,10 +38,22 @@ func TestSandboxRequireRestricted(t *testing.T) {
 	defer L.Close()
 
 	p := &Plugin{Granted: PermissionSet{PanelSidebar: true}}
+	p.EventListeners = make(map[string][]*lua.LFunction)
 	setupTTTModule(L, p)
+	setupEditorModule(L, p)
+	setupFsModule(L, p)
+	setupSystemModule(L, p)
+	setupNetModule(L, p)
+	setupEventsModule(L, p)
 
 	if err := L.DoString(`local ttt = require("ttt")`); err != nil {
 		t.Errorf("require ttt should work: %v", err)
+	}
+
+	for _, mod := range []string{"ttt.editor", "ttt.fs", "ttt.system", "ttt.net", "ttt.events"} {
+		if err := L.DoString(`local m = require("` + mod + `")`); err != nil {
+			t.Errorf("require %s should work: %v", mod, err)
+		}
 	}
 
 	if err := L.DoString(`require("os")`); err == nil {
