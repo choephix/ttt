@@ -248,6 +248,28 @@ func (t *TreeWidget) Render(surface Surface) {
 	t.scrollbar.Render(surface, w-1, 0)
 }
 
+func (t *TreeWidget) menuIconWidth() int {
+	if len(t.Config.NodeMenu) == 0 {
+		return 0
+	}
+	label := t.Config.MenuIcon
+	if label == "" {
+		label = "⋮"
+	}
+	var box *BoxModel
+	if t.Config.MenuIconPadded {
+		box = &BoxModel{PaddingLeft: 1, PaddingRight: 1}
+	} else {
+		box = &BoxModel{PaddingLeft: 0, PaddingRight: 0}
+	}
+	dd := NewDropdownWidget(DropdownConfig{Label: label, Box: box})
+	w := dd.Width()
+	if !t.Config.MenuIconPadded {
+		w++
+	}
+	return w
+}
+
 func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
 	rw := 0
 	if len(t.Config.NodeMenu) > 0 {
@@ -472,7 +494,8 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 		node := t.flatList[idx]
 		t.selected = idx
 
-		if mx >= t.rect.X+t.rect.W-3 && len(t.Config.NodeMenu) > 0 {
+		menuW := t.menuIconWidth()
+		if menuW > 0 && mx >= t.rect.X+t.rect.W-menuW {
 			if t.Config.OnMenu != nil {
 				t.Config.OnMenu(t.Config.NodeMenu, node, mx, my)
 			}
