@@ -492,7 +492,7 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 			return EventConsumed
 		}
 
-		rightX := t.rect.X + t.rect.W - 2
+		rightX := t.rect.X + t.rect.W - 2 - t.menuIconWidth()
 		for i := len(node.Actions) - 1; i >= 0; i-- {
 			action := node.Actions[i]
 			iconW := len([]rune(action.Icon))
