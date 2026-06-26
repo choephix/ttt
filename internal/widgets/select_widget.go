@@ -178,8 +178,9 @@ func (s *SelectWidget) Render(surface Surface) {
 		y++
 	}
 
-	s.input.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: s.rect.W, H: 1})
-	inputSurface := surface.Sub(Rect{X: 0, Y: y, W: w, H: 1})
+	inputW := w - 2
+	s.input.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: inputW, H: 1})
+	inputSurface := surface.Sub(Rect{X: 0, Y: y, W: inputW, H: 1})
 	s.input.Render(inputSurface)
 
 	chevron := '▼'
