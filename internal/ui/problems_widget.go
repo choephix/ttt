@@ -51,7 +51,7 @@ func (p *ProblemsWidget) HasProblems() bool {
 	return false
 }
 
-func (p *ProblemsWidget) Render(surface *RenderSurface) {
+func (p *ProblemsWidget) Render(surface Surface) {
 	w, h := surface.Size()
 
 	if len(p.Items) == 0 {

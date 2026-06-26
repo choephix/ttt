@@ -108,7 +108,7 @@ func (tp *TerminalPanelWidget) syncTabBar() {
 	tp.TabBar.Active = tp.active
 }
 
-func (tp *TerminalPanelWidget) Render(surface *RenderSurface) {
+func (tp *TerminalPanelWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	r := tp.GetRect()
 

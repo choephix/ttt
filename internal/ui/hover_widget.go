@@ -50,7 +50,7 @@ func (h *HoverWidget) visibleLines() int {
 	return v
 }
 
-func (h *HoverWidget) Render(surface *RenderSurface) {
+func (h *HoverWidget) Render(surface Surface) {
 	if len(h.Lines) == 0 {
 		return
 	}

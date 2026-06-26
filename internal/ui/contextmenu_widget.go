@@ -93,7 +93,7 @@ func (c *ContextMenuWidget) menuWidth() int {
 	return w
 }
 
-func (c *ContextMenuWidget) Render(surface *RenderSurface) {
+func (c *ContextMenuWidget) Render(surface Surface) {
 	sw, sh := surface.Size()
 
 	menuW := c.menuWidth()

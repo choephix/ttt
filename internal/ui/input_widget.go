@@ -78,7 +78,7 @@ func (inp *InputWidget) deleteSelection() {
 	inp.notify()
 }
 
-func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
+func (inp *InputWidget) Render(surface Surface, x, y, w int) {
 	actionsW := inp.actionsWidth()
 	prefixRunes := []rune(inp.Prefix)
 	prefixW := len(prefixRunes)

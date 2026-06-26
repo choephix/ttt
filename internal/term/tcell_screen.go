@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 55
+const StyleCount = styleCount
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -91,6 +91,9 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	}
 	if c.Underline {
 		s = s.Underline(true)
+	}
+	if c.Bold {
+		s = s.Bold(true)
 	}
 	t.scr.SetContent(x, y, c.Ch, nil, s)
 }

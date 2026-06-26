@@ -24,7 +24,7 @@ func NewVerticalTabBar() *VerticalTabBar {
 
 func (v *VerticalTabBar) Focusable() bool { return false }
 
-func (v *VerticalTabBar) Render(surface *RenderSurface) {
+func (v *VerticalTabBar) Render(surface Surface) {
 	_, h := surface.Size()
 
 	vertical := '│'

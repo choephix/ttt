@@ -25,9 +25,10 @@ func NewMenuBarWidget(items []MenuItem) *MenuBarWidget {
 	}
 }
 
+func (m *MenuBarWidget) Height() int     { return 1 }
 func (m *MenuBarWidget) Focusable() bool { return true }
 
-func (m *MenuBarWidget) Render(surface *RenderSurface) {
+func (m *MenuBarWidget) Render(surface Surface) {
 	w, _ := surface.Size()
 
 	for x := 0; x < w; x++ {

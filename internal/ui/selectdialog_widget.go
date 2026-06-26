@@ -111,7 +111,7 @@ func (p *SelectDialogWidget) CursorPosition() (int, int, bool) {
 	return p.Input.CursorX(p.inputX), p.inputY, true
 }
 
-func (p *SelectDialogWidget) Render(surface *RenderSurface) {
+func (p *SelectDialogWidget) Render(surface Surface) {
 	sw, sh := surface.Size()
 
 	boxW := sw * 6 / 10 // 60% of terminal width

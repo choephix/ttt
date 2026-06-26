@@ -170,7 +170,7 @@ func (e *EditorPaneWidget) ensureTopLineVisible() {
 }
 
 func (e *EditorPaneWidget) screenToBufferLine(y int) int {
-	if e.cachedVisibleLines == nil {
+	if e.cachedVisibleLines == nil || e.Folds == nil {
 		return e.Viewport.TopLine + y
 	}
 	topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
@@ -187,7 +187,7 @@ func (e *EditorPaneWidget) screenToBufferLine(y int) int {
 	return e.cachedVisibleLines[idx]
 }
 
-func (e *EditorPaneWidget) Render(surface *RenderSurface) {
+func (e *EditorPaneWidget) Render(surface Surface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)

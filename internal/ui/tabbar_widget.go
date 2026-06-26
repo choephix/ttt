@@ -62,7 +62,7 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 	return label
 }
 
-func (t *TabBarWidget) Render(surface *RenderSurface) {
+func (t *TabBarWidget) Render(surface Surface) {
 	w, _ := surface.Size()
 
 	b := term.SingleBorderSet()

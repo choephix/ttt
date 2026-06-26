@@ -93,7 +93,7 @@ func (f *FindBarWidget) CursorPosition() (int, int, bool) {
 	return r.X + cx, r.Y + row, true
 }
 
-func (f *FindBarWidget) Render(surface *RenderSurface) {
+func (f *FindBarWidget) Render(surface Surface) {
 	sw, _ := surface.Size()
 
 	barW := 40

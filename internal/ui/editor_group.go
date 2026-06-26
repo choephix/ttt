@@ -1038,7 +1038,7 @@ func (g *EditorGroupWidget) syncTabs() {
 	g.TabBar.SetTabs(uiTabs)
 }
 
-func (g *EditorGroupWidget) Render(surface *RenderSurface) {
+func (g *EditorGroupWidget) Render(surface Surface) {
 	g.syncTabs()
 	w, h := surface.Size()
 	r := g.GetRect()

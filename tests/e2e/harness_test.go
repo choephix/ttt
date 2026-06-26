@@ -203,5 +203,5 @@ type emptyWidget struct{ ui.BaseWidget }
 
 func newEmptyWidget() *emptyWidget                                       { return &emptyWidget{} }
 func (e *emptyWidget) Focusable() bool                                   { return false }
-func (e *emptyWidget) Render(surface *ui.RenderSurface)                  {}
+func (e *emptyWidget) Render(surface ui.Surface)                         {}
 func (e *emptyWidget) HandleEvent(ev tcell.Event) ui.EventResult { return ui.EventIgnored }

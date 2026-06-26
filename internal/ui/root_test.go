@@ -22,7 +22,7 @@ func (m *mockWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventConsumed
 }
 
-func (m *mockWidget) Render(surface *RenderSurface) {
+func (m *mockWidget) Render(surface Surface) {
 	m.rendered = true
 	if m.renderChar != 0 {
 		surface.Fill(term.Cell{Ch: m.renderChar})
@@ -41,7 +41,7 @@ func (m *passThroughWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-func (m *passThroughWidget) Render(surface *RenderSurface) {}
+func (m *passThroughWidget) Render(surface Surface) {}
 func (m *passThroughWidget) Focusable() bool               { return true }
 
 func makeKeyEvent(key tcell.Key, mod tcell.ModMask) *tcell.EventKey {
@@ -89,7 +89,7 @@ func TestRootModalOverlayCaptures(t *testing.T) {
 
 func TestRootGlobalKeysFire(t *testing.T) {
 	main := &mockWidget{}
-	focused := &mockWidget{focusable: true}
+	focused := &passThroughWidget{}
 	fired := false
 
 	root := NewRoot(main)
@@ -102,8 +102,25 @@ func TestRootGlobalKeysFire(t *testing.T) {
 	if !fired {
 		t.Fatal("global key handler did not fire")
 	}
-	if focused.eventCount != 0 {
-		t.Fatal("focused widget received event that global key should have consumed")
+}
+
+func TestRootFocusedWidgetBlocksGlobalKey(t *testing.T) {
+	main := &mockWidget{}
+	focused := &mockWidget{focusable: true}
+	fired := false
+
+	root := NewRoot(main)
+	root.SetFocus(focused)
+	root.AddGlobalKey(tcell.KeyCtrlB, tcell.ModCtrl, 0, func() { fired = true })
+
+	ev := makeKeyEvent(tcell.KeyCtrlB, tcell.ModCtrl)
+	root.HandleEvent(ev)
+
+	if fired {
+		t.Fatal("global key fired despite focused widget consuming the event")
+	}
+	if focused.eventCount != 1 {
+		t.Fatal("focused widget did not receive the event")
 	}
 }
 

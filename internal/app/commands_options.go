@@ -5,6 +5,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
 func (a *App) ToggleLineNumbers() {
@@ -69,14 +70,14 @@ func (a *App) SetGutterStyle(style string) {
 }
 
 func (a *App) ShowGutterStylePicker() {
-	styles := []string{"minimal", "compact", "extended"}
-	var cmds []command.Command
-	for _, s := range styles {
-		cmds = append(cmds, command.Command{ID: s, Title: s})
+	items := []widgets.SelectItem{
+		{ID: "minimal", Label: "Minimal"},
+		{ID: "compact", Label: "Compact"},
+		{ID: "extended", Label: "Extended"},
 	}
-	a.ShowPicker(cmds, func(id string) {
+	a.ShowSelectDialog("Gutter Style", items, func(id string) {
 		a.SetGutterStyle(id)
-	})
+	}, nil)
 }
 
 func (a *App) SetBorderStyle(style string) {
@@ -106,18 +107,18 @@ case "none":
 }
 
 func (a *App) ShowBorderStylePicker() {
-	styles := []command.Command{
-		{ID: "default", Title: "Default"},
-		{ID: "rounded", Title: "Rounded"},
-		{ID: "sharp", Title: "Sharp"},
-		{ID: "double", Title: "Double"},
-		{ID: "bold", Title: "Bold"},
-		{ID: "ascii", Title: "ASCII"},
-{ID: "none", Title: "None"},
+	items := []widgets.SelectItem{
+		{ID: "default", Label: "Default"},
+		{ID: "rounded", Label: "Rounded"},
+		{ID: "sharp", Label: "Sharp"},
+		{ID: "double", Label: "Double"},
+		{ID: "bold", Label: "Bold"},
+		{ID: "ascii", Label: "ASCII"},
+		{ID: "none", Label: "None"},
 	}
-	a.ShowPicker(styles, func(id string) {
+	a.ShowSelectDialog("Border Style", items, func(id string) {
 		a.SetBorderStyle(id)
-	})
+	}, nil)
 }
 
 func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {

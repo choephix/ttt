@@ -1,36 +1,34 @@
 package ui
 
-import "github.com/eugenioenko/ttt/internal/term"
+import (
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
+)
 
 type panelEntry struct {
 	ID    string
 	Title string
 	W     Widget
-	Dirty bool
 }
 
 type TabbedPanel struct {
-	panels        []panelEntry
 	ActivePanel   string
-	TabBar        *PanelTabBarWidget
-	Borders       *term.BorderSet
+	Tabs          *widgets.TabsWidget
 	OnPanelChange func(id string)
+
+	panels []panelEntry
 }
 
 func NewTabbedPanel() TabbedPanel {
 	return TabbedPanel{
-		TabBar: NewPanelTabBarWidget(),
+		Tabs: widgets.NewTabsWidget(widgets.TabsConfig{}),
 	}
 }
 
 func (tp *TabbedPanel) InitTabClick() {
-	tp.TabBar.OnTabClick = func(index int) {
+	tp.Tabs.Config.OnTabClick = func(index int) {
 		if index >= 0 && index < len(tp.panels) {
-			tp.ActivePanel = tp.panels[index].ID
-			tp.syncTabs()
-			if tp.OnPanelChange != nil {
-				tp.OnPanelChange(tp.ActivePanel)
-			}
+			tp.SetActivePanel(tp.panels[index].ID)
 		}
 	}
 }
@@ -99,23 +97,50 @@ func (tp *TabbedPanel) PanelIDs() []string {
 }
 
 func (tp *TabbedPanel) SetPanelDirty(id string, dirty bool) {
-	for i := range tp.panels {
-		if tp.panels[i].ID == id {
-			tp.panels[i].Dirty = dirty
-			tp.syncTabs()
-			return
+	tp.Tabs.SetDirty(id, dirty)
+}
+
+func (tp *TabbedPanel) HiddenTabs() ([]string, []string) {
+	var ids, titles []string
+	for _, idx := range tp.Tabs.HiddenTabs() {
+		if idx >= 0 && idx < len(tp.panels) {
+			ids = append(ids, tp.panels[idx].ID)
+			titles = append(titles, tp.panels[idx].Title)
 		}
 	}
+	return ids, titles
 }
 
 func (tp *TabbedPanel) syncTabs() {
-	var tabs []Tab
-	for _, p := range tp.panels {
-		tabs = append(tabs, Tab{
-			Name:   p.Title,
-			Active: p.ID == tp.ActivePanel,
-			Dirty:  p.Dirty,
-		})
+	dirty := make(map[string]bool)
+	for _, item := range tp.Tabs.Config.Items {
+		if item.Dirty {
+			dirty[item.ID] = true
+		}
 	}
-	tp.TabBar.SetTabs(tabs)
+	items := make([]widgets.TabItem, len(tp.panels))
+	for i, p := range tp.panels {
+		items[i] = widgets.TabItem{
+			ID:     p.ID,
+			Label:  p.Title,
+			Active: p.ID == tp.ActivePanel,
+			Dirty:  dirty[p.ID],
+		}
+	}
+	tp.Tabs.Config.Items = items
+}
+
+func (tp *TabbedPanel) RenderTabs(surface Surface, r Rect) {
+	tp.Tabs.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
+	tp.Tabs.Render(surface.Sub(Rect{X: 0, Y: 0, W: r.W, H: 1}))
+}
+
+func (tp *TabbedPanel) RenderDivider(surface Surface, y, w int, borders *term.BorderSet) {
+	horizontal := '─'
+	if borders != nil {
+		horizontal = borders.Horizontal
+	}
+	for x := 0; x < w; x++ {
+		surface.SetCell(x, y, term.Cell{Ch: horizontal, Style: term.StyleBorder})
+	}
 }

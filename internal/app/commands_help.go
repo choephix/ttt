@@ -3,48 +3,64 @@ package app
 import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
-var explorerHelpEntries = []ui.InfoEntry{
-	{Key: "Enter", Desc: "Open file or toggle folder"},
-	{Key: "Space", Desc: "Open file or toggle folder"},
-	{Key: "Shift+Enter", Desc: "Open context menu"},
-	{Key: "Menu*", Desc: "Open context menu (terminal-dependent)"},
-	{Key: "Left", Desc: "Collapse folder"},
-	{Key: "Right", Desc: "Expand folder"},
-	{Key: "Up / Down", Desc: "Navigate items"},
+var explorerHelpEntries = []widgets.KeyValueEntry{
+	{Key: "Enter", Value: "Open file or toggle folder"},
+	{Key: "Space", Value: "Open file or toggle folder"},
+	{Key: "Shift+Enter", Value: "Open context menu"},
+	{Key: "Menu*", Value: "Open context menu (terminal-dependent)"},
+	{Key: "Left", Value: "Collapse folder"},
+	{Key: "Right", Value: "Expand folder"},
+	{Key: "Up / Down", Value: "Navigate items"},
 }
 
-var searchHelpEntries = []ui.InfoEntry{
-	{Key: "Enter", Desc: "Activate selected result"},
-	{Key: "Up / Down", Desc: "Navigate results"},
-	{Key: "Tab", Desc: "Next input field"},
-	{Key: "Shift+Tab", Desc: "Previous input field"},
-	{Key: "Alt+c", Desc: "Toggle case sensitivity"},
-	{Key: "Alt+r", Desc: "Toggle regex mode"},
+var searchHelpEntries = []widgets.KeyValueEntry{
+	{Key: "Enter", Value: "Activate selected result"},
+	{Key: "Up / Down", Value: "Navigate results"},
+	{Key: "Tab", Value: "Next input field"},
+	{Key: "Shift+Tab", Value: "Previous input field"},
+	{Key: "Alt+c", Value: "Toggle case sensitivity"},
+	{Key: "Alt+r", Value: "Toggle regex mode"},
 }
 
-var changesHelpEntries = []ui.InfoEntry{
-	{Key: "Space", Desc: "Toggle stage/unstage file"},
-	{Key: "a", Desc: "Stage all files"},
-	{Key: "u", Desc: "Unstage all files"},
-	{Key: "d", Desc: "Discard selected file"},
-	{Key: "D", Desc: "Discard all files in group"},
-	{Key: "r", Desc: "Refresh changes"},
-	{Key: "o / v", Desc: "Open file"},
-	{Key: "c", Desc: "Open compact diff"},
-	{Key: "e", Desc: "Open extended diff"},
-	{Key: "Enter", Desc: "Open compact diff"},
-	{Key: "Up / Down", Desc: "Navigate files"},
+var changesHelpEntries = []widgets.KeyValueEntry{
+	{Key: "Space / s", Value: "Toggle stage/unstage file"},
+	{Key: "a", Value: "Stage all files"},
+	{Key: "u", Value: "Unstage all files"},
+	{Key: "d", Value: "Discard selected file"},
+	{Key: "D", Value: "Discard all files in group"},
+	{Key: "r", Value: "Refresh changes"},
+	{Key: "o / v", Value: "Open file"},
+	{Key: "c", Value: "Open compact diff"},
+	{Key: "e", Value: "Open extended diff"},
+	{Key: "Enter", Value: "Open compact diff"},
+	{Key: "Up / Down", Value: "Navigate files"},
 }
 
-func (a *App) ShowPanelHelp(title string, entries []ui.InfoEntry) {
-	dialog := ui.NewInfoDialogWidget(title, entries)
-	dialog.Borders = a.Borders
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
+func (a *App) ShowPanelHelp(title string, entries []widgets.KeyValueEntry, description ...string) {
+	if len(description) == 0 {
+		a.ShowInfoDialog(title, entries)
+		return
 	}
-	a.ShowDialog(dialog)
+	kv := widgets.NewKeyValueListWidget(entries)
+	para := widgets.NewParagraphWidget(description[0])
+	para.Box.MarginTop = 1
+	vstack := widgets.NewVStackWidget(kv, para)
+
+	dialog := widgets.NewDialogWidget(60)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(vstack)
+	dialog.Buttons = []widgets.DialogButton{
+		{Label: "&Close", Handler: func() { a.DismissDialog() }},
+	}
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func registerHelpCommands(app *App) {
@@ -73,7 +89,8 @@ func registerHelpCommands(app *App) {
 		Title:    "Changes: Keyboard Shortcuts",
 		Keywords: []string{"git", "help", "keybindings"},
 		Handler: func() {
-			app.ShowPanelHelp("Changes Shortcuts", changesHelpEntries)
+			app.ShowPanelHelp("Changes Shortcuts", changesHelpEntries,
+				"Type a commit message in the input above and press Enter to commit. The commit applies to the currently selected group.")
 		},
 	})
 }

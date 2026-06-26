@@ -3,8 +3,8 @@ package app
 import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
-	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
 func (a *App) OpenCommandPalette(fileMode bool, initialText ...string) {
@@ -42,12 +42,10 @@ func (a *App) ShowThemePicker() {
 	if len(names) == 0 {
 		return
 	}
-	var cmds []command.Command
-	for _, name := range names {
-		cmds = append(cmds, command.Command{ID: name, Title: name})
+	items := make([]widgets.SelectItem, len(names))
+	for i, name := range names {
+		items[i] = widgets.SelectItem{ID: name, Label: name}
 	}
-	picker := ui.NewSelectDialogWidget(cmds)
-	picker.Borders = a.Borders
 	originalStyleMap := a.Screen.GetStyleMap()
 	originalPalette := *a.Palette
 	applyTheme := func(theme config.ThemeConfig) {
@@ -57,65 +55,43 @@ func (a *App) ShowThemePicker() {
 		a.ApplyBorderStyle()
 		a.Renderer.Clear()
 	}
-	picker.OnSelectionChange = func(name string) {
-		theme, err := config.LoadTheme(name)
-		if err != nil {
-			return
-		}
-		applyTheme(theme)
-	}
-	picker.OnExecute = func(name string) {
-		a.DismissDialog()
-		theme, err := config.LoadTheme(name)
-		if err != nil {
-			return
-		}
-		applyTheme(theme)
-		a.Settings.Theme = name
-		config.SaveSettings(*a.Settings)
-	}
-	picker.OnDismiss = func() {
-		a.DismissDialog()
-		a.Screen.SetStyleMap(originalStyleMap)
-		*a.Palette = originalPalette
-		a.Renderer.Clear()
-	}
-	a.ShowDialog(picker)
-}
-
-func (a *App) showIndentDialog(title string, onApply func(useTabs bool, tabSize int)) {
-	useTabs := false
-	tabSize := 4
-	if a.EditorGroup.Editor != nil {
-		useTabs = a.EditorGroup.Editor.UseTabs
-		tabSize = a.EditorGroup.Editor.TabSize
-	}
-	if tabSize <= 0 {
-		tabSize = a.Settings.Editor.TabSize
-	}
-	dialog := ui.NewIndentDialogWidget(useTabs, tabSize)
-	dialog.Title = title
-	dialog.Borders = a.Borders
-	dialog.OnApply = func(ut bool, ts int) {
-		a.DismissDialog()
-		onApply(ut, ts)
-	}
-	dialog.OnAuto = func() {
-		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Buf != nil {
-			info := buffer.DetectIndent(a.EditorGroup.Editor.Buf.Lines)
-			useTabs := info.UseTabs
-			tabSize := dialog.TabSize
-			if info.Size > 0 {
-				tabSize = info.Size
+	sel := widgets.NewSelectWidget(widgets.SelectConfig{
+		Items:       items,
+		ShowDivider: true,
+		OnChange: func(name string) {
+			theme, err := config.LoadTheme(name)
+			if err != nil {
+				return
 			}
+			applyTheme(theme)
+		},
+		OnSelect: func(name string) {
 			a.DismissDialog()
-			onApply(useTabs, tabSize)
-		}
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+			theme, err := config.LoadTheme(name)
+			if err != nil {
+				return
+			}
+			applyTheme(theme)
+			a.Settings.Theme = name
+			config.SaveSettings(*a.Settings)
+		},
+		OnDismiss: func() {
+			a.DismissDialog()
+			a.Screen.SetStyleMap(originalStyleMap)
+			*a.Palette = originalPalette
+			a.Renderer.Clear()
+		},
+	})
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Title = "Select Theme"
+	dialog.Borders = *a.Borders
+	dialog.SetContent(sel)
+	dialog.OnDismiss = sel.Config.OnDismiss
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) ShowIndentPicker() {
@@ -138,11 +114,11 @@ func (a *App) ShowIndentSettings() {
 }
 
 func (a *App) ShowEolPicker() {
-	cmds := []command.Command{
-		{ID: "lf", Title: "LF"},
-		{ID: "crlf", Title: "CRLF"},
+	items := []widgets.SelectItem{
+		{ID: "lf", Label: "LF"},
+		{ID: "crlf", Label: "CRLF"},
 	}
-	a.ShowPicker(cmds, func(id string) {
+	a.ShowSelectDialog("Line Ending", items, func(id string) {
 		buf := a.EditorGroup.ActiveBuffer()
 		if buf == nil {
 			return
@@ -154,7 +130,7 @@ func (a *App) ShowEolPicker() {
 			buf.LineEnding = "\r\n"
 		}
 		buf.Dirty = true
-	})
+	}, nil)
 }
 
 func registerPaletteCommands(app *App) {

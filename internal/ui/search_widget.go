@@ -485,7 +485,7 @@ func (s *SearchWidget) flatten() {
 	}
 }
 
-func (s *SearchWidget) Render(surface *RenderSurface) {
+func (s *SearchWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 

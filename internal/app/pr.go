@@ -29,7 +29,6 @@ func (a *App) FetchAndOpenPR(url string) {
 		return
 	}
 
-	a.Changes.Loading = true
 	a.StatusNotify(fmt.Sprintf("Fetching PR #%d...", number))
 
 	go func() {
