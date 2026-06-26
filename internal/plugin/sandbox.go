@@ -57,6 +57,23 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				}
 			}
 
+			bottom := L.GetField(tbl, "bottom")
+			if bt, ok := bottom.(*lua.LTable); ok {
+				if err := p.Granted.Check("panel.bottom"); err != nil {
+					L.ArgError(1, "panel.bottom permission not granted")
+					return 0
+				}
+				if title := L.GetField(bt, "title"); title != lua.LNil {
+					p.BottomTitle = title.String()
+				}
+				if fn, ok := L.GetField(bt, "render").(*lua.LFunction); ok {
+					p.BottomRenderFunc = fn
+				}
+				if fn, ok := L.GetField(bt, "on_event").(*lua.LFunction); ok {
+					p.BottomEventFunc = fn
+				}
+			}
+
 			return 0
 		}))
 

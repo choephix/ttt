@@ -13,12 +13,19 @@ type SidebarRegistration struct {
 	Widget *PluginPanelWidget
 }
 
+type BottomRegistration struct {
+	ID     string
+	Title  string
+	Widget *PluginPanelWidget
+}
+
 type Manager struct {
 	plugins    []*Plugin
 	registry   *Registry
 	pluginsDir string
 
 	SidebarPanels []SidebarRegistration
+	BottomPanels  []BottomRegistration
 }
 
 func NewManager(pluginsDir string) *Manager {
@@ -96,7 +103,14 @@ func (m *Manager) collectRegistrations(p *Plugin) {
 		m.SidebarPanels = append(m.SidebarPanels, SidebarRegistration{
 			ID:     "plugin." + p.Name,
 			Title:  p.SidebarTitle,
-			Widget: NewPluginPanelWidget(p),
+			Widget: NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc),
+		})
+	}
+	if p.BottomTitle != "" && p.BottomRenderFunc != nil {
+		m.BottomPanels = append(m.BottomPanels, BottomRegistration{
+			ID:     "plugin." + p.Name,
+			Title:  p.BottomTitle,
+			Widget: NewPluginPanelWidget(p, p.BottomRenderFunc, p.BottomEventFunc),
 		})
 	}
 }

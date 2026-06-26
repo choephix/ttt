@@ -60,7 +60,7 @@ func TestPluginPanelWidgetRender(t *testing.T) {
 		t.Fatalf("register failed: %v", err)
 	}
 
-	pw := NewPluginPanelWidget(p)
+	pw := NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc)
 	surface := newMockSurface(40, 10)
 	pw.Render(surface)
 
@@ -96,7 +96,7 @@ func TestPluginPanelWidgetRenderError(t *testing.T) {
 		t.Fatalf("register failed: %v", err)
 	}
 
-	pw := NewPluginPanelWidget(p)
+	pw := NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc)
 	surface := newMockSurface(80, 10)
 	pw.Render(surface)
 
@@ -137,7 +137,7 @@ func TestPluginPanelWidgetCellAPI(t *testing.T) {
 		t.Fatalf("register failed: %v", err)
 	}
 
-	pw := NewPluginPanelWidget(p)
+	pw := NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc)
 	surface := newMockSurface(40, 10)
 	pw.Render(surface)
 

@@ -20,6 +20,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 var (
@@ -160,6 +162,14 @@ Docs: https://tttedit.dev
 
 	for _, reg := range pluginManager.SidebarPanels {
 		editor.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+	}
+	for _, reg := range pluginManager.BottomPanels {
+		editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+	}
+	for _, p := range pluginManager.Plugins() {
+		p.RequestRedraw = func() {
+			screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
 	}
 	if len(pendingApprovals) > 0 {
 		editor.PendingPluginApprovals = pendingApprovals

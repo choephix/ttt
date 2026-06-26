@@ -19,6 +19,12 @@ type Plugin struct {
 	RenderFunc   *lua.LFunction
 	EventFunc    *lua.LFunction
 
+	BottomTitle      string
+	BottomRenderFunc *lua.LFunction
+	BottomEventFunc  *lua.LFunction
+
+	RequestRedraw func()
+
 	LastError error
 }
 
@@ -47,16 +53,23 @@ func (p *Plugin) Destroy() {
 	p.Enabled = false
 	p.RenderFunc = nil
 	p.EventFunc = nil
+	p.BottomRenderFunc = nil
+	p.BottomEventFunc = nil
+	p.RequestRedraw = nil
 }
 
 func (p *Plugin) CallRender(proxy *PanelProxy) error {
-	if p.State == nil || p.RenderFunc == nil {
+	return p.CallRenderWith(p.RenderFunc, proxy)
+}
+
+func (p *Plugin) CallRenderWith(renderFunc *lua.LFunction, proxy *PanelProxy) error {
+	if p.State == nil || renderFunc == nil {
 		return nil
 	}
 
 	ud := PushPanelProxy(p.State, proxy)
 	err := p.State.CallByParam(lua.P{
-		Fn:      p.RenderFunc,
+		Fn:      renderFunc,
 		NRet:    0,
 		Protect: true,
 	}, ud)

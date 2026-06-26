@@ -105,3 +105,60 @@ func TestSandboxRegisterWithoutPermission(t *testing.T) {
 		t.Error("title should not be set without permission")
 	}
 }
+
+func TestSandboxRegisterBottom(t *testing.T) {
+	L := NewSandbox()
+	defer L.Close()
+
+	p := &Plugin{Granted: PermissionSet{PanelBottom: true}}
+	setupTTTModule(L, p)
+
+	err := L.DoString(`
+		local ttt = require("ttt")
+		ttt.register({
+			bottom = {
+				title = "Output",
+				render = function(panel) end,
+				on_event = function(ev) end,
+			},
+		})
+	`)
+	if err != nil {
+		t.Fatalf("register bottom failed: %v", err)
+	}
+
+	if p.BottomTitle != "Output" {
+		t.Errorf("expected title 'Output', got %q", p.BottomTitle)
+	}
+	if p.BottomRenderFunc == nil {
+		t.Error("expected bottom render function to be set")
+	}
+	if p.BottomEventFunc == nil {
+		t.Error("expected bottom event function to be set")
+	}
+}
+
+func TestSandboxRegisterBottomWithoutPermission(t *testing.T) {
+	L := NewSandbox()
+	defer L.Close()
+
+	p := &Plugin{Granted: PermissionSet{PanelSidebar: true}}
+	setupTTTModule(L, p)
+
+	err := L.DoString(`
+		local ttt = require("ttt")
+		ttt.register({
+			bottom = {
+				title = "Output",
+				render = function(panel) end,
+			},
+		})
+	`)
+	if err == nil {
+		t.Fatal("expected error when panel.bottom not granted")
+	}
+
+	if p.BottomTitle != "" {
+		t.Error("bottom title should not be set without permission")
+	}
+}

@@ -4,15 +4,24 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/gdamore/tcell/v2"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type PluginPanelWidget struct {
 	widgets.BaseWidget
-	plugin *Plugin
+	plugin     *Plugin
+	renderFunc *lua.LFunction
+	eventFunc  *lua.LFunction
+	state      *WidgetState
 }
 
-func NewPluginPanelWidget(p *Plugin) *PluginPanelWidget {
-	return &PluginPanelWidget{plugin: p}
+func NewPluginPanelWidget(p *Plugin, renderFunc, eventFunc *lua.LFunction) *PluginPanelWidget {
+	return &PluginPanelWidget{
+		plugin:     p,
+		renderFunc: renderFunc,
+		eventFunc:  eventFunc,
+		state:      NewWidgetState(),
+	}
 }
 
 func (pw *PluginPanelWidget) Height() int { return 0 }
@@ -26,14 +35,35 @@ func (pw *PluginPanelWidget) Render(surface widgets.Surface) {
 
 	surface.Fill(term.Cell{Ch: ' ', Style: term.StyleDefault})
 
-	proxy := NewPanelProxy(surface)
-	if err := pw.plugin.CallRender(proxy); err != nil {
+	proxy := NewPanelProxy(surface, pw.plugin)
+	if err := pw.plugin.CallRenderWith(pw.renderFunc, proxy); err != nil {
 		msg := "Plugin error: " + err.Error()
 		surface.DrawText(0, 0, msg, w, term.StyleDanger)
+		return
+	}
+
+	if proxy.UsedWidgets() {
+		root := pw.state.Reconcile(proxy.Descriptors(), pw.plugin)
+		r := pw.GetRect()
+		root.SetRect(widgets.Rect{X: r.X, Y: r.Y, W: w, H: h})
+		root.Render(surface)
 	}
 }
 
 func (pw *PluginPanelWidget) HandleEvent(ev tcell.Event) widgets.EventResult {
+	if pw.state != nil && pw.state.focus != nil {
+		if pw.state.focus.HandleEvent(ev) == widgets.EventConsumed {
+			return widgets.EventConsumed
+		}
+	}
+
+	if pw.eventFunc != nil && pw.plugin.State != nil {
+		tbl := eventToLua(pw.plugin.State, ev)
+		if tbl != nil {
+			pw.plugin.CallLuaFunc(pw.eventFunc, tbl)
+		}
+	}
+
 	return widgets.EventIgnored
 }
 

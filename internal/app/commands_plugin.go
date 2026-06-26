@@ -5,6 +5,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func registerPluginCommands(app *App) {
@@ -76,6 +78,15 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 						a.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
 						break
 					}
+				}
+				for _, reg := range a.PluginManager.BottomPanels {
+					if reg.ID == "plugin."+p.Name {
+						a.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+						break
+					}
+				}
+				p.RequestRedraw = func() {
+					a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 				}
 			}
 			a.showNextPluginApproval()
