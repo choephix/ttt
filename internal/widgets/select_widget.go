@@ -281,8 +281,14 @@ func (s *SelectWidget) handleKey(ev *tcell.EventKey) EventResult {
 
 func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	btn := ev.Buttons()
-	_, my := ev.Position()
+	mx, my := ev.Position()
 	r := s.rect
+
+	if btn&tcell.WheelUp != 0 || btn&tcell.WheelDown != 0 {
+		if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
+			return EventIgnored
+		}
+	}
 
 	if btn&tcell.WheelUp != 0 {
 		s.scrollTop -= 3
