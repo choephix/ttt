@@ -12,6 +12,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/lsp"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
@@ -74,9 +75,11 @@ type App struct {
 	Running            *bool
 	quitPending        bool
 	Watcher            *watcher.Watcher
-	GitGutterGen       int
-	GitGutterTimer     *time.Timer
-	Version            string
+	GitGutterGen            int
+	GitGutterTimer          *time.Timer
+	Version                 string
+	PluginManager           *plugin.Manager
+	PendingPluginApprovals  []*plugin.Plugin
 }
 
 func (a *App) KeyFor(cmd string) string {

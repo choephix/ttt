@@ -8,14 +8,18 @@ import (
 	"runtime/debug"
 	"time"
 
+	"path/filepath"
+
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/lsp"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
 )
 
 var (
@@ -147,6 +151,19 @@ Docs: https://tttedit.dev
 	editor.Running = &running
 	app.RegisterCommands(editor)
 	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
+
+	pluginsDir := filepath.Join(filepath.Dir(config.ConfigFilePath("plugins.ttt.json")), "plugins")
+	pluginManager := plugin.NewManager(pluginsDir)
+	pendingApprovals := pluginManager.LoadAll()
+	editor.PluginManager = pluginManager
+	defer pluginManager.Shutdown()
+
+	for _, reg := range pluginManager.SidebarPanels {
+		editor.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+	}
+	if len(pendingApprovals) > 0 {
+		editor.PendingPluginApprovals = pendingApprovals
+	}
 
 	if len(prURLs) > 0 {
 		if !github.IsGHInstalled() {

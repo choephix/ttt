@@ -136,6 +136,8 @@ func RunEventLoop(
 	syncStatus()
 	redraw()
 
+	app.ShowPendingPluginApprovals()
+
 	for *running {
 		ev := screen.PollEvent()
 		switch tev := ev.(type) {
