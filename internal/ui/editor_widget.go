@@ -57,6 +57,7 @@ type EditorPaneWidget struct {
 	maxLineWidthDirty       bool
 	gutterHover             bool
 	gutterHoverLine         int
+	mouseDownX, mouseDownY  int
 	cachedVisibleLines      []int
 	searchByLine            map[int][]int
 	diagByLine              map[int][]int
@@ -740,17 +741,6 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 		}
 
-		if btn&tcell.Button1 != 0 && inGutter && !e.mouseDown {
-			screenY := my - r.Y
-			bufLine := e.screenToBufferLine(screenY)
-			if e.Folds != nil {
-				if e.Folds.FoldAt(bufLine) != nil {
-					e.Folds.Toggle(bufLine)
-					return EventConsumed
-				}
-			}
-		}
-
 		if btn&tcell.Button1 != 0 {
 			if e.Undo != nil {
 				e.Undo.BreakGroup()
@@ -769,6 +759,8 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 
 			if !e.mouseDown {
 				e.mouseDown = true
+				e.mouseDownX = mx
+				e.mouseDownY = my
 
 				if e.isMultiActive() {
 					e.collapseMulti()
@@ -807,6 +799,13 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		if btn == tcell.ButtonNone && e.mouseDown {
 			e.mouseDown = false
+			if mx == e.mouseDownX && my == e.mouseDownY && inGutter {
+				bufLine := e.screenToBufferLine(my - r.Y)
+				if e.Folds != nil && e.Folds.FoldAt(bufLine) != nil {
+					e.Folds.Toggle(bufLine)
+					return EventConsumed
+				}
+			}
 			if e.Selection != nil && e.Selection.Active {
 				if e.Selection.Anchor.Line == e.Cursor.Line && e.Selection.Anchor.Col == e.Cursor.Col {
 					e.Selection.Clear()
