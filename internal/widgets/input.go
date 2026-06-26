@@ -186,6 +186,13 @@ func (inp *InputWidget) renderText(surface Surface, x, y, textW int) {
 
 	textRunes := []rune(inp.text)
 
+	maxOffset := len(textRunes) - textW
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if inp.scrollOffset > maxOffset {
+		inp.scrollOffset = maxOffset
+	}
 	if inp.cursorPos < inp.scrollOffset {
 		inp.scrollOffset = inp.cursorPos
 	}

@@ -145,12 +145,14 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	if res := r.handleGlobalKeys(kev); res == EventConsumed {
-		return EventConsumed
+	if r.Focused != nil {
+		if r.Focused.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
+		}
 	}
 
-	if r.Focused != nil {
-		return r.Focused.HandleEvent(ev)
+	if res := r.handleGlobalKeys(kev); res == EventConsumed {
+		return EventConsumed
 	}
 
 	return EventIgnored
