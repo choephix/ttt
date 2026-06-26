@@ -141,6 +141,17 @@ func (s *SelectWidget) filter() {
 	}
 }
 
+func (s *SelectWidget) visibleListH() int {
+	if s.Config.Collapsible {
+		return s.popupHeight()
+	}
+	listStart := 1
+	if s.Config.ShowDivider {
+		listStart = 3
+	}
+	return s.rect.H - listStart
+}
+
 func (s *SelectWidget) ensureVisible(visibleH int) {
 	if visibleH <= 0 {
 		return
@@ -175,7 +186,7 @@ func (s *SelectWidget) Render(surface Surface) {
 	if s.focused {
 		chevron = '▲'
 	}
-	surface.SetCell(w-1, y, term.Cell{Ch: chevron, Style: term.StyleMuted})
+	surface.SetCell(w-2, y, term.Cell{Ch: chevron, Style: term.StyleMuted})
 	y++
 
 	if s.Config.Collapsible {
@@ -194,8 +205,6 @@ func (s *SelectWidget) Render(surface Surface) {
 	if listH <= 0 {
 		return
 	}
-
-	s.ensureVisible(listH)
 
 	s.scrollbar.X = s.rect.X + w - 1
 	s.scrollbar.Y = s.rect.Y + listStart
@@ -243,12 +252,14 @@ func (s *SelectWidget) handleKey(ev *tcell.EventKey) EventResult {
 	case tcell.KeyUp:
 		if s.selected > 0 {
 			s.selected--
+			s.ensureVisible(s.visibleListH())
 			s.notifyChange()
 		}
 		return EventConsumed
 	case tcell.KeyDown:
 		if s.selected < len(s.filtered)-1 {
 			s.selected++
+			s.ensureVisible(s.visibleListH())
 			s.notifyChange()
 		}
 		return EventConsumed
@@ -281,15 +292,7 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	}
 	if btn&tcell.WheelDown != 0 {
 		s.scrollTop += 3
-		visibleH := s.popupHeight()
-		if !s.Config.Collapsible {
-			listStart := 1
-			if s.Config.ShowDivider {
-				listStart = 2
-			}
-			visibleH = r.H - listStart
-		}
-		maxScroll := len(s.filtered) - visibleH
+		maxScroll := len(s.filtered) - s.visibleListH()
 		if maxScroll < 0 {
 			maxScroll = 0
 		}
