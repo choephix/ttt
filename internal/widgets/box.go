@@ -7,7 +7,9 @@ import (
 
 type BoxWidget struct {
 	BaseWidget
-	Child Widget
+	Child       Widget
+	FixedHeight int
+	FixedWidth  int
 }
 
 func NewBoxWidget(bm BoxModel) *BoxWidget {
@@ -36,6 +38,9 @@ func NewBoxWithBorderAndPadding(borders term.BorderSet, padding int) *BoxWidget 
 }
 
 func (b *BoxWidget) Height() int {
+	if b.FixedHeight > 0 {
+		return b.FixedHeight
+	}
 	if b.Child != nil {
 		ch := b.Child.Height()
 		if ch > 0 {
@@ -46,6 +51,9 @@ func (b *BoxWidget) Height() int {
 }
 
 func (b *BoxWidget) Width() int {
+	if b.FixedWidth > 0 {
+		return b.FixedWidth
+	}
 	if b.Child != nil {
 		cw := b.Child.Width()
 		if cw > 0 {

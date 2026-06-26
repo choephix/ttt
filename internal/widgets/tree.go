@@ -52,6 +52,7 @@ type TreeConfig struct {
 	OnCommand func(command string, node *TreeNode)
 	OnMenu    func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
 	OnExpand  func(node *TreeNode)
+	OnSelect  func(node *TreeNode)
 	OnKey     func(ev *tcell.EventKey, node *TreeNode) bool
 }
 
@@ -66,6 +67,20 @@ type TreeWidget struct {
 	focused   bool
 
 	scrollbar scrollbar
+}
+
+func NewListWidget(items []ListItem) *TreeWidget {
+	nodes := make([]*TreeNode, len(items))
+	for i, li := range items {
+		nodes[i] = &TreeNode{
+			ID:      li.ID,
+			Label:   li.Label,
+			Icon:    li.Icon,
+			Badge:   li.Badge,
+			Actions: li.Actions,
+		}
+	}
+	return NewTreeWidget(TreeConfig{Items: nodes})
 }
 
 func NewTreeWidget(cfg TreeConfig) *TreeWidget {
@@ -380,13 +395,20 @@ func (t *TreeWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
+	prev := t.selected
+	var result EventResult
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
-		return t.handleMouse(tev)
+		result = t.handleMouse(tev)
 	case *tcell.EventKey:
-		return t.handleKey(tev)
+		result = t.handleKey(tev)
+	default:
+		return EventIgnored
 	}
-	return EventIgnored
+	if t.selected != prev && t.Config.OnSelect != nil {
+		t.Config.OnSelect(t.Selected())
+	}
+	return result
 }
 
 func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {

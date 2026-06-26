@@ -12,14 +12,16 @@ import (
 )
 
 type ChangesPanel struct {
-	Tree    *widgets.TreeWidget
-	Input   *widgets.InputWidget
-	Adapter *ui.WidgetAdapter
-	Dirs    []string
+	Tree      *widgets.TreeWidget
+	Input     *widgets.InputWidget
+	CommitLog *widgets.TreeWidget
+	Adapter   *ui.WidgetAdapter
+	Dirs      []string
 
-	groups    []changesGroup
-	multiRoot bool
-	expanded  map[string]bool
+	groups     []changesGroup
+	multiRoot  bool
+	expanded   map[string]bool
+	lastLogDir string
 
 	OnOpenDiff       func(dir string, status git.FileStatus, extended bool)
 	OnOpenPRDiff     func(group *ui.ChangesGroup, status git.FileStatus, extended bool)
@@ -77,14 +79,23 @@ func NewChangesPanel(dirs ...string) *ChangesPanel {
 		OnMenu: func(_ []widgets.MenuEntry, node *widgets.TreeNode, sx, sy int) {
 			cp.handleMenu(node, sx, sy)
 		},
+		OnSelect: func(node *widgets.TreeNode) {
+			cp.refreshCommitLog()
+		},
 		OnKey: func(ev *tcell.EventKey, node *widgets.TreeNode) bool {
 			return cp.handleKey(ev)
 		},
 	})
 
-	divTop := widgets.NewDividerWidget(widgets.DividerConfig{})
+	cp.CommitLog = widgets.NewListWidget(nil)
 
-	vstack := widgets.NewVStackWidget(cp.Input, divTop, cp.Tree)
+	logBox := &widgets.BoxWidget{FixedHeight: 7}
+	logBox.Child = cp.CommitLog
+
+	divTop := widgets.NewDividerWidget(widgets.DividerConfig{})
+	divBottom := widgets.NewDividerWidget(widgets.DividerConfig{})
+
+	vstack := widgets.NewVStackWidget(cp.Tree, divBottom, cp.Input, divTop, logBox)
 
 	cp.Adapter = ui.NewWidgetAdapter(vstack)
 
@@ -99,6 +110,7 @@ func (cp *ChangesPanel) SetDirs(dirs []string) {
 }
 
 func (cp *ChangesPanel) Refresh() {
+	cp.lastLogDir = ""
 	cp.saveExpanded()
 	cp.groups = nil
 	seen := make(map[string]bool)
@@ -131,6 +143,53 @@ func (cp *ChangesPanel) Refresh() {
 	}
 	cp.multiRoot = len(cp.groups)+len(cp.PRGroups) > 1
 	cp.buildTree()
+	cp.refreshCommitLog()
+}
+
+func (cp *ChangesPanel) refreshCommitLog() {
+	dir := cp.selectedGroupDir()
+	if dir == "" && len(cp.groups) > 0 {
+		dir = cp.groups[0].Dir
+	}
+	if dir == "" {
+		cp.lastLogDir = ""
+		cp.CommitLog.SetItems(nil)
+		return
+	}
+	if dir == cp.lastLogDir {
+		return
+	}
+	cp.lastLogDir = dir
+	branch := git.BranchName(dir)
+	name := filepath.Base(dir)
+
+	if branch != "" {
+		cp.Input.Config.Placeholder = fmt.Sprintf("Commit to %s (%s)", name, branch)
+	} else {
+		cp.Input.Config.Placeholder = fmt.Sprintf("Commit to %s", name)
+	}
+
+	entries := git.Log(dir, 10)
+	nodes := make([]*widgets.TreeNode, 0, len(entries)+1)
+	branchLabel := name
+	if branch != "" {
+		branchLabel = fmt.Sprintf("%s · %s", name, branch)
+	}
+	nodes = append(nodes, &widgets.TreeNode{
+		ID:    "branch",
+		Label: branchLabel,
+		Icon:  "⎇",
+		Muted: true,
+	})
+	for _, e := range entries {
+		nodes = append(nodes, &widgets.TreeNode{
+			ID:    e.Hash,
+			Label: e.Message,
+			Icon:  "●",
+			Badge: e.Hash,
+		})
+	}
+	cp.CommitLog.SetItems(nodes)
 }
 
 func (cp *ChangesPanel) saveExpanded() {

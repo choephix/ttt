@@ -144,6 +144,28 @@ func BranchName(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+type LogEntry struct {
+	Hash    string
+	Message string
+}
+
+func Log(dir string, n int) []LogEntry {
+	cmd := exec.Command("git", "-C", dir, "log", fmt.Sprintf("-%d", n), "--pretty=format:%h %s")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var entries []LogEntry
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		hash, msg, _ := strings.Cut(line, " ")
+		entries = append(entries, LogEntry{Hash: hash, Message: msg})
+	}
+	return entries
+}
+
 type BlameInfo struct {
 	Author string
 	Time   time.Time
