@@ -25,7 +25,7 @@ var searchHelpEntries = []widgets.KeyValueEntry{
 }
 
 var changesHelpEntries = []widgets.KeyValueEntry{
-	{Key: "Space", Value: "Toggle stage/unstage file"},
+	{Key: "Space / s", Value: "Toggle stage/unstage file"},
 	{Key: "a", Value: "Stage all files"},
 	{Key: "u", Value: "Unstage all files"},
 	{Key: "d", Value: "Discard selected file"},

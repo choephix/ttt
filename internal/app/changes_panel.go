@@ -371,7 +371,7 @@ func (cp *ChangesPanel) handleKey(ev *tcell.EventKey) bool {
 			cp.Refresh()
 		}
 		return true
-	case ' ':
+	case ' ', 's':
 		if !inPR {
 			cp.ToggleStageSelected()
 		}
@@ -403,7 +403,7 @@ func (cp *ChangesPanel) handleKey(ev *tcell.EventKey) bool {
 		}
 		return true
 	case 'o', 'v':
-		cp.OpenSelectedFile()
+		cp.ActivateSelected()
 		return true
 	case 'c':
 		cp.OpenSelectedDiff(false)
@@ -651,6 +651,11 @@ func (cp *ChangesPanel) SelectedGroup() *ui.ChangesGroup {
 				}
 			}
 		}
+		for _, pg := range cp.PRGroups {
+			if pg.Dir == dir {
+				return cp.toUIChangesGroup(&pg)
+			}
+		}
 	}
 	return nil
 }
@@ -741,6 +746,14 @@ func (cp *ChangesPanel) OpenSelectedDiff(extended bool) {
 		return
 	}
 	cp.openDiff(dir, status, staged, extended)
+}
+
+func (cp *ChangesPanel) ActivateSelected() {
+	if cp.selectedInPR() {
+		cp.OpenSelectedDiff(false)
+	} else {
+		cp.OpenSelectedFile()
+	}
 }
 
 func (cp *ChangesPanel) OpenSelectedFile() {

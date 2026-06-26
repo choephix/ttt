@@ -170,11 +170,7 @@ func registerGitCommands(app *App) {
 		ID: "changes.openFile", Title: "Git: Open File",
 		Keywords: []string{"git", "changes"},
 		Handler: func() {
-			fullPath := app.Changes.SelectedFullPath()
-			if fullPath != "" {
-				app.EditorGroup.OpenFile(fullPath)
-				app.FocusEditorIfEnabled()
-			}
+			app.Changes.ActivateSelected()
 		},
 	})
 
