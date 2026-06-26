@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,40 +179,28 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 }
 
 func (a *App) openSelectedDiff(extended bool) {
-	slog.Info("openSelectedDiff", "extended", extended)
 	g := a.Changes.SelectedGroup()
 	if g != nil {
-		slog.Info("openSelectedDiff group", "dir", g.Dir, "name", g.Name, "isPR", g.IsPR)
 	} else {
-		slog.Info("openSelectedDiff group", "group", "nil")
 	}
 	if g != nil && g.IsPR {
-		slog.Info("openSelectedDiff taking PR path")
 		_, status, ok := a.Changes.SelectedFile()
-		slog.Info("openSelectedDiff PR file", "path", status.Path, "status", status.Status, "ok", ok)
 		if ok && a.Changes.OnOpenPRDiff != nil {
 			a.Changes.OnOpenPRDiff(g, status, extended)
 		} else {
-			slog.Info("openSelectedDiff PR path skipped", "ok", ok, "hasCallback", a.Changes.OnOpenPRDiff != nil)
 		}
 	} else {
-		slog.Info("openSelectedDiff taking regular path")
 		dir, status, ok := a.Changes.SelectedFile()
-		slog.Info("openSelectedDiff file", "dir", dir, "path", status.Path, "status", status.Status, "ok", ok)
 		if ok && a.Changes.OnOpenDiff != nil {
-			slog.Info("openSelectedDiff calling OnOpenDiff", "dir", dir, "path", status.Path, "extended", extended)
 			a.Changes.OnOpenDiff(dir, status, extended)
 		} else {
-			slog.Info("openSelectedDiff regular path skipped", "ok", ok, "hasCallback", a.Changes.OnOpenDiff != nil)
 		}
 	}
 }
 
 func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
-	slog.Info("OpenChangeDiff", "dir", dir, "path", status.Path, "fileStatus", status.Status, "extended", extended)
 	fullPath := filepath.Join(dir, status.Path)
 	if status.Status == "?" {
-		slog.Info("OpenChangeDiff untracked, opening file", "fullPath", fullPath)
 		a.EditorGroup.OpenFile(fullPath)
 		a.FocusEditorIfEnabled()
 		return
@@ -221,29 +208,23 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	var diffText string
 	var err error
 	if status.Status == "R" && status.OldPath != "" {
-		slog.Info("OpenChangeDiff rename diff", "oldPath", status.OldPath, "newPath", status.Path)
 		diffText, err = git.DiffRename(dir, status.OldPath, status.Path)
 	} else {
 		diffText, err = git.DiffFile(dir, status.Path)
 	}
-	slog.Info("OpenChangeDiff diff result", "diffLen", len(diffText), "err", err)
 	if err != nil || diffText == "" {
-		slog.Info("OpenChangeDiff no diff, opening file", "fullPath", fullPath)
 		a.EditorGroup.OpenFile(fullPath)
 		a.FocusEditorIfEnabled()
 		return
 	}
 	parsed := diff.Parse(diffText)
-	slog.Info("OpenChangeDiff parsed", "hunks", len(parsed.Hunks))
 	if len(parsed.Hunks) == 0 {
-		slog.Info("OpenChangeDiff no hunks, opening file")
 		a.EditorGroup.OpenFile(fullPath)
 		a.FocusEditorIfEnabled()
 		return
 	}
 	var oldLines, newLines []string
 	oldContent, err := git.ShowFile(dir, status.Path, "HEAD")
-	slog.Info("OpenChangeDiff ShowFile", "err", err, "oldLen", len(oldContent))
 	if err == nil {
 		oldLines = strings.Split(oldContent, "\n")
 		if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
@@ -251,24 +232,19 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 		}
 	}
 	newData, err := os.ReadFile(fullPath)
-	slog.Info("OpenChangeDiff ReadFile", "err", err, "newLen", len(newData))
 	if err == nil {
 		newLines = strings.Split(string(newData), "\n")
 		if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
 			newLines = newLines[:len(newLines)-1]
 		}
 	}
-	slog.Info("OpenChangeDiff calling OpenDiff", "path", status.Path, "oldLines", len(oldLines), "newLines", len(newLines), "extended", extended)
 	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, extended)
 	a.FocusEditorIfEnabled()
 }
 
 func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
-	slog.Info("OpenPRDiff", "groupDir", group.Dir, "groupName", group.Name, "isPR", group.IsPR, "path", status.Path, "extended", extended)
 	diffText, ok := group.PRDiffs[status.Path]
-	slog.Info("OpenPRDiff lookup", "path", status.Path, "found", ok, "diffLen", len(diffText))
 	if !ok || diffText == "" {
-		slog.Info("OpenPRDiff no diff available")
 		a.StatusWarn("No diff available for " + status.Path)
 		return
 	}
