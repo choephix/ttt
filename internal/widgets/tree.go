@@ -228,6 +228,14 @@ func (t *TreeWidget) Render(surface Surface) {
 		return
 	}
 
+	maxScroll := len(t.flatList) - h
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if t.scrollTop > maxScroll {
+		t.scrollTop = maxScroll
+	}
+
 	t.ensureVisible(h)
 
 	t.scrollbar.X = t.rect.X + w - 1
