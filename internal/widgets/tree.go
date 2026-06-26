@@ -271,18 +271,7 @@ func (t *TreeWidget) menuIconWidth() int {
 }
 
 func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
-	rw := 0
-	if len(t.Config.NodeMenu) > 0 {
-		label := t.Config.MenuIcon
-		if label == "" {
-			label = "⋮"
-		}
-		if t.Config.MenuIconPadded {
-			rw += len([]rune(label)) + 2
-		} else {
-			rw += len([]rune(label)) + 2
-		}
-	}
+	rw := t.menuIconWidth()
 	for i, action := range node.Actions {
 		rw += len([]rune(action.Icon))
 		if i > 0 {
