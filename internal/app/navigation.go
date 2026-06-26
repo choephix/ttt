@@ -84,6 +84,30 @@ func (n *NavigationPanel) Reload() {
 	n.Tree.Reload()
 }
 
+func (n *NavigationPanel) SetRoots(paths []string) {
+	expanded := map[string]bool{}
+	n.Tree.CollectExpanded(expanded)
+
+	n.Roots = paths
+	multiRoot := len(paths) > 1
+	items := make([]*widgets.TreeNode, len(paths))
+	for i, p := range paths {
+		wasExpanded := expanded[p]
+		root := &widgets.TreeNode{
+			ID:         p,
+			Label:      filepath.Base(p),
+			Expanded:   wasExpanded || !multiRoot,
+			Expandable: true,
+		}
+		if root.Expanded {
+			n.loadChildren(root)
+		}
+		items[i] = root
+	}
+	n.Tree.SetItems(items)
+	n.Tree.RestoreExpanded(expanded)
+}
+
 func (n *NavigationPanel) loadChildren(node *widgets.TreeNode) {
 	entries := ui.LoadDirEntries(node.ID, n.Settings)
 	node.Children = nil

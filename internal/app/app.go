@@ -259,8 +259,7 @@ func (a *App) CloseAllTerminals() {
 func (a *App) refreshWorkspaceWidgets() {
 	paths := a.Workspace.Paths()
 
-	a.Explorer.Roots = paths
-	a.Explorer.Reload()
+	a.Explorer.SetRoots(paths)
 
 	a.Search.SetWorkDirs(paths)
 	a.Changes.SetDirs(paths)

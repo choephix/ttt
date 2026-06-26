@@ -128,15 +128,25 @@ func (t *TreeWidget) SetActiveID(id string) {
 
 func (t *TreeWidget) Reload() {
 	expanded := map[string]bool{}
-	t.collectExpanded(t.Config.Items, expanded)
+	t.CollectExpanded(expanded)
 	for _, root := range t.Config.Items {
 		if root.Expanded && t.Config.OnExpand != nil {
 			t.Config.OnExpand(root)
 		}
+	}
+	t.RestoreExpanded(expanded)
+	t.clampSelected()
+}
+
+func (t *TreeWidget) CollectExpanded(out map[string]bool) {
+	t.collectExpanded(t.Config.Items, out)
+}
+
+func (t *TreeWidget) RestoreExpanded(expanded map[string]bool) {
+	for _, root := range t.Config.Items {
 		t.restoreExpanded(root, expanded)
 	}
 	t.flatten()
-	t.clampSelected()
 }
 
 func (t *TreeWidget) collectExpanded(nodes []*TreeNode, out map[string]bool) {
