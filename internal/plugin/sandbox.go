@@ -74,6 +74,54 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				}
 			}
 
+			commands := L.GetField(tbl, "commands")
+			if ct, ok := commands.(*lua.LTable); ok {
+				if err := p.Granted.Check("commands"); err != nil {
+					L.ArgError(1, "commands permission not granted")
+					return 0
+				}
+				ct.ForEach(func(_ lua.LValue, v lua.LValue) {
+					entry, ok := v.(*lua.LTable)
+					if !ok {
+						return
+					}
+					id := L.GetField(entry, "id")
+					title := L.GetField(entry, "title")
+					handler, hOk := L.GetField(entry, "handler").(*lua.LFunction)
+					if id == lua.LNil || title == lua.LNil || !hOk {
+						return
+					}
+					p.Commands = append(p.Commands, PluginCommand{
+						ID:      id.String(),
+						Title:   title.String(),
+						Handler: handler,
+					})
+				})
+			}
+
+			keybindings := L.GetField(tbl, "keybindings")
+			if kt, ok := keybindings.(*lua.LTable); ok {
+				if err := p.Granted.Check("keybindings"); err != nil {
+					L.ArgError(1, "keybindings permission not granted")
+					return 0
+				}
+				kt.ForEach(func(_ lua.LValue, v lua.LValue) {
+					entry, ok := v.(*lua.LTable)
+					if !ok {
+						return
+					}
+					key := L.GetField(entry, "key")
+					cmd := L.GetField(entry, "command")
+					if key == lua.LNil || cmd == lua.LNil {
+						return
+					}
+					p.PluginKeybindings = append(p.PluginKeybindings, PluginKeybinding{
+						Key:     key.String(),
+						Command: cmd.String(),
+					})
+				})
+			}
+
 			return 0
 		}))
 

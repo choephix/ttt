@@ -80,6 +80,7 @@ type App struct {
 	Version                 string
 	PluginManager           *plugin.Manager
 	PendingPluginApprovals  []*plugin.Plugin
+	PluginsPanel            *PluginsPanel
 }
 
 func (a *App) KeyFor(cmd string) string {

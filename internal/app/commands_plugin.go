@@ -1,7 +1,10 @@
 package app
 
 import (
+	"log/slog"
+
 	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -17,6 +20,37 @@ func registerPluginCommands(app *App) {
 		Title:    "Plugins: List Installed",
 		Keywords: []string{"plugin", "extension"},
 		Handler:  func() { app.showPluginList() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.install",
+		Title:    "Plugins: Install from URL",
+		Keywords: []string{"plugin", "extension", "install"},
+		Handler:  func() { app.pluginInstall() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.uninstall",
+		Title:    "Plugins: Uninstall",
+		Keywords: []string{"plugin", "extension", "remove"},
+		Handler:  func() { app.pluginUninstall() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.update",
+		Title:    "Plugins: Update",
+		Keywords: []string{"plugin", "extension", "upgrade"},
+		Handler:  func() { app.pluginUpdate() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "plugin.showPanel",
+		Title:    "Plugins: Show Panel",
+		Keywords: []string{"plugin", "extension", "panel"},
+		Handler: func() {
+			app.Sidebar.SetActivePanel("plugins")
+			app.SplitPanel.ShowLeft = true
+		},
 	})
 }
 
@@ -47,6 +81,127 @@ func (a *App) showPluginList() {
 	a.ShowInfoDialog("Installed Plugins", entries)
 }
 
+func (a *App) pluginInstall() {
+	a.ShowInputDialogEx("Install Plugin", "Repository URL", "", "Install", func(repoURL string) {
+		go func() {
+			p, err := a.PluginManager.Install(repoURL)
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginInstallResult{
+				plugin: p,
+				err:    err,
+			}))
+		}()
+	})
+}
+
+type pluginInstallResult struct {
+	plugin *plugin.Plugin
+	err    error
+}
+
+func (a *App) handlePluginInstallResult(result *pluginInstallResult) {
+	if result.err != nil {
+		a.ShowConfirmDialogEx("Install Failed", result.err.Error(), []string{"Close"}, []func(){
+			func() { a.DismissDialog() },
+		})
+		return
+	}
+	a.PendingPluginApprovals = append(a.PendingPluginApprovals, result.plugin)
+	if len(a.PendingPluginApprovals) == 1 {
+		a.ShowPluginApprovalDialog(result.plugin)
+	}
+}
+
+func (a *App) pluginUninstall() {
+	names := a.PluginManager.InstalledPluginNames()
+	if len(names) == 0 {
+		a.ShowConfirmDialogEx("Uninstall", "No plugins installed.", []string{"Close"}, []func(){
+			func() { a.DismissDialog() },
+		})
+		return
+	}
+
+	var items []widgets.SelectItem
+	for _, name := range names {
+		items = append(items, widgets.SelectItem{ID: name, Label: name})
+	}
+
+	a.ShowSelectDialog("Uninstall Plugin", items, func(name string) {
+		a.ShowConfirmDialogEx("Confirm Uninstall", "Remove plugin \""+name+"\"?", []string{"Cancel", "Uninstall"}, []func(){
+			func() { a.DismissDialog() },
+			func() {
+				a.DismissDialog()
+				a.doPluginUninstall(name)
+			},
+		})
+	}, nil)
+}
+
+func (a *App) doPluginUninstall(name string) {
+	a.Sidebar.RemovePanel("plugin." + name)
+	a.BottomPanel.RemovePanel("plugin." + name)
+
+	if err := a.PluginManager.Uninstall(name); err != nil {
+		slog.Error("plugin uninstall", "error", err)
+	}
+
+	if a.PluginsPanel != nil {
+		a.PluginsPanel.Refresh()
+	}
+}
+
+func (a *App) pluginUpdate() {
+	names := a.PluginManager.InstalledPluginNames()
+	if len(names) == 0 {
+		a.ShowConfirmDialogEx("Update", "No plugins installed.", []string{"Close"}, []func(){
+			func() { a.DismissDialog() },
+		})
+		return
+	}
+
+	var items []widgets.SelectItem
+	for _, name := range names {
+		items = append(items, widgets.SelectItem{ID: name, Label: name})
+	}
+
+	a.ShowSelectDialog("Update Plugin", items, func(name string) {
+		go func() {
+			p, needsApproval, err := a.PluginManager.Update(name)
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginUpdateResult{
+				plugin:        p,
+				needsApproval: needsApproval,
+				err:           err,
+				name:          name,
+			}))
+		}()
+	}, nil)
+}
+
+type pluginUpdateResult struct {
+	plugin        *plugin.Plugin
+	needsApproval bool
+	err           error
+	name          string
+}
+
+func (a *App) handlePluginUpdateResult(result *pluginUpdateResult) {
+	if result.err != nil {
+		a.ShowConfirmDialogEx("Update Failed", result.err.Error(), []string{"Close"}, []func(){
+			func() { a.DismissDialog() },
+		})
+		return
+	}
+	if result.needsApproval && result.plugin != nil {
+		a.PendingPluginApprovals = append(a.PendingPluginApprovals, result.plugin)
+		if len(a.PendingPluginApprovals) == 1 {
+			a.ShowPluginApprovalDialog(result.plugin)
+		}
+		return
+	}
+	if a.PluginsPanel != nil {
+		a.PluginsPanel.Refresh()
+	}
+}
+
 func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	permEntries := p.Manifest.Permissions.DisplayEntries()
 
@@ -73,28 +228,10 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 		{Label: "&Allow", Handler: func() {
 			a.DismissDialog()
 			if err := a.PluginManager.ApproveAndLoad(p); err == nil {
-				for _, reg := range a.PluginManager.SidebarPanels {
-					if reg.ID == "plugin."+p.Name {
-						a.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
-						break
-					}
-				}
-				for _, reg := range a.PluginManager.BottomPanels {
-					if reg.ID == "plugin."+p.Name {
-						a.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
-						break
-					}
-				}
-				p.RequestRedraw = func() {
-					a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
-				}
-				p.PostAsync = func(result *plugin.PluginAsyncResult) {
-					a.Screen.PostEvent(tcell.NewEventInterrupt(result))
-				}
-				p.Editor = NewPluginEditorAPI(a)
-				p.Filesystem = NewPluginFilesystemAPI()
-				p.System = NewPluginSystemAPI()
-				p.Network = NewPluginNetworkAPI()
+				a.wirePlugin(p)
+			}
+			if a.PluginsPanel != nil {
+				a.PluginsPanel.Refresh()
 			}
 			a.showNextPluginApproval()
 		}},
@@ -107,6 +244,122 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 
 	adapter := ui.NewWidgetAdapter(dialog)
 	a.ShowDialog(adapter)
+}
+
+func (a *App) wirePlugin(p *plugin.Plugin) {
+	for _, reg := range a.PluginManager.SidebarPanels {
+		if reg.ID == "plugin."+p.Name {
+			a.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+			break
+		}
+	}
+	for _, reg := range a.PluginManager.BottomPanels {
+		if reg.ID == "plugin."+p.Name {
+			a.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+			break
+		}
+	}
+	p.RequestRedraw = func() {
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
+	p.PostAsync = func(result *plugin.PluginAsyncResult) {
+		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
+	}
+	p.Editor = NewPluginEditorAPI(a)
+	p.Filesystem = NewPluginFilesystemAPI()
+	p.System = NewPluginSystemAPI()
+	p.Network = NewPluginNetworkAPI()
+
+	a.registerPluginCommandsAndKeys(p)
+}
+
+func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
+	for _, cmd := range p.Commands {
+		handler := cmd.Handler
+		plug := p
+		a.Reg.Register(command.Command{
+			ID:    cmd.ID,
+			Title: cmd.Title,
+			Handler: func() {
+				if err := plug.CallLuaFunc(handler); err != nil {
+					slog.Error("plugin command error", "plugin", plug.Name, "command", cmd.ID, "error", err)
+				}
+			},
+		})
+	}
+
+	for _, kb := range p.PluginKeybindings {
+		steps, err := config.ParseKeyString(kb.Key)
+		if err != nil {
+			slog.Warn("plugin keybinding parse error", "plugin", p.Name, "key", kb.Key, "error", err)
+			continue
+		}
+		cmdID := kb.Command
+		if len(steps) > 1 {
+			tcellSteps := make([]ui.GlobalKeyBinding, len(steps))
+			for i, step := range steps {
+				key, mod, rn := comboToTcell(step)
+				tcellSteps[i] = ui.GlobalKeyBinding{Key: key, Mod: mod, Rune: rn}
+			}
+			a.Root.AddChordKey(tcellSteps, func() {
+				a.Reg.Execute(cmdID)
+			})
+		} else {
+			key, mod, rn := comboToTcell(steps[0])
+			a.Root.AddGlobalKey(key, mod, rn, func() {
+				a.Reg.Execute(cmdID)
+			})
+		}
+		a.Reg.SetShortcut(cmdID, FormatKeyBinding(kb.Key))
+	}
+}
+
+func (a *App) RegisterStartupPluginCommands() {
+	for _, p := range a.PluginManager.Plugins() {
+		a.registerPluginCommandsAndKeys(p)
+	}
+}
+
+type RemoteRegistryResult struct {
+	Entries []plugin.RemoteRegistryEntry
+}
+
+func (a *App) PluginInstallFromURL(repoURL string) {
+	go func() {
+		p, err := a.PluginManager.Install(repoURL)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginInstallResult{
+			plugin: p,
+			err:    err,
+		}))
+	}()
+}
+
+func (a *App) PluginUninstallByName(name string) {
+	a.ShowConfirmDialogEx("Confirm Uninstall", "Remove plugin \""+name+"\"?", []string{"Cancel", "Uninstall"}, []func(){
+		func() { a.DismissDialog() },
+		func() {
+			a.DismissDialog()
+			a.doPluginUninstall(name)
+		},
+	})
+}
+
+func (a *App) PluginUpdateByName(name string) {
+	go func() {
+		p, needsApproval, err := a.PluginManager.Update(name)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginUpdateResult{
+			plugin:        p,
+			needsApproval: needsApproval,
+			err:           err,
+			name:          name,
+		}))
+	}()
+}
+
+func (a *App) handleRemoteRegistryResult(result *RemoteRegistryResult) {
+	if a.PluginsPanel != nil {
+		a.PluginsPanel.SetAvailable(result.Entries)
+	}
 }
 
 func (a *App) showNextPluginApproval() {

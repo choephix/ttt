@@ -179,6 +179,37 @@ Docs: https://tttedit.dev
 			screen.PostEvent(tcell.NewEventInterrupt(result))
 		}
 	}
+
+	editor.RegisterStartupPluginCommands()
+
+	pluginsPanel := app.NewPluginsPanel(pluginManager)
+	editor.Sidebar.AddPanel("plugins", "Plugins", pluginsPanel.Adapter)
+	editor.PluginsPanel = pluginsPanel
+	pluginsPanel.OnInstall = func(repoURL string) {
+		editor.PluginInstallFromURL(repoURL)
+	}
+	pluginsPanel.OnUninstall = func(name string) {
+		editor.PluginUninstallByName(name)
+	}
+	pluginsPanel.OnToggle = func(name string, enabled bool) {
+		if err := pluginManager.SetEnabled(name, enabled); err != nil {
+			slog.Error("toggle plugin", "error", err)
+		}
+		pluginsPanel.Refresh()
+	}
+	pluginsPanel.OnUpdate = func(name string) {
+		editor.PluginUpdateByName(name)
+	}
+
+	go func() {
+		entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
+		if err != nil {
+			slog.Debug("fetch plugin registry", "error", err)
+			return
+		}
+		screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries}))
+	}()
+
 	if len(pendingApprovals) > 0 {
 		editor.PendingPluginApprovals = pendingApprovals
 	}

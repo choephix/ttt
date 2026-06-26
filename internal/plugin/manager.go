@@ -1,8 +1,12 @@
 package plugin
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/eugenioenko/ttt/internal/config"
 	lua "github.com/yuin/gopher-lua"
@@ -121,7 +125,7 @@ func (m *Manager) ApproveAndLoad(p *Plugin) error {
 
 	m.registry.AddOrUpdate(
 		p.Manifest.Name,
-		"",
+		p.Repo,
 		p.Manifest.Version,
 		p.Manifest.Permissions,
 	)
@@ -180,6 +184,197 @@ func (m *Manager) DispatchEvent(name string, args ...interface{}) {
 		}
 		p.DispatchEvent(name, largs...)
 	}
+}
+
+func (m *Manager) Install(repoURL string) (*Plugin, error) {
+	name := filepath.Base(repoURL)
+	name = strings.TrimSuffix(name, ".git")
+	if name == "" || name == "." {
+		return nil, fmt.Errorf("invalid repository URL")
+	}
+
+	targetDir := filepath.Join(m.pluginsDir, name)
+	if _, err := os.Stat(targetDir); err == nil {
+		return nil, fmt.Errorf("plugin %q already exists", name)
+	}
+
+	cmd := exec.Command("git", "clone", repoURL, targetDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("git clone failed: %s: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	manifest, err := LoadManifest(targetDir)
+	if err != nil {
+		os.RemoveAll(targetDir)
+		return nil, fmt.Errorf("invalid plugin: %w", err)
+	}
+
+	return &Plugin{
+		Name:     manifest.Name,
+		Dir:      targetDir,
+		Repo:     repoURL,
+		Manifest: manifest,
+	}, nil
+}
+
+func (m *Manager) Uninstall(name string) error {
+	for i, p := range m.plugins {
+		if p.Name == name {
+			p.Destroy()
+			m.plugins = append(m.plugins[:i], m.plugins[i+1:]...)
+			break
+		}
+	}
+
+	dir := filepath.Join(m.pluginsDir, name)
+	if err := os.RemoveAll(dir); err != nil {
+		slog.Error("remove plugin directory", "error", err)
+	}
+
+	m.registry.Remove(name)
+	if err := m.registry.Save(); err != nil {
+		slog.Error("save plugin registry", "error", err)
+	}
+
+	for i, reg := range m.SidebarPanels {
+		if reg.ID == "plugin."+name {
+			m.SidebarPanels = append(m.SidebarPanels[:i], m.SidebarPanels[i+1:]...)
+			break
+		}
+	}
+	for i, reg := range m.BottomPanels {
+		if reg.ID == "plugin."+name {
+			m.BottomPanels = append(m.BottomPanels[:i], m.BottomPanels[i+1:]...)
+			break
+		}
+	}
+
+	return nil
+}
+
+func (m *Manager) Update(name string) (*Plugin, bool, error) {
+	dir := filepath.Join(m.pluginsDir, name)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, false, fmt.Errorf("plugin %q not found", name)
+	}
+
+	cmd := exec.Command("git", "-C", dir, "pull")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, false, fmt.Errorf("git pull failed: %s: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	newManifest, err := LoadManifest(dir)
+	if err != nil {
+		return nil, false, fmt.Errorf("invalid manifest after update: %w", err)
+	}
+
+	regEntry := m.registry.Find(name)
+	if regEntry == nil {
+		p := &Plugin{Name: newManifest.Name, Dir: dir, Manifest: newManifest}
+		return p, true, nil
+	}
+
+	diff := DiffPermissions(regEntry.Permissions, newManifest.Permissions)
+	if !diff.IsEmpty() {
+		for i, p := range m.plugins {
+			if p.Name == name {
+				p.Destroy()
+				m.plugins = append(m.plugins[:i], m.plugins[i+1:]...)
+				break
+			}
+		}
+		regEntry.Enabled = false
+		m.registry.Save()
+		p := &Plugin{Name: newManifest.Name, Dir: dir, Manifest: newManifest}
+		return p, true, nil
+	}
+
+	for _, p := range m.plugins {
+		if p.Name == name {
+			p.Destroy()
+			p.Manifest = newManifest
+			if err := p.Init(); err != nil {
+				return nil, false, err
+			}
+			m.collectRegistrations(p)
+			regEntry.Version = newManifest.Version
+			m.registry.Save()
+			return nil, false, nil
+		}
+	}
+
+	return nil, false, nil
+}
+
+func (m *Manager) SetEnabled(name string, enabled bool) error {
+	m.registry.SetEnabled(name, enabled)
+	if err := m.registry.Save(); err != nil {
+		return err
+	}
+
+	if !enabled {
+		for i, p := range m.plugins {
+			if p.Name == name {
+				p.Destroy()
+				m.plugins = append(m.plugins[:i], m.plugins[i+1:]...)
+				break
+			}
+		}
+		return nil
+	}
+
+	dir := filepath.Join(m.pluginsDir, name)
+	manifest, err := LoadManifest(dir)
+	if err != nil {
+		return err
+	}
+
+	regEntry := m.registry.Find(name)
+	if regEntry == nil {
+		return fmt.Errorf("plugin %q not in registry", name)
+	}
+
+	p := &Plugin{
+		Name:     manifest.Name,
+		Dir:      dir,
+		Manifest: manifest,
+		Granted:  regEntry.Permissions,
+	}
+	if err := p.Init(); err != nil {
+		return err
+	}
+
+	m.plugins = append(m.plugins, p)
+	m.collectRegistrations(p)
+	return nil
+}
+
+func (m *Manager) PluginsDir() string {
+	return m.pluginsDir
+}
+
+func (m *Manager) Registry() *Registry {
+	return m.registry
+}
+
+func (m *Manager) InstalledPluginNames() []string {
+	if m.registry == nil {
+		return nil
+	}
+	var names []string
+	for _, e := range m.registry.Entries {
+		names = append(names, e.Name)
+	}
+	return names
+}
+
+func (m *Manager) FindPlugin(name string) *Plugin {
+	for _, p := range m.plugins {
+		if p.Name == name {
+			return p
+		}
+	}
+	return nil
 }
 
 func (m *Manager) Shutdown() {

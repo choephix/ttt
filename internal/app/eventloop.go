@@ -306,6 +306,12 @@ func RunEventLoop(
 				if v.Callback != nil {
 					v.Callback()
 				}
+			case *pluginInstallResult:
+				app.handlePluginInstallResult(v)
+			case *pluginUpdateResult:
+				app.handlePluginUpdateResult(v)
+			case *RemoteRegistryResult:
+				app.handleRemoteRegistryResult(v)
 			case *PrFetchResult:
 				if v.Err != nil {
 					app.StatusError("PR fetch failed: " + v.Err.Error())

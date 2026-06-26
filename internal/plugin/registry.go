@@ -67,6 +67,15 @@ func (r *Registry) SetEnabled(name string, enabled bool) {
 	}
 }
 
+func (r *Registry) Remove(name string) {
+	for i := range r.Entries {
+		if r.Entries[i].Name == name {
+			r.Entries = append(r.Entries[:i], r.Entries[i+1:]...)
+			return
+		}
+	}
+}
+
 func (r *Registry) AddOrUpdate(name, repo, version string, perms PermissionSet) {
 	entry := r.Find(name)
 	if entry != nil {

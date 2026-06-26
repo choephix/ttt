@@ -7,6 +7,8 @@ ttt supports Lua plugins that can render panels in the sidebar and bottom panel 
 - [Getting Started](#getting-started)
 - [Plugin Lifecycle](#plugin-lifecycle)
 - [Registration](#registration)
+  - [Commands](#commands)
+  - [Keybindings](#keybindings)
 - [Widget API](#widget-api)
   - [Label](#label)
   - [Tree](#tree)
@@ -128,7 +130,7 @@ Currently, plugins are only loaded at startup. To reload a plugin after editing 
 
 The entry point Lua file must call `ttt.register()` to declare what the plugin provides. This is the only function available on the `ttt` module.
 
-`ttt.register()` accepts a table with `sidebar` and/or `bottom` fields. A plugin can register both:
+`ttt.register()` accepts a table with `sidebar`, `bottom`, `commands`, and/or `keybindings` fields. A plugin can register any combination:
 
 ```lua
 local ttt = require("ttt")
@@ -148,8 +150,18 @@ ttt.register({
     render = function(panel) end,
     on_event = function(event) end,
   },
+  commands = {
+    { id = "myplugin.doSomething", title = "My Plugin: Do Something", handler = function()
+      -- command logic here
+    end },
+  },
+  keybindings = {
+    { key = "ctrl+k d", command = "myplugin.doSomething" },
+  },
 })
 ```
+
+### Panel Fields
 
 | Field      | Required | Description                                                    |
 |------------|----------|----------------------------------------------------------------|
@@ -160,6 +172,31 @@ ttt.register({
 **Sidebar** panels appear in the left sidebar alongside the file explorer. They require the `panel.sidebar` permission.
 
 **Bottom** panels appear in the bottom panel alongside the terminal. They require the `panel.bottom` permission.
+
+### Commands
+
+Plugins can register commands that appear in the command palette. Requires the `commands` permission.
+
+Each command entry is a table with:
+
+| Field     | Required | Description                              |
+|-----------|----------|------------------------------------------|
+| `id`      | yes      | Unique command ID (e.g. `myplugin.run`). |
+| `title`   | yes      | Display title in the command palette.     |
+| `handler` | yes      | Function called when the command runs.    |
+
+### Keybindings
+
+Plugins can register keyboard shortcuts for their commands. Requires the `keybindings` permission.
+
+Each keybinding entry is a table with:
+
+| Field     | Required | Description                                           |
+|-----------|----------|-------------------------------------------------------|
+| `key`     | yes      | Key combination string (e.g. `ctrl+k d` for a chord). |
+| `command` | yes      | Command ID to execute when the key is pressed.        |
+
+Use `ctrl+k <key>` chords for plugin keybindings to avoid conflicts with built-in shortcuts. Avoid `ctrl+shift` combos — they are unreliable in many terminals.
 
 ---
 
@@ -911,29 +948,50 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 
 ## Managing Plugins
 
+### Plugins Panel
+
+Open the **Plugins** tab in the sidebar (`Plugins: Show Panel` from the command palette) to see installed and available plugins. The panel has two sections:
+
+- **INSTALLED** — Lists all installed plugins with their status and version. Action buttons let you update or remove plugins.
+- **AVAILABLE** — Fetched from the vetted plugin registry. Click to install.
+
 ### Installing
+
+**From the command palette:**
+
+1. Run **Plugins: Install from URL**
+2. Enter a git repository URL (e.g. `https://github.com/author/ttt-docker`)
+3. The plugin is cloned into `~/.config/ttt/plugins/<name>/`
+4. An approval dialog shows the requested permissions
+5. Click **Allow** to load the plugin immediately
+
+**Manual installation:**
 
 Copy or clone the plugin directory into `~/.config/ttt/plugins/`:
 
 ```sh
-cp -r my-plugin ~/.config/ttt/plugins/
+git clone https://github.com/author/ttt-my-plugin ~/.config/ttt/plugins/my-plugin
 ```
 
 Restart ttt. If the plugin is new, you'll see an approval dialog.
 
 ### Plugin List
 
-Open the command palette (`Ctrl+Shift+P`) and run **Plugins: List Installed** to see all installed plugins with their status and version.
+Open the command palette and run **Plugins: List Installed** to see all installed plugins with their status and version.
+
+### Updating
+
+Run **Plugins: Update** from the command palette and select a plugin. This runs `git pull` in the plugin directory. If the updated manifest requests new permissions, the plugin is disabled and you'll be prompted to re-approve.
 
 ### Removing
 
-Delete the plugin directory:
+Run **Plugins: Uninstall** from the command palette and select a plugin. This removes the plugin directory and its registry entry.
+
+Manual removal:
 
 ```sh
 rm -rf ~/.config/ttt/plugins/my-plugin
 ```
-
-The approval record in `~/.config/ttt/plugins.ttt.json` can be left — it's harmless and will be ignored.
 
 ---
 

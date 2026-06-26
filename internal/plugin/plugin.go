@@ -7,9 +7,21 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+type PluginCommand struct {
+	ID      string
+	Title   string
+	Handler *lua.LFunction
+}
+
+type PluginKeybinding struct {
+	Key     string
+	Command string
+}
+
 type Plugin struct {
 	Name     string
 	Dir      string
+	Repo     string
 	Manifest Manifest
 	Granted  PermissionSet
 	Enabled  bool
@@ -22,6 +34,9 @@ type Plugin struct {
 	BottomTitle      string
 	BottomRenderFunc *lua.LFunction
 	BottomEventFunc  *lua.LFunction
+
+	Commands          []PluginCommand
+	PluginKeybindings []PluginKeybinding
 
 	RequestRedraw func()
 	PostAsync     func(*PluginAsyncResult)
@@ -69,6 +84,8 @@ func (p *Plugin) Destroy() {
 	p.EventFunc = nil
 	p.BottomRenderFunc = nil
 	p.BottomEventFunc = nil
+	p.Commands = nil
+	p.PluginKeybindings = nil
 	p.RequestRedraw = nil
 	p.PostAsync = nil
 	p.EventListeners = nil
