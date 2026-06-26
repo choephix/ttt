@@ -74,7 +74,7 @@ func (kv *KeyValueListWidget) Render(surface Surface) {
 		surface.DrawText(kx, y, entry.Key, keyColW, keyStyle)
 
 		valX := keyColW + 2
-		surface.DrawText(valX, y, entry.Value, w-valX, valStyle)
+		surface.DrawText(valX, y, entry.Value, w, valStyle)
 	}
 }
 
