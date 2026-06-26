@@ -399,9 +399,15 @@ func (cp *ChangesPanel) handleCommand(cmd string, node *widgets.TreeNode) {
 			cp.Refresh()
 		}
 	case "stageAll":
-		cp.stageAll()
+		gi := cp.groupIndexFromNode(node)
+		if gi >= 0 {
+			cp.stageAllInGroup(gi)
+		}
 	case "unstageAll":
-		cp.unstageAll()
+		gi := cp.groupIndexFromNode(node)
+		if gi >= 0 {
+			cp.unstageAllInGroup(gi)
+		}
 	case "discardAll":
 		gi := cp.groupIndexFromNode(node)
 		if gi >= 0 {
@@ -629,6 +635,28 @@ func (cp *ChangesPanel) unstageAll() {
 		for _, f := range g.Staged {
 			git.Unstage(g.Dir, f.Path)
 		}
+	}
+	cp.Refresh()
+}
+
+func (cp *ChangesPanel) stageAllInGroup(gi int) {
+	if gi < 0 || gi >= len(cp.groups) {
+		return
+	}
+	g := cp.groups[gi]
+	for _, f := range g.Unstaged {
+		git.Stage(g.Dir, f.Path)
+	}
+	cp.Refresh()
+}
+
+func (cp *ChangesPanel) unstageAllInGroup(gi int) {
+	if gi < 0 || gi >= len(cp.groups) {
+		return
+	}
+	g := cp.groups[gi]
+	for _, f := range g.Staged {
+		git.Unstage(g.Dir, f.Path)
 	}
 	cp.Refresh()
 }
