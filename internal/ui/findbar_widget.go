@@ -75,6 +75,10 @@ func (f *FindBarWidget) barLayout() (barX, barY, barW, barH int) {
 
 func (f *FindBarWidget) Focusable() bool { return true }
 
+func (f *FindBarWidget) Focus() {
+	f.focused = true
+}
+
 func (f *FindBarWidget) CursorPosition() (int, int, bool) {
 	if !f.focused {
 		return 0, 0, false

@@ -278,6 +278,22 @@ func (r *Root) HasOverlay() bool {
 	return len(r.Overlays) > 0
 }
 
+func (r *Root) HasModalOverlay() bool {
+	for _, o := range r.Overlays {
+		if o.Modal {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Root) TopOverlayWidget() Widget {
+	if len(r.Overlays) == 0 {
+		return nil
+	}
+	return r.Overlays[len(r.Overlays)-1].Widget
+}
+
 func (r *Root) PushOverlay(o Overlay) {
 	r.Overlays = append(r.Overlays, o)
 	slog.Debug("root", "action", "pushOverlay", "count", len(r.Overlays), "modal", o.Modal)

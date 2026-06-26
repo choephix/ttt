@@ -7,6 +7,9 @@ import (
 
 func (a *App) OpenFind() {
 	if a.Root.HasOverlay() {
+		if fb, ok := a.Root.TopOverlayWidget().(*ui.FindBarWidget); ok {
+			fb.Focus()
+		}
 		return
 	}
 	dv := a.EditorGroup.ActiveDiffWidget()
