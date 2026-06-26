@@ -187,7 +187,7 @@ func (e *EditorPaneWidget) screenToBufferLine(y int) int {
 	return e.cachedVisibleLines[idx]
 }
 
-func (e *EditorPaneWidget) Render(surface *RenderSurface) {
+func (e *EditorPaneWidget) Render(surface Surface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)

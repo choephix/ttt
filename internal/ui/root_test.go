@@ -22,7 +22,7 @@ func (m *mockWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventConsumed
 }
 
-func (m *mockWidget) Render(surface *RenderSurface) {
+func (m *mockWidget) Render(surface Surface) {
 	m.rendered = true
 	if m.renderChar != 0 {
 		surface.Fill(term.Cell{Ch: m.renderChar})
@@ -41,7 +41,7 @@ func (m *passThroughWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-func (m *passThroughWidget) Render(surface *RenderSurface) {}
+func (m *passThroughWidget) Render(surface Surface) {}
 func (m *passThroughWidget) Focusable() bool               { return true }
 
 func makeKeyEvent(key tcell.Key, mod tcell.ModMask) *tcell.EventKey {

@@ -46,7 +46,7 @@ func (a *WidgetAdapter) wireTabbedCallbacks(w widgets.Widget) {
 
 func (a *WidgetAdapter) Focusable() bool { return true }
 
-func (a *WidgetAdapter) Render(surface *RenderSurface) {
+func (a *WidgetAdapter) Render(surface Surface) {
 	r := a.GetRect()
 	a.W.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
 	a.W.Render(surface)
@@ -54,7 +54,7 @@ func (a *WidgetAdapter) Render(surface *RenderSurface) {
 	if fw := a.focus.Focused(); fw != nil {
 		if pr, ok := fw.(widgets.PopupRenderer); ok && pr.HasPopup() {
 			rect := pr.PopupRect()
-			pr.RenderPopup(surface.sub(Rect{X: rect.X, Y: rect.Y, W: rect.W, H: rect.H}))
+			pr.RenderPopup(surface.Sub(Rect{X: rect.X, Y: rect.Y, W: rect.W, H: rect.H}))
 		}
 	}
 }

@@ -82,7 +82,7 @@ func (s *RenderSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.
 	s.SetCell(x+w-1, y+h-1, term.Cell{Ch: b.BottomRight, Style: style})
 }
 
-func (s *RenderSurface) sub(r Rect) *RenderSurface {
+func (s *RenderSurface) Sub(r Rect) widgets.Surface {
 	newX := s.clip.X + r.X
 	newY := s.clip.Y + r.Y
 	newW := r.W
@@ -113,8 +113,4 @@ func (s *RenderSurface) sub(r Rect) *RenderSurface {
 		cells: s.cells,
 		clip:  Rect{X: newX, Y: newY, W: newW, H: newH},
 	}
-}
-
-func (s *RenderSurface) Sub(r Rect) widgets.Surface {
-	return s.sub(r)
 }

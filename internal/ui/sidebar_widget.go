@@ -24,7 +24,7 @@ func NewSidebarWidget() *SidebarWidget {
 
 func (s *SidebarWidget) Focusable() bool { return true }
 
-func (s *SidebarWidget) Render(surface *RenderSurface) {
+func (s *SidebarWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	r := s.GetRect()
 
@@ -40,7 +40,7 @@ func (s *SidebarWidget) Render(surface *RenderSurface) {
 	if active != nil {
 		contentH := h - tabH
 		active.SetRect(Rect{X: r.X, Y: r.Y + tabH, W: r.W, H: contentH})
-		sub := surface.sub(Rect{X: 0, Y: tabH, W: w, H: contentH})
+		sub := surface.Sub(Rect{X: 0, Y: tabH, W: w, H: contentH})
 		active.Render(sub)
 	}
 }

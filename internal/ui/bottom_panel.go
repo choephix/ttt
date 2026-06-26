@@ -25,7 +25,7 @@ func NewBottomPanelWidget(borders *term.BorderSet) *BottomPanelWidget {
 
 func (bp *BottomPanelWidget) Focusable() bool { return true }
 
-func (bp *BottomPanelWidget) Render(surface *RenderSurface) {
+func (bp *BottomPanelWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	r := bp.GetRect()
 
@@ -40,7 +40,7 @@ func (bp *BottomPanelWidget) Render(surface *RenderSurface) {
 	active := bp.ActiveWidget()
 	if active != nil && contentH > 0 {
 		active.SetRect(Rect{X: r.X, Y: r.Y + 2, W: r.W, H: contentH})
-		contentSurface := surface.sub(Rect{X: 0, Y: 2, W: w, H: contentH})
+		contentSurface := surface.Sub(Rect{X: 0, Y: 2, W: w, H: contentH})
 		active.Render(contentSurface)
 	}
 }

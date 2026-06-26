@@ -105,7 +105,7 @@ func (r *ReplaceBarWidget) CursorPosition() (int, int, bool) {
 	return rect.X + cx, rect.Y + row, true
 }
 
-func (r *ReplaceBarWidget) Render(surface *RenderSurface) {
+func (r *ReplaceBarWidget) Render(surface Surface) {
 	sw, _ := surface.Size()
 
 	barW := 40

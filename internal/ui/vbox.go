@@ -59,14 +59,14 @@ func (v *VBox) Layout() {
 	}
 }
 
-func (v *VBox) Render(surface *RenderSurface) {
+func (v *VBox) Render(surface Surface) {
 	v.Layout()
 	for _, child := range v.Children {
 		if child.Constraint.Type == Hidden {
 			continue
 		}
 		cr := child.Widget.GetRect()
-		sub := surface.sub(Rect{X: cr.X - v.rect.X, Y: cr.Y - v.rect.Y, W: cr.W, H: cr.H})
+		sub := surface.Sub(Rect{X: cr.X - v.rect.X, Y: cr.Y - v.rect.Y, W: cr.W, H: cr.H})
 		child.Widget.Render(sub)
 	}
 }

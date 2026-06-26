@@ -269,7 +269,7 @@ func (d *DiffViewWidget) gutterWidth() int {
 	return digits + 3
 }
 
-func (d *DiffViewWidget) Render(surface *RenderSurface) {
+func (d *DiffViewWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	r := d.GetRect()
 
@@ -393,7 +393,7 @@ func (d *DiffViewWidget) Render(surface *RenderSurface) {
 	}
 }
 
-func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl diff.SideLine, style term.Style) {
+func (d *DiffViewWidget) renderGutter(surface Surface, x, y, w int, sl diff.SideLine, style term.Style) {
 	num := ""
 	if sl.Num > 0 {
 		num = fmt.Sprintf("%d", sl.Num)
@@ -407,7 +407,7 @@ func (d *DiffViewWidget) renderGutter(surface *RenderSurface, x, y, w int, sl di
 	}
 }
 
-func (d *DiffViewWidget) renderSide(surface *RenderSurface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span, lineIdx int, matches []FindMatch, activeIdx int, selSide bool) {
+func (d *DiffViewWidget) renderSide(surface Surface, x, y, w int, text string, baseStyle term.Style, spans []highlight.Span, lineIdx int, matches []FindMatch, activeIdx int, selSide bool) {
 	runes := []rune(text)
 	for i := 0; i < w; i++ {
 		colIdx := d.LeftCol + i

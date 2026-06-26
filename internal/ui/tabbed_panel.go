@@ -130,12 +130,12 @@ func (tp *TabbedPanel) syncTabs() {
 	tp.Tabs.Config.Items = items
 }
 
-func (tp *TabbedPanel) RenderTabs(surface *RenderSurface, r Rect) {
+func (tp *TabbedPanel) RenderTabs(surface Surface, r Rect) {
 	tp.Tabs.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: 1})
-	tp.Tabs.Render(surface.sub(Rect{X: 0, Y: 0, W: r.W, H: 1}))
+	tp.Tabs.Render(surface.Sub(Rect{X: 0, Y: 0, W: r.W, H: 1}))
 }
 
-func (tp *TabbedPanel) RenderDivider(surface *RenderSurface, y, w int, borders *term.BorderSet) {
+func (tp *TabbedPanel) RenderDivider(surface Surface, y, w int, borders *term.BorderSet) {
 	horizontal := '─'
 	if borders != nil {
 		horizontal = borders.Horizontal

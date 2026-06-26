@@ -39,7 +39,7 @@ func NewSplitPanelWidget() *SplitPanelWidget {
 
 func (s *SplitPanelWidget) Focusable() bool { return false }
 
-func (s *SplitPanelWidget) Render(surface *RenderSurface) {
+func (s *SplitPanelWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	if w < 4 || h < 3 {
 		return
@@ -111,7 +111,7 @@ func (s *SplitPanelWidget) Render(surface *RenderSurface) {
 	leftH := h - 2
 	if s.Left != nil && leftW > 0 && leftH > 0 {
 		s.Left.SetRect(Rect{X: r.X + 1, Y: r.Y + 1, W: leftW, H: leftH})
-		leftSurface := surface.sub(Rect{X: 1, Y: 1, W: leftW, H: leftH})
+		leftSurface := surface.Sub(Rect{X: 1, Y: 1, W: leftW, H: leftH})
 		s.Left.Render(leftSurface)
 	}
 
@@ -121,12 +121,12 @@ func (s *SplitPanelWidget) Render(surface *RenderSurface) {
 	rightH := h - 1
 	if s.Right != nil && rightW > 0 && rightH > 0 {
 		s.Right.SetRect(Rect{X: r.X + rightX, Y: r.Y, W: rightW, H: rightH})
-		rightSurface := surface.sub(Rect{X: rightX, Y: 0, W: rightW, H: rightH})
+		rightSurface := surface.Sub(Rect{X: rightX, Y: 0, W: rightW, H: rightH})
 		s.Right.Render(rightSurface)
 	}
 }
 
-func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b term.BorderSet, bs term.Style) {
+func (s *SplitPanelWidget) renderSinglePanel(surface Surface, w, h int, b term.BorderSet, bs term.Style) {
 	r := s.GetRect()
 
 	// Bottom border
@@ -167,7 +167,7 @@ func (s *SplitPanelWidget) renderSinglePanel(surface *RenderSurface, w, h int, b
 	ch := h - 1
 	if s.Right != nil && cw > 0 && ch > 0 {
 		s.Right.SetRect(Rect{X: r.X + 1, Y: r.Y, W: cw, H: ch})
-		sub := surface.sub(Rect{X: 1, Y: 0, W: cw, H: ch})
+		sub := surface.Sub(Rect{X: 1, Y: 0, W: cw, H: ch})
 		s.Right.Render(sub)
 	}
 }

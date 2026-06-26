@@ -31,7 +31,7 @@ func NewContentSplitWidget() *ContentSplitWidget {
 
 func (cs *ContentSplitWidget) Focusable() bool { return false }
 
-func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
+func (cs *ContentSplitWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	r := cs.GetRect()
 
@@ -70,7 +70,7 @@ func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
 	// Top content
 	if cs.Top != nil && topH > 0 {
 		cs.Top.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: topH})
-		topSurface := surface.sub(Rect{X: 0, Y: 0, W: w, H: topH})
+		topSurface := surface.Sub(Rect{X: 0, Y: 0, W: w, H: topH})
 		cs.Top.Render(topSurface)
 	}
 
@@ -83,7 +83,7 @@ func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
 	bottomContentH := h - divY - 1
 	if cs.Bottom != nil && bottomContentH > 0 {
 		cs.Bottom.SetRect(Rect{X: r.X, Y: r.Y + divY + 1, W: r.W, H: bottomContentH})
-		bottomSurface := surface.sub(Rect{X: 0, Y: divY + 1, W: w, H: bottomContentH})
+		bottomSurface := surface.Sub(Rect{X: 0, Y: divY + 1, W: w, H: bottomContentH})
 		cs.Bottom.Render(bottomSurface)
 	}
 }

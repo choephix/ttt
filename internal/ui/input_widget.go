@@ -78,13 +78,16 @@ func (inp *InputWidget) deleteSelection() {
 	inp.notify()
 }
 
-func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
+func (inp *InputWidget) Render(surface Surface, x, y, w int) {
 	actionsW := inp.actionsWidth()
 	prefixRunes := []rune(inp.Prefix)
 	prefixW := len(prefixRunes)
 	textW := w - actionsW - prefixW
 
-	ox, oy := surface.Origin()
+	var ox, oy int
+	if rs, ok := surface.(*RenderSurface); ok {
+		ox, oy = rs.Origin()
+	}
 	inp.renderX = ox + x + prefixW
 	inp.renderY = oy + y
 	for i, ch := range prefixRunes {

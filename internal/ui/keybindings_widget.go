@@ -81,7 +81,7 @@ func (w *KeybindingsWidget) CursorPosition() (int, int, bool) {
 	return w.input.CursorX(w.inputX), w.inputY, true
 }
 
-func (w *KeybindingsWidget) Render(surface *RenderSurface) {
+func (w *KeybindingsWidget) Render(surface Surface) {
 	sw, sh := surface.Size()
 
 	boxW := sw * 7 / 10
@@ -194,7 +194,10 @@ func (w *KeybindingsWidget) Render(surface *RenderSurface) {
 
 	footerY := boxY + boxH - 2
 	surface.ClearRect(boxX+1, footerY, boxW-2, 1, term.StyleDefault)
-	ox, oy := surface.Origin()
+	var ox, oy int
+	if rs, ok := surface.(*RenderSurface); ok {
+		ox, oy = rs.Origin()
+	}
 	if w.recording {
 		hint := "Press key combination, Enter to confirm"
 		surface.DrawText(boxX+2, footerY, hint, boxX+boxW-2, term.StyleMuted)
@@ -203,7 +206,7 @@ func (w *KeybindingsWidget) Render(surface *RenderSurface) {
 	}
 }
 
-func (w *KeybindingsWidget) renderShortcut(surface *RenderSurface, y, contentRight int, item keybindingEntry, style term.Style) {
+func (w *KeybindingsWidget) renderShortcut(surface Surface, y, contentRight int, item keybindingEntry, style term.Style) {
 	shortcut := ""
 	if w.GetShortcut != nil {
 		shortcut = w.GetShortcut(item.CmdID)
@@ -234,7 +237,7 @@ func (w *KeybindingsWidget) renderShortcut(surface *RenderSurface, y, contentRig
 	}
 }
 
-func (w *KeybindingsWidget) renderFooterActions(surface *RenderSurface, y, ox, oy int) {
+func (w *KeybindingsWidget) renderFooterActions(surface Surface, y, ox, oy int) {
 	type footerBtn struct {
 		label string
 		hit   *HitRegion

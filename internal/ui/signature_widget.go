@@ -26,7 +26,7 @@ func NewSignatureHelpWidget(label string, paramStart, paramEnd int) *SignatureHe
 
 func (s *SignatureHelpWidget) Focusable() bool { return false }
 
-func (s *SignatureHelpWidget) Render(surface *RenderSurface) {
+func (s *SignatureHelpWidget) Render(surface Surface) {
 	if s.Label == "" {
 		return
 	}

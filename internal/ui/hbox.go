@@ -54,14 +54,14 @@ func (h *HBox) Layout() {
 	}
 }
 
-func (h *HBox) Render(surface *RenderSurface) {
+func (h *HBox) Render(surface Surface) {
 	h.Layout()
 	for _, child := range h.Children {
 		if child.Constraint.Type == Hidden {
 			continue
 		}
 		cr := child.Widget.GetRect()
-		sub := surface.sub(Rect{X: cr.X - h.rect.X, Y: cr.Y - h.rect.Y, W: cr.W, H: cr.H})
+		sub := surface.Sub(Rect{X: cr.X - h.rect.X, Y: cr.Y - h.rect.Y, W: cr.W, H: cr.H})
 		child.Widget.Render(sub)
 	}
 }

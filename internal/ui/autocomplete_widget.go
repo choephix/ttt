@@ -174,7 +174,7 @@ func (a *AutocompleteWidget) ensureVisible() {
 	}
 }
 
-func (a *AutocompleteWidget) Render(surface *RenderSurface) {
+func (a *AutocompleteWidget) Render(surface Surface) {
 	if len(a.Items) == 0 {
 		return
 	}

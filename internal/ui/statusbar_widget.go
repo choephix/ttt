@@ -28,7 +28,7 @@ func NewStatusBarWidget(status *view.StatusBar) *StatusBarWidget {
 	return &StatusBarWidget{Status: status}
 }
 
-func (s *StatusBarWidget) Render(surface *RenderSurface) {
+func (s *StatusBarWidget) Render(surface Surface) {
 	w, _ := surface.Size()
 	st := s.Status
 
@@ -117,7 +117,7 @@ func (s *StatusBarWidget) Render(surface *RenderSurface) {
 	}
 }
 
-func (s *StatusBarWidget) renderNotification(surface *RenderSurface, w int) {
+func (s *StatusBarWidget) renderNotification(surface Surface, w int) {
 	r := s.GetRect()
 	style := s.Status.NotifyLevel.Style()
 
@@ -210,7 +210,7 @@ func (s *StatusBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
-func (s *StatusBarWidget) drawText(surface *RenderSurface, x int, text string, style term.Style) int {
+func (s *StatusBarWidget) drawText(surface Surface, x int, text string, style term.Style) int {
 	w, _ := surface.Size()
 	n := 0
 	for _, ch := range text {

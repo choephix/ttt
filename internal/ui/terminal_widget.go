@@ -85,7 +85,7 @@ func (tw *TerminalWidget) IsScrolledUp() bool {
 	return tw.scrollOffset > 0
 }
 
-func (tw *TerminalWidget) Render(surface *RenderSurface) {
+func (tw *TerminalWidget) Render(surface Surface) {
 	if tw.Term == nil {
 		return
 	}

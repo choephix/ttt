@@ -7,6 +7,8 @@ import (
 
 type Rect = widgets.Rect
 
+type Surface = widgets.Surface
+
 type EventResult = widgets.EventResult
 
 const (
@@ -33,7 +35,7 @@ type Widget interface {
 	SetRect(r Rect)
 	GetRect() Rect
 	HandleEvent(ev tcell.Event) EventResult
-	Render(surface *RenderSurface)
+	Render(surface Surface)
 	Focusable() bool
 }
 
