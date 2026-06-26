@@ -54,7 +54,7 @@ func (a *WidgetAdapter) Render(surface Surface) {
 	if fw := a.focus.Focused(); fw != nil {
 		if pr, ok := fw.(widgets.PopupRenderer); ok && pr.HasPopup() {
 			rect := pr.PopupRect()
-			pr.RenderPopup(surface.Sub(Rect{X: rect.X, Y: rect.Y, W: rect.W, H: rect.H}))
+			pr.RenderPopup(surface.Sub(Rect{X: rect.X - r.X, Y: rect.Y - r.Y, W: rect.W, H: rect.H}))
 		}
 	}
 }
