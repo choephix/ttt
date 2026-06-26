@@ -28,6 +28,8 @@ func NewStatusBarWidget(status *view.StatusBar) *StatusBarWidget {
 	return &StatusBarWidget{Status: status}
 }
 
+func (s *StatusBarWidget) Height() int { return 1 }
+
 func (s *StatusBarWidget) Render(surface Surface) {
 	w, _ := surface.Size()
 	st := s.Status

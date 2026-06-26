@@ -19,19 +19,6 @@ const (
 	EventCaptured  = widgets.EventCaptured
 )
 
-type ConstraintType int
-
-const (
-	Fixed  ConstraintType = iota
-	Flex
-	Hidden
-)
-
-type LayoutConstraint struct {
-	Type  ConstraintType
-	Value int
-}
-
 type CursorProvider interface {
 	CursorPosition() (x, y int, visible bool)
 }

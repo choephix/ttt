@@ -10,6 +10,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
@@ -171,10 +172,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	splitPanel.RightBorderStartY = 2
 	contentSplit.RightBorderStartY = &splitPanel.RightBorderStartY
 
-	rootBox := &ui.VBox{}
-	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
-	rootBox.AddChild(splitPanel, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
-	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
+	rootBox := widgets.NewVStackWidget(menuBar, splitPanel, statusBar)
 
 	root := ui.NewRoot(rootBox)
 	root.SetFocus(editorGroup)
