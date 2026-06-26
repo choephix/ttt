@@ -53,6 +53,8 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases]
 
 ### From Source
 
+> **Note:** Building from source compiles the latest development code, which may include work-in-progress features and could be less stable than official releases.
+
 ```sh
 git clone https://github.com/eugenioenko/ttt.git
 cd ttt
