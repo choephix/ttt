@@ -78,13 +78,17 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 		}
 
 		var args []string
-		if argsTbl, ok := L.Get(2).(*lua.LTable); ok {
-			argsTbl.ForEach(func(_, v lua.LValue) {
-				args = append(args, v.String())
-			})
+		var callback *lua.LFunction
+		if fn, ok := L.Get(2).(*lua.LFunction); ok {
+			callback = fn
+		} else {
+			if argsTbl, ok := L.Get(2).(*lua.LTable); ok {
+				argsTbl.ForEach(func(_, v lua.LValue) {
+					args = append(args, v.String())
+				})
+			}
+			callback = L.CheckFunction(3)
 		}
-
-		callback := L.CheckFunction(3)
 
 		go func() {
 			stdout, stderr, exitCode, err := p.System.Exec(binary, args)

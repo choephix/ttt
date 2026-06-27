@@ -149,6 +149,38 @@ func TestSystemNoEnvPermission(t *testing.T) {
 	}
 }
 
+func TestSystemExecAsyncWithoutArgs(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "output"}
+
+	ch := make(chan func(), 1)
+	p, cleanup := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+	defer cleanup()
+
+	p.PostAsync = func(result *PluginAsyncResult) {
+		ch <- result.Callback
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("echo", function(result)
+			_G.got_stdout = result.stdout
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async without args failed: %v", err)
+	}
+
+	callback := <-ch
+	callback()
+
+	if p.State.GetGlobal("got_stdout").String() != "output" {
+		t.Errorf("expected stdout 'output', got %q", p.State.GetGlobal("got_stdout").String())
+	}
+}
+
 func TestSystemExecAsyncRaceSafety(t *testing.T) {
 	mock := &mockSystemAPI{stdout: "ok"}
 
