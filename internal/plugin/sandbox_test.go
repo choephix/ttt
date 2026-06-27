@@ -31,6 +31,31 @@ func TestSandboxLoadCannotCompileCode(t *testing.T) {
 	}
 }
 
+func TestSandboxPackageLoadersRestricted(t *testing.T) {
+	L := NewSandbox()
+	defer L.Close()
+
+	err := L.DoString(`
+		local loaders = package.loaders
+		if #loaders ~= 1 then
+			error("expected exactly 1 loader (preload), got " .. #loaders)
+		end
+	`)
+	if err != nil {
+		t.Fatalf("package.loaders check failed: %v", err)
+	}
+
+	err = L.DoString(`
+		local loader = package.loaders[2]
+		if loader ~= nil then
+			error("filesystem loader should not be present")
+		end
+	`)
+	if err != nil {
+		t.Fatalf("filesystem loader check failed: %v", err)
+	}
+}
+
 func TestSandboxSafeModulesWork(t *testing.T) {
 	L := NewSandbox()
 	defer L.Close()

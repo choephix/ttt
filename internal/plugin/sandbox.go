@@ -65,6 +65,18 @@ func NewSandbox() *lua.LState {
 		L.SetGlobal(name, lua.LNil)
 	}
 
+	pkg := L.GetGlobal("package")
+	if tbl, ok := pkg.(*lua.LTable); ok {
+		loaders := L.GetField(tbl, "loaders")
+		if lt, ok := loaders.(*lua.LTable); ok {
+			preload := lt.RawGetInt(1)
+			for i := lt.Len(); i >= 1; i-- {
+				lt.Remove(i)
+			}
+			lt.RawSetInt(1, preload)
+		}
+	}
+
 	return L
 }
 
