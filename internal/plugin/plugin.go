@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -38,9 +40,11 @@ type Plugin struct {
 	Commands          []PluginCommand
 	PluginKeybindings []PluginKeybinding
 
-	RequestRedraw func()
-	PostAsync     func(*PluginAsyncResult)
-	Log           func(level, message string)
+	RequestRedraw   func()
+	PostAsync       func(*PluginAsyncResult)
+	Log             func(level, message string)
+	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
+	Borders         *term.BorderSet
 
 	Editor     EditorAPI
 	Filesystem FilesystemAPI
@@ -97,6 +101,7 @@ func (p *Plugin) Destroy() {
 	p.RequestRedraw = nil
 	p.PostAsync = nil
 	p.Log = nil
+	p.ShowContextMenu = nil
 	p.EventListeners = nil
 }
 

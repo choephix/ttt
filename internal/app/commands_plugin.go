@@ -271,13 +271,17 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 func (a *App) wirePlugin(p *plugin.Plugin) {
 	for _, reg := range a.PluginManager.SidebarPanels {
 		if reg.ID == "plugin."+p.Name {
-			a.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+			if !a.Sidebar.HasPanel(reg.ID) {
+				a.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+			}
 			break
 		}
 	}
 	for _, reg := range a.PluginManager.BottomPanels {
 		if reg.ID == "plugin."+p.Name {
-			a.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+			if !a.BottomPanel.HasPanel(reg.ID) {
+				a.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+			}
 			break
 		}
 	}
@@ -292,6 +296,28 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
+	p.Borders = a.Borders
+	p.ShowContextMenu = func(entries []widgets.MenuEntry, x, y int, onCommand func(string)) {
+		items := make([]ui.ContextMenuItem, len(entries))
+		for i, e := range entries {
+			items[i] = ui.ContextMenuItem{
+				Label:   e.Label,
+				Command: e.Command,
+				IsSep:   e.Separator,
+			}
+		}
+		menu := ui.NewContextMenuWidget(items, x, y)
+		menu.Borders = a.Borders
+		menu.OnExec = func(cmd string) {
+			a.Root.PopOverlay()
+			onCommand(cmd)
+		}
+		menu.OnDismiss = func() {
+			a.Root.PopOverlay()
+		}
+		a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+		a.Root.SetFocus(menu)
+	}
 
 	a.registerPluginCommandsAndKeys(p)
 }
@@ -351,7 +377,7 @@ func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
 
 func (a *App) RegisterStartupPluginCommands() {
 	for _, p := range a.PluginManager.Plugins() {
-		a.registerPluginCommandsAndKeys(p)
+		a.wirePlugin(p)
 	}
 }
 

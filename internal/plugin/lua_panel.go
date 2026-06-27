@@ -56,16 +56,19 @@ func (pp *PanelProxy) appendDesc(kind WidgetKind, desc WidgetDesc) {
 func RegisterPanelType(L *lua.LState) {
 	mt := L.NewTypeMetatable(panelTypeName)
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"size":   panelSize,
-		"cell":   panelCell,
-		"text":   panelText,
-		"clear":  panelClear,
-		"label":  panelLabelWidget,
-		"tree":   panelTreeWidget,
-		"list":   panelListWidget,
-		"button": panelButtonWidget,
-		"input":  panelInputWidget,
-		"redraw": panelRedraw,
+		"size":     panelSize,
+		"cell":     panelCell,
+		"text":     panelText,
+		"clear":    panelClear,
+		"label":    panelLabelWidget,
+		"tree":     panelTreeWidget,
+		"list":     panelListWidget,
+		"button":   panelButtonWidget,
+		"input":    panelInputWidget,
+		"vstack":   panelVStackWidget,
+		"box":      panelBoxWidget,
+		"dropdown": panelDropdownWidget,
+		"redraw":   panelRedraw,
 	}))
 }
 
@@ -227,6 +230,12 @@ func panelTreeWidget(L *lua.LState) int {
 	if fn, ok := L.GetField(tbl, "on_expand").(*lua.LFunction); ok {
 		desc.OnExpand = fn
 	}
+	if fn, ok := L.GetField(tbl, "on_command").(*lua.LFunction); ok {
+		desc.OnCommand = fn
+	}
+	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
+		desc.NodeMenu = parseLuaMenuEntries(L, menu)
+	}
 
 	proxy.appendDesc(WidgetTree, desc)
 	return 0
@@ -246,6 +255,12 @@ func panelListWidget(L *lua.LState) int {
 	}
 	if fn, ok := L.GetField(tbl, "on_select").(*lua.LFunction); ok {
 		desc.OnSelect = fn
+	}
+	if fn, ok := L.GetField(tbl, "on_command").(*lua.LFunction); ok {
+		desc.OnCommand = fn
+	}
+	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
+		desc.NodeMenu = parseLuaMenuEntries(L, menu)
 	}
 
 	proxy.appendDesc(WidgetList, desc)
@@ -295,6 +310,109 @@ func panelInputWidget(L *lua.LState) int {
 	}
 
 	proxy.appendDesc(WidgetInput, desc)
+	return 0
+}
+
+func parseLuaMenuEntries(L *lua.LState, tbl *lua.LTable) []widgets.MenuEntry {
+	var entries []widgets.MenuEntry
+	tbl.ForEach(func(_, v lua.LValue) {
+		entry, ok := v.(*lua.LTable)
+		if !ok {
+			return
+		}
+		me := widgets.MenuEntry{}
+		if label := L.GetField(entry, "label"); label != lua.LNil {
+			me.Label = label.String()
+		}
+		if cmd := L.GetField(entry, "command"); cmd != lua.LNil {
+			me.Command = cmd.String()
+		}
+		if sep := L.GetField(entry, "separator"); sep != lua.LNil {
+			me.Separator = lua.LVAsBool(sep)
+		}
+		entries = append(entries, me)
+	})
+	return entries
+}
+
+func collectChildren(L *lua.LState, proxy *PanelProxy, fn *lua.LFunction) []WidgetDesc {
+	child := &PanelProxy{
+		surface:    proxy.surface,
+		plugin:     proxy.plugin,
+		descCounts: make(map[WidgetKind]int),
+	}
+	ud := PushPanelProxy(L, child)
+	if err := L.CallByParam(lua.P{Fn: fn, NRet: 0, Protect: true}, ud); err != nil {
+		proxy.plugin.logError("widget builder", err)
+	}
+	return child.descs
+}
+
+func panelVStackWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if fn, ok := L.GetField(tbl, "render").(*lua.LFunction); ok {
+		desc.Children = collectChildren(L, proxy, fn)
+	}
+	if v := L.GetField(tbl, "gap"); v != lua.LNil {
+		desc.Gap = int(lua.LVAsNumber(v))
+	}
+
+	proxy.appendDesc(WidgetVStack, desc)
+	return 0
+}
+
+func panelBoxWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if fn, ok := L.GetField(tbl, "render").(*lua.LFunction); ok {
+		desc.Children = collectChildren(L, proxy, fn)
+	}
+	if v := L.GetField(tbl, "border"); v != lua.LNil {
+		desc.Border = lua.LVAsBool(v)
+	}
+	if v := L.GetField(tbl, "height"); v != lua.LNil {
+		desc.FixedHeight = int(lua.LVAsNumber(v))
+	}
+
+	proxy.appendDesc(WidgetBox, desc)
+	return 0
+}
+
+func panelDropdownWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if v := L.GetField(tbl, "label"); v != lua.LNil {
+		desc.Label = v.String()
+	}
+
+	if entries, ok := L.GetField(tbl, "entries").(*lua.LTable); ok {
+		desc.Entries = parseLuaMenuEntries(L, entries)
+	}
+
+	if fn, ok := L.GetField(tbl, "on_menu").(*lua.LFunction); ok {
+		desc.OnMenu = fn
+	}
+
+	proxy.appendDesc(WidgetDropdown, desc)
 	return 0
 }
 

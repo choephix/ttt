@@ -28,13 +28,14 @@ type Manager struct {
 	plugins    []*Plugin
 	registry   *Registry
 	pluginsDir string
+	extraDirs  []string
 
 	SidebarPanels []SidebarRegistration
 	BottomPanels  []BottomRegistration
 }
 
-func NewManager(pluginsDir string) *Manager {
-	return &Manager{pluginsDir: pluginsDir}
+func NewManager(pluginsDir string, extraDirs ...string) *Manager {
+	return &Manager{pluginsDir: pluginsDir, extraDirs: extraDirs}
 }
 
 func (m *Manager) LoadAll() []*Plugin {
@@ -48,56 +49,63 @@ func (m *Manager) LoadAll() []*Plugin {
 	}
 	m.registry = reg
 
-	entries, err := os.ReadDir(m.pluginsDir)
-	if err != nil {
-		slog.Error("read plugins directory", "error", err)
-		return nil
-	}
-
 	var needsApproval []*Plugin
+	seen := map[string]bool{}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		dir := m.pluginsDir + "/" + entry.Name()
-		manifest, err := LoadManifest(dir)
+	dirs := append([]string{m.pluginsDir}, m.extraDirs...)
+	for _, pluginDir := range dirs {
+		entries, err := os.ReadDir(pluginDir)
 		if err != nil {
-			slog.Warn("skip plugin", "dir", entry.Name(), "error", err)
 			continue
 		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
 
-		p := &Plugin{
-			Name:     manifest.Name,
-			Dir:      dir,
-			Manifest: manifest,
+			dir := filepath.Join(pluginDir, entry.Name())
+			manifest, err := LoadManifest(dir)
+			if err != nil {
+				slog.Warn("skip plugin", "dir", entry.Name(), "error", err)
+				continue
+			}
+
+			if seen[manifest.Name] {
+				continue
+			}
+			seen[manifest.Name] = true
+
+			p := &Plugin{
+				Name:     manifest.Name,
+				Dir:      dir,
+				Manifest: manifest,
+			}
+
+			regEntry := m.registry.Find(manifest.Name)
+			if regEntry == nil {
+				needsApproval = append(needsApproval, p)
+				continue
+			}
+
+			if !regEntry.Enabled {
+				continue
+			}
+
+			diff := DiffPermissions(regEntry.Permissions, manifest.Permissions)
+			if !diff.IsEmpty() {
+				regEntry.Enabled = false
+				needsApproval = append(needsApproval, p)
+				continue
+			}
+
+			p.Granted = regEntry.Permissions
+			if err := p.Init(); err != nil {
+				continue
+			}
+
+			m.plugins = append(m.plugins, p)
+			m.collectRegistrations(p)
 		}
-
-		regEntry := m.registry.Find(manifest.Name)
-		if regEntry == nil {
-			needsApproval = append(needsApproval, p)
-			continue
-		}
-
-		if !regEntry.Enabled {
-			continue
-		}
-
-		diff := DiffPermissions(regEntry.Permissions, manifest.Permissions)
-		if !diff.IsEmpty() {
-			regEntry.Enabled = false
-			needsApproval = append(needsApproval, p)
-			continue
-		}
-
-		p.Granted = regEntry.Permissions
-		if err := p.Init(); err != nil {
-			continue
-		}
-
-		m.plugins = append(m.plugins, p)
-		m.collectRegistrations(p)
 	}
 
 	return needsApproval

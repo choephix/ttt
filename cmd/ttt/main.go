@@ -155,7 +155,8 @@ Docs: https://tttedit.dev
 	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
 
 	pluginsDir := filepath.Join(filepath.Dir(config.ConfigFilePath("plugins.ttt.json")), "plugins")
-	pluginManager := plugin.NewManager(pluginsDir)
+	localPluginsDir := filepath.Join(editor.Workspace.Primary(), "plugins")
+	pluginManager := plugin.NewManager(pluginsDir, localPluginsDir)
 	pendingApprovals := pluginManager.LoadAll()
 	editor.PluginManager = pluginManager
 	defer pluginManager.Shutdown()

@@ -13,6 +13,9 @@ const (
 	WidgetList
 	WidgetButton
 	WidgetInput
+	WidgetVStack
+	WidgetBox
+	WidgetDropdown
 )
 
 func (k WidgetKind) String() string {
@@ -27,6 +30,12 @@ func (k WidgetKind) String() string {
 		return "button"
 	case WidgetInput:
 		return "input"
+	case WidgetVStack:
+		return "vstack"
+	case WidgetBox:
+		return "box"
+	case WidgetDropdown:
+		return "dropdown"
 	}
 	return "unknown"
 }
@@ -38,10 +47,12 @@ type WidgetDesc struct {
 	Text      string
 	TextStyle string
 
-	Items    []*widgets.TreeNode
-	Indent   int
-	OnSelect *lua.LFunction
-	OnExpand *lua.LFunction
+	Items     []*widgets.TreeNode
+	Indent    int
+	OnSelect  *lua.LFunction
+	OnExpand  *lua.LFunction
+	OnCommand *lua.LFunction
+	NodeMenu  []widgets.MenuEntry
 
 	Label   string
 	OnClick *lua.LFunction
@@ -50,4 +61,12 @@ type WidgetDesc struct {
 	Prefix      string
 	OnChange    *lua.LFunction
 	OnSubmit    *lua.LFunction
+
+	Children    []WidgetDesc
+	Border      bool
+	FixedHeight int
+	Gap         int
+
+	Entries []widgets.MenuEntry
+	OnMenu  *lua.LFunction
 }
