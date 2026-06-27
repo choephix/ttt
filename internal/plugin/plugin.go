@@ -87,6 +87,28 @@ func (p *Plugin) Init() error {
 	return nil
 }
 
+func (p *Plugin) InitFromSource(source string) error {
+	p.EventListeners = make(map[string][]*lua.LFunction)
+	p.State = NewSandbox()
+	setupTTTModule(p.State, p)
+	setupEditorModule(p.State, p)
+	setupFsModule(p.State, p)
+	setupSystemModule(p.State, p)
+	setupNetModule(p.State, p)
+	setupEventsModule(p.State, p)
+
+	if err := p.State.DoString(source); err != nil {
+		p.LastError = err
+		p.State.Close()
+		p.State = nil
+		p.logError("init", err)
+		return err
+	}
+
+	p.Enabled = true
+	return nil
+}
+
 func (p *Plugin) logError(context string, err error) {
 	slog.Error("plugin error", "plugin", p.Name, "context", context, "error", err)
 	if p.Log != nil {
