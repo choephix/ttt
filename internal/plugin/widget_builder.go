@@ -45,6 +45,10 @@ func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 	switch desc.Kind {
 	case WidgetLabel:
 		return createLabelWidget(desc)
+	case WidgetTitle:
+		return createTitleWidget(desc)
+	case WidgetKeyValue:
+		return createKeyValueWidget(desc)
 	case WidgetTree:
 		return createTreeWidget(desc, p)
 	case WidgetList:
@@ -68,9 +72,18 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 	case WidgetLabel:
 		if lw, ok := w.(*widgets.LabelWidget); ok {
 			lw.Config.Text = desc.Text
+			lw.Config.Badge = desc.Badge
 			if desc.TextStyle != "" {
 				lw.Config.Style = resolveStyleName(desc.TextStyle)
 			}
+		}
+	case WidgetTitle:
+		if tw, ok := w.(*widgets.TitleWidget); ok {
+			tw.Config.Title = desc.Text
+		}
+	case WidgetKeyValue:
+		if kv, ok := w.(*widgets.KeyValueListWidget); ok {
+			kv.Entries = desc.KeyValueEntries
 		}
 	case WidgetTree, WidgetList:
 		if tw, ok := w.(*widgets.TreeWidget); ok {
@@ -137,15 +150,43 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 	}
 }
 
+func applyBoxModel(box *widgets.BoxModel, desc WidgetDesc) {
+	box.MarginTop = desc.MarginTop
+	box.MarginBottom = desc.MarginBottom
+	box.MarginLeft = desc.MarginLeft
+	box.MarginRight = desc.MarginRight
+	box.PaddingTop = desc.PaddingTop
+	box.PaddingBottom = desc.PaddingBottom
+	box.PaddingLeft = desc.PaddingLeft
+	box.PaddingRight = desc.PaddingRight
+}
+
 func createLabelWidget(desc WidgetDesc) *widgets.LabelWidget {
 	style := term.StyleDefault
 	if desc.TextStyle != "" {
 		style = resolveStyleName(desc.TextStyle)
 	}
-	return widgets.NewLabelWidget(widgets.LabelConfig{
+	lw := widgets.NewLabelWidget(widgets.LabelConfig{
 		Text:  desc.Text,
+		Badge: desc.Badge,
 		Style: style,
 	})
+	applyBoxModel(&lw.Box, desc)
+	return lw
+}
+
+func createTitleWidget(desc WidgetDesc) *widgets.TitleWidget {
+	tw := widgets.NewTitleWidget(widgets.TitleConfig{
+		Title: desc.Text,
+	})
+	applyBoxModel(&tw.Box, desc)
+	return tw
+}
+
+func createKeyValueWidget(desc WidgetDesc) *widgets.KeyValueListWidget {
+	kv := widgets.NewKeyValueListWidget(desc.KeyValueEntries)
+	applyBoxModel(&kv.Box, desc)
+	return kv
 }
 
 func createTreeWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {

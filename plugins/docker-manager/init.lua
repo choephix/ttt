@@ -281,7 +281,7 @@ ttt.register({
       -- Containers section
       panel:vstack({
         render = function(p)
-          p:label({ text = " Containers (" .. #containers .. ")", style = "muted" })
+          p:label({ text = "Containers", badge = tostring(#containers), padding_left = 1, padding_right = 1 })
           p:box({
             border = true,
             render = function(bp)
@@ -310,7 +310,7 @@ ttt.register({
       -- Images section
       panel:vstack({
         render = function(p)
-          p:label({ text = " Images (" .. #images .. ")", style = "muted" })
+          p:label({ text = "Images", badge = tostring(#images), padding_left = 1, padding_right = 1 })
           p:box({
             border = true,
             render = function(bp)
@@ -331,7 +331,7 @@ ttt.register({
       -- Volumes section
       panel:vstack({
         render = function(p)
-          p:label({ text = " Volumes (" .. #volumes .. ")", style = "muted" })
+          p:label({ text = "Volumes", badge = tostring(#volumes), padding_left = 1, padding_right = 1 })
           p:box({
             border = true,
             render = function(bp)

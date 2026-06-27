@@ -68,6 +68,8 @@ func RegisterPanelType(L *lua.LState) {
 		"vstack":   panelVStackWidget,
 		"box":      panelBoxWidget,
 		"dropdown": panelDropdownWidget,
+		"title":    panelTitleWidget,
+		"keyvalue": panelKeyValueWidget,
 		"redraw":   panelRedraw,
 	}))
 }
@@ -201,11 +203,69 @@ func panelLabelWidget(L *lua.LState) int {
 		if s := L.GetField(v, "style"); s != lua.LNil {
 			desc.TextStyle = s.String()
 		}
+		if b := L.GetField(v, "badge"); b != lua.LNil {
+			desc.Badge = b.String()
+		}
+		parseBoxModel(L, v, &desc)
 	default:
 		desc.Text = arg.String()
 	}
 
 	proxy.appendDesc(WidgetLabel, desc)
+	return 0
+}
+
+func panelTitleWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	desc := WidgetDesc{}
+	arg := L.Get(2)
+
+	switch v := arg.(type) {
+	case lua.LString:
+		desc.Text = string(v)
+	case *lua.LTable:
+		if t := L.GetField(v, "text"); t != lua.LNil {
+			desc.Text = t.String()
+		}
+		parseBoxModel(L, v, &desc)
+	default:
+		desc.Text = arg.String()
+	}
+
+	proxy.appendDesc(WidgetTitle, desc)
+	return 0
+}
+
+func panelKeyValueWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	desc := WidgetDesc{}
+	tbl := L.CheckTable(2)
+
+	tbl.ForEach(func(_, v lua.LValue) {
+		row, ok := v.(*lua.LTable)
+		if !ok {
+			return
+		}
+		entry := widgets.KeyValueEntry{}
+		if k := L.GetField(row, "key"); k != lua.LNil {
+			entry.Key = k.String()
+		}
+		if val := L.GetField(row, "value"); val != lua.LNil {
+			entry.Value = val.String()
+		}
+		desc.KeyValueEntries = append(desc.KeyValueEntries, entry)
+	})
+
+	parseBoxModel(L, tbl, &desc)
+	proxy.appendDesc(WidgetKeyValue, desc)
 	return 0
 }
 
@@ -311,6 +371,26 @@ func panelInputWidget(L *lua.LState) int {
 
 	proxy.appendDesc(WidgetInput, desc)
 	return 0
+}
+
+func parseBoxModel(L *lua.LState, tbl *lua.LTable, desc *WidgetDesc) {
+	for _, field := range []struct {
+		name string
+		dst  *int
+	}{
+		{"margin_top", &desc.MarginTop},
+		{"margin_bottom", &desc.MarginBottom},
+		{"margin_left", &desc.MarginLeft},
+		{"margin_right", &desc.MarginRight},
+		{"padding_top", &desc.PaddingTop},
+		{"padding_bottom", &desc.PaddingBottom},
+		{"padding_left", &desc.PaddingLeft},
+		{"padding_right", &desc.PaddingRight},
+	} {
+		if v := L.GetField(tbl, field.name); v != lua.LNil {
+			*field.dst = int(lua.LVAsNumber(v))
+		}
+	}
 }
 
 func parseLuaMenuEntries(L *lua.LState, tbl *lua.LTable) []widgets.MenuEntry {

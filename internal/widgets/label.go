@@ -7,6 +7,7 @@ import (
 
 type LabelConfig struct {
 	Text  string     `json:"text"`
+	Badge string     `json:"badge,omitempty"`
 	Style term.Style `json:"-"`
 }
 
@@ -32,7 +33,16 @@ func (l *LabelWidget) Render(surface Surface) {
 	if style == 0 {
 		style = term.StyleDefault
 	}
-	inner.DrawText(0, 0, l.Config.Text, w, style)
+	maxTextW := w
+	if l.Config.Badge != "" {
+		badgeRunes := []rune(l.Config.Badge)
+		bx := w - len(badgeRunes)
+		if bx > 0 {
+			maxTextW = bx - 1
+			inner.DrawText(bx, 0, l.Config.Badge, w, term.StyleMuted)
+		}
+	}
+	inner.DrawText(0, 0, l.Config.Text, maxTextW, style)
 }
 
 func (l *LabelWidget) HandleEvent(ev tcell.Event) EventResult {
