@@ -620,18 +620,18 @@ Each crash is saved as a JSON report with the random seed and full event log, so
 
 ## Debug & Testing CLI Flags
 
-TTT includes flags for scripted interaction, automated testing, and debugging.
+TTT includes a built-in scripted interaction system designed for AI agent interactivity and automated debugging. Think of `--exec` as a fast Playwright for the terminal — full click, keyboard, and command simulation with screenshot and state dump capture, all without the overhead of a terminal emulation layer.
 
 | Flag | Description |
 |------|-------------|
 | `--exec "commands"` | Execute semicolon-separated commands after startup |
 | `--plugin FILE` | Load a Lua plugin file on startup with full permissions |
-| `--size WxH` | Force screen dimensions (e.g. `120x40`) |
+| `--size WxH` | Force screen dimensions (e.g. `120x40`) for deterministic layout |
 | `--debug` | Enable debug mode regardless of config |
 
 ### `--exec` Commands
 
-The `--exec` flag accepts a semicolon-separated string of commands that run sequentially after the editor starts:
+The `--exec` flag accepts a semicolon-separated string of commands that run sequentially after the editor starts. AI agents (like Claude Code) can use this to interact with the editor, inspect UI state, and verify behavior programmatically — no manual interaction needed:
 
 | Command | Description |
 |---------|-------------|
