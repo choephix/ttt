@@ -102,6 +102,24 @@ func parseFlags() cliFlags {
 	return f
 }
 
+func initTerminalScreen() *term.TcellScreen {
+	screen, err := term.NewTcellScreen()
+	if err != nil {
+		panic(err)
+	}
+	return screen
+}
+
+func initSimulationScreen(w, h int) *term.TcellScreen {
+	if w <= 0 || h <= 0 {
+		w, h = 80, 25
+	}
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(w, h)
+	return term.NewTcellScreenFrom(sim)
+}
+
 func main() {
 	for _, arg := range os.Args[1:] {
 		switch arg {
@@ -156,9 +174,11 @@ Docs: https://tttedit.dev
 	}
 	slog.Info("starting", "debugMode", cfg.Settings.DebugMode)
 
-	screen, err := term.NewTcellScreen()
-	if err != nil {
-		panic(err)
+	var screen *term.TcellScreen
+	if flags.exec != "" {
+		screen = initSimulationScreen(flags.sizeW, flags.sizeH)
+	} else {
+		screen = initTerminalScreen()
 	}
 	defer screen.Fini()
 	defer handlePanic(screen)
