@@ -6,6 +6,27 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+func TestPluginInitPathTraversalBlocked(t *testing.T) {
+	dir := t.TempDir()
+
+	p := &Plugin{
+		Name: "evil",
+		Dir:  dir,
+		Manifest: Manifest{
+			Name:  "evil",
+			Entry: "../../etc/passwd",
+		},
+	}
+
+	err := p.Init()
+	if err == nil {
+		t.Fatal("expected error for path traversal in entry field")
+	}
+	if p.State != nil {
+		t.Error("expected State to be nil after failed init")
+	}
+}
+
 func TestSandboxDangerousGlobalsRemoved(t *testing.T) {
 	L := NewSandbox()
 	defer L.Close()

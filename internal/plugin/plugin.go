@@ -1,8 +1,10 @@
 package plugin
 
 import (
+	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/eugenioenko/ttt/internal/term"
@@ -83,6 +85,18 @@ func (p *Plugin) Init() error {
 	setupEventsModule(p.State, p)
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
+	absEntry, err := filepath.Abs(entry)
+	if err != nil {
+		p.State.Close()
+		p.State = nil
+		return fmt.Errorf("invalid entry path: %w", err)
+	}
+	absDir, _ := filepath.Abs(p.Dir)
+	if !strings.HasPrefix(absEntry, absDir+string(filepath.Separator)) {
+		p.State.Close()
+		p.State = nil
+		return fmt.Errorf("entry path %q escapes plugin directory", p.Manifest.Entry)
+	}
 	if err := p.State.DoFile(entry); err != nil {
 		p.LastError = err
 		p.State.Close()
