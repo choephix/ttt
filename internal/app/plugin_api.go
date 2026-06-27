@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -333,7 +335,51 @@ func NewPluginNetworkAPI() *PluginNetworkAPI {
 	}
 }
 
+var privateNetworks = []net.IPNet{
+	{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+	{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+	{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+	{IP: net.IPv4(169, 254, 0, 0), Mask: net.CIDRMask(16, 32)},
+	{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+}
+
+func (n *PluginNetworkAPI) validateURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("URL scheme %q not allowed, only http and https", u.Scheme)
+	}
+
+	hostname := u.Hostname()
+	if hostname == "localhost" {
+		return fmt.Errorf("requests to localhost are not allowed")
+	}
+
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return nil
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return fmt.Errorf("requests to %s (%s) are not allowed", hostname, ip)
+		}
+		for _, pn := range privateNetworks {
+			if pn.Contains(ip) {
+				return fmt.Errorf("requests to private network %s (%s) are not allowed", hostname, ip)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (n *PluginNetworkAPI) Get(url string, headers map[string]string) (int, string, map[string]string, error) {
+	if err := n.validateURL(url); err != nil {
+		return 0, "", nil, err
+	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, "", nil, err
@@ -358,6 +404,9 @@ func (n *PluginNetworkAPI) Get(url string, headers map[string]string) (int, stri
 }
 
 func (n *PluginNetworkAPI) Post(url string, headers map[string]string, body string) (int, string, map[string]string, error) {
+	if err := n.validateURL(url); err != nil {
+		return 0, "", nil, err
+	}
 	req, err := http.NewRequest("POST", url, strings.NewReader(body))
 	if err != nil {
 		return 0, "", nil, err

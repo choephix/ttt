@@ -138,6 +138,36 @@ func TestPluginFilesystemAPI_SymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestPluginNetworkAPI_SSRFProtection(t *testing.T) {
+	api := NewPluginNetworkAPI()
+
+	tests := []struct {
+		name    string
+		url     string
+		blocked bool
+	}{
+		{"https allowed", "https://example.com/api", false},
+		{"http allowed", "http://example.com/api", false},
+		{"file scheme blocked", "file:///etc/passwd", true},
+		{"ftp scheme blocked", "ftp://evil.com/file", true},
+		{"localhost blocked", "http://localhost/admin", true},
+		{"127.0.0.1 blocked", "http://127.0.0.1/admin", true},
+		{"169.254 metadata blocked", "http://169.254.169.254/latest/meta-data/", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := api.validateURL(tt.url)
+			if tt.blocked && err == nil {
+				t.Errorf("expected URL %q to be blocked", tt.url)
+			}
+			if !tt.blocked && err != nil {
+				t.Errorf("expected URL %q to be allowed, got: %v", tt.url, err)
+			}
+		})
+	}
+}
+
 func TestPluginSystemAPI_ArgumentInjection(t *testing.T) {
 	api := NewPluginSystemAPI()
 
