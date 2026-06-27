@@ -323,23 +323,24 @@ func (m *Manager) Update(name string) (*Plugin, bool, error) {
 		if p.Name == name {
 			p.Destroy()
 			p.Manifest = newManifest
+			p.Granted = regEntry.Permissions
 			if err := p.Init(); err != nil {
 				return nil, false, err
 			}
 			m.collectRegistrations(p)
 			regEntry.Version = newManifest.Version
 			m.registry.Save()
-			return nil, false, nil
+			return p, false, nil
 		}
 	}
 
 	return nil, false, nil
 }
 
-func (m *Manager) SetEnabled(name string, enabled bool) error {
+func (m *Manager) SetEnabled(name string, enabled bool) (*Plugin, error) {
 	m.registry.SetEnabled(name, enabled)
 	if err := m.registry.Save(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if !enabled {
@@ -350,18 +351,18 @@ func (m *Manager) SetEnabled(name string, enabled bool) error {
 				break
 			}
 		}
-		return nil
+		return nil, nil
 	}
 
 	dir := filepath.Join(m.pluginsDir, name)
 	manifest, err := LoadManifest(dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	regEntry := m.registry.Find(name)
 	if regEntry == nil {
-		return fmt.Errorf("plugin %q not in registry", name)
+		return nil, fmt.Errorf("plugin %q not in registry", name)
 	}
 
 	p := &Plugin{
@@ -371,12 +372,12 @@ func (m *Manager) SetEnabled(name string, enabled bool) error {
 		Granted:  regEntry.Permissions,
 	}
 	if err := p.Init(); err != nil {
-		return err
+		return nil, err
 	}
 
 	m.plugins = append(m.plugins, p)
 	m.collectRegistrations(p)
-	return nil
+	return p, nil
 }
 
 func (m *Manager) Reload(name string) (*Plugin, error) {

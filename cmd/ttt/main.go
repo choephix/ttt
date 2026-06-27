@@ -266,8 +266,12 @@ Docs: https://tttedit.dev
 		editor.PluginUninstallByName(name)
 	}
 	pluginsPanel.OnToggle = func(name string, enabled bool) {
-		if err := pluginManager.SetEnabled(name, enabled); err != nil {
+		p, err := pluginManager.SetEnabled(name, enabled)
+		if err != nil {
 			slog.Error("toggle plugin", "error", err)
+		}
+		if p != nil {
+			editor.WirePlugin(p)
 		}
 		pluginsPanel.Refresh()
 	}

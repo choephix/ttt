@@ -220,6 +220,9 @@ func (a *App) handlePluginUpdateResult(result *pluginUpdateResult) {
 		}
 		return
 	}
+	if !result.needsApproval && result.plugin != nil {
+		a.WirePlugin(result.plugin)
+	}
 	if a.PluginsPanel != nil {
 		a.PluginsPanel.Refresh()
 	}
@@ -251,7 +254,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 		{Label: "&Allow", Handler: func() {
 			a.DismissDialog()
 			if err := a.PluginManager.ApproveAndLoad(p); err == nil {
-				a.wirePlugin(p)
+				a.WirePlugin(p)
 			}
 			if a.PluginsPanel != nil {
 				a.PluginsPanel.Refresh()
@@ -269,7 +272,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	a.ShowDialog(adapter)
 }
 
-func (a *App) wirePlugin(p *plugin.Plugin) {
+func (a *App) WirePlugin(p *plugin.Plugin) {
 	for _, reg := range a.PluginManager.SidebarPanels {
 		if reg.ID == "plugin."+p.Name {
 			if !a.Sidebar.HasPanel(reg.ID) {
@@ -467,7 +470,7 @@ func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
 
 func (a *App) RegisterStartupPluginCommands() {
 	for _, p := range a.PluginManager.Plugins() {
-		a.wirePlugin(p)
+		a.WirePlugin(p)
 	}
 }
 
@@ -512,7 +515,7 @@ func (a *App) doPluginReload(name string) {
 		return
 	}
 
-	a.wirePlugin(p)
+	a.WirePlugin(p)
 
 	a.Output.AddLine(ui.OutputLine{
 		Time:       time.Now().Format("15:04:05"),
