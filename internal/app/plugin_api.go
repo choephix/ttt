@@ -2,10 +2,12 @@ package app
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -187,14 +189,44 @@ func (e *PluginEditorAPI) ClearSelection() {
 	ed.Selection.Clear()
 }
 
-// PluginFilesystemAPI implements plugin.FilesystemAPI.
-type PluginFilesystemAPI struct{}
+// PluginFilesystemAPI implements plugin.FilesystemAPI with path restrictions.
+type PluginFilesystemAPI struct {
+	allowedRoots []string
+}
 
-func NewPluginFilesystemAPI() *PluginFilesystemAPI {
-	return &PluginFilesystemAPI{}
+func NewPluginFilesystemAPI(allowedRoots ...string) *PluginFilesystemAPI {
+	resolved := make([]string, 0, len(allowedRoots))
+	for _, root := range allowedRoots {
+		if abs, err := filepath.Abs(root); err == nil {
+			resolved = append(resolved, filepath.Clean(abs))
+		}
+	}
+	return &PluginFilesystemAPI{allowedRoots: resolved}
+}
+
+func (f *PluginFilesystemAPI) validatePath(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	clean := filepath.Clean(abs)
+
+	if resolved, err := filepath.EvalSymlinks(filepath.Dir(clean)); err == nil {
+		clean = filepath.Join(resolved, filepath.Base(clean))
+	}
+
+	for _, root := range f.allowedRoots {
+		if clean == root || strings.HasPrefix(clean, root+string(filepath.Separator)) {
+			return nil
+		}
+	}
+	return fmt.Errorf("access denied: path %q is outside allowed directories", path)
 }
 
 func (f *PluginFilesystemAPI) ReadFile(path string) (string, error) {
+	if err := f.validatePath(path); err != nil {
+		return "", err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -203,15 +235,24 @@ func (f *PluginFilesystemAPI) ReadFile(path string) (string, error) {
 }
 
 func (f *PluginFilesystemAPI) WriteFile(path, content string) error {
+	if err := f.validatePath(path); err != nil {
+		return err
+	}
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
 func (f *PluginFilesystemAPI) FileExists(path string) bool {
+	if err := f.validatePath(path); err != nil {
+		return false
+	}
 	_, err := os.Stat(path)
 	return err == nil
 }
 
 func (f *PluginFilesystemAPI) ListDir(path string) ([]plugin.FileEntry, error) {
+	if err := f.validatePath(path); err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err

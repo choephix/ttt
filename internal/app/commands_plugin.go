@@ -326,7 +326,11 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
 	p.Editor = NewPluginEditorAPI(a)
-	p.Filesystem = NewPluginFilesystemAPI()
+	fsRoots := a.Workspace.Paths()
+	if p.Dir != "" {
+		fsRoots = append(fsRoots, p.Dir)
+	}
+	p.Filesystem = NewPluginFilesystemAPI(fsRoots...)
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)

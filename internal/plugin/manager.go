@@ -169,9 +169,9 @@ func (m *Manager) SetEditorAPI(api EditorAPI) {
 	}
 }
 
-func (m *Manager) SetFilesystemAPI(api FilesystemAPI) {
+func (m *Manager) SetFilesystemAPI(factory func(pluginDir string) FilesystemAPI) {
 	for _, p := range m.plugins {
-		p.Filesystem = api
+		p.Filesystem = factory(p.Dir)
 	}
 }
 
