@@ -9,10 +9,12 @@ type ScrollViewWidget struct {
 	BaseWidget
 	Child ScrollableWidget
 
-	scrollX int
-	scrollY int
-	vbar    scrollbar
-	focused bool
+	scrollX      int
+	scrollY      int
+	vbar         scrollbar
+	focused      bool
+	lastContentH int
+	lastViewH    int
 }
 
 func NewScrollViewWidget(child ScrollableWidget) *ScrollViewWidget {
@@ -72,6 +74,8 @@ func (sv *ScrollViewWidget) Render(surface Surface) {
 	hasVBar := contentH > viewH
 	hasHBar := contentW > viewW
 
+	sv.lastContentH = contentH
+	sv.lastViewH = viewH
 	sv.clamp(contentW, contentH, viewW, viewH)
 
 	virt := newVirtualSurface(contentW, contentH)
@@ -142,6 +146,15 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		if btn&tcell.WheelDown != 0 {
 			sv.scrollY += 3
+			if sv.lastContentH > 0 {
+				maxY := sv.lastContentH - sv.lastViewH
+				if maxY < 0 {
+					maxY = 0
+				}
+				if sv.scrollY > maxY {
+					sv.scrollY = maxY
+				}
+			}
 			return EventConsumed
 		}
 	}
