@@ -78,10 +78,14 @@ type WidgetDesc struct {
 	OnChange    *lua.LFunction
 	OnSubmit    *lua.LFunction
 
-	Children    []WidgetDesc
-	Border      bool
-	FixedHeight int
-	Gap         int
+	Children     []WidgetDesc
+	Border       bool
+	BorderTop    bool
+	BorderBottom bool
+	BorderLeft   bool
+	BorderRight  bool
+	FixedHeight  int
+	Gap          int
 
 	Entries         []widgets.MenuEntry
 	OnMenu         *lua.LFunction

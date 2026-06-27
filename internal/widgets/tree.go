@@ -60,6 +60,7 @@ type TreeWidget struct {
 	focused   bool
 
 	scrollbar scrollbar
+	contentW  int
 }
 
 func NewTreeWidget(cfg TreeConfig) *TreeWidget {
@@ -223,9 +224,9 @@ func (t *TreeWidget) Render(surface Surface) {
 	t.scrollbar.TotalItems = len(t.flatList)
 	t.scrollbar.TopItem = t.scrollTop
 
-	contentW := w
+	t.contentW = w
 	if t.scrollbar.visible() {
-		contentW = w - 1
+		t.contentW = w - 1
 	}
 	for i := range h {
 		idx := t.scrollTop + i
@@ -233,7 +234,7 @@ func (t *TreeWidget) Render(surface Surface) {
 			break
 		}
 		node := t.flatList[idx]
-		t.renderNode(surface, node, idx, i, contentW)
+		t.renderNode(surface, node, idx, i, t.contentW)
 	}
 
 	t.scrollbar.Render(surface, w-1, 0)
@@ -481,14 +482,14 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 		t.selected = idx
 
 		menuW := t.menuIconWidth()
-		if menuW > 0 && mx >= t.rect.X+t.rect.W-menuW {
+		if menuW > 0 && mx >= t.rect.X+t.contentW-menuW {
 			if t.Config.OnMenu != nil {
 				t.Config.OnMenu(t.Config.NodeMenu, node, mx, my)
 			}
 			return EventConsumed
 		}
 
-		rightX := t.rect.X + t.rect.W - 2 - t.menuIconWidth()
+		rightX := t.rect.X + t.contentW - 2 - t.menuIconWidth()
 		for i := len(node.Actions) - 1; i >= 0; i-- {
 			action := node.Actions[i]
 			iconW := len([]rune(action.Icon))

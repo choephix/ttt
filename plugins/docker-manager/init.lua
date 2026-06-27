@@ -103,40 +103,46 @@ local function container_stop(name, panel) container_action("stop", name, panel)
 local function container_restart(name, panel) container_action("restart", name, panel) end
 
 local function container_remove(name, panel)
-  ttt.log("info", "removing container: " .. name)
-  sys.exec_async("docker", {"rm", "-f", name}, function(result)
-    if result.exit_code == 0 then
-      ttt.log("info", "removed " .. name)
-    else
-      ttt.log("error", "remove " .. name .. ": " .. result.stderr)
-    end
-    refresh_containers(panel)
+  ttt.confirm("Remove container '" .. name .. "'?", function()
+    ttt.log("info", "removing container: " .. name)
+    sys.exec_async("docker", {"rm", "-f", name}, function(result)
+      if result.exit_code == 0 then
+        ttt.log("info", "removed " .. name)
+      else
+        ttt.log("error", "remove " .. name .. ": " .. result.stderr)
+      end
+      refresh_containers(panel)
+    end)
   end)
 end
 
 -- Image actions
 local function image_remove(id, panel)
-  ttt.log("info", "removing image: " .. id)
-  sys.exec_async("docker", {"rmi", id}, function(result)
-    if result.exit_code == 0 then
-      ttt.log("info", "removed image " .. id)
-    else
-      ttt.log("error", "remove image: " .. result.stderr)
-    end
-    refresh_images(panel)
+  ttt.confirm("Remove image '" .. id .. "'?", function()
+    ttt.log("info", "removing image: " .. id)
+    sys.exec_async("docker", {"rmi", id}, function(result)
+      if result.exit_code == 0 then
+        ttt.log("info", "removed image " .. id)
+      else
+        ttt.log("error", "remove image: " .. result.stderr)
+      end
+      refresh_images(panel)
+    end)
   end)
 end
 
 -- Volume actions
 local function volume_remove(name, panel)
-  ttt.log("info", "removing volume: " .. name)
-  sys.exec_async("docker", {"volume", "rm", name}, function(result)
-    if result.exit_code == 0 then
-      ttt.log("info", "removed volume " .. name)
-    else
-      ttt.log("error", "remove volume: " .. result.stderr)
-    end
-    refresh_volumes(panel)
+  ttt.confirm("Remove volume '" .. name .. "'?", function()
+    ttt.log("info", "removing volume: " .. name)
+    sys.exec_async("docker", {"volume", "rm", name}, function(result)
+      if result.exit_code == 0 then
+        ttt.log("info", "removed volume " .. name)
+      else
+        ttt.log("error", "remove volume: " .. result.stderr)
+      end
+      refresh_volumes(panel)
+    end)
   end)
 end
 
@@ -202,38 +208,44 @@ local function cmd_refresh()
 end
 
 local function cmd_prune_containers()
-  ttt.log("info", "pruning stopped containers...")
-  sys.exec_async("docker", {"container", "prune", "-f"}, function(result)
-    if result.exit_code == 0 then
-      ttt.log("info", "container prune: ok")
-    else
-      ttt.log("error", "container prune: " .. result.stderr)
-    end
-    refresh_containers(last_panel)
+  ttt.confirm("Prune all stopped containers?", function()
+    ttt.log("info", "pruning stopped containers...")
+    sys.exec_async("docker", {"container", "prune", "-f"}, function(result)
+      if result.exit_code == 0 then
+        ttt.log("info", "container prune: ok")
+      else
+        ttt.log("error", "container prune: " .. result.stderr)
+      end
+      refresh_containers(last_panel)
+    end)
   end)
 end
 
 local function cmd_prune_images()
-  ttt.log("info", "pruning unused images...")
-  sys.exec_async("docker", {"image", "prune", "-f"}, function(result)
-    if result.exit_code == 0 then
-      ttt.log("info", "image prune: ok")
-    else
-      ttt.log("error", "image prune: " .. result.stderr)
-    end
-    refresh_images(last_panel)
+  ttt.confirm("Prune all unused images?", function()
+    ttt.log("info", "pruning unused images...")
+    sys.exec_async("docker", {"image", "prune", "-f"}, function(result)
+      if result.exit_code == 0 then
+        ttt.log("info", "image prune: ok")
+      else
+        ttt.log("error", "image prune: " .. result.stderr)
+      end
+      refresh_images(last_panel)
+    end)
   end)
 end
 
 local function cmd_prune_volumes()
-  ttt.log("info", "pruning unused volumes...")
-  sys.exec_async("docker", {"volume", "prune", "-f"}, function(result)
-    if result.exit_code == 0 then
-      ttt.log("info", "volume prune: ok")
-    else
-      ttt.log("error", "volume prune: " .. result.stderr)
-    end
-    refresh_volumes(last_panel)
+  ttt.confirm("Prune all unused volumes?", function()
+    ttt.log("info", "pruning unused volumes...")
+    sys.exec_async("docker", {"volume", "prune", "-f"}, function(result)
+      if result.exit_code == 0 then
+        ttt.log("info", "volume prune: ok")
+      else
+        ttt.log("error", "volume prune: " .. result.stderr)
+      end
+      refresh_volumes(last_panel)
+    end)
   end)
 end
 

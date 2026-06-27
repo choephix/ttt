@@ -463,6 +463,18 @@ func panelBoxWidget(L *lua.LState) int {
 	if v := L.GetField(tbl, "border"); v != lua.LNil {
 		desc.Border = lua.LVAsBool(v)
 	}
+	if v := L.GetField(tbl, "border_top"); v != lua.LNil {
+		desc.BorderTop = lua.LVAsBool(v)
+	}
+	if v := L.GetField(tbl, "border_bottom"); v != lua.LNil {
+		desc.BorderBottom = lua.LVAsBool(v)
+	}
+	if v := L.GetField(tbl, "border_left"); v != lua.LNil {
+		desc.BorderLeft = lua.LVAsBool(v)
+	}
+	if v := L.GetField(tbl, "border_right"); v != lua.LNil {
+		desc.BorderRight = lua.LVAsBool(v)
+	}
 	if v := L.GetField(tbl, "height"); v != lua.LNil {
 		desc.FixedHeight = int(lua.LVAsNumber(v))
 	}

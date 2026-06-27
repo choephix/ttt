@@ -300,6 +300,15 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
 		a.ShowInfoDialog(title, entries)
 	}
+	p.ShowConfirmDialog = func(message string, onConfirm func()) {
+		a.ShowConfirmDialogEx("Confirm", message, []string{"Cancel", "OK"}, []func(){
+			func() { a.DismissDialog() },
+			func() {
+				a.DismissDialog()
+				onConfirm()
+			},
+		})
+	}
 	p.ShowContextMenu = func(entries []widgets.MenuEntry, x, y int, onCommand func(string)) {
 		items := make([]ui.ContextMenuItem, len(entries))
 		for i, e := range entries {

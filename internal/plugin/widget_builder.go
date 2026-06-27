@@ -224,12 +224,23 @@ func createVStackWidget(desc WidgetDesc, p *Plugin) *widgets.VStackWidget {
 
 func createBoxWidget(desc WidgetDesc, p *Plugin) *widgets.BoxWidget {
 	var box *widgets.BoxWidget
-	if desc.Border {
+	hasSideBorders := desc.BorderTop || desc.BorderBottom || desc.BorderLeft || desc.BorderRight
+	if desc.Border || hasSideBorders {
 		borders := term.SingleBorderSet()
 		if p.Borders != nil {
 			borders = *p.Borders
 		}
-		box = widgets.NewBoxWithBorder(borders)
+		if desc.Border {
+			box = widgets.NewBoxWithBorder(borders)
+		} else {
+			box = widgets.NewBoxWidget(widgets.BoxModel{
+				BorderTop:    desc.BorderTop,
+				BorderBottom: desc.BorderBottom,
+				BorderLeft:   desc.BorderLeft,
+				BorderRight:  desc.BorderRight,
+				Borders:      borders,
+			})
+		}
 	} else {
 		box = widgets.NewBoxWidget(widgets.BoxModel{})
 	}

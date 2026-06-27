@@ -46,7 +46,8 @@ type Plugin struct {
 	PostAsync       func(*PluginAsyncResult)
 	Log             func(level, message string)
 	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
-	ShowInfoDialog  func(title string, entries []widgets.KeyValueEntry)
+	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
+	ShowConfirmDialog func(message string, onConfirm func())
 	Borders         *term.BorderSet
 
 	Editor     EditorAPI
@@ -105,6 +106,7 @@ func (p *Plugin) Destroy() {
 	p.PostAsync = nil
 	p.Log = nil
 	p.ShowContextMenu = nil
+	p.ShowConfirmDialog = nil
 	p.EventListeners = nil
 }
 
