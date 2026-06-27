@@ -1,10 +1,36 @@
 package plugin
 
 import (
+	"strings"
 	"testing"
 
 	lua "github.com/yuin/gopher-lua"
 )
+
+func TestManagerInstallRejectsNonHTTPS(t *testing.T) {
+	m := NewManager(t.TempDir())
+
+	tests := []struct {
+		url     string
+		blocked bool
+	}{
+		{"https://github.com/user/plugin.git", false},
+		{"http://github.com/user/plugin.git", true},
+		{"file:///tmp/evil", true},
+		{"git@github.com:user/plugin.git", true},
+		{"ssh://git@github.com/user/plugin.git", true},
+	}
+
+	for _, tt := range tests {
+		_, err := m.Install(tt.url)
+		if tt.blocked && err == nil {
+			t.Errorf("expected %q to be blocked", tt.url)
+		}
+		if !tt.blocked && err != nil && !strings.Contains(err.Error(), "git clone") {
+			t.Errorf("expected %q to pass URL validation, got: %v", tt.url, err)
+		}
+	}
+}
 
 func TestPluginInitPathTraversalBlocked(t *testing.T) {
 	dir := t.TempDir()

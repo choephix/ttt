@@ -214,6 +214,9 @@ func (m *Manager) DispatchEvent(name string, args ...interface{}) {
 }
 
 func (m *Manager) Install(repoURL string) (*Plugin, error) {
+	if !strings.HasPrefix(repoURL, "https://") {
+		return nil, fmt.Errorf("only https:// URLs are allowed for plugin install")
+	}
 	name := filepath.Base(repoURL)
 	name = strings.TrimSuffix(name, ".git")
 	if name == "" || name == "." {
