@@ -241,6 +241,30 @@ end
 ttt.register({
   sidebar = {
     title = "Docker",
+    actions = {
+      { label = "Refresh All", command = "docker.sidebarAction.refresh" },
+      { separator = true },
+      { label = "Prune Containers", command = "docker.sidebarAction.pruneContainers" },
+      { label = "Prune Images", command = "docker.sidebarAction.pruneImages" },
+      { label = "Prune Volumes", command = "docker.sidebarAction.pruneVolumes" },
+      { separator = true },
+      { label = "Help", command = "docker.sidebarAction.help" },
+    },
+    on_action = function(command)
+      if command == "docker.sidebarAction.refresh" then refresh_all(last_panel)
+      elseif command == "docker.sidebarAction.pruneContainers" then cmd_prune_containers()
+      elseif command == "docker.sidebarAction.pruneImages" then cmd_prune_images()
+      elseif command == "docker.sidebarAction.pruneVolumes" then cmd_prune_volumes()
+      elseif command == "docker.sidebarAction.help" then
+        ttt.show_info("Docker Shortcuts", {
+          { key = "r", value = "Refresh all" },
+          { key = "Right-click", value = "Context menu on item" },
+          { key = "Up / Down", value = "Navigate items" },
+          { key = "Enter", value = "Expand / collapse" },
+          { key = "Ctrl+K r", value = "Refresh (global)" },
+        })
+      end
+    end,
     render = function(panel)
       last_panel = panel
 
@@ -254,30 +278,10 @@ ttt.register({
         return
       end
 
-      panel:dropdown({
-        label = "⋯",
-        entries = {
-          { label = "Refresh All              r", command = "refresh" },
-          { separator = true },
-          { label = "Prune Containers", command = "prune_containers" },
-          { label = "Prune Images", command = "prune_images" },
-          { label = "Prune Volumes", command = "prune_volumes" },
-          { separator = true },
-          { label = "Shortcuts", command = "help" },
-        },
-        on_menu = function(command)
-          if command == "refresh" then refresh_all(panel)
-          elseif command == "prune_containers" then cmd_prune_containers()
-          elseif command == "prune_images" then cmd_prune_images()
-          elseif command == "prune_volumes" then cmd_prune_volumes()
-          end
-        end,
-      })
-
       -- Containers section
       panel:vstack({
         render = function(p)
-          p:label({ text = " CONTAINERS (" .. #containers .. ")", style = "muted" })
+          p:label({ text = " Containers (" .. #containers .. ")", style = "muted" })
           p:box({
             border = true,
             render = function(bp)
@@ -306,7 +310,7 @@ ttt.register({
       -- Images section
       panel:vstack({
         render = function(p)
-          p:label({ text = " IMAGES (" .. #images .. ")", style = "muted" })
+          p:label({ text = " Images (" .. #images .. ")", style = "muted" })
           p:box({
             border = true,
             render = function(bp)
@@ -327,7 +331,7 @@ ttt.register({
       -- Volumes section
       panel:vstack({
         render = function(p)
-          p:label({ text = " VOLUMES (" .. #volumes .. ")", style = "muted" })
+          p:label({ text = " Volumes (" .. #volumes .. ")", style = "muted" })
           p:box({
             border = true,
             render = function(bp)
@@ -366,4 +370,3 @@ ttt.register({
     { key = "ctrl+k r", command = "docker.refresh" },
   },
 })
-

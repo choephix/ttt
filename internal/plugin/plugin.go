@@ -29,9 +29,11 @@ type Plugin struct {
 	Enabled  bool
 	State    *lua.LState
 
-	SidebarTitle string
-	RenderFunc   *lua.LFunction
-	EventFunc    *lua.LFunction
+	SidebarTitle       string
+	SidebarMenuEntries []widgets.MenuEntry
+	SidebarMenuFunc    *lua.LFunction
+	RenderFunc         *lua.LFunction
+	EventFunc          *lua.LFunction
 
 	BottomTitle      string
 	BottomRenderFunc *lua.LFunction
@@ -44,6 +46,7 @@ type Plugin struct {
 	PostAsync       func(*PluginAsyncResult)
 	Log             func(level, message string)
 	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
+	ShowInfoDialog  func(title string, entries []widgets.KeyValueEntry)
 	Borders         *term.BorderSet
 
 	Editor     EditorAPI
@@ -103,6 +106,12 @@ func (p *Plugin) Destroy() {
 	p.Log = nil
 	p.ShowContextMenu = nil
 	p.EventListeners = nil
+}
+
+func (p *Plugin) CallSidebarAction(cmd string) {
+	if p.SidebarMenuFunc != nil && p.State != nil {
+		p.CallLuaFunc(p.SidebarMenuFunc, lua.LString(cmd))
+	}
 }
 
 func (p *Plugin) DispatchEvent(name string, args ...lua.LValue) {

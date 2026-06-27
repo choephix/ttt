@@ -297,6 +297,9 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
 	p.Borders = a.Borders
+	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
+		a.ShowInfoDialog(title, entries)
+	}
 	p.ShowContextMenu = func(entries []widgets.MenuEntry, x, y int, onCommand func(string)) {
 		items := make([]ui.ContextMenuItem, len(entries))
 		for i, e := range entries {
@@ -317,6 +320,22 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 		}
 		a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
 		a.Root.SetFocus(menu)
+	}
+
+	if p.SidebarMenuFunc != nil {
+		for _, entry := range p.SidebarMenuEntries {
+			if entry.Separator || entry.Command == "" {
+				continue
+			}
+			cmd := entry.Command
+			a.Reg.Register(command.Command{
+				ID:    cmd,
+				Title: entry.Label,
+				Handler: func() {
+					p.CallSidebarAction(cmd)
+				},
+			})
+		}
 	}
 
 	a.registerPluginCommandsAndKeys(p)

@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 
+	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -54,6 +55,12 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				}
 				if fn, ok := L.GetField(st, "on_event").(*lua.LFunction); ok {
 					p.EventFunc = fn
+				}
+				if actions, ok := L.GetField(st, "actions").(*lua.LTable); ok {
+					p.SidebarMenuEntries = parseLuaMenuEntries(L, actions)
+				}
+				if fn, ok := L.GetField(st, "on_action").(*lua.LFunction); ok {
+					p.SidebarMenuFunc = fn
 				}
 			}
 
@@ -137,6 +144,30 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			}
 			if p.Log != nil {
 				p.Log(level, message)
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "show_info", L.NewFunction(func(L *lua.LState) int {
+			title := L.CheckString(1)
+			tbl := L.CheckTable(2)
+			var entries []widgets.KeyValueEntry
+			tbl.ForEach(func(_, v lua.LValue) {
+				row, ok := v.(*lua.LTable)
+				if !ok {
+					return
+				}
+				entry := widgets.KeyValueEntry{}
+				if k := L.GetField(row, "key"); k != lua.LNil {
+					entry.Key = k.String()
+				}
+				if val := L.GetField(row, "value"); val != lua.LNil {
+					entry.Value = val.String()
+				}
+				entries = append(entries, entry)
+			})
+			if p.ShowInfoDialog != nil {
+				p.ShowInfoDialog(title, entries)
 			}
 			return 0
 		}))
