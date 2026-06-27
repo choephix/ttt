@@ -271,7 +271,38 @@ func NewPluginSystemAPI() *PluginSystemAPI {
 	return &PluginSystemAPI{}
 }
 
+var dangerousArgPatterns = []string{
+	"--upload-pack", "--receive-pack",
+	"--exec=", "--config=",
+	"core.fsmonitor", "core.sshCommand", "core.pager",
+	"diff.external", "merge.tool",
+}
+
+func (s *PluginSystemAPI) validateArgs(binary string, args []string) error {
+	base := filepath.Base(binary)
+	for i, arg := range args {
+		if strings.Contains(arg, "=!") {
+			return fmt.Errorf("argument %d contains command injection pattern", i)
+		}
+
+		if base == "git" {
+			if arg == "-c" && i+1 < len(args) && strings.Contains(args[i+1], "=!") {
+				return fmt.Errorf("git -c argument contains command injection pattern")
+			}
+			for _, pattern := range dangerousArgPatterns {
+				if strings.Contains(arg, pattern) {
+					return fmt.Errorf("argument %d contains blocked pattern %q", i, pattern)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (s *PluginSystemAPI) Exec(binary string, args []string) (string, string, int, error) {
+	if err := s.validateArgs(binary, args); err != nil {
+		return "", "", -1, err
+	}
 	cmd := exec.Command(binary, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

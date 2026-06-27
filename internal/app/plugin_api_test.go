@@ -137,3 +137,36 @@ func TestPluginFilesystemAPI_SymlinkEscape(t *testing.T) {
 		t.Fatal("expected symlink escape to be blocked")
 	}
 }
+
+func TestPluginSystemAPI_ArgumentInjection(t *testing.T) {
+	api := NewPluginSystemAPI()
+
+	tests := []struct {
+		name    string
+		binary  string
+		args    []string
+		blocked bool
+	}{
+		{"safe git args", "git", []string{"status"}, false},
+		{"safe git log", "git", []string{"log", "--oneline", "-5"}, false},
+		{"git fsmonitor injection", "git", []string{"-c", "core.fsmonitor=!malicious"}, true},
+		{"git sshCommand injection", "git", []string{"-c", "core.sshCommand=evil"}, true},
+		{"git pager injection", "git", []string{"-c", "core.pager=!cmd"}, true},
+		{"git upload-pack", "git", []string{"clone", "--upload-pack=evil"}, true},
+		{"git receive-pack", "git", []string{"push", "--receive-pack=evil"}, true},
+		{"general =! injection", "/usr/bin/some-tool", []string{"--config=!evil"}, true},
+		{"safe non-git args", "docker", []string{"ps", "-a"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := api.validateArgs(tt.binary, tt.args)
+			if tt.blocked && err == nil {
+				t.Error("expected argument to be blocked")
+			}
+			if !tt.blocked && err != nil {
+				t.Errorf("expected argument to be allowed, got: %v", err)
+			}
+		})
+	}
+}
