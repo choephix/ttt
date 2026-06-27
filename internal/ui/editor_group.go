@@ -604,6 +604,32 @@ func (g *EditorGroupWidget) ActiveCursor() (line, col int) {
 	return t.Cur.Line, t.Cur.Col
 }
 
+func (g *EditorGroupWidget) TabCount() int {
+	return len(g.tabs)
+}
+
+func (g *EditorGroupWidget) ActiveTabIndex() int {
+	return g.active
+}
+
+func (g *EditorGroupWidget) TabInfo(index int) (path string, modified bool) {
+	if index < 0 || index >= len(g.tabs) {
+		return "", false
+	}
+	t := &g.tabs[index]
+	dirty := t.Buf != nil && t.Buf.Dirty
+	return t.FilePath, dirty
+}
+
+func (g *EditorGroupWidget) ActiveSelection() (active bool, sl, sc, el, ec int) {
+	t := g.activeTab()
+	if t == nil || t.Content != nil || t.Sel == nil || !t.Sel.Active {
+		return false, 0, 0, 0, 0
+	}
+	start, end := t.Sel.Range(t.Cur.Line, t.Cur.Col)
+	return true, start.Line, start.Col, end.Line, end.Col
+}
+
 func (g *EditorGroupWidget) ActiveFileName() string {
 	t := g.activeTab()
 	if t == nil {

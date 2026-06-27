@@ -142,6 +142,38 @@ Every new feature or bug fix should include tests at multiple levels:
 
 Functional tests with `tui` are the highest-value tests. Use `tui.exec("Command Name")` for command palette, `tui.pressChord("ctrl+k", "x")` for keybindings, and `tui.snapshot()` to verify results.
 
+### Debug harness (`--exec`, `--plugin`, `--size`, `--debug`)
+
+**USE THIS FOR DEBUGGING AND TESTING.** The editor has a built-in scripted interaction system that is faster than TUI tests and gives you direct access to internal state. Before investigating UI bugs manually, use `--exec` to reproduce and inspect them programmatically.
+
+**`--exec "commands"`** — Execute semicolon-separated commands after startup. Run the real binary, interact with it, capture state, and exit — all in one command:
+
+```bash
+bin/ttt --size 120x40 --exec "wait 200; screenshot /tmp/screen.txt; debug /tmp/state.json; quit"
+cat /tmp/screen.txt   # see what's rendered
+cat /tmp/state.json   # see full widget tree, focus, selection, panels
+```
+
+Supported commands:
+- `click X Y` — simulate mouse click at coordinates
+- `key COMBO` — simulate key press (e.g. `key ctrl+p`, `key enter`, `key ctrl+k x`)
+- `type TEXT` — type a string of text
+- `exec "Command Name"` — run a command by title (same as command palette)
+- `screenshot PATH` — save screen text to file
+- `debug PATH` — save debug state JSON (screen, cursor, buffer, focus, panels, tabs, selection, output log, full widget tree with rect/focus/props per node)
+- `wait MS` — wait milliseconds
+- `quit` — exit the editor
+
+**`--size WxH`** — Force screen dimensions for deterministic layout (e.g. `--size 120x40`). Essential for reproducible screenshots and coordinate-based click tests.
+
+**`--plugin FILE`** — Load a Lua plugin file on startup with full permissions. For more complex test scenarios that need callbacks, state, or event handling.
+
+**`--debug`** — Enable debug mode regardless of config setting.
+
+**Lua API equivalents** — Plugins can also call `ttt.screenshot(path)`, `ttt.debug(path)`, `ttt.click(x, y)`, and `ttt.quit()` directly.
+
+**Command palette** — `Debug: Screenshot`, `Debug: Dump State`, `Debug: Simulate Click`, `Debug: Run Current File as Plugin` are available for interactive debugging.
+
 ### Implementation patterns
 
 - **Undo contract**: all buffer mutations must go through the undo system via an `EditCommand` (in `internal/core/undo/`). Never modify `Buf.Lines` directly — create or reuse a command struct so undo/redo works.

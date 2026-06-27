@@ -62,14 +62,62 @@ func handlePanic(screen *term.TcellScreen) {
 	os.Exit(1)
 }
 
-func findConfigFlag() string {
+type cliFlags struct {
+	configFile string
+	pluginFile string
+	exec       string
+	sizeW, sizeH int
+	debug      bool
+}
+
+func parseFlags() cliFlags {
+	var f cliFlags
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
-		if args[i] == "--config" && i+1 < len(args) {
-			return args[i+1]
+		switch args[i] {
+		case "--config":
+			if i+1 < len(args) {
+				f.configFile = args[i+1]
+				i++
+			}
+		case "--plugin":
+			if i+1 < len(args) {
+				f.pluginFile = args[i+1]
+				i++
+			}
+		case "--exec":
+			if i+1 < len(args) {
+				f.exec = args[i+1]
+				i++
+			}
+		case "--size":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%dx%d", &f.sizeW, &f.sizeH)
+				i++
+			}
+		case "--debug":
+			f.debug = true
 		}
 	}
-	return ""
+	return f
+}
+
+func initTerminalScreen() *term.TcellScreen {
+	screen, err := term.NewTcellScreen()
+	if err != nil {
+		panic(err)
+	}
+	return screen
+}
+
+func initSimulationScreen(w, h int) *term.TcellScreen {
+	if w <= 0 || h <= 0 {
+		w, h = 80, 25
+	}
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(w, h)
+	return term.NewTcellScreenFrom(sim)
 }
 
 func main() {
@@ -91,6 +139,7 @@ Options:
   --version, -v       Show version
   --workspace <file>  Open a saved workspace (.ttt file)
   --config <file>     Use a custom config file
+  --exec "commands"   Execute semicolon-separated commands after startup
 
 Examples:
   ttt                                           Open current directory
@@ -111,8 +160,13 @@ Docs: https://tttedit.dev
 		defer startProfiler()()
 	}
 
-	cfg := config.Load(findConfigFlag())
+	flags := parseFlags()
+	cfg := config.Load(flags.configFile)
 	config.ParseKeyBindings(cfg.Keybindings)
+
+	if flags.debug {
+		cfg.Settings.DebugMode = true
+	}
 
 	logFile := initLogger(cfg.Settings.DebugMode)
 	if logFile != nil {
@@ -120,9 +174,11 @@ Docs: https://tttedit.dev
 	}
 	slog.Info("starting", "debugMode", cfg.Settings.DebugMode)
 
-	screen, err := term.NewTcellScreen()
-	if err != nil {
-		panic(err)
+	var screen *term.TcellScreen
+	if flags.exec != "" {
+		screen = initSimulationScreen(flags.sizeW, flags.sizeH)
+	} else {
+		screen = initTerminalScreen()
 	}
 	defer screen.Fini()
 	defer handlePanic(screen)
@@ -239,7 +295,18 @@ Docs: https://tttedit.dev
 	}
 
 	w, h := screen.Size()
+	if flags.sizeW > 0 && flags.sizeH > 0 {
+		w, h = flags.sizeW, flags.sizeH
+	}
 	editor.Root.SetSize(w, h)
+
+	if flags.pluginFile != "" {
+		app.LoadPluginFromFile(editor, flags.pluginFile)
+	}
+
+	if flags.exec != "" {
+		go app.RunExecScript(editor, flags.exec)
+	}
 
 	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)
 }

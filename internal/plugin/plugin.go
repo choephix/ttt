@@ -48,6 +48,11 @@ type Plugin struct {
 	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
+	SimulateClick     func(x, y int)
+	SimulateDrag      func(x1, y1, x2, y2 int)
+	ScreenshotToFile  func(path string) error
+	DebugDumpToFile   func(path string) error
+	QuitApp           func()
 	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
 	CloseDrawer       func()
 	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)
@@ -76,6 +81,28 @@ func (p *Plugin) Init() error {
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
 	if err := p.State.DoFile(entry); err != nil {
+		p.LastError = err
+		p.State.Close()
+		p.State = nil
+		p.logError("init", err)
+		return err
+	}
+
+	p.Enabled = true
+	return nil
+}
+
+func (p *Plugin) InitFromSource(source string) error {
+	p.EventListeners = make(map[string][]*lua.LFunction)
+	p.State = NewSandbox()
+	setupTTTModule(p.State, p)
+	setupEditorModule(p.State, p)
+	setupFsModule(p.State, p)
+	setupSystemModule(p.State, p)
+	setupNetModule(p.State, p)
+	setupEventsModule(p.State, p)
+
+	if err := p.State.DoString(source); err != nil {
 		p.LastError = err
 		p.State.Close()
 		p.State = nil

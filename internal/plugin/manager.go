@@ -150,6 +150,19 @@ func (m *Manager) ApproveAndLoad(p *Plugin) error {
 	return nil
 }
 
+func (m *Manager) RegisterDebugPlugin(p *Plugin) {
+	for i, existing := range m.plugins {
+		if existing.Name == p.Name {
+			existing.Destroy()
+			m.plugins[i] = p
+			m.collectRegistrations(p)
+			return
+		}
+	}
+	m.plugins = append(m.plugins, p)
+	m.collectRegistrations(p)
+}
+
 func (m *Manager) SetEditorAPI(api EditorAPI) {
 	for _, p := range m.plugins {
 		p.Editor = api

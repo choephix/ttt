@@ -289,6 +289,39 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.RequestRedraw = func() {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
+	p.SimulateClick = func(x, y int) {
+		go func() {
+			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone))
+			time.Sleep(50 * time.Millisecond)
+			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone))
+		}()
+	}
+	p.SimulateDrag = func(x1, y1, x2, y2 int) {
+		go func() {
+			a.Screen.PostEvent(tcell.NewEventMouse(x1, y1, tcell.Button1, tcell.ModNone))
+			time.Sleep(30 * time.Millisecond)
+			steps := 10
+			for i := 1; i <= steps; i++ {
+				mx := x1 + (x2-x1)*i/steps
+				my := y1 + (y2-y1)*i/steps
+				a.Screen.PostEvent(tcell.NewEventMouse(mx, my, tcell.Button1, tcell.ModNone))
+				time.Sleep(15 * time.Millisecond)
+			}
+			a.Screen.PostEvent(tcell.NewEventMouse(x2, y2, tcell.ButtonNone, tcell.ModNone))
+		}()
+	}
+	p.ScreenshotToFile = func(path string) error {
+		return a.DumpScreenshot(path)
+	}
+	p.DebugDumpToFile = func(path string) error {
+		return a.DumpDebugState(path)
+	}
+	p.QuitApp = func() {
+		if a.Running != nil {
+			*a.Running = false
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}

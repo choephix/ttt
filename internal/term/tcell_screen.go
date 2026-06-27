@@ -141,6 +141,10 @@ func (t *TcellScreen) PostEvent(ev tcell.Event) error {
 	return t.scr.PostEvent(ev)
 }
 
+func (t *TcellScreen) GetContent(x, y int) (rune, []rune, tcell.Style, int) {
+	return t.scr.GetContent(x, y)
+}
+
 func (t *TcellScreen) Tty() (tcell.Tty, bool) {
 	return t.scr.Tty()
 }
