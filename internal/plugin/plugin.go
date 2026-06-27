@@ -49,6 +49,9 @@ type Plugin struct {
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
 	SimulateClick     func(x, y int)
+	ScreenshotToFile  func(path string) error
+	DebugDumpToFile   func(path string) error
+	QuitApp           func()
 	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
 	CloseDrawer       func()
 	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)

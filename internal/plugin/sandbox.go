@@ -299,6 +299,33 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "screenshot", L.NewFunction(func(L *lua.LState) int {
+			path := L.CheckString(1)
+			if p.ScreenshotToFile != nil {
+				if err := p.ScreenshotToFile(path); err != nil {
+					L.ArgError(1, err.Error())
+				}
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "debug", L.NewFunction(func(L *lua.LState) int {
+			path := L.CheckString(1)
+			if p.DebugDumpToFile != nil {
+				if err := p.DebugDumpToFile(path); err != nil {
+					L.ArgError(1, err.Error())
+				}
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "quit", L.NewFunction(func(L *lua.LState) int {
+			if p.QuitApp != nil {
+				p.QuitApp()
+			}
+			return 0
+		}))
+
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
 			text := L.CheckString(1)
 			rendered := markdown.Render(text)

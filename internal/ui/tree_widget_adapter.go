@@ -44,6 +44,8 @@ func (a *WidgetAdapter) wireTabbedCallbacks(w widgets.Widget) {
 	}
 }
 
+func (a *WidgetAdapter) Inner() widgets.Widget { return a.W }
+
 func (a *WidgetAdapter) Focusable() bool { return true }
 
 func (a *WidgetAdapter) Render(surface Surface) {

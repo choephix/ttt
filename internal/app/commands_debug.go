@@ -1,6 +1,9 @@
 package app
 
 import (
+	"log/slog"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +31,20 @@ func registerDebugCommands(app *App) {
 		Title:    "Debug: Run Current File as Plugin",
 		Keywords: []string{"debug", "plugin", "lua", "test", "run"},
 		Handler:  func() { app.debugRunPlugin() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "debug.screenshot",
+		Title:    "Debug: Screenshot",
+		Keywords: []string{"debug", "screenshot", "capture"},
+		Handler:  func() { app.debugScreenshot() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "debug.dumpState",
+		Title:    "Debug: Dump State",
+		Keywords: []string{"debug", "dump", "state", "json"},
+		Handler:  func() { app.debugDumpState() },
 	})
 }
 
@@ -131,4 +148,67 @@ func (a *App) debugRunPlugin() {
 	}
 
 	a.Status.SetNotification("Plugin loaded: "+name, view.NotifyInfo, 3*time.Second)
+}
+
+func (a *App) debugScreenshot() {
+	path := "screenshot.txt"
+	if err := a.DumpScreenshot(path); err != nil {
+		a.Status.SetNotification("Screenshot error: "+err.Error(), view.NotifyError, 3*time.Second)
+		return
+	}
+	a.Status.SetNotification("Screenshot saved: "+path, view.NotifyInfo, 3*time.Second)
+}
+
+func (a *App) debugDumpState() {
+	path := "debug-state.json"
+	if err := a.DumpDebugState(path); err != nil {
+		a.Status.SetNotification("Dump error: "+err.Error(), view.NotifyError, 3*time.Second)
+		return
+	}
+	a.Status.SetNotification("State saved: "+path, view.NotifyInfo, 3*time.Second)
+}
+
+func LoadPluginFromFile(a *App, path string) {
+	source, err := os.ReadFile(path)
+	if err != nil {
+		slog.Error("load plugin file", "path", path, "error", err)
+		return
+	}
+
+	name := strings.TrimSuffix(filepath.Base(path), ".lua")
+	p := &plugin.Plugin{
+		Name:    name,
+		Dir:     filepath.Dir(path),
+		Enabled: true,
+		Manifest: plugin.Manifest{
+			Name:  name,
+			Entry: "inline",
+		},
+		Granted: plugin.PermissionSet{
+			PanelSidebar: true,
+			PanelBottom:  true,
+			PanelDrawer:  true,
+			PanelEditor:  true,
+			Commands:     true,
+			Keybindings:  true,
+			EditorRead:   true,
+			EditorWrite:  true,
+			FsRead:       true,
+			FsWrite:      true,
+			SystemEnv:    true,
+			NetworkHTTP:  true,
+			EventsFile:   true,
+			EventsEditor: true,
+		},
+	}
+
+	if err := p.InitFromSource(string(source)); err != nil {
+		slog.Error("init plugin from file", "path", path, "error", err)
+		return
+	}
+
+	a.PluginManager.RegisterDebugPlugin(p)
+	a.wirePlugin(p)
+
+	slog.Info("plugin loaded from file", "path", path, "name", name)
 }

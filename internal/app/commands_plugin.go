@@ -296,6 +296,18 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone))
 		}()
 	}
+	p.ScreenshotToFile = func(path string) error {
+		return a.DumpScreenshot(path)
+	}
+	p.DebugDumpToFile = func(path string) error {
+		return a.DumpDebugState(path)
+	}
+	p.QuitApp = func() {
+		if a.Running != nil {
+			*a.Running = false
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
