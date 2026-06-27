@@ -322,7 +322,21 @@ func (s *PluginSystemAPI) Exec(binary string, args []string) (string, string, in
 	return stdout.String(), stderr.String(), exitCode, err
 }
 
+var blockedEnvPrefixes = []string{
+	"AWS_", "AZURE_", "GCP_", "GOOGLE_",
+	"GITHUB_TOKEN", "GITLAB_TOKEN", "NPM_TOKEN",
+	"DATABASE_", "DB_", "REDIS_",
+	"SECRET", "PASSWORD", "PRIVATE_KEY",
+	"API_KEY", "ACCESS_KEY",
+}
+
 func (s *PluginSystemAPI) Env(name string) string {
+	upper := strings.ToUpper(name)
+	for _, prefix := range blockedEnvPrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			return ""
+		}
+	}
 	return os.Getenv(name)
 }
 

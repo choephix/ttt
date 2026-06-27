@@ -168,6 +168,39 @@ func TestPluginNetworkAPI_SSRFProtection(t *testing.T) {
 	}
 }
 
+func TestPluginSystemAPI_EnvBlocklist(t *testing.T) {
+	api := NewPluginSystemAPI()
+
+	tests := []struct {
+		name    string
+		env     string
+		blocked bool
+	}{
+		{"HOME allowed", "HOME", false},
+		{"PATH allowed", "PATH", false},
+		{"SHELL allowed", "SHELL", false},
+		{"AWS_SECRET_ACCESS_KEY blocked", "AWS_SECRET_ACCESS_KEY", true},
+		{"GITHUB_TOKEN blocked", "GITHUB_TOKEN", true},
+		{"DATABASE_URL blocked", "DATABASE_URL", true},
+		{"SECRET_KEY blocked", "SECRET_KEY", true},
+		{"API_KEY blocked", "API_KEY", true},
+		{"lowercase aws blocked", "aws_secret_key", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(tt.env, "test-value")
+			result := api.Env(tt.env)
+			if tt.blocked && result != "" {
+				t.Errorf("expected env %q to be blocked, got %q", tt.env, result)
+			}
+			if !tt.blocked && result != "test-value" {
+				t.Errorf("expected env %q to return 'test-value', got %q", tt.env, result)
+			}
+		})
+	}
+}
+
 func TestPluginSystemAPI_ArgumentInjection(t *testing.T) {
 	api := NewPluginSystemAPI()
 
