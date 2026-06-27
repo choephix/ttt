@@ -289,6 +289,13 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.RequestRedraw = func() {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
+	p.SimulateClick = func(x, y int) {
+		go func() {
+			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone))
+			time.Sleep(50 * time.Millisecond)
+			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone))
+		}()
+	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}

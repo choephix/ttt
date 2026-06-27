@@ -11,5 +11,13 @@ ttt.register({
         end)
       end,
     },
+    {
+      id = "test.clickAt",
+      title = "Test: Click At 10,5",
+      handler = function()
+        ttt.click(10, 5)
+        ttt.log("info", "Clicked at 10, 5")
+      end,
+    },
   },
 })

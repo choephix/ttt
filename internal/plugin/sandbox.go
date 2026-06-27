@@ -290,6 +290,15 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "click", L.NewFunction(func(L *lua.LState) int {
+			x := L.CheckInt(1)
+			y := L.CheckInt(2)
+			if p.SimulateClick != nil {
+				p.SimulateClick(x, y)
+			}
+			return 0
+		}))
+
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
 			text := L.CheckString(1)
 			rendered := markdown.Render(text)

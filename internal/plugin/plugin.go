@@ -48,6 +48,7 @@ type Plugin struct {
 	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
+	SimulateClick     func(x, y int)
 	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
 	CloseDrawer       func()
 	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)
