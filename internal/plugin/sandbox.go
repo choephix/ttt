@@ -299,6 +299,17 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "drag", L.NewFunction(func(L *lua.LState) int {
+			x1 := L.CheckInt(1)
+			y1 := L.CheckInt(2)
+			x2 := L.CheckInt(3)
+			y2 := L.CheckInt(4)
+			if p.SimulateDrag != nil {
+				p.SimulateDrag(x1, y1, x2, y2)
+			}
+			return 0
+		}))
+
 		L.SetField(mod, "screenshot", L.NewFunction(func(L *lua.LState) int {
 			path := L.CheckString(1)
 			if p.ScreenshotToFile != nil {

@@ -49,6 +49,7 @@ type Plugin struct {
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
 	SimulateClick     func(x, y int)
+	SimulateDrag      func(x1, y1, x2, y2 int)
 	ScreenshotToFile  func(path string) error
 	DebugDumpToFile   func(path string) error
 	QuitApp           func()

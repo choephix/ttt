@@ -29,6 +29,8 @@ func RunExecScript(a *App, script string) {
 		switch action {
 		case "click":
 			execClick(a, args)
+		case "drag":
+			execDrag(a, args)
 		case "key":
 			execKey(a, args)
 		case "type":
@@ -85,6 +87,35 @@ func execClick(a *App, args string) {
 	time.Sleep(50 * time.Millisecond)
 	// Release
 	a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone))
+}
+
+func execDrag(a *App, args string) {
+	parts := strings.Fields(args)
+	if len(parts) < 4 {
+		slog.Error("exec_script: drag requires X1 Y1 X2 Y2", "args", args)
+		return
+	}
+	x1, err1 := strconv.Atoi(parts[0])
+	y1, err2 := strconv.Atoi(parts[1])
+	x2, err3 := strconv.Atoi(parts[2])
+	y2, err4 := strconv.Atoi(parts[3])
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+		slog.Error("exec_script: invalid drag coordinates", "args", args)
+		return
+	}
+
+	a.Screen.PostEvent(tcell.NewEventMouse(x1, y1, tcell.Button1, tcell.ModNone))
+	time.Sleep(30 * time.Millisecond)
+
+	steps := 10
+	for i := 1; i <= steps; i++ {
+		mx := x1 + (x2-x1)*i/steps
+		my := y1 + (y2-y1)*i/steps
+		a.Screen.PostEvent(tcell.NewEventMouse(mx, my, tcell.Button1, tcell.ModNone))
+		time.Sleep(15 * time.Millisecond)
+	}
+
+	a.Screen.PostEvent(tcell.NewEventMouse(x2, y2, tcell.ButtonNone, tcell.ModNone))
 }
 
 func execKey(a *App, args string) {
