@@ -30,15 +30,13 @@ func keyEventToLua(L *lua.LState, e *tcell.EventKey) *lua.LTable {
 		L.SetField(tbl, "key", lua.LString(name))
 	}
 
-	mod := ""
 	if e.Modifiers()&tcell.ModCtrl != 0 {
-		mod = "ctrl"
+		L.SetField(tbl, "mod", lua.LString("ctrl"))
 	} else if e.Modifiers()&tcell.ModAlt != 0 {
-		mod = "alt"
+		L.SetField(tbl, "mod", lua.LString("alt"))
 	} else if e.Modifiers()&tcell.ModShift != 0 {
-		mod = "shift"
+		L.SetField(tbl, "mod", lua.LString("shift"))
 	}
-	L.SetField(tbl, "mod", lua.LString(mod))
 
 	return tbl
 }
