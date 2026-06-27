@@ -14,7 +14,7 @@
 - [x] **Path traversal in manifest `entry` field** [Security] — `../` in `entry` causes `DoFile` to execute arbitrary `.lua` files outside the plugin directory. See `security.md` §High H1
 - [x] **No SSRF protection in network API** [Security] — plugins can hit `localhost`, internal IPs, cloud metadata (`169.254.169.254`), and `file://` URLs. See `security.md` §High H2
 - [x] **Unbounded HTTP response body** [Security] — `io.ReadAll` with no size limit; a malicious server can OOM the editor. See `security.md` §High H3
-- [x] **Environment variable access is completely unscoped** [Security] — `system.env` exposes all env vars (`AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, etc.). See `security.md` §High H4
+- [ ] **Environment variable access is completely unscoped** [Security] — won't fix: system.env permission gate is sufficient, same trust model as VS Code extensions — `system.env` exposes all env vars (`AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, etc.). See `security.md` §High H4
 - [x] **Plugin install via `git clone` with limited URL validation** [Security] — accepts `file://`, SSH, and custom protocols; cloned hooks could run on `git pull` during update. See `security.md` §High H5
 - [x] **Plugin loses all app callbacks after Update (no-approval path)** [Bug] — `Destroy()` nils all callbacks, `Init()` does not restore them, caller does not call `wirePlugin()`. See `bugs.md` §High #3
 - [x] **Plugin not wired after `SetEnabled(true)`** [Bug] — new plugin object has nil callbacks and API interfaces; `wirePlugin()` is never called. See `bugs.md` §High #4
