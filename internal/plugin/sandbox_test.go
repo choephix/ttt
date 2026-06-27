@@ -57,7 +57,10 @@ func TestSandboxDangerousGlobalsRemoved(t *testing.T) {
 	L := NewSandbox()
 	defer L.Close()
 
-	for _, name := range []string{"dofile", "loadfile", "load", "loadstring"} {
+	for _, name := range []string{
+		"dofile", "loadfile", "load", "loadstring",
+		"getfenv", "setfenv", "rawset", "rawget", "print",
+	} {
 		v := L.GetGlobal(name)
 		if v != lua.LNil {
 			t.Errorf("expected %s to be nil, got %s", name, v.Type().String())
