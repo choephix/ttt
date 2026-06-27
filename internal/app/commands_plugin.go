@@ -11,6 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/widgets"
 
 	"github.com/gdamore/tcell/v2"
+	lua "github.com/yuin/gopher-lua"
 )
 
 func registerPluginCommands(app *App) {
@@ -329,6 +330,30 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 		}
 		a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
 		a.Root.SetFocus(menu)
+	}
+
+	p.OpenDrawer = func(renderFunc *lua.LFunction, width, minWidth int) {
+		panelWidget := plugin.NewPluginPanelWidget(p, renderFunc, nil)
+		drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
+			Width:    width,
+			MinWidth: minWidth,
+			Borders:  *a.Borders,
+			OnDismiss: func() {
+				a.DismissDialog()
+			},
+		})
+		drawer.SetContent(panelWidget)
+		a.ShowDrawer(drawer)
+	}
+	p.CloseDrawer = func() {
+		a.DismissDialog()
+	}
+	p.OpenTab = func(id string, renderFunc, eventFunc *lua.LFunction) {
+		panelWidget := plugin.NewPluginPanelWidget(p, renderFunc, eventFunc)
+		a.EditorGroup.OpenPluginTab(id, panelWidget)
+	}
+	p.CloseTab = func(id string) {
+		a.EditorGroup.ClosePluginTab(id)
 	}
 
 	if p.SidebarMenuFunc != nil {

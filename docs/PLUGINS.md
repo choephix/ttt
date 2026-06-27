@@ -7,14 +7,23 @@ ttt supports Lua plugins that can render panels in the sidebar and bottom panel 
 - [Getting Started](#getting-started)
 - [Plugin Lifecycle](#plugin-lifecycle)
 - [Registration](#registration)
+  - [Sidebar Panel](#sidebar-panel)
+  - [Bottom Panel](#bottom-panel)
   - [Commands](#commands)
   - [Keybindings](#keybindings)
+- [ttt Module Functions](#ttt-module-functions)
 - [Widget API](#widget-api)
   - [Label](#label)
+  - [Title](#title)
+  - [Key-Value List](#key-value-list)
   - [Tree](#tree)
   - [List](#list)
   - [Button](#button)
   - [Input](#input)
+  - [VStack](#vstack)
+  - [Box](#box)
+  - [Dropdown](#dropdown)
+  - [Box Model](#box-model)
   - [Requesting Redraws](#requesting-redraws)
 - [Raw Cell API](#raw-cell-api)
 - [Mixing Widgets and Raw Cells](#mixing-widgets-and-raw-cells)
@@ -41,7 +50,14 @@ ttt supports Lua plugins that can render panels in the sidebar and bottom panel 
 
 ### Directory Structure
 
-Plugins live in `~/.config/ttt/plugins/<plugin-name>/`. Each plugin is a directory containing a manifest file and one or more Lua source files:
+Plugins live in one of two locations:
+
+- **Global:** `~/.config/ttt/plugins/<plugin-name>/` — available in all sessions.
+- **Workspace-local:** `<workspace-root>/plugins/<plugin-name>/` — scoped to a specific project. The workspace root is the primary folder opened by ttt.
+
+If a plugin with the same name exists in both locations, the global one takes precedence.
+
+Each plugin is a directory containing a manifest file and one or more Lua source files:
 
 ```
 ~/.config/ttt/plugins/my-plugin/
@@ -66,14 +82,14 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
 }
 ```
 
-| Field         | Required | Description                                         |
-|---------------|----------|-----------------------------------------------------|
-| `name`        | yes      | Unique plugin identifier. Must match directory name. |
-| `description` | no       | Shown in the plugin list dialog.                    |
-| `version`     | no       | Semver version string.                              |
-| `author`      | no       | Plugin author name.                                 |
-| `entry`       | yes      | Path to the Lua entry point, relative to the plugin directory. |
-| `permissions` | no       | Object declaring required permissions (see [Permissions Reference](#permissions-reference)). |
+| Field         | Type   | Required | Description                                         |
+|---------------|--------|----------|-----------------------------------------------------|
+| `name`        | string | yes      | Unique plugin identifier. Must match directory name. |
+| `description` | string | no       | Shown in the plugin list dialog.                    |
+| `version`     | string | no       | Semver version string.                              |
+| `author`      | string | no       | Plugin author name.                                 |
+| `entry`       | string | yes      | Path to the Lua entry point, relative to the plugin directory. |
+| `permissions` | object | no       | Object declaring required permissions (see [Permissions Reference](#permissions-reference)). |
 
 ### Minimal Example
 
@@ -108,7 +124,7 @@ ttt.register({
 
 ### Loading
 
-1. On startup, ttt scans `~/.config/ttt/plugins/` for directories containing `plugin.ttt.json`.
+1. On startup, ttt scans `~/.config/ttt/plugins/` and `<workspace-root>/plugins/` for directories containing `plugin.ttt.json`.
 2. For each plugin, the manifest is parsed and permissions are compared against the user's stored approvals in `~/.config/ttt/plugins.ttt.json`.
 3. If the plugin has been approved and its permissions haven't changed, it loads immediately: a sandboxed Lua VM is created, the entry file is executed, and `ttt.register()` wires up the panels.
 4. If the plugin is new or its permissions have changed since approval, an approval dialog appears showing the requested permissions. The user can Allow or Cancel.
@@ -129,22 +145,18 @@ Run **Plugins: Reload** from the command palette to reload a plugin without rest
 
 ## Registration
 
-The entry point Lua file must call `ttt.register()` to declare what the plugin provides. The `ttt` module also provides `ttt.log()` for logging (see [Logging](#logging)).
-
-`ttt.register()` accepts a table with `sidebar`, `bottom`, `commands`, and/or `keybindings` fields. A plugin can register any combination:
+The entry point Lua file must call `ttt.register()` to declare what the plugin provides. `ttt.register()` accepts a single table with `sidebar`, `bottom`, `commands`, and/or `keybindings` fields. A plugin can register any combination:
 
 ```lua
 local ttt = require("ttt")
 
 ttt.register({
   sidebar = {
-    title = "Panel Title",       -- tab label
-    render = function(panel)     -- called each render frame
-      -- build UI here
-    end,
-    on_event = function(event)   -- optional: fallback event handler
-      -- handle key/mouse events not consumed by widgets
-    end,
+    title = "Panel Title",
+    render = function(panel) end,
+    on_event = function(event) end,
+    actions = { ... },
+    on_action = function(command) end,
   },
   bottom = {
     title = "Output",
@@ -152,9 +164,7 @@ ttt.register({
     on_event = function(event) end,
   },
   commands = {
-    { id = "myplugin.doSomething", title = "My Plugin: Do Something", handler = function()
-      -- command logic here
-    end },
+    { id = "myplugin.doSomething", title = "My Plugin: Do Something", handler = function() end },
   },
   keybindings = {
     { key = "ctrl+k d", command = "myplugin.doSomething" },
@@ -162,17 +172,48 @@ ttt.register({
 })
 ```
 
-### Panel Fields
+### Sidebar Panel
 
-| Field      | Required | Description                                                    |
-|------------|----------|----------------------------------------------------------------|
-| `title`    | yes      | Displayed as the panel's tab label.                            |
-| `render`   | yes      | Function called each render frame. Receives a panel proxy object. |
-| `on_event` | no       | Fallback handler for key/mouse events not consumed by widgets. |
+Sidebar panels appear in the left sidebar alongside the file explorer. Requires the `panel.sidebar` permission.
 
-**Sidebar** panels appear in the left sidebar alongside the file explorer. They require the `panel.sidebar` permission.
+| Field       | Type     | Required | Description                                                             |
+|-------------|----------|----------|-------------------------------------------------------------------------|
+| `title`     | string   | yes      | Displayed as the panel's tab label.                                     |
+| `render`    | function | yes      | Called each render frame. Receives a [panel proxy](#widget-api) object. |
+| `on_event`  | function | no       | Fallback handler for key/mouse events not consumed by widgets.          |
+| `actions`   | table    | no       | Array of menu entries for the panel's "..." header menu.                |
+| `on_action` | function | no       | Callback when a header menu action is selected. Receives the command string. |
 
-**Bottom** panels appear in the bottom panel alongside the terminal. They require the `panel.bottom` permission.
+The `actions` array defines entries for the sidebar panel's header menu (the "..." button). Each entry uses the [menu entry format](#menu-entry-format):
+
+```lua
+sidebar = {
+  title = "Docker",
+  actions = {
+    { label = "Refresh All", command = "refresh" },
+    { separator = true },
+    { label = "Prune Containers", command = "prune_containers" },
+  },
+  on_action = function(command)
+    if command == "refresh" then
+      refresh()
+    elseif command == "prune_containers" then
+      prune()
+    end
+  end,
+  render = function(panel) ... end,
+}
+```
+
+### Bottom Panel
+
+Bottom panels appear in the bottom panel alongside the terminal. Requires the `panel.bottom` permission.
+
+| Field      | Type     | Required | Description                                                    |
+|------------|----------|----------|----------------------------------------------------------------|
+| `title`    | string   | yes      | Displayed as the panel's tab label.                            |
+| `render`   | function | yes      | Called each render frame. Receives a panel proxy object.       |
+| `on_event` | function | no       | Fallback handler for key/mouse events not consumed by widgets. |
 
 ### Commands
 
@@ -180,11 +221,11 @@ Plugins can register commands that appear in the command palette. Requires the `
 
 Each command entry is a table with:
 
-| Field     | Required | Description                              |
-|-----------|----------|------------------------------------------|
-| `id`      | yes      | Unique command ID (e.g. `myplugin.run`). |
-| `title`   | yes      | Display title in the command palette.     |
-| `handler` | yes      | Function called when the command runs.    |
+| Field     | Type     | Required | Description                              |
+|-----------|----------|----------|------------------------------------------|
+| `id`      | string   | yes      | Unique command ID (e.g. `myplugin.run`). |
+| `title`   | string   | yes      | Display title in the command palette.     |
+| `handler` | function | yes      | Function called when the command runs.    |
 
 ### Keybindings
 
@@ -192,12 +233,74 @@ Plugins can register keyboard shortcuts for their commands. Requires the `keybin
 
 Each keybinding entry is a table with:
 
-| Field     | Required | Description                                           |
-|-----------|----------|-------------------------------------------------------|
-| `key`     | yes      | Key combination string (e.g. `ctrl+k d` for a chord). |
-| `command` | yes      | Command ID to execute when the key is pressed.        |
+| Field     | Type   | Required | Description                                           |
+|-----------|--------|----------|-------------------------------------------------------|
+| `key`     | string | yes      | Key combination string (e.g. `ctrl+k d` for a chord). |
+| `command` | string | yes      | Command ID to execute when the key is pressed.        |
 
 Use `ctrl+k <key>` chords for plugin keybindings to avoid conflicts with built-in shortcuts. Avoid `ctrl+shift` combos — they are unreliable in many terminals.
+
+---
+
+## ttt Module Functions
+
+These functions are available on the `ttt` module directly:
+
+```lua
+local ttt = require("ttt")
+```
+
+### `ttt.register(config)`
+
+Registers the plugin's panels, commands, and keybindings. See [Registration](#registration) for the full config table format.
+
+### `ttt.log(message)` / `ttt.log(level, message)`
+
+Log a message to the OUTPUT panel. No permission required.
+
+```lua
+ttt.log("plugin loaded")                -- defaults to "info" level
+ttt.log("warn", "config not found")     -- explicit level
+ttt.log("error", "connection failed")   -- error level
+```
+
+See [Logging](#logging) for details.
+
+### `ttt.confirm(message, callback)`
+
+Show a confirmation dialog. The callback is called (with no arguments) only if the user clicks "Allow" / confirms.
+
+| Parameter  | Type     | Description                                       |
+|------------|----------|---------------------------------------------------|
+| `message`  | string   | Question or warning text shown in the dialog.     |
+| `callback` | function | Called with no arguments if the user confirms.    |
+
+```lua
+ttt.confirm("Remove container 'web-app'?", function()
+  -- only runs if user confirmed
+  sys.exec_async("docker", {"rm", "-f", "web-app"}, function(result)
+    ttt.log("Removed container")
+    panel:redraw()
+  end)
+end)
+```
+
+### `ttt.show_info(title, entries)`
+
+Show an informational dialog with key-value pairs.
+
+| Parameter | Type   | Description                                          |
+|-----------|--------|------------------------------------------------------|
+| `title`   | string | Dialog title.                                        |
+| `entries` | table  | Array of `{key = string, value = string}` tables.    |
+
+```lua
+ttt.show_info("Shortcuts", {
+  { key = "r", value = "Refresh all" },
+  { key = "Enter", value = "Expand / collapse" },
+  { key = "Ctrl+K r", value = "Refresh (global)" },
+})
+```
 
 ---
 
@@ -209,27 +312,80 @@ The render function is called every time the panel needs to redraw. Widget state
 
 ### Label
 
-Display a line of text, optionally styled.
+Display a line of text, optionally styled with a badge.
 
 **Simple string form:**
 
 ```lua
 panel:label("Status: OK")
-panel:label("Some text")
 ```
 
-**Table form (with style):**
+**Table form (with style and badge):**
 
 ```lua
 panel:label({ text = "Error occurred!", style = "danger" })
-panel:label({ text = "Hint: press Enter", style = "muted" })
+panel:label({ text = "Containers", style = "muted", badge = "5" })
+panel:label({ text = "Hint: press Enter", style = "muted", padding_left = 1 })
 ```
 
-| Parameter | Type           | Description                          |
-|-----------|----------------|--------------------------------------|
-| argument  | string or table | String for simple text. Table with `text` and optional `style` fields. |
+| Field   | Type   | Required | Description                                       |
+|---------|--------|----------|---------------------------------------------------|
+| `text`  | string | yes      | Label text to display.                            |
+| `style` | string | no       | Named style (see [Styles](#styles)). Default: `"default"`. |
+| `badge` | string | no       | Badge text displayed after the label.             |
+| + [box model fields](#box-model) | | | Margin and padding. |
 
 Labels are not focusable — they display text only and don't receive keyboard events.
+
+---
+
+### Title
+
+Bold heading text. Renders in a prominent style.
+
+**Simple string form:**
+
+```lua
+panel:title("Section Header")
+```
+
+**Table form:**
+
+```lua
+panel:title({ text = "CONTAINERS", margin_top = 1, margin_bottom = 1 })
+```
+
+| Field  | Type   | Required | Description            |
+|--------|--------|----------|------------------------|
+| `text` | string | yes      | Title text to display. |
+| + [box model fields](#box-model) | | | Margin and padding. |
+
+Titles are not focusable.
+
+---
+
+### Key-Value List
+
+Display a list of key-value pairs, aligned in two columns.
+
+```lua
+panel:keyvalue({
+  { key = "Status", value = "Running" },
+  { key = "Image",  value = "nginx:latest" },
+  { key = "Port",   value = "8080:80" },
+})
+```
+
+The argument is an array of tables, each with:
+
+| Field   | Type   | Required | Description   |
+|---------|--------|----------|---------------|
+| `key`   | string | yes      | Left column.  |
+| `value` | string | yes      | Right column. |
+
+The outer table also supports [box model fields](#box-model) for margin/padding.
+
+Key-value lists are not focusable.
 
 ---
 
@@ -243,51 +399,45 @@ panel:tree({
     {
       id = "src",
       label = "src/",
-      icon = "📁",
+      icon = "\xF0\x9F\x93\x81",
       expandable = true,
       expanded = true,
       children = {
-        { id = "main.go", label = "main.go", icon = "📄" },
-        { id = "util.go", label = "util.go", icon = "📄", muted = true },
+        { id = "main.go", label = "main.go", icon = "\xF0\x9F\x93\x84" },
+        { id = "util.go", label = "util.go", icon = "\xF0\x9F\x93\x84", muted = true },
       },
     },
-    { id = "readme", label = "README.md", icon = "📄", badge = "modified" },
+    { id = "readme", label = "README.md", icon = "\xF0\x9F\x93\x84", badge = "modified" },
   },
   indent = 2,
   on_select = function(node)
     -- called when a node is activated (Enter key or double-click)
   end,
   on_expand = function(node)
-    -- called when a node is expanded
+    -- called when a node is expanded/collapsed
   end,
+  on_command = function(command, node)
+    -- called when a context menu command or inline action is triggered
+  end,
+  node_menu = {
+    { label = "Open", command = "open" },
+    { label = "Delete", command = "delete" },
+  },
 })
 ```
 
 **Tree config fields:**
 
-| Field       | Type     | Default | Description                                    |
-|-------------|----------|---------|------------------------------------------------|
-| `items`     | table    | `{}`    | Array of tree node tables (see below).         |
-| `indent`    | number   | `2`     | Number of spaces per nesting level.            |
-| `on_select` | function | nil     | Callback when a node is activated.             |
-| `on_expand` | function | nil     | Callback when a node is expanded.              |
+| Field        | Type     | Default | Description                                    |
+|--------------|----------|---------|------------------------------------------------|
+| `items`      | table    | `{}`    | Array of [tree node tables](#tree-node-format). |
+| `indent`     | number   | `2`     | Number of spaces per nesting level.            |
+| `on_select`  | function | nil     | Callback when a node is activated (Enter or double-click). Receives the node table. |
+| `on_expand`  | function | nil     | Callback when a node is expanded or collapsed. Receives the node table. |
+| `on_command` | function | nil     | Callback when a context menu command is selected. Receives `(command, node)`. |
+| `node_menu`  | table    | nil     | Array of [menu entries](#menu-entry-format) for right-click context menu on nodes. |
 
-**Tree node fields:**
-
-| Field        | Type    | Default | Description                                  |
-|--------------|---------|---------|----------------------------------------------|
-| `id`         | string  | —       | Unique identifier. Required for state preservation. |
-| `label`      | string  | `""`    | Display text.                                |
-| `icon`       | string  | `""`    | Icon string displayed before the label.      |
-| `badge`      | string  | `""`    | Badge text displayed after the label.        |
-| `muted`      | bool    | `false` | Render the label in a dimmed style.          |
-| `expandable` | bool    | `false` | Show expand/collapse chevron indicator.      |
-| `expanded`   | bool    | `false` | Initial expanded state (only used on first render — see [Reconciliation](#reconciliation-and-state-preservation)). |
-| `children`   | table   | `{}`    | Array of child node tables.                  |
-
-**Callback argument:** Both `on_select` and `on_expand` receive a Lua table with the same fields as the node that was interacted with (`id`, `label`, `icon`, `badge`, `muted`, `expanded`), plus a `children` table if the node has children.
-
-**Keyboard navigation:** When focused, arrow keys move selection, Enter activates `on_select`, Left/Right collapse/expand nodes.
+**Keyboard navigation:** When focused, Up/Down arrows move selection, Enter activates `on_select`, Left/Right collapse/expand nodes. Shift+Enter opens the context menu on the selected node.
 
 ---
 
@@ -298,24 +448,33 @@ Flat list — functionally identical to a tree but without nesting or expand/col
 ```lua
 panel:list({
   items = {
-    { id = "item1", label = "First item", icon = "•" },
-    { id = "item2", label = "Second item", icon = "•", badge = "new" },
+    { id = "item1", label = "First item", icon = "o" },
+    { id = "item2", label = "Second item", icon = "o", badge = "new" },
     { id = "item3", label = "Third item", muted = true },
   },
   on_select = function(node)
     -- called when an item is activated
   end,
+  on_command = function(command, node)
+    -- called when a context menu command is triggered
+  end,
+  node_menu = {
+    { label = "Start", command = "start" },
+    { label = "Stop", command = "stop" },
+    { separator = true },
+    { label = "Remove", command = "remove" },
+  },
 })
 ```
 
 **List config fields:**
 
-| Field       | Type     | Description                                    |
-|-------------|----------|------------------------------------------------|
-| `items`     | table    | Array of item tables (same fields as tree nodes). |
-| `on_select` | function | Callback when an item is activated.            |
-
-Items use the same field format as [tree nodes](#tree).
+| Field        | Type     | Default | Description                                            |
+|--------------|----------|---------|--------------------------------------------------------|
+| `items`      | table    | `{}`    | Array of [tree node tables](#tree-node-format).        |
+| `on_select`  | function | nil     | Callback when an item is activated. Receives the node table. |
+| `on_command` | function | nil     | Callback when a context menu command is selected. Receives `(command, node)`. |
+| `node_menu`  | table    | nil     | Array of [menu entries](#menu-entry-format) for the right-click context menu. |
 
 ---
 
@@ -334,10 +493,10 @@ panel:button({
 
 **Button config fields:**
 
-| Field      | Type     | Description                                    |
-|------------|----------|------------------------------------------------|
-| `label`    | string   | Button text. Use `&` for an accelerator: `"&Save"` underlines S. |
-| `on_click` | function | Callback when the button is pressed.           |
+| Field      | Type     | Required | Description                                    |
+|------------|----------|----------|------------------------------------------------|
+| `label`    | string   | yes      | Button text. Use `&` for an accelerator: `"&Save"` underlines S. |
+| `on_click` | function | no       | Callback when the button is pressed.           |
 
 ---
 
@@ -348,7 +507,7 @@ Single-line text input with placeholder text and optional prefix.
 ```lua
 panel:input({
   placeholder = "Type to search...",
-  prefix = "🔍 ",
+  prefix = "# ",
   on_change = function(text)
     -- called on every keystroke with the current text
   end,
@@ -364,10 +523,176 @@ panel:input({
 |---------------|----------|---------|------------------------------------------------|
 | `placeholder` | string   | `""`    | Grayed-out hint text shown when input is empty.|
 | `prefix`      | string   | `""`    | Non-editable text displayed before the input.  |
-| `on_change`   | function | nil     | Called after every text change. Receives the current text as a string. |
-| `on_submit`   | function | nil     | Called when Enter is pressed. Receives the current text as a string. |
+| `on_change`   | function | nil     | Called after every text change. Receives the current text (string). |
+| `on_submit`   | function | nil     | Called when Enter is pressed. Receives the current text (string). |
 
 The input text and cursor position are automatically preserved across re-renders.
+
+---
+
+### VStack
+
+Vertical stack layout container. Groups child widgets with an optional gap between them.
+
+```lua
+panel:vstack({
+  gap = 1,
+  render = function(p)
+    p:label({ text = "Section Title", style = "muted" })
+    p:button({ label = "&Action", on_click = function() end })
+  end,
+})
+```
+
+**VStack config fields:**
+
+| Field    | Type     | Required | Description                                                |
+|----------|----------|----------|------------------------------------------------------------|
+| `render` | function | yes      | Builder function that receives a child panel proxy. Call widget methods on it to add children. |
+| `gap`    | number   | no       | Vertical gap (in rows) between children. Default: `0`.     |
+
+VStack is useful for grouping related widgets into sections. The child panel proxy supports all the same widget methods.
+
+---
+
+### Box
+
+Container with optional borders and fixed height. Wraps child widgets.
+
+```lua
+panel:box({
+  border = true,
+  render = function(p)
+    p:list({
+      items = items,
+      on_select = function(node) end,
+    })
+  end,
+})
+```
+
+**Box config fields:**
+
+| Field           | Type     | Default | Description                                    |
+|-----------------|----------|---------|------------------------------------------------|
+| `render`        | function | yes     | Builder function that receives a child panel proxy. |
+| `border`        | boolean  | false   | Draw a full border around the box.             |
+| `border_top`    | boolean  | false   | Draw only the top border.                      |
+| `border_bottom` | boolean  | false   | Draw only the bottom border.                   |
+| `border_left`   | boolean  | false   | Draw only the left border.                     |
+| `border_right`  | boolean  | false   | Draw only the right border.                    |
+| `height`        | number   | 0       | Fixed height in rows. `0` means auto-size.     |
+
+Individual `border_*` flags can be combined. If `border` is true, all four sides are drawn regardless of individual flags.
+
+**Example with sections:**
+
+```lua
+panel:vstack({
+  render = function(p)
+    p:label({ text = "Containers", badge = "3", padding_left = 1 })
+    p:box({
+      border = true,
+      render = function(bp)
+        bp:list({ items = container_items })
+      end,
+    })
+  end,
+})
+```
+
+---
+
+### Dropdown
+
+A button that opens a context menu when clicked.
+
+```lua
+panel:dropdown({
+  label = "Actions",
+  entries = {
+    { label = "Start", command = "start" },
+    { label = "Stop", command = "stop" },
+    { separator = true },
+    { label = "Remove", command = "remove" },
+  },
+  on_menu = function(command)
+    if command == "start" then ... end
+  end,
+})
+```
+
+**Dropdown config fields:**
+
+| Field     | Type     | Required | Description                                                |
+|-----------|----------|----------|------------------------------------------------------------|
+| `label`   | string   | yes      | Button text displayed.                                     |
+| `entries` | table    | yes      | Array of [menu entries](#menu-entry-format) for the popup. |
+| `on_menu` | function | no       | Callback when a menu item is selected. Receives the command string. |
+
+---
+
+### Tree Node Format
+
+Used in `items` arrays for both `tree` and `list` widgets.
+
+| Field        | Type    | Default | Description                                  |
+|--------------|---------|---------|----------------------------------------------|
+| `id`         | string  | `""`    | Unique identifier. **Required for state preservation.** |
+| `label`      | string  | `""`    | Display text.                                |
+| `icon`       | string  | `""`    | Icon string displayed before the label.      |
+| `badge`      | string  | `""`    | Badge text displayed after the label.        |
+| `muted`      | boolean | `false` | Render the label in a dimmed style.          |
+| `expandable` | boolean | `false` | Show expand/collapse chevron indicator. Auto-set to `true` if `children` is non-empty. |
+| `expanded`   | boolean | `false` | Initial expanded state (only used on first render — see [Reconciliation](#reconciliation-and-state-preservation)). |
+| `children`   | table   | `{}`    | Array of child node tables (recursive).      |
+
+**Callback argument:** `on_select` and `on_expand` callbacks receive a Lua table with the same fields as the node: `id`, `label`, `icon` (if non-empty), `badge` (if non-empty), `expanded`, `muted`, and `children` (if present). The `on_command` callback receives two arguments: `(command_string, node_table)`.
+
+---
+
+### Menu Entry Format
+
+Used in `actions` (sidebar header menu), `node_menu` (tree/list context menu), and `entries` (dropdown).
+
+| Field       | Type    | Required | Description                             |
+|-------------|---------|----------|-----------------------------------------|
+| `label`     | string  | yes*     | Display text of the menu item.          |
+| `command`   | string  | yes*     | Command identifier passed to the callback. |
+| `separator` | boolean | no       | If `true`, renders as a separator line instead of an item. When `true`, `label` and `command` are ignored. |
+
+```lua
+{
+  { label = "Start", command = "start" },
+  { label = "Stop", command = "stop" },
+  { separator = true },
+  { label = "Remove", command = "remove" },
+}
+```
+
+---
+
+### Box Model
+
+Many widgets support margin and padding fields for spacing control. These fields can be included in the widget's configuration table.
+
+| Field            | Type   | Default | Description               |
+|------------------|--------|---------|---------------------------|
+| `margin_top`     | number | `0`     | Space above the widget.   |
+| `margin_bottom`  | number | `0`     | Space below the widget.   |
+| `margin_left`    | number | `0`     | Space to the left.        |
+| `margin_right`   | number | `0`     | Space to the right.       |
+| `padding_top`    | number | `0`     | Internal top padding.     |
+| `padding_bottom` | number | `0`     | Internal bottom padding.  |
+| `padding_left`   | number | `0`     | Internal left padding.    |
+| `padding_right`  | number | `0`     | Internal right padding.   |
+
+**Widgets that support box model:** `label`, `title`, `keyvalue`.
+
+```lua
+panel:label({ text = "Indented label", padding_left = 2, margin_top = 1 })
+panel:title({ text = "SECTION", margin_bottom = 1 })
+```
 
 ---
 
@@ -396,7 +721,7 @@ ttt.register({
 })
 ```
 
-`panel:redraw()` posts an event to the editor's event loop. The render function will be called again on the next frame, and the updated state will be reflected. This is safe to call from any callback.
+`panel:redraw()` posts an event to the editor's event loop. The render function will be called again on the next frame, and the updated state will be reflected. This is safe to call from any callback, including async callbacks.
 
 ---
 
@@ -424,16 +749,16 @@ panel:cell(1, 0, "Y", "success")              -- named style as string
 panel:cell(2, 0, "Z", { style = "danger" })   -- named style as table
 ```
 
-| Parameter | Type            | Description                                |
-|-----------|-----------------|--------------------------------------------|
-| `x`       | number          | Column (0-based).                          |
-| `y`       | number          | Row (0-based).                             |
-| `char`    | string          | Single character to draw (first rune used).|
-| `style`   | string or table | Optional. Named style string or table with `style` field. |
+| Parameter | Type            | Required | Description                                |
+|-----------|-----------------|----------|--------------------------------------------|
+| `x`       | number          | yes      | Column (0-based).                          |
+| `y`       | number          | yes      | Row (0-based).                             |
+| `char`    | string          | yes      | Single character to draw (first rune used).|
+| `style`   | string or table | no       | Named style string or table with `style` field. |
 
 ### `panel:text(x, y, text, [style])`
 
-Draw a text string starting at the given position.
+Draw a text string starting at the given position. Text is clipped to the panel width.
 
 ```lua
 panel:text(0, 0, "Hello World")                -- default style
@@ -441,27 +766,27 @@ panel:text(0, 1, "Error!", "danger")           -- named style as string
 panel:text(0, 2, "Hint", { style = "muted" }) -- named style as table
 ```
 
-| Parameter | Type            | Description                                |
-|-----------|-----------------|--------------------------------------------|
-| `x`       | number          | Starting column (0-based).                 |
-| `y`       | number          | Row (0-based).                             |
-| `text`    | string          | Text to draw.                              |
-| `style`   | string or table | Optional. Named style.                     |
+| Parameter | Type            | Required | Description                                |
+|-----------|-----------------|----------|--------------------------------------------|
+| `x`       | number          | yes      | Starting column (0-based).                 |
+| `y`       | number          | yes      | Row (0-based).                             |
+| `text`    | string          | yes      | Text to draw.                              |
+| `style`   | string or table | no       | Named style.                               |
 
 ### `panel:clear(x, y, w, h)`
 
-Clear a rectangular region, filling it with spaces.
+Clear a rectangular region, filling it with spaces in the default style.
 
 ```lua
 panel:clear(0, 0, 40, 10)
 ```
 
-| Parameter | Type   | Description         |
-|-----------|--------|---------------------|
-| `x`       | number | Left column.        |
-| `y`       | number | Top row.            |
-| `w`       | number | Width in cells.     |
-| `h`       | number | Height in cells.    |
+| Parameter | Type   | Required | Description         |
+|-----------|--------|----------|---------------------|
+| `x`       | number | yes      | Left column.        |
+| `y`       | number | yes      | Top row.            |
+| `w`       | number | yes      | Width in cells.     |
+| `h`       | number | yes      | Height in cells.    |
 
 ---
 
@@ -480,7 +805,7 @@ render = function(panel)
   -- Raw drawing below
   local w, h = panel:size()
   for x = 0, w - 1 do
-    panel:cell(x, 2, "─", "border")
+    panel:cell(x, 2, "-", "border")
   end
   panel:text(0, 3, "Custom rendered content")
 end
@@ -550,12 +875,13 @@ The widget system uses a **reconciliation** algorithm to preserve interactive st
 
 The plugin panel manages its own focus system. When the plugin panel is focused:
 
-- **Tab** / **Shift+Tab** cycles focus between focusable widgets (trees, lists, inputs, buttons).
+- **Tab** / **Shift+Tab** cycles focus between focusable widgets (trees, lists, inputs, buttons, dropdowns).
 - **Arrow keys** navigate within the focused widget (e.g., up/down in a tree).
 - **Enter** / **Space** activate the focused widget (select tree node, press button, submit input).
+- **Shift+Enter** opens the context menu on the selected tree/list node (if `node_menu` is defined).
 - Events not consumed by the focused widget fall through to the `on_event` handler.
 
-Labels are not focusable. If your panel has only labels and raw cells, all events go directly to `on_event`.
+Labels, titles, and key-value lists are not focusable. If your panel has only non-focusable widgets and raw cells, all events go directly to `on_event`.
 
 ---
 
@@ -567,14 +893,17 @@ There are two levels of event handling:
 
 Widget-specific events are routed automatically to the callbacks you provide:
 
-| Widget | Event        | Callback     | Argument                            |
-|--------|--------------|--------------|-------------------------------------|
-| Tree   | node activated | `on_select` | Node table (`{id, label, ...}`)     |
-| Tree   | node expanded  | `on_expand` | Node table                          |
-| List   | item activated | `on_select` | Node table                          |
-| Button | pressed      | `on_click`   | (none)                              |
-| Input  | text changed | `on_change`  | Current text (string)               |
-| Input  | Enter pressed| `on_submit`  | Current text (string)               |
+| Widget   | Event              | Callback     | Argument(s)                         |
+|----------|--------------------|--------------|-------------------------------------|
+| Tree     | node activated     | `on_select`  | Node table (`{id, label, ...}`)     |
+| Tree     | node expanded      | `on_expand`  | Node table                          |
+| Tree     | context menu cmd   | `on_command` | `(command_string, node_table)`      |
+| List     | item activated     | `on_select`  | Node table                          |
+| List     | context menu cmd   | `on_command` | `(command_string, node_table)`      |
+| Button   | pressed            | `on_click`   | (none)                              |
+| Input    | text changed       | `on_change`  | Current text (string)               |
+| Input    | Enter pressed      | `on_submit`  | Current text (string)               |
+| Dropdown | menu item selected | `on_menu`    | Command string                      |
 
 ### 2. Fallback Event Handler (`on_event`)
 
@@ -588,7 +917,8 @@ For key and mouse events not consumed by widgets, the `on_event` function receiv
   key = "Enter",     -- key name: "Enter", "Tab", "Escape", "Up", "Down", "Left", "Right",
                      -- "Backspace", "Delete", "Home", "End", "PgUp", "PgDn",
                      -- or the character itself ("a", "A", "1", "/", etc.)
-  mod = "ctrl",      -- modifier: "ctrl", "shift", "alt", or nil for no modifier
+  rune = "a",        -- only set for printable character keys
+  mod = "ctrl",      -- modifier: "ctrl", "alt", "shift", or "" for no modifier
 }
 ```
 
@@ -599,7 +929,7 @@ For key and mouse events not consumed by widgets, the `on_event` function receiv
   type = "mouse",
   x = 5,             -- column (0-based, relative to panel)
   y = 10,            -- row (0-based, relative to panel)
-  button = "left",   -- "left", "right", "middle"
+  button = "left",   -- "left", "right", "middle", "wheel_up", "wheel_down", or "none"
 }
 ```
 
@@ -608,7 +938,7 @@ For key and mouse events not consumed by widgets, the `on_event` function receiv
 ```lua
 on_event = function(event)
   if event.type == "key" then
-    if event.key == "r" and event.mod == nil then
+    if event.key == "r" and event.mod == "" then
       -- refresh data
       reload_data()
       panel:redraw()
@@ -649,10 +979,10 @@ Require the `editor.write` permission.
 
 | Function                                          | Description                                    |
 |---------------------------------------------------|------------------------------------------------|
-| `editor.insert(line, col, text)`                  | Insert text at position.                       |
-| `editor.replace(start_line, start_col, end_line, end_col, text)` | Replace a range with text.     |
-| `editor.set_cursor(line, col)`                    | Move the cursor.                               |
-| `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range.           |
+| `editor.insert(line, col, text)`                  | Insert text at position (1-based).             |
+| `editor.replace(start_line, start_col, end_line, end_col, text)` | Replace a range with text (1-based). |
+| `editor.set_cursor(line, col)`                    | Move the cursor (1-based).                     |
+| `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range (1-based).     |
 | `editor.clear_selection()`                        | Clear the current selection.                   |
 
 All write operations go through the undo system — they can be undone with Ctrl+Z.
@@ -680,27 +1010,61 @@ The `ttt.fs` module provides file system access.
 local fs = require("ttt.fs")
 ```
 
-| Function             | Permission | Returns                    | Description                    |
-|----------------------|------------|----------------------------|--------------------------------|
-| `fs.read(path)`      | `fs.read`  | string, or nil + error     | Read file contents.            |
-| `fs.write(path, content)` | `fs.write` | nil, or error string  | Write content to file.         |
-| `fs.exists(path)`    | `fs.read`  | boolean                    | Check if path exists.          |
-| `fs.list(path)`      | `fs.read`  | table of `{name, is_dir}`, or nil + error | List directory entries. |
+### `fs.read(path)`
 
-**Example:**
+Read the contents of a file. Requires `fs.read` permission.
+
+**Returns:** `content_string` on success, or `nil, error_string` on failure.
 
 ```lua
-local fs = require("ttt.fs")
-
-if fs.exists("/tmp/config.json") then
-  local content = fs.read("/tmp/config.json")
+local content, err = fs.read("/tmp/config.json")
+if content then
   -- process content
+else
+  ttt.log("error", "Failed to read: " .. err)
 end
+```
 
-local entries = fs.list("/home/user/project")
-for _, entry in ipairs(entries) do
-  if entry.is_dir then
-    -- it's a directory
+### `fs.write(path, content)`
+
+Write content to a file. Requires `fs.write` permission.
+
+**Returns:** nothing on success, or `error_string` on failure.
+
+```lua
+local err = fs.write("/tmp/output.txt", "hello world")
+if err then
+  ttt.log("error", "Failed to write: " .. err)
+end
+```
+
+### `fs.exists(path)`
+
+Check if a file or directory exists. Requires `fs.read` permission.
+
+**Returns:** boolean.
+
+```lua
+if fs.exists("/tmp/config.json") then
+  -- file exists
+end
+```
+
+### `fs.list(path)`
+
+List entries in a directory. Requires `fs.read` permission.
+
+**Returns:** array of `{name, is_dir}` tables on success, or `nil, error_string` on failure.
+
+```lua
+local entries, err = fs.list("/home/user/project")
+if entries then
+  for _, entry in ipairs(entries) do
+    if entry.is_dir then
+      ttt.log("dir: " .. entry.name)
+    else
+      ttt.log("file: " .. entry.name)
+    end
   end
 end
 ```
@@ -715,11 +1079,22 @@ The `ttt.system` module provides command execution and environment variable acce
 local sys = require("ttt.system")
 ```
 
-### `sys.exec(binary, args)`
+### `sys.exec(binary, [args])`
 
-Execute a command synchronously. Requires `system.exec` permission with the binary listed in the allowlist.
+Execute a command synchronously. Requires the `system.exec` permission with the binary listed in the allowlist.
 
-**Returns** a table: `{stdout, stderr, exit_code}`.
+| Parameter | Type   | Required | Description                              |
+|-----------|--------|----------|------------------------------------------|
+| `binary`  | string | yes      | Command to execute. Must be in the `system.exec` permission allowlist. |
+| `args`    | table  | no       | Array of string arguments.               |
+
+**Returns** a table:
+
+| Field       | Type   | Description                                     |
+|-------------|--------|-------------------------------------------------|
+| `stdout`    | string | Standard output.                                |
+| `stderr`    | string | Standard error.                                 |
+| `exit_code` | number | Exit code (`0` for success, `-1` for exec errors). |
 
 ```lua
 local result = sys.exec("git", {"status", "--porcelain"})
@@ -732,16 +1107,28 @@ end
 
 Execute a command asynchronously. The callback receives the same result table and is called on the main thread when the command completes. The UI remains responsive during execution.
 
+| Parameter  | Type     | Required | Description                                  |
+|------------|----------|----------|----------------------------------------------|
+| `binary`   | string   | yes      | Command to execute.                          |
+| `args`     | table    | yes      | Array of string arguments. Pass `{}` if none. |
+| `callback` | function | yes      | Receives the result table when done.         |
+
 ```lua
 sys.exec_async("docker", {"ps", "--format", "{{.Names}}"}, function(result)
-  -- process result.stdout
+  if result.exit_code == 0 then
+    -- process result.stdout
+  end
   panel:redraw()
 end)
 ```
 
+**Important:** For `exec_async`, the `args` table is required (pass `{}` for no arguments). The callback is always the third argument.
+
 ### `sys.env(name)`
 
 Read an environment variable. Requires `system.env` permission.
+
+**Returns:** the value as a string (empty string if not set).
 
 ```lua
 local home = sys.env("HOME")
@@ -757,13 +1144,33 @@ The `ttt.net` module provides HTTP request capabilities. Requires the `network.h
 local net = require("ttt.net")
 ```
 
+### HTTP Response Table
+
+All HTTP functions return (or pass to callbacks) a response table:
+
+| Field     | Type   | Present      | Description                    |
+|-----------|--------|--------------|--------------------------------|
+| `status`  | number | always       | HTTP status code (`0` on error). |
+| `body`    | string | always       | Response body (empty on error). |
+| `headers` | table  | on success   | String-to-string map of response headers. |
+| `error`   | string | on error only | Error message.                 |
+
 ### `net.get(url, [opts])`
 
 Synchronous HTTP GET.
 
+| Parameter | Type   | Required | Description                                |
+|-----------|--------|----------|--------------------------------------------|
+| `url`     | string | yes      | Request URL.                               |
+| `opts`    | table  | no       | Options table with `headers` (string-to-string map). |
+
 ```lua
 local resp = net.get("https://api.example.com/data")
--- resp.status (number), resp.body (string), resp.headers (table), resp.error (string or nil)
+if resp.error then
+  ttt.log("error", resp.error)
+elseif resp.status == 200 then
+  -- process resp.body
+end
 
 -- With custom headers:
 local resp = net.get("https://api.example.com/data", {
@@ -771,9 +1178,14 @@ local resp = net.get("https://api.example.com/data", {
 })
 ```
 
-### `net.post(url, opts)`
+### `net.post(url, [opts])`
 
 Synchronous HTTP POST.
+
+| Parameter | Type   | Required | Description                                |
+|-----------|--------|----------|--------------------------------------------|
+| `url`     | string | yes      | Request URL.                               |
+| `opts`    | table  | no       | Options: `headers` (map) and `body` (string). |
 
 ```lua
 local resp = net.post("https://api.example.com/data", {
@@ -782,12 +1194,37 @@ local resp = net.post("https://api.example.com/data", {
 })
 ```
 
-### Async Variants
+### `net.get_async(url, [opts], callback)`
 
-`net.get_async(url, [opts], callback)` and `net.post_async(url, opts, callback)` work like their sync counterparts but don't block the UI. The callback receives the response table.
+Asynchronous HTTP GET. The callback receives the response table. If `opts` is provided, callback is the third argument; otherwise it is the second.
 
 ```lua
+-- Without options (callback is 2nd arg):
 net.get_async("https://api.example.com/data", function(resp)
+  if resp.status == 200 then
+    -- process resp.body
+    panel:redraw()
+  end
+end)
+
+-- With options (callback is 3rd arg):
+net.get_async("https://api.example.com/data", {
+  headers = { ["Authorization"] = "Bearer token" },
+}, function(resp)
+  -- process response
+  panel:redraw()
+end)
+```
+
+### `net.post_async(url, opts, callback)`
+
+Asynchronous HTTP POST. The `opts` table and callback are both required.
+
+```lua
+net.post_async("https://api.example.com/data", {
+  headers = { ["Content-Type"] = "application/json" },
+  body = '{"key": "value"}',
+}, function(resp)
   if resp.status == 200 then
     -- process resp.body
     panel:redraw()
@@ -811,17 +1248,18 @@ Register an event listener. Multiple listeners can be registered for the same ev
 
 **File events** (require `events.file` permission):
 
-| Event         | Callback argument | Description                 |
-|---------------|-------------------|-----------------------------|
-| `file.open`   | path (string)     | A file was opened.          |
-| `file.close`  | path (string)     | A file tab was closed.      |
-| `file.save`   | path (string)     | A file was saved.           |
+| Event         | Description                 |
+|---------------|-----------------------------|
+| `file.open`   | A file was opened.          |
+| `file.close`  | A file tab was closed.      |
+| `file.save`   | A file was saved.           |
 
 **Editor events** (require `events.editor` permission):
 
-| Event           | Callback argument | Description                 |
-|-----------------|-------------------|-----------------------------|
-| `editor.change` | path (string)     | Buffer content changed.     |
+| Event           | Description                 |
+|-----------------|-----------------------------|
+| `editor.change` | Buffer content changed.     |
+| `cursor.change` | Cursor position changed.    |
 
 **Example:**
 
@@ -834,6 +1272,11 @@ end)
 
 events.on("file.open", function(path)
   -- load file-specific config
+end)
+
+events.on("cursor.change", function()
+  -- update status display
+  panel:redraw()
 end)
 ```
 
@@ -901,9 +1344,7 @@ Use **Plugins: Clear Output** from the command palette to clear the OUTPUT panel
 
 ### Render Errors
 
-If your `render` function throws a Lua error, the plugin panel displays the error message in red (`danger` style) instead of the normal content. The plugin stays loaded and will retry rendering on the next frame — so fixing the error in your Lua file and restarting ttt will recover.
-
-Errors are also logged to stderr, so if you run ttt from a terminal you'll see them there.
+If your `render` function throws a Lua error, the plugin panel displays the error message in red (`danger` style) instead of the normal content. The plugin stays loaded and will retry rendering on the next frame — so fixing the error in your Lua file and reloading will recover.
 
 ### Callback Errors
 
@@ -924,37 +1365,42 @@ If a callback function (`on_select`, `on_click`, etc.) throws an error, it is ca
 
 Permissions are declared in the manifest's `permissions` object. Boolean permissions are set to `true`; array permissions list specific values.
 
-| Permission       | Type     | Description                                       |
+| Permission       | Type     | Gates                                             |
 |------------------|----------|---------------------------------------------------|
-| `panel.sidebar`  | bool     | Register a sidebar panel.                         |
-| `panel.bottom`   | bool     | Register a bottom panel.                          |
-| `panel.drawer`   | bool     | Register a drawer panel. (Reserved for future use.) |
-| `commands`       | bool     | Register commands in the command palette.         |
-| `keybindings`    | bool     | Bind keyboard shortcuts.                          |
-| `editor.read`    | bool     | Read the contents of editor buffers.              |
-| `editor.write`   | bool     | Modify the contents of editor buffers.            |
-| `fs.read`        | bool     | Read files from the file system.                  |
-| `fs.write`       | bool     | Write files to the file system.                   |
-| `system.exec`    | string[] | Execute specific system commands. List each binary. |
-| `system.env`     | bool     | Read environment variables.                       |
-| `network.http`   | bool     | Make outbound HTTP requests.                      |
-| `events.file`    | bool     | Receive file system change events.                |
-| `events.editor`  | bool     | Receive editor events (cursor move, file open, etc.). |
+| `panel.sidebar`  | boolean  | Register a sidebar panel.                         |
+| `panel.bottom`   | boolean  | Register a bottom panel.                          |
+| `panel.drawer`   | boolean  | Register a drawer panel. (Reserved for future use.) |
+| `commands`       | boolean  | Register commands in the command palette.         |
+| `keybindings`    | boolean  | Bind keyboard shortcuts.                          |
+| `editor.read`    | boolean  | Read the contents of editor buffers (`ttt.editor` read functions). |
+| `editor.write`   | boolean  | Modify editor buffers (`ttt.editor` write functions). |
+| `fs.read`        | boolean  | Read files and list directories (`ttt.fs` read functions). |
+| `fs.write`       | boolean  | Write files to the file system (`ttt.fs.write`).  |
+| `system.exec`    | string[] | Execute specific system commands. List each allowed binary name. |
+| `system.env`     | boolean  | Read environment variables (`ttt.system.env`).    |
+| `network.http`   | boolean  | Make outbound HTTP requests (`ttt.net`).          |
+| `events.file`    | boolean  | Listen for file events: `file.open`, `file.close`, `file.save`. |
+| `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`. |
 
 **Example with multiple permissions:**
 
 ```json
 {
+  "name": "docker-manager",
+  "description": "Manage Docker containers, images and volumes",
+  "version": "0.1.0",
+  "author": "eugenioenko",
+  "entry": "init.lua",
   "permissions": {
     "panel.sidebar": true,
-    "panel.bottom": true,
-    "system.exec": ["git", "npm"],
-    "fs.read": true
+    "commands": true,
+    "keybindings": true,
+    "system.exec": ["docker"]
   }
 }
 ```
 
-Currently implemented: `panel.sidebar`, `panel.bottom`, `editor.read`, `editor.write`, `fs.read`, `fs.write`, `system.exec`, `system.env`, `network.http`, `events.file`, `events.editor`.
+**How permissions work at runtime:** If a permission is not granted, the corresponding functions are simply not available on the module. For example, without `editor.read`, the `ttt.editor` module will not have `buffer_text`, `cursor`, etc. Calling a function that requires a non-granted permission raises a Lua error.
 
 ---
 
@@ -974,7 +1420,18 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 
 **Removed globals:** `dofile`, `loadfile` are set to nil.
 
-**Module loading:** `require()` allows `"ttt"`, `"ttt.editor"`, `"ttt.fs"`, `"ttt.system"`, `"ttt.net"`, and `"ttt.events"`. Any other module name raises an error.
+**Module loading:** `require()` only allows these modules:
+
+| Module         | Description                    |
+|----------------|--------------------------------|
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info` |
+| `ttt.editor`   | Editor buffer read/write       |
+| `ttt.fs`       | Filesystem access              |
+| `ttt.system`   | Command execution, env vars    |
+| `ttt.net`      | HTTP requests                  |
+| `ttt.events`   | Event listeners                |
+
+Any other module name passed to `require()` raises an error.
 
 ---
 
@@ -984,8 +1441,8 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 
 Open the **Plugins** tab in the sidebar (`Plugins: Show Panel` from the command palette) to see installed and available plugins. The panel has two sections:
 
-- **INSTALLED** — Lists all installed plugins with their status and version. Action buttons let you update or remove plugins.
-- **AVAILABLE** — Fetched from the vetted plugin registry. Click to install.
+- **INSTALLED** -- Lists all installed plugins with their status and version. Action buttons let you update or remove plugins.
+- **AVAILABLE** -- Fetched from the vetted plugin registry. Click to install.
 
 ### Installing
 
@@ -1025,6 +1482,10 @@ Manual removal:
 rm -rf ~/.config/ttt/plugins/my-plugin
 ```
 
+### Enabling / Disabling
+
+Run **Plugins: Enable** or **Plugins: Disable** from the command palette to toggle a plugin without removing it. Disabled plugins retain their permissions in the registry.
+
 ---
 
 ## Examples
@@ -1046,21 +1507,21 @@ local ttt = require("ttt")
 
 local tree = {
   {
-    id = "src", label = "src/", icon = "📁", expandable = true, expanded = true,
+    id = "src", label = "src/", icon = ">", expandable = true, expanded = true,
     children = {
-      { id = "src/main.go", label = "main.go", icon = "📄" },
-      { id = "src/server.go", label = "server.go", icon = "📄" },
+      { id = "src/main.go", label = "main.go", icon = " " },
+      { id = "src/server.go", label = "server.go", icon = " " },
       {
-        id = "src/handlers", label = "handlers/", icon = "📁", expandable = true,
+        id = "src/handlers", label = "handlers/", icon = ">", expandable = true,
         children = {
-          { id = "src/handlers/auth.go", label = "auth.go", icon = "📄" },
-          { id = "src/handlers/api.go", label = "api.go", icon = "📄" },
+          { id = "src/handlers/auth.go", label = "auth.go", icon = " " },
+          { id = "src/handlers/api.go", label = "api.go", icon = " " },
         },
       },
     },
   },
-  { id = "go.mod", label = "go.mod", icon = "📄", muted = true },
-  { id = "README.md", label = "README.md", icon = "📄", muted = true },
+  { id = "go.mod", label = "go.mod", icon = " ", muted = true },
+  { id = "README.md", label = "README.md", icon = " ", muted = true },
 }
 
 local selected_file = nil
@@ -1106,8 +1567,6 @@ local query = ""
 local function do_search(text)
   query = text
   results = {}
-  -- In a real plugin with fs.read permission, you'd search files here.
-  -- For demo, generate fake results:
   if #text > 0 then
     for i = 1, 5 do
       table.insert(results, {
@@ -1125,7 +1584,7 @@ ttt.register({
     render = function(panel)
       panel:input({
         placeholder = "Search...",
-        prefix = "🔍 ",
+        prefix = "# ",
         on_change = function(text)
           do_search(text)
           panel:redraw()
@@ -1140,7 +1599,7 @@ ttt.register({
         panel:list({
           items = results,
           on_select = function(node)
-            -- In a real plugin, you'd open the file at the matching line
+            -- open the file at the matching line
           end,
         })
       elseif #query > 0 then
@@ -1151,7 +1610,7 @@ ttt.register({
 })
 ```
 
-### Raw Cell Drawing — Progress Bar
+### Raw Cell Drawing -- Progress Bar
 
 A sidebar panel using only the raw cell API:
 
@@ -1176,19 +1635,17 @@ ttt.register({
 
       panel:text(0, 0, "Build Progress", "muted")
 
-      -- Draw progress bar
       local bar_w = w - 2
       local filled = math.floor(bar_w * progress)
 
       for x = 0, bar_w - 1 do
         if x < filled then
-          panel:cell(x + 1, 2, "█", "success")
+          panel:cell(x + 1, 2, "#", "success")
         else
-          panel:cell(x + 1, 2, "░", "muted")
+          panel:cell(x + 1, 2, ".", "muted")
         end
       end
 
-      -- Draw percentage
       local pct = math.floor(progress * 100) .. "%"
       panel:text(1, 4, pct, "default")
     end,
@@ -1196,91 +1653,119 @@ ttt.register({
 })
 ```
 
-### TODO List (Sidebar + Bottom)
+### Context Menu with Tree
 
-A plugin that registers both a sidebar list and a bottom detail view:
+A sidebar panel demonstrating context menus on tree items:
 
 ```json
 {
-  "name": "todo-list",
+  "name": "context-menu-demo",
   "entry": "init.lua",
-  "version": "0.1.0",
-  "permissions": {
-    "panel.sidebar": true,
-    "panel.bottom": true
-  }
+  "permissions": { "panel.sidebar": true }
 }
 ```
 
 ```lua
 local ttt = require("ttt")
 
-local todos = {
-  { id = "1", label = "Write plugin docs", done = false },
-  { id = "2", label = "Add tests", done = false },
-  { id = "3", label = "Ship it!", done = false },
+local items = {
+  { id = "item1", label = "First item" },
+  { id = "item2", label = "Second item" },
+  { id = "item3", label = "Third item" },
 }
-
-local selected = nil
-
-local function todo_items()
-  local items = {}
-  for _, t in ipairs(todos) do
-    table.insert(items, {
-      id = t.id,
-      label = t.label,
-      muted = t.done,
-      badge = t.done and "✓" or "",
-    })
-  end
-  return items
-end
 
 ttt.register({
   sidebar = {
-    title = "TODOs",
+    title = "Context Menu",
     render = function(panel)
-      panel:label({ text = #todos .. " tasks", style = "muted" })
       panel:list({
-        items = todo_items(),
+        items = items,
         on_select = function(node)
-          selected = node.id
-          -- toggle done
-          for _, t in ipairs(todos) do
-            if t.id == node.id then
-              t.done = not t.done
-              break
-            end
+          ttt.log("Selected: " .. node.label)
+        end,
+        on_command = function(command, node)
+          if command == "delete" then
+            ttt.confirm("Delete '" .. node.label .. "'?", function()
+              for i, item in ipairs(items) do
+                if item.id == node.id then
+                  table.remove(items, i)
+                  break
+                end
+              end
+              panel:redraw()
+            end)
+          elseif command == "rename" then
+            ttt.log("Rename " .. node.label)
           end
-          panel:redraw()
         end,
-      })
-      panel:button({
-        label = "&Add Task",
-        on_click = function()
-          local id = tostring(#todos + 1)
-          table.insert(todos, { id = id, label = "New task " .. id, done = false })
-          panel:redraw()
-        end,
+        node_menu = {
+          { label = "Rename", command = "rename" },
+          { separator = true },
+          { label = "Delete", command = "delete" },
+        },
       })
     end,
   },
-  bottom = {
-    title = "Task Detail",
+})
+```
+
+### Layout with VStack and Box
+
+Demonstrates using VStack and Box for structured layouts:
+
+```json
+{
+  "name": "layout-demo",
+  "entry": "init.lua",
+  "permissions": { "panel.sidebar": true }
+}
+```
+
+```lua
+local ttt = require("ttt")
+
+local containers = {
+  { id = "web", label = "web-app", badge = "nginx:latest" },
+  { id = "db", label = "postgres", badge = "postgres:15" },
+}
+
+ttt.register({
+  sidebar = {
+    title = "Layout",
     render = function(panel)
-      if selected == nil then
-        panel:label({ text = "Select a task in the sidebar", style = "muted" })
-        return
-      end
-      for _, t in ipairs(todos) do
-        if t.id == selected then
-          panel:label("Task: " .. t.label)
-          panel:label({ text = "Status: " .. (t.done and "Done" or "Pending"),
-                        style = t.done and "success" or "warning" })
-          return
-        end
-      end
-      panel:label({ text = "Task not found", style = "danger" })
+      -- Section 1: Containers
+      panel:vstack({
+        render = function(p)
+          p:label({ text = "Containers", badge = tostring(#containers), padding_left = 1 })
+          p:box({
+            border = true,
+            render = function(bp)
+              bp:list({
+                items = containers,
+                on_select = function(node)
+                  ttt.log("Selected: " .. node.label)
+                end,
+              })
+            end,
+          })
+        end,
+      })
+
+      -- Section 2: Info
+      panel:vstack({
+        render = function(p)
+          p:label({ text = "Details", padding_left = 1, margin_top = 1 })
+          p:box({
+            border = true,
+            render = function(bp)
+              bp:keyvalue({
+                { key = "Status", value = "Running" },
+                { key = "Uptime", value = "2h 30m" },
+              })
+            end,
+          })
+        end,
+      })
     end,
   },
 })
@@ -1367,7 +1852,6 @@ refresh(nil)
 
 -- Auto-refresh after file saves
 events.on("file.save", function(path)
-  -- Use exec_async to avoid blocking the UI
   sys.exec_async("git", {"status", "--porcelain"}, function(result)
     if result.exit_code == 0 then
       error_msg = nil
@@ -1386,3 +1870,16 @@ events.on("file.save", function(path)
   end)
 end)
 ```
+
+### Reference Plugin
+
+For a complete, production-quality example, see the [Docker Manager plugin](../plugins/docker-manager/) included in this repository. It demonstrates:
+
+- Sidebar panel with multiple sections using VStack and Box
+- Header actions menu with `actions` and `on_action`
+- Async system commands with `exec_async`
+- Context menus on list items with `node_menu` and `on_command`
+- Confirmation dialogs with `ttt.confirm`
+- Command palette commands and keybindings
+- Reactive state management with `panel:redraw()`
+- Fallback key handling with `on_event`

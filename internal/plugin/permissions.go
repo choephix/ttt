@@ -9,6 +9,7 @@ type PermissionSet struct {
 	PanelSidebar bool     `json:"panel.sidebar,omitempty"`
 	PanelBottom  bool     `json:"panel.bottom,omitempty"`
 	PanelDrawer  bool     `json:"panel.drawer,omitempty"`
+	PanelEditor  bool     `json:"panel.editor,omitempty"`
 	Commands     bool     `json:"commands,omitempty"`
 	Keybindings  bool     `json:"keybindings,omitempty"`
 	EditorRead   bool     `json:"editor.read,omitempty"`
@@ -43,6 +44,7 @@ func DiffPermissions(granted, requested PermissionSet) PermissionDiff {
 	check("panel.sidebar", granted.PanelSidebar, requested.PanelSidebar)
 	check("panel.bottom", granted.PanelBottom, requested.PanelBottom)
 	check("panel.drawer", granted.PanelDrawer, requested.PanelDrawer)
+	check("panel.editor", granted.PanelEditor, requested.PanelEditor)
 	check("commands", granted.Commands, requested.Commands)
 	check("keybindings", granted.Keybindings, requested.Keybindings)
 	check("editor.read", granted.EditorRead, requested.EditorRead)
@@ -80,6 +82,8 @@ func (ps PermissionSet) Check(perm string) error {
 		allowed = ps.PanelBottom
 	case "panel.drawer":
 		allowed = ps.PanelDrawer
+	case "panel.editor":
+		allowed = ps.PanelEditor
 	case "commands":
 		allowed = ps.Commands
 	case "keybindings":
@@ -128,6 +132,7 @@ func (ps PermissionSet) DisplayEntries() []PermissionDiffEntry {
 	add("Sidebar panel", ps.PanelSidebar)
 	add("Bottom panel", ps.PanelBottom)
 	add("Drawer", ps.PanelDrawer)
+	add("Editor tab", ps.PanelEditor)
 	add("Commands", ps.Commands)
 	add("Keybindings", ps.Keybindings)
 	add("Read editor", ps.EditorRead)

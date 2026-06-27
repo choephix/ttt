@@ -185,6 +185,75 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "open_drawer", L.NewFunction(func(L *lua.LState) int {
+			if err := p.Granted.Check("panel.drawer"); err != nil {
+				L.ArgError(1, "panel.drawer permission not granted")
+				return 0
+			}
+			tbl := L.CheckTable(1)
+			renderFunc, ok := L.GetField(tbl, "render").(*lua.LFunction)
+			if !ok {
+				L.ArgError(1, "render function required")
+				return 0
+			}
+			width := 40
+			minWidth := 20
+			if w := L.GetField(tbl, "width"); w != lua.LNil {
+				if n, ok := w.(lua.LNumber); ok {
+					width = int(n)
+				}
+			}
+			if mw := L.GetField(tbl, "min_width"); mw != lua.LNil {
+				if n, ok := mw.(lua.LNumber); ok {
+					minWidth = int(n)
+				}
+			}
+			if p.OpenDrawer != nil {
+				p.OpenDrawer(renderFunc, width, minWidth)
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "close_drawer", L.NewFunction(func(L *lua.LState) int {
+			if p.CloseDrawer != nil {
+				p.CloseDrawer()
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "open_tab", L.NewFunction(func(L *lua.LState) int {
+			if err := p.Granted.Check("panel.editor"); err != nil {
+				L.ArgError(1, "panel.editor permission not granted")
+				return 0
+			}
+			tbl := L.CheckTable(1)
+			title := "Plugin"
+			if t := L.GetField(tbl, "title"); t != lua.LNil {
+				title = t.String()
+			}
+			renderFunc, ok := L.GetField(tbl, "render").(*lua.LFunction)
+			if !ok {
+				L.ArgError(1, "render function required")
+				return 0
+			}
+			var eventFunc *lua.LFunction
+			if fn, ok := L.GetField(tbl, "on_event").(*lua.LFunction); ok {
+				eventFunc = fn
+			}
+			if p.OpenTab != nil {
+				p.OpenTab(title, renderFunc, eventFunc)
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "close_tab", L.NewFunction(func(L *lua.LState) int {
+			id := L.CheckString(1)
+			if p.CloseTab != nil {
+				p.CloseTab(id)
+			}
+			return 0
+		}))
+
 		L.Push(mod)
 		return 1
 	}

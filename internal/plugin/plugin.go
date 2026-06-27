@@ -48,6 +48,10 @@ type Plugin struct {
 	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
+	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
+	CloseDrawer       func()
+	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)
+	CloseTab          func(id string)
 	Borders         *term.BorderSet
 
 	Editor     EditorAPI
@@ -107,6 +111,10 @@ func (p *Plugin) Destroy() {
 	p.Log = nil
 	p.ShowContextMenu = nil
 	p.ShowConfirmDialog = nil
+	p.OpenDrawer = nil
+	p.CloseDrawer = nil
+	p.OpenTab = nil
+	p.CloseTab = nil
 	p.EventListeners = nil
 }
 
