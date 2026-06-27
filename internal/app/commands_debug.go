@@ -151,21 +151,31 @@ func (a *App) debugRunPlugin() {
 }
 
 func (a *App) debugScreenshot() {
-	path := "screenshot.txt"
-	if err := a.DumpScreenshot(path); err != nil {
-		a.Status.SetNotification("Screenshot error: "+err.Error(), view.NotifyError, 3*time.Second)
-		return
-	}
-	a.Status.SetNotification("Screenshot saved: "+path, view.NotifyInfo, 3*time.Second)
+	a.DismissDialog()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		path := "screenshot.txt"
+		if err := a.DumpScreenshot(path); err != nil {
+			a.Status.SetNotification("Screenshot error: "+err.Error(), view.NotifyError, 3*time.Second)
+		} else {
+			a.Status.SetNotification("Screenshot saved: "+path, view.NotifyInfo, 3*time.Second)
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}()
 }
 
 func (a *App) debugDumpState() {
-	path := "debug-state.json"
-	if err := a.DumpDebugState(path); err != nil {
-		a.Status.SetNotification("Dump error: "+err.Error(), view.NotifyError, 3*time.Second)
-		return
-	}
-	a.Status.SetNotification("State saved: "+path, view.NotifyInfo, 3*time.Second)
+	a.DismissDialog()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		path := "debug-state.json"
+		if err := a.DumpDebugState(path); err != nil {
+			a.Status.SetNotification("Dump error: "+err.Error(), view.NotifyError, 3*time.Second)
+		} else {
+			a.Status.SetNotification("State saved: "+path, view.NotifyInfo, 3*time.Second)
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}()
 }
 
 func LoadPluginFromFile(a *App, path string) {

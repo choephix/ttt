@@ -34,6 +34,21 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 			i++
 			continue
 		}
+		if args[i] == "--exec" && i+1 < len(args) {
+			i++
+			continue
+		}
+		if args[i] == "--plugin" && i+1 < len(args) {
+			i++
+			continue
+		}
+		if args[i] == "--size" && i+1 < len(args) {
+			i++
+			continue
+		}
+		if args[i] == "--debug" {
+			continue
+		}
 		if isPRURL(args[i]) {
 			if _, _, _, err := github.ParsePRURL(args[i]); err == nil {
 				prURLs = append(prURLs, args[i])

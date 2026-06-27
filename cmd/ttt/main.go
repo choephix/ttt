@@ -65,6 +65,7 @@ func handlePanic(screen *term.TcellScreen) {
 type cliFlags struct {
 	configFile string
 	pluginFile string
+	exec       string
 	sizeW, sizeH int
 	debug      bool
 }
@@ -82,6 +83,11 @@ func parseFlags() cliFlags {
 		case "--plugin":
 			if i+1 < len(args) {
 				f.pluginFile = args[i+1]
+				i++
+			}
+		case "--exec":
+			if i+1 < len(args) {
+				f.exec = args[i+1]
 				i++
 			}
 		case "--size":
@@ -115,6 +121,7 @@ Options:
   --version, -v       Show version
   --workspace <file>  Open a saved workspace (.ttt file)
   --config <file>     Use a custom config file
+  --exec "commands"   Execute semicolon-separated commands after startup
 
 Examples:
   ttt                                           Open current directory
@@ -275,6 +282,10 @@ Docs: https://tttedit.dev
 
 	if flags.pluginFile != "" {
 		app.LoadPluginFromFile(editor, flags.pluginFile)
+	}
+
+	if flags.exec != "" {
+		go app.RunExecScript(editor, flags.exec)
 	}
 
 	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)
