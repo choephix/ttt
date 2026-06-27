@@ -67,6 +67,19 @@ func TestEventToLuaKeyEventCtrl(t *testing.T) {
 	}
 }
 
+func TestEventToLuaKeyEventCombinedModifiers(t *testing.T) {
+	L := lua.NewState()
+	defer L.Close()
+
+	ev := tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModCtrl|tcell.ModShift)
+	tbl := eventToLua(L, ev)
+
+	mod := tbl.RawGetString("mod").String()
+	if mod != "ctrl+shift" {
+		t.Errorf("expected mod=ctrl+shift, got %s", mod)
+	}
+}
+
 func TestEventToLuaMouseEvent(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
