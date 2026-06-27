@@ -148,3 +148,31 @@ func TestSystemNoEnvPermission(t *testing.T) {
 		t.Fatal("expected error when system.env not granted")
 	}
 }
+
+func TestSystemExecAsyncNilStateSafety(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "ok"}
+
+	ch := make(chan func(), 1)
+	p, _ := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+
+	p.PostAsync = func(result *PluginAsyncResult) {
+		ch <- result.Callback
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("echo", {"hello"}, function(result) end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async call failed: %v", err)
+	}
+
+	capturedCallback := <-ch
+
+	p.Destroy()
+
+	capturedCallback()
+}

@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"log/slog"
-
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -114,9 +112,12 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 		go func() {
 			status, body, respHeaders, err := p.Network.Get(url, headers)
 			resultFn := func() {
+				if p.State == nil {
+					return
+				}
 				tbl := httpResultToLua(p.State, status, body, respHeaders, err)
 				if callErr := p.CallLuaFunc(callback, tbl); callErr != nil {
-					slog.Error("plugin async net callback error", "plugin", p.Name, "error", callErr)
+					p.logError("async net get callback", callErr)
 				}
 			}
 			if p.PostAsync != nil {
@@ -149,9 +150,12 @@ func netPostAsync(p *Plugin) lua.LGFunction {
 		go func() {
 			status, respBody, respHeaders, err := p.Network.Post(url, headers, body)
 			resultFn := func() {
+				if p.State == nil {
+					return
+				}
 				tbl := httpResultToLua(p.State, status, respBody, respHeaders, err)
 				if callErr := p.CallLuaFunc(callback, tbl); callErr != nil {
-					slog.Error("plugin async net callback error", "plugin", p.Name, "error", callErr)
+					p.logError("async net post callback", callErr)
 				}
 			}
 			if p.PostAsync != nil {

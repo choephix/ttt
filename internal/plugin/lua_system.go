@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"log/slog"
-
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -92,6 +90,9 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 			stdout, stderr, exitCode, err := p.System.Exec(binary, args)
 
 			resultFn := func() {
+				if p.State == nil {
+					return
+				}
 				tbl := p.State.NewTable()
 				if err != nil {
 					p.State.SetField(tbl, "stdout", lua.LString(""))
@@ -103,7 +104,7 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 					p.State.SetField(tbl, "exit_code", lua.LNumber(exitCode))
 				}
 				if callErr := p.CallLuaFunc(callback, tbl); callErr != nil {
-					slog.Error("plugin async exec callback error", "plugin", p.Name, "error", callErr)
+					p.logError("async exec callback", callErr)
 				}
 			}
 
