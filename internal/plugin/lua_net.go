@@ -120,9 +120,7 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 					p.logError("async net get callback", callErr)
 				}
 			}
-			if p.PostAsync != nil {
-				p.PostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
-			}
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
 		}()
 
 		return 0
@@ -158,9 +156,7 @@ func netPostAsync(p *Plugin) lua.LGFunction {
 					p.logError("async net post callback", callErr)
 				}
 			}
-			if p.PostAsync != nil {
-				p.PostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
-			}
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
 		}()
 
 		return 0

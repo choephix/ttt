@@ -3,6 +3,7 @@ package plugin
 import (
 	"log/slog"
 	"path/filepath"
+	"sync"
 
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -21,6 +22,8 @@ type PluginKeybinding struct {
 }
 
 type Plugin struct {
+	mu sync.Mutex
+
 	Name     string
 	Dir      string
 	Repo     string
@@ -121,7 +124,17 @@ func (p *Plugin) logError(context string, err error) {
 	}
 }
 
+func (p *Plugin) SafePostAsync(result *PluginAsyncResult) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.PostAsync != nil {
+		p.PostAsync(result)
+	}
+}
+
 func (p *Plugin) Destroy() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.State != nil {
 		p.State.Close()
 		p.State = nil

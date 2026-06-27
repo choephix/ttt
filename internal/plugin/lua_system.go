@@ -108,12 +108,10 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 				}
 			}
 
-			if p.PostAsync != nil {
-				p.PostAsync(&PluginAsyncResult{
-					Plugin:   p,
-					Callback: resultFn,
-				})
-			}
+			p.SafePostAsync(&PluginAsyncResult{
+				Plugin:   p,
+				Callback: resultFn,
+			})
 		}()
 
 		return 0

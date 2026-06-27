@@ -149,6 +149,33 @@ func TestSystemNoEnvPermission(t *testing.T) {
 	}
 }
 
+func TestSystemExecAsyncRaceSafety(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "ok"}
+
+	p, _ := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+
+	done := make(chan struct{})
+	p.PostAsync = func(result *PluginAsyncResult) {
+		close(done)
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("echo", {"hello"}, function(result) end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async call failed: %v", err)
+	}
+
+	// Wait for goroutine to finish posting, then destroy.
+	// The race detector would flag if SafePostAsync and Destroy weren't synchronized.
+	<-done
+	p.Destroy()
+}
+
 func TestSystemExecAsyncNilStateSafety(t *testing.T) {
 	mock := &mockSystemAPI{stdout: "ok"}
 
