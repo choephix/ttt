@@ -88,6 +88,15 @@ func (tp *TabbedPanel) PanelCount() int {
 	return len(tp.panels)
 }
 
+func (tp *TabbedPanel) HasPanel(id string) bool {
+	for _, p := range tp.panels {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 func (tp *TabbedPanel) PanelIDs() []string {
 	ids := make([]string, len(tp.panels))
 	for i, p := range tp.panels {

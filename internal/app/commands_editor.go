@@ -148,6 +148,9 @@ func (a *App) doSaveFile() {
 		a.NotifyLSPSave(path, lang, text)
 	}
 	a.RequestGitGutterForActiveFile()
+	if a.PluginManager != nil && path != "" {
+		a.PluginManager.DispatchEvent("file.save", path)
+	}
 }
 
 func (a *App) forceQuit() {

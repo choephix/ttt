@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -135,6 +136,8 @@ func RunEventLoop(
 	// launch, before the first user interaction.
 	syncStatus()
 	redraw()
+
+	app.ShowPendingPluginApprovals()
 
 	for *running {
 		ev := screen.PollEvent()
@@ -299,6 +302,16 @@ func RunEventLoop(
 						dv.FinishLoading()
 					}
 				}
+			case *plugin.PluginAsyncResult:
+				if v.Callback != nil {
+					v.Callback()
+				}
+			case *pluginInstallResult:
+				app.handlePluginInstallResult(v)
+			case *pluginUpdateResult:
+				app.handlePluginUpdateResult(v)
+			case *RemoteRegistryResult:
+				app.handleRemoteRegistryResult(v)
 			case *PrFetchResult:
 				if v.Err != nil {
 					app.StatusError("PR fetch failed: " + v.Err.Error())

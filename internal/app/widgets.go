@@ -125,10 +125,12 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	terminalPanel.Borders = borders
 	problems := ui.NewProblemsWidget()
 	references := ui.NewReferencesWidget()
+	output := ui.NewOutputWidget()
 	bottomPanel := ui.NewBottomPanelWidget(borders)
 	bottomPanel.AddPanel("terminal", "TERMINAL", terminalPanel)
 	bottomPanel.AddPanel("problems", "PROBLEMS", problems)
 	bottomPanel.AddPanel("references", "REFERENCES", references)
+	bottomPanel.AddPanel("output", "OUTPUT", output)
 
 	contentSplit := ui.NewContentSplitWidget()
 	contentSplit.Top = editorGroup
@@ -197,6 +199,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		TerminalPanel:     terminalPanel,
 		Problems:          problems,
 		References:        references,
+		Output:            output,
 		DocVersions:       make(map[string]int),
 		AllDiagnostics:    make(map[string][]ui.Diagnostic),
 		LspNotified:       make(map[string]bool),

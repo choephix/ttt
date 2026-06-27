@@ -524,6 +524,7 @@ func TestTreeBadgeStyle(t *testing.T) {
 
 	// Select node "b" so "a" is unselected and shows its BadgeStyle
 	tree.SelectByID("b")
+	tree.SetFocused(true)
 	s := renderWidget(tree, 0, 0, 20, 10)
 
 	// Row 0 ("A"): badge "M" should render in StyleWarning

@@ -8,14 +8,20 @@ import (
 	"runtime/debug"
 	"time"
 
+	"path/filepath"
+
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/lsp"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 var (
@@ -147,6 +153,78 @@ Docs: https://tttedit.dev
 	editor.Running = &running
 	app.RegisterCommands(editor)
 	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
+
+	pluginsDir := filepath.Join(filepath.Dir(config.ConfigFilePath("plugins.ttt.json")), "plugins")
+	localPluginsDir := filepath.Join(editor.Workspace.Primary(), "plugins")
+	pluginManager := plugin.NewManager(pluginsDir, localPluginsDir)
+	pendingApprovals := pluginManager.LoadAll()
+	editor.PluginManager = pluginManager
+	defer pluginManager.Shutdown()
+
+	for _, reg := range pluginManager.SidebarPanels {
+		editor.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+	}
+	for _, reg := range pluginManager.BottomPanels {
+		editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+	}
+	pluginManager.SetEditorAPI(app.NewPluginEditorAPI(editor))
+	pluginManager.SetFilesystemAPI(app.NewPluginFilesystemAPI())
+	pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
+	pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
+
+	for _, p := range pluginManager.Plugins() {
+		p.RequestRedraw = func() {
+			screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
+		p.PostAsync = func(result *plugin.PluginAsyncResult) {
+			screen.PostEvent(tcell.NewEventInterrupt(result))
+		}
+	}
+	pluginManager.SetLogFactory(func(pluginName string) func(string, string) {
+		return func(level, message string) {
+			editor.Output.AddLine(ui.OutputLine{
+				Time:       time.Now().Format("15:04:05"),
+				PluginName: pluginName,
+				Level:      level,
+				Message:    message,
+			})
+			screen.PostEvent(tcell.NewEventInterrupt(nil))
+		}
+	})
+
+	editor.RegisterStartupPluginCommands()
+
+	pluginsPanel := app.NewPluginsPanel(pluginManager)
+	editor.Sidebar.AddPanel("plugins", "Plugins", pluginsPanel.Adapter)
+	editor.PluginsPanel = pluginsPanel
+	pluginsPanel.OnInstall = func(repoURL string) {
+		editor.PluginInstallFromURL(repoURL)
+	}
+	pluginsPanel.OnUninstall = func(name string) {
+		editor.PluginUninstallByName(name)
+	}
+	pluginsPanel.OnToggle = func(name string, enabled bool) {
+		if err := pluginManager.SetEnabled(name, enabled); err != nil {
+			slog.Error("toggle plugin", "error", err)
+		}
+		pluginsPanel.Refresh()
+	}
+	pluginsPanel.OnUpdate = func(name string) {
+		editor.PluginUpdateByName(name)
+	}
+
+	go func() {
+		entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
+		if err != nil {
+			slog.Debug("fetch plugin registry", "error", err)
+			return
+		}
+		screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries}))
+	}()
+
+	if len(pendingApprovals) > 0 {
+		editor.PendingPluginApprovals = pendingApprovals
+	}
 
 	if len(prURLs) > 0 {
 		if !github.IsGHInstalled() {

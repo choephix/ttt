@@ -14,6 +14,10 @@ func NewFocusManager() *FocusManager {
 }
 
 func (fm *FocusManager) Collect(w Widget) {
+	var prev FocusableWidget
+	if fm.focused >= 0 && fm.focused < len(fm.items) {
+		prev = fm.items[fm.focused]
+	}
 	for _, item := range fm.items {
 		item.SetFocused(false)
 	}
@@ -22,7 +26,15 @@ func (fm *FocusManager) Collect(w Widget) {
 	collectFocusable(w, &fm.items)
 	if len(fm.items) > 0 {
 		fm.focused = 0
-		fm.items[0].SetFocused(true)
+		if prev != nil {
+			for i, item := range fm.items {
+				if item == prev {
+					fm.focused = i
+					break
+				}
+			}
+		}
+		fm.items[fm.focused].SetFocused(true)
 	}
 }
 
@@ -117,13 +129,16 @@ func (fm *FocusManager) Focused() Widget {
 }
 
 func (fm *FocusManager) HandleEvent(ev tcell.Event) EventResult {
+	if len(fm.items) == 0 {
+		return EventIgnored
+	}
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
-		if tev.Key() == tcell.KeyTab {
+		if tev.Key() == tcell.KeyTab && len(fm.items) > 1 {
 			fm.FocusNext()
 			return EventConsumed
 		}
-		if tev.Key() == tcell.KeyBacktab {
+		if tev.Key() == tcell.KeyBacktab && len(fm.items) > 1 {
 			fm.FocusPrev()
 			return EventConsumed
 		}
@@ -133,6 +148,13 @@ func (fm *FocusManager) HandleEvent(ev tcell.Event) EventResult {
 	case *tcell.EventMouse:
 		if tev.Buttons()&tcell.Button1 != 0 {
 			fm.FocusByClick(tev.Position())
+		}
+		mx, my := tev.Position()
+		for _, fw := range fm.items {
+			r := fw.GetRect()
+			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+				return fw.HandleEvent(ev)
+			}
 		}
 		if fw := fm.Focused(); fw != nil {
 			return fw.HandleEvent(ev)

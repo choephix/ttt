@@ -51,6 +51,15 @@ func (v *VStackWidget) HeightForWidth(w int) int {
 	return total + v.BoxOverheadH()
 }
 
+func (v *VStackWidget) ScrollSize() (int, int) {
+	r := v.GetRect()
+	w := r.W
+	if w <= 0 {
+		w = 80
+	}
+	return w, v.HeightForWidth(w)
+}
+
 func (v *VStackWidget) Render(surface Surface) {
 	inner := v.RenderBox(surface)
 	w, h := inner.Size()

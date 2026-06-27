@@ -52,6 +52,21 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
+	default:
+		if a.PluginManager != nil {
+			for _, p := range a.PluginManager.Plugins() {
+				if a.Sidebar.ActivePanel == "plugin."+p.Name && len(p.SidebarMenuEntries) > 0 {
+					for _, e := range p.SidebarMenuEntries {
+						items = append(items, ui.ContextMenuItem{
+							Label:   e.Label,
+							Command: e.Command,
+							IsSep:   e.Separator,
+						})
+					}
+					break
+				}
+			}
+		}
 	}
 	if len(items) > 0 {
 		openContextMenu(a, items, sx, sy)

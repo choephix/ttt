@@ -275,6 +275,47 @@ func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff, oldLines, ne
 	g.SwitchTab(len(g.tabs) - 1)
 }
 
+func (g *EditorGroupWidget) OpenPluginTab(id string, content Widget) {
+	for i, t := range g.tabs {
+		if t.FilePath == id {
+			t.Content = content
+			g.tabs[i] = t
+			g.SwitchTab(i)
+			return
+		}
+	}
+	g.tabs = append(g.tabs, editorTab{
+		FilePath: id,
+		Content:  content,
+		Pinned:   true,
+	})
+	g.SwitchTab(len(g.tabs) - 1)
+}
+
+func (g *EditorGroupWidget) ClosePluginTab(id string) {
+	for i, t := range g.tabs {
+		if t.FilePath == id {
+			g.tabs = append(g.tabs[:i], g.tabs[i+1:]...)
+			if len(g.tabs) == 0 {
+				g.tabs = []editorTab{{
+					FilePath: "untitled",
+					Buf:      &buffer.Buffer{Lines: []string{""}},
+					Cur:      &cursor.Cursor{},
+					Vp:       &view.Viewport{},
+					Undo:     &undo.UndoStack{},
+					Sel:      &selection.Selection{},
+					Virtual:  true,
+				}}
+				g.active = 0
+			} else if g.active >= len(g.tabs) {
+				g.active = len(g.tabs) - 1
+			}
+			g.syncTabs()
+			return
+		}
+	}
+}
+
 func (g *EditorGroupWidget) ReloadFile(path string) {
 	for i := range g.tabs {
 		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
