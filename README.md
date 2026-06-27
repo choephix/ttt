@@ -618,6 +618,38 @@ CHAOS_REPLAY=chaos-output/crash-<seed>-<iter>.json go test ./tests/chaos/ -run T
 
 Each crash is saved as a JSON report with the random seed and full event log, so any panic can be replayed and debugged deterministically.
 
+## Debug & Testing CLI Flags
+
+TTT includes flags for scripted interaction, automated testing, and debugging.
+
+| Flag | Description |
+|------|-------------|
+| `--exec "commands"` | Execute semicolon-separated commands after startup |
+| `--plugin FILE` | Load a Lua plugin file on startup with full permissions |
+| `--size WxH` | Force screen dimensions (e.g. `120x40`) |
+| `--debug` | Enable debug mode regardless of config |
+
+### `--exec` Commands
+
+The `--exec` flag accepts a semicolon-separated string of commands that run sequentially after the editor starts:
+
+| Command | Description |
+|---------|-------------|
+| `click X Y` | Simulate a mouse click at screen coordinates |
+| `key COMBO` | Simulate a key press (e.g. `key ctrl+p`, `key enter`) |
+| `type TEXT` | Type a string of text character by character |
+| `exec "Command Name"` | Run a command palette command by title |
+| `screenshot PATH` | Save the current screen text to a file |
+| `debug PATH` | Save the editor's debug state as JSON to a file |
+| `wait MS` | Wait for the given number of milliseconds |
+| `quit` | Exit the editor |
+
+Example — capture a screenshot and debug state, then quit:
+
+```sh
+ttt --size 120x40 --exec "wait 200; screenshot /tmp/screen.txt; debug /tmp/state.json; quit"
+```
+
 ## Architecture
 
 The codebase follows a strict layered architecture: **core -> view -> render -> term -> ui**.
