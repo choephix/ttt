@@ -10,11 +10,24 @@ func TestSandboxDangerousGlobalsRemoved(t *testing.T) {
 	L := NewSandbox()
 	defer L.Close()
 
-	for _, name := range []string{"dofile", "loadfile"} {
+	for _, name := range []string{"dofile", "loadfile", "load", "loadstring"} {
 		v := L.GetGlobal(name)
 		if v != lua.LNil {
 			t.Errorf("expected %s to be nil, got %s", name, v.Type().String())
 		}
+	}
+}
+
+func TestSandboxLoadCannotCompileCode(t *testing.T) {
+	L := NewSandbox()
+	defer L.Close()
+
+	if err := L.DoString(`load("return 1+1")()`); err == nil {
+		t.Error("load() should not be available to compile arbitrary code")
+	}
+
+	if err := L.DoString(`loadstring("return 1+1")()`); err == nil {
+		t.Error("loadstring() should not be available to compile arbitrary code")
 	}
 }
 

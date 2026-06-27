@@ -61,7 +61,7 @@ func NewSandbox() *lua.LState {
 		L.Call(1, 0)
 	}
 
-	for _, name := range []string{"dofile", "loadfile"} {
+	for _, name := range []string{"dofile", "loadfile", "load", "loadstring"} {
 		L.SetGlobal(name, lua.LNil)
 	}
 
