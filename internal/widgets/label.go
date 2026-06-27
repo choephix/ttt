@@ -13,7 +13,8 @@ type LabelConfig struct {
 
 type LabelWidget struct {
 	BaseWidget
-	Config LabelConfig
+	Config     LabelConfig
+	FixedWidth int
 }
 
 func NewLabelWidget(config LabelConfig) *LabelWidget {
@@ -21,7 +22,12 @@ func NewLabelWidget(config LabelConfig) *LabelWidget {
 }
 
 func (l *LabelWidget) Height() int { return 1 + l.BoxOverheadH() }
-func (l *LabelWidget) Width() int  { return 0 }
+func (l *LabelWidget) Width() int {
+	if l.FixedWidth > 0 {
+		return l.FixedWidth
+	}
+	return 0
+}
 
 func (l *LabelWidget) Render(surface Surface) {
 	inner := l.RenderBox(surface)

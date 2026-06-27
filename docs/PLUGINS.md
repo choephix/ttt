@@ -21,7 +21,10 @@ ttt supports Lua plugins that can render panels in the sidebar and bottom panel 
   - [Button](#button)
   - [Input](#input)
   - [VStack](#vstack)
+  - [HStack](#hstack)
+  - [ScrollView](#scrollview)
   - [Box](#box)
+  - [Divider](#divider)
   - [Dropdown](#dropdown)
   - [Box Model](#box-model)
   - [Requesting Redraws](#requesting-redraws)
@@ -519,12 +522,13 @@ panel:input({
 
 **Input config fields:**
 
-| Field         | Type     | Default | Description                                    |
-|---------------|----------|---------|------------------------------------------------|
-| `placeholder` | string   | `""`    | Grayed-out hint text shown when input is empty.|
-| `prefix`      | string   | `""`    | Non-editable text displayed before the input.  |
-| `on_change`   | function | nil     | Called after every text change. Receives the current text (string). |
-| `on_submit`   | function | nil     | Called when Enter is pressed. Receives the current text (string). |
+| Field              | Type     | Default | Description                                    |
+|--------------------|----------|---------|------------------------------------------------|
+| `placeholder`      | string   | `""`    | Grayed-out hint text shown when input is empty.|
+| `prefix`           | string   | `""`    | Non-editable text displayed before the input.  |
+| `clear_on_submit`  | boolean  | `false` | When `true`, the input text is cleared after `on_submit` fires. |
+| `on_change`        | function | nil     | Called after every text change. Receives the current text (string). |
+| `on_submit`        | function | nil     | Called when Enter is pressed. Receives the current text (string). |
 
 The input text and cursor position are automatically preserved across re-renders.
 
@@ -552,6 +556,55 @@ panel:vstack({
 | `gap`    | number   | no       | Vertical gap (in rows) between children. Default: `0`.     |
 
 VStack is useful for grouping related widgets into sections. The child panel proxy supports all the same widget methods.
+
+---
+
+### HStack
+
+Horizontal stack layout container. Lays out child widgets side by side. The first child grows to fill available space; remaining children get fixed width.
+
+```lua
+panel:hstack({
+  gap = 1,
+  render = function(p)
+    p:label({ text = "Left (grows)", style = "default" })
+    p:button({ label = "&Action", on_click = function() end })
+  end,
+})
+```
+
+**HStack config fields:**
+
+| Field    | Type     | Required | Description                                                |
+|----------|----------|----------|------------------------------------------------------------|
+| `render` | function | yes      | Builder function that receives a child panel proxy. Call widget methods on it to add children. |
+| `gap`    | number   | no       | Horizontal gap (in columns) between children. Default: `0`. |
+
+The first child in the hstack expands to fill remaining horizontal space. All subsequent children are given their natural/fixed width. This is useful for toolbar-style layouts with a label or spacer on the left and action buttons on the right.
+
+---
+
+### ScrollView
+
+Scrollable container for content that may exceed the available height. Wraps children in a scroll view with mouse wheel scrolling and a scrollbar when content overflows.
+
+```lua
+panel:scrollview({
+  render = function(p)
+    for i = 1, 100 do
+      p:label("Line " .. i)
+    end
+  end,
+})
+```
+
+**ScrollView config fields:**
+
+| Field    | Type     | Required | Description                                                |
+|----------|----------|----------|------------------------------------------------------------|
+| `render` | function | yes      | Builder function that receives a child panel proxy. Call widget methods on it to add children. |
+
+Use `scrollview` when the content may exceed the panel height. The scroll position is preserved across re-renders. A scrollbar indicator appears on the right edge when content overflows.
 
 ---
 
@@ -600,6 +653,20 @@ panel:vstack({
   end,
 })
 ```
+
+---
+
+### Divider
+
+Horizontal divider line. Renders a single-line separator across the panel width. Useful for visually separating sections.
+
+```lua
+panel:label("Section 1")
+panel:divider()
+panel:label("Section 2")
+```
+
+No configuration fields. The divider takes no arguments and is not focusable.
 
 ---
 

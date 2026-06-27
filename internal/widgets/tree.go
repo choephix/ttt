@@ -280,7 +280,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 
 	style := term.StyleDefault
-	if idx == t.selected {
+	if idx == t.selected && t.focused {
 		style = term.StyleSidebarSelected
 	} else if t.Config.ActiveID != "" && node.ID == t.Config.ActiveID {
 		style = term.StyleSidebarSelected

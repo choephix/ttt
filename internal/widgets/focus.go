@@ -134,11 +134,11 @@ func (fm *FocusManager) HandleEvent(ev tcell.Event) EventResult {
 	}
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
-		if tev.Key() == tcell.KeyTab {
+		if tev.Key() == tcell.KeyTab && len(fm.items) > 1 {
 			fm.FocusNext()
 			return EventConsumed
 		}
-		if tev.Key() == tcell.KeyBacktab {
+		if tev.Key() == tcell.KeyBacktab && len(fm.items) > 1 {
 			fm.FocusPrev()
 			return EventConsumed
 		}

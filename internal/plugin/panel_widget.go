@@ -13,6 +13,7 @@ type PluginPanelWidget struct {
 	renderFunc *lua.LFunction
 	eventFunc  *lua.LFunction
 	state      *WidgetState
+	focused    bool
 }
 
 func NewPluginPanelWidget(p *Plugin, renderFunc, eventFunc *lua.LFunction) *PluginPanelWidget {
@@ -67,4 +68,17 @@ func (pw *PluginPanelWidget) HandleEvent(ev tcell.Event) widgets.EventResult {
 	return widgets.EventIgnored
 }
 
-func (pw *PluginPanelWidget) Focusable() bool { return true }
+func (pw *PluginPanelWidget) CursorPosition() (int, int, bool) {
+	if pw.state != nil && pw.state.focus != nil {
+		if fw := pw.state.focus.Focused(); fw != nil {
+			if cp, ok := fw.(widgets.CursorPositioner); ok {
+				return cp.CursorPosition()
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+func (pw *PluginPanelWidget) Focusable() bool           { return true }
+func (pw *PluginPanelWidget) SetFocused(focused bool)    { pw.focused = focused }
+func (pw *PluginPanelWidget) IsFocused() bool            { return pw.focused }

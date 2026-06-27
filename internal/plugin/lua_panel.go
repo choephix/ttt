@@ -11,16 +11,29 @@ import (
 const panelTypeName = "panel"
 
 var styleMap = map[string]term.Style{
-	"default":  term.StyleDefault,
-	"muted":    term.StyleMuted,
-	"border":   term.StyleBorder,
-	"success":  term.StyleSuccess,
-	"danger":   term.StyleDanger,
-	"warning":  term.StyleWarning,
-	"selected": term.StyleSidebarSelected,
-	"item":     term.StylePaletteItem,
-	"line":     term.StyleLineNumber,
-	"input":    term.StyleInput,
+	"default":          term.StyleDefault,
+	"muted":            term.StyleMuted,
+	"border":           term.StyleBorder,
+	"success":          term.StyleSuccess,
+	"danger":           term.StyleDanger,
+	"warning":          term.StyleWarning,
+	"selected":         term.StyleSidebarSelected,
+	"item":             term.StylePaletteItem,
+	"line":             term.StyleLineNumber,
+	"input":            term.StyleInput,
+	"bold":             term.StyleHoverBold,
+	"code":             term.StyleHoverCode,
+	"syntax_comment":   term.StyleSyntaxComment,
+	"syntax_string":    term.StyleSyntaxString,
+	"syntax_keyword":   term.StyleSyntaxKeyword,
+	"syntax_number":    term.StyleSyntaxNumber,
+	"syntax_operator":  term.StyleSyntaxOperator,
+	"syntax_function":  term.StyleSyntaxFunction,
+	"syntax_type":      term.StyleSyntaxType,
+	"syntax_builtin":   term.StyleSyntaxBuiltin,
+	"syntax_variable":  term.StyleSyntaxVariable,
+	"syntax_tag":       term.StyleSyntaxTag,
+	"syntax_attribute": term.StyleSyntaxAttribute,
 }
 
 type PanelProxy struct {
@@ -69,8 +82,11 @@ func RegisterPanelType(L *lua.LState) {
 		"box":      panelBoxWidget,
 		"dropdown": panelDropdownWidget,
 		"title":    panelTitleWidget,
-		"keyvalue": panelKeyValueWidget,
-		"redraw":   panelRedraw,
+		"keyvalue":   panelKeyValueWidget,
+		"scrollview": panelScrollViewWidget,
+		"hstack":    panelHStackWidget,
+		"divider":   panelDividerWidget,
+		"redraw":    panelRedraw,
 	}))
 }
 
@@ -206,6 +222,9 @@ func panelLabelWidget(L *lua.LState) int {
 		if b := L.GetField(v, "badge"); b != lua.LNil {
 			desc.Badge = b.String()
 		}
+		if w := L.GetField(v, "width"); w != lua.LNil {
+			desc.FixedWidth = int(lua.LVAsNumber(w))
+		}
 		parseBoxModel(L, v, &desc)
 	default:
 		desc.Text = arg.String()
@@ -296,6 +315,9 @@ func panelTreeWidget(L *lua.LState) int {
 	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
 		desc.NodeMenu = parseLuaMenuEntries(L, menu)
 	}
+	if kc, ok := L.GetField(tbl, "key_commands").(*lua.LTable); ok {
+		desc.KeyCommands = parseLuaKeyCommands(L, kc)
+	}
 
 	proxy.appendDesc(WidgetTree, desc)
 	return 0
@@ -321,6 +343,9 @@ func panelListWidget(L *lua.LState) int {
 	}
 	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
 		desc.NodeMenu = parseLuaMenuEntries(L, menu)
+	}
+	if kc, ok := L.GetField(tbl, "key_commands").(*lua.LTable); ok {
+		desc.KeyCommands = parseLuaKeyCommands(L, kc)
 	}
 
 	proxy.appendDesc(WidgetList, desc)
@@ -368,6 +393,9 @@ func panelInputWidget(L *lua.LState) int {
 	if fn, ok := L.GetField(tbl, "on_submit").(*lua.LFunction); ok {
 		desc.OnSubmit = fn
 	}
+	if v := L.GetField(tbl, "clear_on_submit"); v != lua.LNil {
+		desc.ClearOnSubmit = lua.LVAsBool(v)
+	}
 
 	proxy.appendDesc(WidgetInput, desc)
 	return 0
@@ -391,6 +419,18 @@ func parseBoxModel(L *lua.LState, tbl *lua.LTable, desc *WidgetDesc) {
 			*field.dst = int(lua.LVAsNumber(v))
 		}
 	}
+}
+
+func parseLuaKeyCommands(_ *lua.LState, tbl *lua.LTable) map[rune]string {
+	m := map[rune]string{}
+	tbl.ForEach(func(k, v lua.LValue) {
+		key := k.String()
+		cmd := v.String()
+		if len(key) == 1 && cmd != "" {
+			m[rune(key[0])] = cmd
+		}
+	})
+	return m
 }
 
 func parseLuaMenuEntries(L *lua.LState, tbl *lua.LTable) []widgets.MenuEntry {
@@ -448,6 +488,57 @@ func panelVStackWidget(L *lua.LState) int {
 	return 0
 }
 
+func panelHStackWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if fn, ok := L.GetField(tbl, "render").(*lua.LFunction); ok {
+		desc.Children = collectChildren(L, proxy, fn)
+	}
+	if v := L.GetField(tbl, "gap"); v != lua.LNil {
+		desc.Gap = int(lua.LVAsNumber(v))
+	}
+	if v := L.GetField(tbl, "height"); v != lua.LNil {
+		desc.FixedHeight = int(lua.LVAsNumber(v))
+	}
+
+	proxy.appendDesc(WidgetHStack, desc)
+	return 0
+}
+
+func panelDividerWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	desc := WidgetDesc{}
+	proxy.appendDesc(WidgetDivider, desc)
+	return 0
+}
+
+func panelScrollViewWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if fn, ok := L.GetField(tbl, "render").(*lua.LFunction); ok {
+		desc.Children = collectChildren(L, proxy, fn)
+	}
+
+	proxy.appendDesc(WidgetScrollView, desc)
+	return 0
+}
+
 func panelBoxWidget(L *lua.LState) int {
 	proxy := checkPanelProxy(L)
 	if proxy == nil {
@@ -478,6 +569,7 @@ func panelBoxWidget(L *lua.LState) int {
 	if v := L.GetField(tbl, "height"); v != lua.LNil {
 		desc.FixedHeight = int(lua.LVAsNumber(v))
 	}
+	parseBoxModel(L, tbl, &desc)
 
 	proxy.appendDesc(WidgetBox, desc)
 	return 0

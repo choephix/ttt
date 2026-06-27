@@ -6,16 +6,22 @@ import (
 
 type HStackWidget struct {
 	BaseWidget
-	Children []Widget
-	Align    string `json:"align,omitempty"`
-	Gap      int    `json:"gap,omitempty"`
+	Children    []Widget
+	Align       string `json:"align,omitempty"`
+	Gap         int    `json:"gap,omitempty"`
+	FixedHeight int
 }
 
 func NewHStackWidget(children ...Widget) *HStackWidget {
 	return &HStackWidget{Children: children}
 }
 
-func (s *HStackWidget) Height() int { return 0 }
+func (s *HStackWidget) Height() int {
+	if s.FixedHeight > 0 {
+		return s.FixedHeight
+	}
+	return 0
+}
 func (s *HStackWidget) Width() int  { return 0 }
 
 func (s *HStackWidget) Render(surface Surface) {

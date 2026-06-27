@@ -18,6 +18,9 @@ const (
 	WidgetDropdown
 	WidgetTitle
 	WidgetKeyValue
+	WidgetScrollView
+	WidgetHStack
+	WidgetDivider
 )
 
 func (k WidgetKind) String() string {
@@ -42,6 +45,12 @@ func (k WidgetKind) String() string {
 		return "title"
 	case WidgetKeyValue:
 		return "keyvalue"
+	case WidgetScrollView:
+		return "scrollview"
+	case WidgetHStack:
+		return "hstack"
+	case WidgetDivider:
+		return "divider"
 	}
 	return "unknown"
 }
@@ -68,15 +77,17 @@ type WidgetDesc struct {
 	OnSelect  *lua.LFunction
 	OnExpand  *lua.LFunction
 	OnCommand *lua.LFunction
-	NodeMenu  []widgets.MenuEntry
+	NodeMenu    []widgets.MenuEntry
+	KeyCommands map[rune]string
 
 	Label   string
 	OnClick *lua.LFunction
 
-	Placeholder string
-	Prefix      string
-	OnChange    *lua.LFunction
-	OnSubmit    *lua.LFunction
+	Placeholder    string
+	Prefix         string
+	OnChange       *lua.LFunction
+	OnSubmit       *lua.LFunction
+	ClearOnSubmit  bool
 
 	Children     []WidgetDesc
 	Border       bool
@@ -85,6 +96,7 @@ type WidgetDesc struct {
 	BorderLeft   bool
 	BorderRight  bool
 	FixedHeight  int
+	FixedWidth   int
 	Gap          int
 
 	Entries         []widgets.MenuEntry

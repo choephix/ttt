@@ -12,6 +12,7 @@ type ScrollViewWidget struct {
 	scrollX int
 	scrollY int
 	vbar    scrollbar
+	focused bool
 }
 
 func NewScrollViewWidget(child ScrollableWidget) *ScrollViewWidget {
@@ -150,6 +151,10 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 	return EventIgnored
 }
+
+func (sv *ScrollViewWidget) Focusable() bool           { return true }
+func (sv *ScrollViewWidget) SetFocused(focused bool)    { sv.focused = focused }
+func (sv *ScrollViewWidget) IsFocused() bool            { return sv.focused }
 
 func (sv *ScrollViewWidget) clamp(contentW, contentH, viewW, viewH int) {
 	maxY := contentH - viewH

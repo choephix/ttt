@@ -102,9 +102,12 @@ Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to th
 | `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu` | Expandable tree view. Items are `{id, label, expandable, children}` tables. |
 | `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu` | Flat list (backed by TreeWidget, no indentation). |
 | `p:button({...})` | `label`, `on_click` | Clickable button. |
-| `p:input({...})` | `placeholder`, `prefix`, `on_change(text)`, `on_submit(text)` | Text input field. |
+| `p:input({...})` | `placeholder`, `prefix`, `clear_on_submit`, `on_change(text)`, `on_submit(text)` | Text input field. `clear_on_submit` (bool) clears text after submit. |
 | `p:vstack({...})` | `render(child_panel)`, `gap` | Vertical stack container. The `render` function receives a child panel proxy to emit nested widgets. |
+| `p:hstack({...})` | `render(child_panel)`, `gap` | Horizontal stack container. First child grows to fill available space, remaining children get fixed width. |
+| `p:scrollview({...})` | `render(child_panel)` | Scrollable container. Wraps children with mouse wheel scrolling and scrollbar when content overflows. |
 | `p:box({...})` | `render(child_panel)`, `border`, `height` | Container with optional border and fixed height. Children via `render` callback. |
+| `p:divider()` | (none) | Horizontal divider line. Single-line separator, no configuration. |
 | `p:dropdown({...})` | `label`, `entries`, `on_menu(command)` | Dropdown menu button. `entries` are `{label, command, separator}` tables. |
 
 **Raw cell API** (low-level drawing, mutually exclusive with widget methods per render):

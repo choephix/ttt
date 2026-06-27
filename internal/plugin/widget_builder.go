@@ -3,6 +3,7 @@ package plugin
 import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
+	"github.com/gdamore/tcell/v2"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -61,6 +62,12 @@ func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 		return createVStackWidget(desc, p)
 	case WidgetBox:
 		return createBoxWidget(desc, p)
+	case WidgetScrollView:
+		return createScrollViewWidget(desc, p)
+	case WidgetHStack:
+		return createHStackWidget(desc, p)
+	case WidgetDivider:
+		return createDividerWidget(desc)
 	case WidgetDropdown:
 		return createDropdownWidget(desc, p)
 	}
@@ -95,12 +102,12 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 				}
 			}
 			tw.SetItems(desc.Items)
-			tw.RestoreExpanded(expanded)
 			for _, item := range tw.Config.Items {
 				if expanded[item.ID] && item.Expandable {
 					item.Expanded = true
 				}
 			}
+			tw.RestoreExpanded(expanded)
 			wireTreeCallbacks(tw, desc, p)
 		}
 	case WidgetButton:
@@ -127,6 +134,36 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 				}
 			}
 			vs.Children = children
+		}
+	case WidgetHStack:
+		if hs, ok := w.(*widgets.HStackWidget); ok {
+			children := make([]widgets.Widget, len(desc.Children))
+			for i, cd := range desc.Children {
+				if i < len(hs.Children) {
+					updateWidget(hs.Children[i], cd, p)
+					children[i] = hs.Children[i]
+				} else {
+					children[i] = createWidget(cd, p)
+				}
+			}
+			hs.Children = children
+		}
+	case WidgetDivider:
+		// nothing to update
+	case WidgetScrollView:
+		if sv, ok := w.(*widgets.ScrollViewWidget); ok {
+			if vs, ok := sv.Child.(*widgets.VStackWidget); ok {
+				children := make([]widgets.Widget, len(desc.Children))
+				for i, cd := range desc.Children {
+					if i < len(vs.Children) {
+						updateWidget(vs.Children[i], cd, p)
+						children[i] = vs.Children[i]
+					} else {
+						children[i] = createWidget(cd, p)
+					}
+				}
+				vs.Children = children
+			}
 		}
 	case WidgetBox:
 		if bw, ok := w.(*widgets.BoxWidget); ok {
@@ -171,6 +208,7 @@ func createLabelWidget(desc WidgetDesc) *widgets.LabelWidget {
 		Badge: desc.Badge,
 		Style: style,
 	})
+	lw.FixedWidth = desc.FixedWidth
 	applyBoxModel(&lw.Box, desc)
 	return lw
 }
@@ -222,6 +260,28 @@ func createVStackWidget(desc WidgetDesc, p *Plugin) *widgets.VStackWidget {
 	return vs
 }
 
+func createHStackWidget(desc WidgetDesc, p *Plugin) *widgets.HStackWidget {
+	children := make([]widgets.Widget, len(desc.Children))
+	for i, cd := range desc.Children {
+		children[i] = createWidget(cd, p)
+	}
+	hs := widgets.NewHStackWidget(children...)
+	hs.Gap = desc.Gap
+	hs.FixedHeight = desc.FixedHeight
+	return hs
+}
+
+func createDividerWidget(desc WidgetDesc) *widgets.DividerWidget {
+	dw := widgets.NewDividerWidget(widgets.DividerConfig{})
+	applyBoxModel(&dw.Box, desc)
+	return dw
+}
+
+func createScrollViewWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget {
+	child := createVStackFromDescs(desc.Children, p)
+	return widgets.NewScrollViewWidget(child)
+}
+
 func createBoxWidget(desc WidgetDesc, p *Plugin) *widgets.BoxWidget {
 	var box *widgets.BoxWidget
 	hasSideBorders := desc.BorderTop || desc.BorderBottom || desc.BorderLeft || desc.BorderRight
@@ -244,6 +304,7 @@ func createBoxWidget(desc WidgetDesc, p *Plugin) *widgets.BoxWidget {
 	} else {
 		box = widgets.NewBoxWidget(widgets.BoxModel{})
 	}
+	applyBoxModel(&box.Box, desc)
 	if desc.FixedHeight > 0 {
 		box.FixedHeight = desc.FixedHeight
 	}
@@ -317,6 +378,18 @@ func wireTreeCallbacks(tw *widgets.TreeWidget, desc WidgetDesc, p *Plugin) {
 			}
 		}
 	}
+	if len(desc.KeyCommands) > 0 {
+		kc := desc.KeyCommands
+		tw.Config.OnKey = func(ev *tcell.EventKey, node *widgets.TreeNode) bool {
+			if ev.Key() == tcell.KeyRune {
+				if cmd, ok := kc[ev.Rune()]; ok && tw.Config.OnCommand != nil {
+					tw.Config.OnCommand(cmd, node)
+					return true
+				}
+			}
+			return false
+		}
+	}
 }
 
 func createButtonWidget(desc WidgetDesc, p *Plugin) *widgets.ButtonWidget {
@@ -356,9 +429,13 @@ func wireInputCallbacks(iw *widgets.InputWidget, desc WidgetDesc, p *Plugin) {
 	}
 	if desc.OnSubmit != nil {
 		fn := desc.OnSubmit
+		clearOnSubmit := desc.ClearOnSubmit
 		iw.Config.OnSubmit = func(text string) {
 			if p.State != nil {
 				p.CallLuaFunc(fn, lua.LString(text))
+			}
+			if clearOnSubmit {
+				iw.Clear()
 			}
 		}
 	}
