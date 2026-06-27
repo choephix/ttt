@@ -223,13 +223,17 @@ func (t *TreeWidget) Render(surface Surface) {
 	t.scrollbar.TotalItems = len(t.flatList)
 	t.scrollbar.TopItem = t.scrollTop
 
+	contentW := w
+	if t.scrollbar.visible() {
+		contentW = w - 1
+	}
 	for i := range h {
 		idx := t.scrollTop + i
 		if idx >= len(t.flatList) {
 			break
 		}
 		node := t.flatList[idx]
-		t.renderNode(surface, node, idx, i, w)
+		t.renderNode(surface, node, idx, i, contentW)
 	}
 
 	t.scrollbar.Render(surface, w-1, 0)
