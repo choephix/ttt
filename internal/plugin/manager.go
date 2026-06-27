@@ -112,16 +112,34 @@ func (m *Manager) LoadAll() []*Plugin {
 }
 
 func (m *Manager) collectRegistrations(p *Plugin) {
+	id := "plugin." + p.Name
+
+	filtered := m.SidebarPanels[:0]
+	for _, reg := range m.SidebarPanels {
+		if reg.ID != id {
+			filtered = append(filtered, reg)
+		}
+	}
+	m.SidebarPanels = filtered
+
+	filteredBottom := m.BottomPanels[:0]
+	for _, reg := range m.BottomPanels {
+		if reg.ID != id {
+			filteredBottom = append(filteredBottom, reg)
+		}
+	}
+	m.BottomPanels = filteredBottom
+
 	if p.SidebarTitle != "" && p.RenderFunc != nil {
 		m.SidebarPanels = append(m.SidebarPanels, SidebarRegistration{
-			ID:     "plugin." + p.Name,
+			ID:     id,
 			Title:  p.SidebarTitle,
 			Widget: NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc),
 		})
 	}
 	if p.BottomTitle != "" && p.BottomRenderFunc != nil {
 		m.BottomPanels = append(m.BottomPanels, BottomRegistration{
-			ID:     "plugin." + p.Name,
+			ID:     id,
 			Title:  p.BottomTitle,
 			Widget: NewPluginPanelWidget(p, p.BottomRenderFunc, p.BottomEventFunc),
 		})
