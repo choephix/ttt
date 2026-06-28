@@ -78,13 +78,17 @@ func TestEditorGroupOpenFileNotFound(t *testing.T) {
 	var errMsg string
 	g.OnError = func(msg string) { errMsg = msg }
 
-	g.OpenFile("/nonexistent/path/file.txt")
+	path := "/nonexistent/path/file.txt"
+	g.OpenFile(path)
 
-	if errMsg == "" {
-		t.Fatal("expected OnError to be called for missing file")
+	if errMsg != "" {
+		t.Fatalf("unexpected error for new file: %s", errMsg)
 	}
-	if len(g.tabs) != 1 || g.tabs[0].FilePath != "untitled" {
-		t.Fatal("should not have added a tab for missing file")
+	if g.tabs[g.active].FilePath != path {
+		t.Fatalf("expected tab with path %q, got %q", path, g.tabs[g.active].FilePath)
+	}
+	if g.tabs[g.active].Buf.Lines[0] != "" {
+		t.Fatal("expected empty buffer for new file")
 	}
 }
 

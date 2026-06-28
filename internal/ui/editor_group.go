@@ -14,7 +14,9 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"errors"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -172,8 +174,11 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		newBuf.TrimTrailingWhitespace = ec.TrimTrailingWS
 	}
 	if err := newBuf.LoadFile(path); err != nil {
-		g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
-		return
+		if !errors.Is(err, os.ErrNotExist) {
+			g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
+			return
+		}
+		slog.Info("new file buffer created", "path", path)
 	}
 	tabSize := g.TabSize
 	useTabs := !g.InsertSpaces
