@@ -32,7 +32,7 @@
 - [x] **`print` writes to stdout, corrupting terminal state** [Security] — `print()` from plugins bypasses tcell and corrupts the TUI display. See `security.md` §Medium M7
 - [x] **`event.mod == nil` check never matches** [Bug] — `mod` is always a string (never nil), so the `r` key shortcut in go-test-runner, docker-manager, and todo-scanner never fires. See `bugs.md` §Medium #6
 - [ ] **HTTP client plugin calls `editor.insert()` with wrong argument count** [Bug] — passes `(text)` instead of `(line, col, text)`, causing a type error on every click. See `bugs.md` §Medium #7
-- [ ] **Nested widget reconciliation ignores child type mismatches** [Bug] — children matched by index only; type changes within containers keep the old widget. See `bugs.md` §Medium #8
+- [x] **Nested widget reconciliation ignores child type mismatches** [Bug] — children matched by index only; type changes within containers keep the old widget. See `bugs.md` §Medium #8
 - [x] **`keyEventToLua` drops combined modifiers** [Bug] — `else if` chain reports only the first modifier; `Ctrl+Shift` events lose the shift. See `bugs.md` §Medium #9
 - [x] **`ScrollViewWidget` WheelDown doesn't clamp `scrollY`** [Bug] — `scrollY` can exceed bounds between event and render; corrected at draw time but intermediate state is inconsistent. See `bugs.md` §Medium #10
 - [ ] **Plugin struct has 10 callback fields (god struct)** [Architecture] — every host capability is a separate field; `wirePlugin` is 100+ lines; `Destroy()` has 14 nil-assignments. See `architecture.md` §D1
@@ -49,13 +49,13 @@
 - [x] **Children-update pattern duplicated 4 times in `updateWidget`** [Duplication] — identical reconciliation loop for VStack, HStack, ScrollView, and Box. See `duplication.md` §High #1
 - [ ] **`checkPanelProxy` nil-guard boilerplate in every widget parser** [Duplication] — same 4-line block repeated 18 times in `lua_panel.go`. See `duplication.md` §High #2
 - [ ] **API nil-guard boilerplate across all Lua bindings** [Duplication] — `p.Editor == nil` / `p.Filesystem == nil` / etc. guards repeated 25 times across 4 files. See `duplication.md` §High #3
-- [ ] **`hasFocusedChild` and `collectFocusable` duplicate type-switch tree** [Duplication] — 7 identical cases in parallel; every new container widget needs both updated. See `duplication.md` §High #4
+- [x] **`hasFocusedChild` and `collectFocusable` duplicate type-switch tree** [Duplication] — 7 identical cases in parallel; every new container widget needs both updated. See `duplication.md` §High #4
 - [ ] **Async callback pattern repeated 3 times** [Duplication] — `sysExecAsync`, `netGetAsync`, `netPostAsync` share identical goroutine/PostAsync/error-logging structure. See `duplication.md` §Medium #6
 - [ ] **Tree/List widget parsers share most field extraction** [Duplication] — `panelTreeWidget` and `panelListWidget` parse the same fields; List is Tree without `indent`/`on_expand`. See `duplication.md` §Medium #7
 - [ ] **Container parsers share `render` + `collectChildren` extraction** [Duplication] — VStack, HStack, ScrollView, Box all start with the same child-collection block. See `duplication.md` §Medium #8
 - [ ] **`Set*API` boilerplate in Manager** [Duplication] — 5 consecutive methods with identical `for _, p := range m.plugins { p.X = api }` pattern. See `duplication.md` §Medium #9
 - [ ] **`last_panel` + `initialized` + lazy-init boilerplate in every plugin** [Duplication] — 6 plugins repeat 6-8 lines of identical panel lifecycle boilerplate. See `duplication.md` §Medium #10
-- [ ] **Notepad plugin rolls its own JSON encoder/decoder (106 lines)** [Duplication] — hand-written JSON parser; provide a built-in `ttt.json` module instead. See `duplication.md` §Medium #11
+- [x] **Notepad plugin rolls its own JSON encoder/decoder (106 lines)** [Duplication] — hand-written JSON parser; provide a built-in `ttt.json` module instead. See `duplication.md` §Medium #11
 - [x] **`fs.write()` error return differs from `fs.read()`/`fs.list()`** [API/Tests] — write returns single error string; reads return `nil, error_string`. See `api-consistency.md` §API #1
 - [ ] **Error handling pattern differs across modules** [API/Tests] — fs uses multi-return, system uses table with `exit_code`, net uses table with `error`, editor silently no-ops. See `api-consistency.md` §API #2
 - [ ] **"API not available" handling inconsistent** [API/Tests] — fs returns nil+error, system/net raise Lua error, editor returns empty silently. See `api-consistency.md` §API #3
