@@ -41,8 +41,9 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 func editorBufferText(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(lua.LString(""))
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		L.Push(lua.LString(p.Editor.BufferText()))
 		return 1
@@ -52,8 +53,9 @@ func editorBufferText(p *Plugin) lua.LGFunction {
 func editorBufferLines(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(L.NewTable())
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		lines := p.Editor.BufferLines()
 		tbl := L.NewTable()
@@ -68,8 +70,9 @@ func editorBufferLines(p *Plugin) lua.LGFunction {
 func editorCurrentLine(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(lua.LString(""))
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		L.Push(lua.LString(p.Editor.CurrentLine()))
 		return 1
@@ -79,11 +82,9 @@ func editorCurrentLine(p *Plugin) lua.LGFunction {
 func editorCursor(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			tbl := L.NewTable()
-			L.SetField(tbl, "line", lua.LNumber(1))
-			L.SetField(tbl, "col", lua.LNumber(1))
-			L.Push(tbl)
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		line, col := p.Editor.CursorPos()
 		tbl := L.NewTable()
@@ -96,12 +97,12 @@ func editorCursor(p *Plugin) lua.LGFunction {
 
 func editorSelection(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
-		tbl := L.NewTable()
 		if p.Editor == nil {
-			L.SetField(tbl, "active", lua.LFalse)
-			L.Push(tbl)
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
+		tbl := L.NewTable()
 		active, sl, sc, el, ec := p.Editor.Selection()
 		L.SetField(tbl, "active", lua.LBool(active))
 		L.SetField(tbl, "start_line", lua.LNumber(sl+1))
@@ -116,8 +117,9 @@ func editorSelection(p *Plugin) lua.LGFunction {
 func editorSelectionText(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(lua.LString(""))
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		L.Push(lua.LString(p.Editor.SelectionText()))
 		return 1
@@ -127,8 +129,9 @@ func editorSelectionText(p *Plugin) lua.LGFunction {
 func editorFilePath(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(lua.LString(""))
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		L.Push(lua.LString(p.Editor.FilePath()))
 		return 1
@@ -138,8 +141,9 @@ func editorFilePath(p *Plugin) lua.LGFunction {
 func editorFileName(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(lua.LString(""))
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		L.Push(lua.LString(p.Editor.FileName()))
 		return 1
@@ -149,8 +153,9 @@ func editorFileName(p *Plugin) lua.LGFunction {
 func editorLanguage(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			L.Push(lua.LString(""))
-			return 1
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		L.Push(lua.LString(p.Editor.Language()))
 		return 1
@@ -160,7 +165,9 @@ func editorLanguage(p *Plugin) lua.LGFunction {
 func editorInsert(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		line := int(L.CheckNumber(1)) - 1
 		col := int(L.CheckNumber(2)) - 1
@@ -173,7 +180,9 @@ func editorInsert(p *Plugin) lua.LGFunction {
 func editorReplace(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		sl := int(L.CheckNumber(1)) - 1
 		sc := int(L.CheckNumber(2)) - 1
@@ -188,7 +197,9 @@ func editorReplace(p *Plugin) lua.LGFunction {
 func editorSetCursor(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		line := int(L.CheckNumber(1)) - 1
 		col := int(L.CheckNumber(2)) - 1
@@ -200,7 +211,9 @@ func editorSetCursor(p *Plugin) lua.LGFunction {
 func editorSetSelection(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		sl := int(L.CheckNumber(1)) - 1
 		sc := int(L.CheckNumber(2)) - 1
@@ -214,7 +227,9 @@ func editorSetSelection(p *Plugin) lua.LGFunction {
 func editorClearSelection(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
 		}
 		p.Editor.ClearSelection()
 		return 0

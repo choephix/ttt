@@ -57,7 +57,7 @@
 - [ ] **`last_panel` + `initialized` + lazy-init boilerplate in every plugin** [Duplication] — 6 plugins repeat 6-8 lines of identical panel lifecycle boilerplate. See `duplication.md` §Medium #10
 - [x] **Notepad plugin rolls its own JSON encoder/decoder (106 lines)** [Duplication] — hand-written JSON parser; provide a built-in `ttt.json` module instead. See `duplication.md` §Medium #11
 - [x] **`fs.write()` error return differs from `fs.read()`/`fs.list()`** [API/Tests] — write returns single error string; reads return `nil, error_string`. See `api-consistency.md` §API #1
-- [ ] **Error handling pattern differs across modules** [API/Tests] — fs uses multi-return, system uses table with `exit_code`, net uses table with `error`, editor silently no-ops. See `api-consistency.md` §API #2
+- [x] **Error handling pattern differs across modules** [API/Tests] — fs uses multi-return, system uses table with `exit_code`, net uses table with `error`, editor silently no-ops. See `api-consistency.md` §API #2
 - [x] **"API not available" handling inconsistent** [API/Tests] — fs returns nil+error, system/net raise Lua error, editor returns empty silently. See `api-consistency.md` §API #3
 - [x] **`sys.exec_async` requires args but `sys.exec` does not** [API/Tests] — `exec("binary")` works, but `exec_async("binary", callback)` misinterprets callback as args table. See `api-consistency.md` §API #4
 - [x] **Box model documentation mismatch** [API/Tests] — code supports box model on `box` widget, but PLUGINS.md and CLAUDE.md omit it. See `api-consistency.md` §API #6
