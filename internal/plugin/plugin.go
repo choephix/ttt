@@ -62,7 +62,7 @@ type Plugin struct {
 	ShowContextMenu   func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
-	OpenDrawer        func(panel *PluginPanelWidget, width, minWidth int)
+	OpenDrawer        func(panel *PluginPanelWidget, width, minWidth int, side string)
 	CloseDrawer       func()
 	OpenTab           func(id string, panel *PluginPanelWidget)
 	CloseTab          func(id string)
@@ -81,7 +81,23 @@ type Plugin struct {
 
 	EventListeners map[string][]*lua.LFunction
 
-	LastError error
+	pendingDrawer *pendingDrawerCall
+	LastError     error
+}
+
+type pendingDrawerCall struct {
+	panel    *PluginPanelWidget
+	width    int
+	minWidth int
+	side     string
+}
+
+func (p *Plugin) FlushPendingDrawer() {
+	if p.pendingDrawer != nil && p.OpenDrawer != nil {
+		pd := p.pendingDrawer
+		p.pendingDrawer = nil
+		p.OpenDrawer(pd.panel, pd.width, pd.minWidth, pd.side)
+	}
 }
 
 func (p *Plugin) Init() error {

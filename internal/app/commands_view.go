@@ -31,6 +31,119 @@ func (a *App) ToggleTerminalFullscreen() {
 	}
 }
 
+func (a *App) focusedRegion() string {
+	switch a.Root.Focused.(type) {
+	case *ui.SidebarWidget:
+		return "sidebar"
+	case *ui.BottomPanelWidget:
+		return "bottom"
+	default:
+		return "editor"
+	}
+}
+
+func (a *App) focusNextGroup() {
+	regions := []string{"editor"}
+	if a.Sidebar.Visible {
+		regions = append(regions, "sidebar")
+	}
+	if a.ContentSplit.ShowBottom {
+		regions = append(regions, "bottom")
+	}
+	current := a.focusedRegion()
+	for i, r := range regions {
+		if r == current {
+			next := regions[(i+1)%len(regions)]
+			a.focusRegion(next)
+			return
+		}
+	}
+	a.FocusEditor()
+}
+
+func (a *App) focusPrevGroup() {
+	regions := []string{"editor"}
+	if a.Sidebar.Visible {
+		regions = append(regions, "sidebar")
+	}
+	if a.ContentSplit.ShowBottom {
+		regions = append(regions, "bottom")
+	}
+	current := a.focusedRegion()
+	for i, r := range regions {
+		if r == current {
+			prev := i - 1
+			if prev < 0 {
+				prev = len(regions) - 1
+			}
+			a.focusRegion(regions[prev])
+			return
+		}
+	}
+	a.FocusEditor()
+}
+
+func (a *App) focusRegion(region string) {
+	switch region {
+	case "editor":
+		a.FocusEditor()
+	case "sidebar":
+		a.FocusSidebar()
+	case "bottom":
+		a.FocusPanel()
+	}
+}
+
+func (a *App) contextNextTab() {
+	switch a.focusedRegion() {
+	case "sidebar":
+		a.Sidebar.NextPanel()
+		if w := a.Sidebar.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	case "bottom":
+		a.BottomPanel.NextPanel()
+		if w := a.BottomPanel.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	default:
+		a.EditorGroup.NextTab()
+	}
+}
+
+func (a *App) contextPrevTab() {
+	switch a.focusedRegion() {
+	case "sidebar":
+		a.Sidebar.PrevPanel()
+		if w := a.Sidebar.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	case "bottom":
+		a.BottomPanel.PrevPanel()
+		if w := a.BottomPanel.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	default:
+		a.EditorGroup.PrevTab()
+	}
+}
+
+func (a *App) focusTerminal() {
+	if !a.ContentSplit.ShowBottom {
+		r := a.ContentSplit.GetRect()
+		maxH := r.H - 4
+		if a.ContentSplit.BottomH <= 1 || a.ContentSplit.BottomH > maxH {
+			a.ContentSplit.BottomH = min(r.H/2, maxH)
+		}
+		a.showTerminalPanel()
+		return
+	}
+	a.BottomPanel.SetActivePanel("terminal")
+	if w := a.BottomPanel.ActiveWidget(); w != nil {
+		a.Root.SetFocus(w)
+	}
+}
+
 func (a *App) FocusPanel() {
 	if !a.ContentSplit.ShowBottom {
 		a.ContentSplit.ShowBottom = true
@@ -228,6 +341,25 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "panel.show", Title: "Show Panel Tab",
+		Keywords: []string{"view", "bottom", "tab", "switch"},
+		Handler: func() {
+			ids := app.BottomPanel.PanelIDs()
+			if len(ids) == 0 {
+				return
+			}
+			var items []widgets.SelectItem
+			for _, id := range ids {
+				items = append(items, widgets.SelectItem{ID: id, Label: id})
+			}
+			app.ShowSelectDialog("Show Panel", items, func(id string) {
+				app.BottomPanel.SetActivePanel(id)
+				app.FocusPanel()
+			}, nil)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "panel.taller", Title: "Increase Panel Height",
 		Keywords: []string{"view", "resize", "bottom"},
 		Handler: func() {
@@ -246,6 +378,24 @@ func registerViewCommands(app *App) {
 				app.ContentSplit.BottomH--
 			}
 		},
+	})
+
+	reg.Register(command.Command{
+		ID: "focus.nextGroup", Title: "Focus Next Group",
+		Keywords: []string{"focus", "panel", "sidebar", "editor"},
+		Handler:  app.focusNextGroup,
+	})
+
+	reg.Register(command.Command{
+		ID: "focus.prevGroup", Title: "Focus Previous Group",
+		Keywords: []string{"focus", "panel", "sidebar", "editor"},
+		Handler:  app.focusPrevGroup,
+	})
+
+	reg.Register(command.Command{
+		ID: "focus.terminal", Title: "Focus Terminal",
+		Keywords: []string{"focus", "terminal", "shell"},
+		Handler:  app.focusTerminal,
 	})
 
 	reg.Register(command.Command{

@@ -384,10 +384,11 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		a.Root.SetFocus(menu)
 	}
 
-	p.OpenDrawer = func(panel *plugin.PluginPanelWidget, width, minWidth int) {
+	p.OpenDrawer = func(panel *plugin.PluginPanelWidget, width, minWidth int, side string) {
 		drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
 			Width:    width,
 			MinWidth: minWidth,
+			Side:     side,
 			Borders:  *a.Borders,
 			OnDismiss: func() {
 				a.DismissDialog()
@@ -423,6 +424,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	}
 
 	a.registerPluginCommandsAndKeys(p)
+	p.FlushPendingDrawer()
 }
 
 func (a *App) wirePluginLog(p *plugin.Plugin) {

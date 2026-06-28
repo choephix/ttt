@@ -71,6 +71,7 @@ func (sv *ScrollViewWidget) viewportSize(w, h, contentW, contentH int) (int, int
 }
 
 func (sv *ScrollViewWidget) Render(surface Surface) {
+	surface = sv.RenderBox(surface)
 	w, h := surface.Size()
 	if w <= 0 || h <= 0 || sv.Child == nil {
 		return
@@ -131,7 +132,7 @@ func (sv *ScrollViewWidget) renderHBar(surface Surface, barW, y, totalW int) {
 		if x >= thumbPos && x < thumbPos+thumbH {
 			style = term.StyleScrollbarThumb
 		}
-		surface.SetCell(x, y, term.Cell{Ch: '█', Style: style})
+		surface.SetCell(x, y, term.Cell{Ch: '▄', Style: style})
 	}
 }
 
@@ -144,6 +145,21 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch e := ev.(type) {
 	case *tcell.EventMouse:
 		btn := e.Buttons()
+		mx, my := e.Position()
+		r := sv.rect
+
+		mod := e.Modifiers()
+		if btn&tcell.WheelLeft != 0 || (btn&tcell.WheelUp != 0 && mod&tcell.ModShift != 0) {
+			sv.scrollX -= 3
+			if sv.scrollX < 0 {
+				sv.scrollX = 0
+			}
+			return EventConsumed
+		}
+		if btn&tcell.WheelRight != 0 || (btn&tcell.WheelDown != 0 && mod&tcell.ModShift != 0) {
+			sv.scrollHRight(3)
+			return EventConsumed
+		}
 		if btn&tcell.WheelUp != 0 {
 			sv.scrollY -= 3
 			if sv.scrollY < 0 {
@@ -164,12 +180,53 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		}
+
+		if btn&tcell.Button1 != 0 && sv.Child != nil {
+			contentW, contentH := sv.Child.ScrollSize()
+			_, viewH := sv.viewportSize(r.W, r.H, contentW, contentH)
+			hasHBar := contentW > r.W
+			if hasHBar && my == r.Y+r.H-1 && mx >= r.X && mx < r.X+r.W {
+				sv.scrollHToClick(mx-r.X, r.W, contentW)
+				return EventConsumed
+			}
+			_ = viewH
+		}
 	}
 
 	if sv.Child != nil {
 		return sv.Child.HandleEvent(ev)
 	}
 	return EventIgnored
+}
+
+func (sv *ScrollViewWidget) scrollHRight(amount int) {
+	sv.scrollX += amount
+	if sv.Child != nil {
+		contentW, _ := sv.Child.ScrollSize()
+		r := sv.rect
+		maxX := contentW - r.W
+		if maxX < 0 {
+			maxX = 0
+		}
+		if sv.scrollX > maxX {
+			sv.scrollX = maxX
+		}
+	}
+}
+
+func (sv *ScrollViewWidget) scrollHToClick(clickX, barW, totalW int) {
+	if barW <= 0 || totalW <= barW {
+		return
+	}
+	ratio := float64(clickX) / float64(barW)
+	sv.scrollX = int(ratio * float64(totalW-barW))
+	if sv.scrollX < 0 {
+		sv.scrollX = 0
+	}
+	maxX := totalW - barW
+	if sv.scrollX > maxX {
+		sv.scrollX = maxX
+	}
 }
 
 func (sv *ScrollViewWidget) Focusable() bool           { return true }

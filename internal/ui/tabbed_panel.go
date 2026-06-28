@@ -88,6 +88,35 @@ func (tp *TabbedPanel) PanelCount() int {
 	return len(tp.panels)
 }
 
+func (tp *TabbedPanel) NextPanel() {
+	if len(tp.panels) <= 1 {
+		return
+	}
+	for i, p := range tp.panels {
+		if p.ID == tp.ActivePanel {
+			next := (i + 1) % len(tp.panels)
+			tp.SetActivePanel(tp.panels[next].ID)
+			return
+		}
+	}
+}
+
+func (tp *TabbedPanel) PrevPanel() {
+	if len(tp.panels) <= 1 {
+		return
+	}
+	for i, p := range tp.panels {
+		if p.ID == tp.ActivePanel {
+			prev := i - 1
+			if prev < 0 {
+				prev = len(tp.panels) - 1
+			}
+			tp.SetActivePanel(tp.panels[prev].ID)
+			return
+		}
+	}
+}
+
 func (tp *TabbedPanel) HasPanel(id string) bool {
 	for _, p := range tp.panels {
 		if p.ID == id {

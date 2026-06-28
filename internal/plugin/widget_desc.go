@@ -20,6 +20,8 @@ const (
 	WidgetScrollView
 	WidgetHStack
 	WidgetDivider
+	WidgetProgress
+	WidgetTable
 )
 
 func (k WidgetKind) String() string {
@@ -50,6 +52,10 @@ func (k WidgetKind) String() string {
 		return "hstack"
 	case WidgetDivider:
 		return "divider"
+	case WidgetProgress:
+		return "progress"
+	case WidgetTable:
+		return "table"
 	}
 	return "unknown"
 }
@@ -101,4 +107,13 @@ type WidgetDesc struct {
 	Entries         []widgets.MenuEntry
 	OnMenu         func(command string)
 	KeyValueEntries []widgets.KeyValueEntry
+
+	Value     float64
+	Char      rune
+	StyleName string
+
+	Columns       []widgets.TableColumn
+	Rows          [][]string
+	OnSelectIndex func(int)
+	OnCommandStr  func(command string, rowIndex int)
 }

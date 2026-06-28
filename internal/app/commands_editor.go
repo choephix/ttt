@@ -264,13 +264,13 @@ func registerEditorCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "tab.next", Title: "Next Tab",
 		Keywords: []string{"tab", "switch"},
-		Handler:  func() { app.EditorGroup.NextTab() },
+		Handler:  func() { app.contextNextTab() },
 	})
 
 	reg.Register(command.Command{
 		ID: "tab.prev", Title: "Previous Tab",
 		Keywords: []string{"tab", "switch"},
-		Handler:  func() { app.EditorGroup.PrevTab() },
+		Handler:  func() { app.contextPrevTab() },
 	})
 
 	reg.Register(command.Command{

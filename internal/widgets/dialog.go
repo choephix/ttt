@@ -167,6 +167,31 @@ func (d *DialogWidget) Render(surface Surface) {
 	}
 }
 
+func (d *DialogWidget) moveFocusButton(forward bool) {
+	children := d.footer.Children
+	cur := -1
+	for i, c := range children {
+		if fw, ok := c.(FocusableWidget); ok && fw.IsFocused() {
+			cur = i
+			break
+		}
+	}
+	next := cur
+	if forward && cur < len(children)-1 {
+		next = cur + 1
+	} else if !forward && cur > 0 {
+		next = cur - 1
+	}
+	if next != cur {
+		if fw, ok := children[cur].(FocusableWidget); ok {
+			fw.SetFocused(false)
+		}
+		if fw, ok := children[next].(FocusableWidget); ok {
+			fw.SetFocused(true)
+		}
+	}
+}
+
 func (d *DialogWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch e := ev.(type) {
 	case *tcell.EventKey:
@@ -174,6 +199,10 @@ func (d *DialogWidget) HandleEvent(ev tcell.Event) EventResult {
 			if d.OnDismiss != nil {
 				d.OnDismiss()
 			}
+			return EventConsumed
+		}
+		if d.footer != nil && (e.Key() == tcell.KeyLeft || e.Key() == tcell.KeyRight) {
+			d.moveFocusButton(e.Key() == tcell.KeyRight)
 			return EventConsumed
 		}
 		if d.footer != nil {

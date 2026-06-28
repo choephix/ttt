@@ -8,6 +8,7 @@ import (
 type DrawerConfig struct {
 	Width     int
 	MinWidth  int
+	Side      string // "left" or "right" (default)
 	Borders   term.BorderSet
 	OnDismiss func()
 }
@@ -52,12 +53,11 @@ func (d *DrawerWidget) Reset() {
 func (d *DrawerWidget) Height() int { return 0 }
 func (d *DrawerWidget) Width() int  { return 0 }
 
-func (d *DrawerWidget) Render(surface Surface) {
-	sw, sh := surface.Size()
-	if sw <= 4 || sh <= 2 {
-		return
-	}
+func (d *DrawerWidget) isLeft() bool {
+	return d.Config.Side == "left"
+}
 
+func (d *DrawerWidget) clampWidth(sw int) int {
 	w := d.width
 	if w > sw-2 {
 		w = sw - 2
@@ -65,26 +65,43 @@ func (d *DrawerWidget) Render(surface Surface) {
 	if w < d.Config.MinWidth {
 		w = d.Config.MinWidth
 	}
+	return w
+}
 
-	x := sw - w
+func (d *DrawerWidget) Render(surface Surface) {
+	sw, sh := surface.Size()
+	if sw <= 4 || sh <= 2 {
+		return
+	}
+
+	w := d.clampWidth(sw)
+
+	var x int
+	if d.isLeft() {
+		x = 0
+	} else {
+		x = sw - w
+	}
+	rx := x + w - 1
+
 	b := d.Config.Borders
 	bs := term.StyleBorder
 
 	surface.SetCell(x, 0, term.Cell{Ch: b.TopLeft, Style: bs})
-	for ix := x + 1; ix < sw-1; ix++ {
+	for ix := x + 1; ix < rx; ix++ {
 		surface.SetCell(ix, 0, term.Cell{Ch: b.Horizontal, Style: bs})
 	}
-	surface.SetCell(sw-1, 0, term.Cell{Ch: b.TopRight, Style: bs})
+	surface.SetCell(rx, 0, term.Cell{Ch: b.TopRight, Style: bs})
 
 	surface.SetCell(x, sh-1, term.Cell{Ch: b.BottomLeft, Style: bs})
-	for ix := x + 1; ix < sw-1; ix++ {
+	for ix := x + 1; ix < rx; ix++ {
 		surface.SetCell(ix, sh-1, term.Cell{Ch: b.Horizontal, Style: bs})
 	}
-	surface.SetCell(sw-1, sh-1, term.Cell{Ch: b.BottomRight, Style: bs})
+	surface.SetCell(rx, sh-1, term.Cell{Ch: b.BottomRight, Style: bs})
 
 	for iy := 1; iy < sh-1; iy++ {
 		surface.SetCell(x, iy, term.Cell{Ch: b.Vertical, Style: bs})
-		surface.SetCell(sw-1, iy, term.Cell{Ch: b.Vertical, Style: bs})
+		surface.SetCell(rx, iy, term.Cell{Ch: b.Vertical, Style: bs})
 	}
 
 	innerX := x + 1
@@ -132,15 +149,24 @@ func (d *DrawerWidget) HandleEvent(ev tcell.Event) EventResult {
 	d.wasPressed = pressed
 
 	sw := r.W
-	w := d.width
-	if w > sw-2 {
-		w = sw - 2
+	w := d.clampWidth(sw)
+	left := d.isLeft()
+
+	var borderX int
+	if left {
+		borderX = r.X + w - 1
+	} else {
+		borderX = r.X + sw - w
 	}
-	borderX := r.X + sw - w
 
 	if d.dragging {
 		if pressed {
-			newW := r.X + sw - mx
+			var newW int
+			if left {
+				newW = mx - r.X + 1
+			} else {
+				newW = r.X + sw - mx
+			}
 			if newW < d.Config.MinWidth {
 				newW = d.Config.MinWidth
 			}
@@ -157,16 +183,28 @@ func (d *DrawerWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	if freshClick && mx >= borderX-1 && mx <= borderX {
-		d.dragging = true
-		return EventConsumed
-	}
-
-	if freshClick && mx < borderX {
-		if d.Config.OnDismiss != nil {
-			d.Config.OnDismiss()
+	if left {
+		if freshClick && mx >= borderX && mx <= borderX+1 {
+			d.dragging = true
+			return EventConsumed
 		}
-		return EventConsumed
+		if freshClick && mx > borderX+1 {
+			if d.Config.OnDismiss != nil {
+				d.Config.OnDismiss()
+			}
+			return EventConsumed
+		}
+	} else {
+		if freshClick && mx >= borderX-1 && mx <= borderX {
+			d.dragging = true
+			return EventConsumed
+		}
+		if freshClick && mx < borderX-1 {
+			if d.Config.OnDismiss != nil {
+				d.Config.OnDismiss()
+			}
+			return EventConsumed
+		}
 	}
 
 	if d.Content != nil {

@@ -189,6 +189,7 @@ func (t *TreeWidget) ensureVisible(visibleH int) {
 }
 
 func (t *TreeWidget) Render(surface Surface) {
+	surface = t.RenderBox(surface)
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 
@@ -318,8 +319,15 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		if idx == t.selected {
 			iconStyle = style
 		}
-		for _, ch := range node.Icon {
+		iconRunes := []rune(node.Icon)
+		iconFits := x+len(iconRunes) <= maxX
+		for i, ch := range iconRunes {
 			if x >= maxX {
+				break
+			}
+			if !iconFits && x == maxX-1 && i < len(iconRunes)-1 {
+				surface.SetCell(x, y, term.Cell{Ch: '…', Style: iconStyle})
+				x++
 				break
 			}
 			surface.SetCell(x, y, term.Cell{Ch: ch, Style: iconStyle})
@@ -335,8 +343,15 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	if node.Muted && idx != t.selected {
 		labelStyle = term.StyleMuted
 	}
-	for _, ch := range node.Label {
+	labelRunes := []rune(node.Label)
+	labelFits := x+len(labelRunes) <= maxX
+	for i, ch := range labelRunes {
 		if x >= maxX {
+			break
+		}
+		if !labelFits && x == maxX-1 && i < len(labelRunes)-1 {
+			surface.SetCell(x, y, term.Cell{Ch: '…', Style: labelStyle})
+			x++
 			break
 		}
 		surface.SetCell(x, y, term.Cell{Ch: ch, Style: labelStyle})
@@ -352,8 +367,15 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 			badgeStyle = style
 		}
 		x++
-		for _, ch := range node.Badge {
+		badgeRunes := []rune(node.Badge)
+		badgeFits := x+len(badgeRunes) <= maxX
+		for i, ch := range badgeRunes {
 			if x >= maxX {
+				break
+			}
+			if !badgeFits && x == maxX-1 && i < len(badgeRunes)-1 {
+				surface.SetCell(x, y, term.Cell{Ch: '…', Style: badgeStyle})
+				x++
 				break
 			}
 			surface.SetCell(x, y, term.Cell{Ch: ch, Style: badgeStyle})
