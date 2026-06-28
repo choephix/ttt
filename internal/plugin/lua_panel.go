@@ -330,6 +330,7 @@ func panelTreeWidget(L *lua.LState) int {
 		desc.KeyCommands = parseLuaKeyCommands(L, kc)
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetTree, desc)
 	return 0
 }
@@ -359,6 +360,7 @@ func panelListWidget(L *lua.LState) int {
 		desc.KeyCommands = parseLuaKeyCommands(L, kc)
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetList, desc)
 	return 0
 }
@@ -379,6 +381,7 @@ func panelButtonWidget(L *lua.LState) int {
 		desc.OnClick = proxy.wrapSimpleCallback(fn)
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetButton, desc)
 	return 0
 }
@@ -408,6 +411,7 @@ func panelInputWidget(L *lua.LState) int {
 		desc.ClearOnSubmit = lua.LVAsBool(v)
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetInput, desc)
 	return 0
 }
@@ -495,6 +499,7 @@ func panelVStackWidget(L *lua.LState) int {
 		desc.Gap = int(lua.LVAsNumber(v))
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetVStack, desc)
 	return 0
 }
@@ -518,6 +523,7 @@ func panelHStackWidget(L *lua.LState) int {
 		desc.FixedHeight = int(lua.LVAsNumber(v))
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetHStack, desc)
 	return 0
 }
@@ -546,6 +552,7 @@ func panelScrollViewWidget(L *lua.LState) int {
 		desc.Children = collectChildren(L, proxy, fn)
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetScrollView, desc)
 	return 0
 }
@@ -607,6 +614,7 @@ func panelDropdownWidget(L *lua.LState) int {
 		desc.OnMenu = proxy.wrapStringCallback(fn)
 	}
 
+	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetDropdown, desc)
 	return 0
 }

@@ -20,7 +20,7 @@ func NewKeyValueListWidget(entries []KeyValueEntry) *KeyValueListWidget {
 	return &KeyValueListWidget{Entries: entries}
 }
 
-func (kv *KeyValueListWidget) Height() int { return len(kv.Entries) }
+func (kv *KeyValueListWidget) Height() int { return len(kv.Entries) + kv.BoxOverheadH() }
 func (kv *KeyValueListWidget) Width() int  { return 0 }
 
 func (kv *KeyValueListWidget) ScrollSize() (int, int) {
@@ -45,6 +45,7 @@ func (kv *KeyValueListWidget) keyColWidth() int {
 }
 
 func (kv *KeyValueListWidget) Render(surface Surface) {
+	surface = kv.RenderBox(surface)
 	w, h := surface.Size()
 	if w <= 0 || h <= 0 {
 		return

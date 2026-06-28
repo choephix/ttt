@@ -189,6 +189,7 @@ func (t *TreeWidget) ensureVisible(visibleH int) {
 }
 
 func (t *TreeWidget) Render(surface Surface) {
+	surface = t.RenderBox(surface)
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 

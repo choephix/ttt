@@ -71,6 +71,7 @@ func (sv *ScrollViewWidget) viewportSize(w, h, contentW, contentH int) (int, int
 }
 
 func (sv *ScrollViewWidget) Render(surface Surface) {
+	surface = sv.RenderBox(surface)
 	w, h := surface.Size()
 	if w <= 0 || h <= 0 || sv.Child == nil {
 		return
