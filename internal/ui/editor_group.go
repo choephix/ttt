@@ -820,6 +820,22 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.ExpandFoldContaining(bufLine)
 	g.Editor.Cursor.Line = bufLine
 	g.Editor.Cursor.Col = 0
+	h := g.Editor.Viewport.Height
+	if h <= 0 {
+		r := g.GetRect()
+		h = r.H - 3
+		if h > 0 {
+			g.Editor.Viewport.Height = h
+		}
+	}
+	if h > 0 {
+		margin := h / 3
+		top := bufLine - margin
+		if top < 0 {
+			top = 0
+		}
+		g.Editor.Viewport.TopLine = top
+	}
 	g.Editor.scrollViewport()
 }
 
