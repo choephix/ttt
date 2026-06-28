@@ -48,7 +48,7 @@ Generated: 2026-06-27
 - **Actual**: The default 'untitled' tab is shown with no error message. The specified file path is silently discarded. Root cause: OpenFile() is called during BuildApp() before Init() registers the OnError→StatusError callback, so the error is only logged via slog.Error() and never reaches the UI.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/file_nonexist_check.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/file_nonexist.txt`
 
-### BUG-004: Text transform (uppercase/lowercase/titlecase) undo leaves line empty after one Ctrl+Z
+### ~~BUG-004: Text transform (uppercase/lowercase/titlecase) undo leaves line empty after one Ctrl+Z~~ FIXED (same fix as BUG-001)
 - **Category**: transform
 - **Severity**: major
 - **Steps to reproduce**: 1. Open any text file
@@ -60,7 +60,7 @@ Generated: 2026-06-27
 - **Actual**: After one Ctrl+Z, the line becomes EMPTY. The text is not restored. A second Ctrl+Z is required to get back to 'hello world'.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/transform_final_1undo.txt (line 1 empty after 1 undo), transform_final_2undo.txt (line 1 restored after 2 undos). Root cause: /home/enko/Documents/ttt/internal/ui/editor_widget.go in transformSelection() calls e.Undo.BreakGroup() before two separate e.exec() calls (DeleteSelectionCommand then InsertStringCommand), making them separate undo groups instead of one atomic operation. Fix: use BatchCommand like ToggleLineComment does at line 1930.`
 
-### BUG-005: View: Close All Tabs silently discards unsaved changes without confirmation
+### ~~BUG-005: View: Close All Tabs silently discards unsaved changes without confirmation~~ FIXED
 - **Category**: view
 - **Severity**: major
 - **Steps to reproduce**: 1. Open a file (e.g. bin/ttt main.go)
