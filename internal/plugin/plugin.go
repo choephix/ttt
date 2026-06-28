@@ -24,7 +24,7 @@ type MarkdownLine struct {
 type PluginCommand struct {
 	ID      string
 	Title   string
-	Handler *lua.LFunction
+	Handler func() error
 }
 
 type PluginKeybinding struct {
@@ -45,7 +45,7 @@ type Plugin struct {
 
 	SidebarTitle       string
 	SidebarMenuEntries []widgets.MenuEntry
-	SidebarMenuFunc    *lua.LFunction
+	sidebarMenuFunc    *lua.LFunction
 	RenderFunc         *lua.LFunction
 	EventFunc          *lua.LFunction
 
@@ -68,10 +68,10 @@ type Plugin struct {
 	DebugDumpToFile   func(path string) error
 	QuitApp           func()
 	RenderMarkdown    func(text string) []MarkdownLine
-	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
-	CloseDrawer       func()
-	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)
-	CloseTab          func(id string)
+	OpenDrawer  func(panel *PluginPanelWidget, width, minWidth int)
+	CloseDrawer func()
+	OpenTab     func(id string, panel *PluginPanelWidget)
+	CloseTab    func(id string)
 	Borders         *term.BorderSet
 
 	Editor     EditorAPI
@@ -168,6 +168,7 @@ func (p *Plugin) Destroy() {
 	p.EventFunc = nil
 	p.BottomRenderFunc = nil
 	p.BottomEventFunc = nil
+	p.sidebarMenuFunc = nil
 	p.Commands = nil
 	p.PluginKeybindings = nil
 	p.RequestRedraw = nil
@@ -182,9 +183,13 @@ func (p *Plugin) Destroy() {
 	p.EventListeners = nil
 }
 
+func (p *Plugin) HasSidebarMenu() bool {
+	return p.sidebarMenuFunc != nil
+}
+
 func (p *Plugin) CallSidebarAction(cmd string) {
-	if p.SidebarMenuFunc != nil && p.State != nil {
-		p.CallLuaFunc(p.SidebarMenuFunc, lua.LString(cmd))
+	if p.sidebarMenuFunc != nil && p.State != nil {
+		p.CallLuaFunc(p.sidebarMenuFunc, lua.LString(cmd))
 	}
 }
 

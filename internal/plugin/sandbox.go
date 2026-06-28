@@ -78,7 +78,7 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 					p.SidebarMenuEntries = parseLuaMenuEntries(L, actions)
 				}
 				if fn, ok := L.GetField(st, "on_action").(*lua.LFunction); ok {
-					p.SidebarMenuFunc = fn
+					p.sidebarMenuFunc = fn
 				}
 			}
 
@@ -116,10 +116,11 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 					if id == lua.LNil || title == lua.LNil || !hOk {
 						return
 					}
+					fn := handler
 					p.Commands = append(p.Commands, PluginCommand{
 						ID:      id.String(),
 						Title:   title.String(),
-						Handler: handler,
+						Handler: func() error { return p.CallLuaFunc(fn) },
 					})
 				})
 			}
@@ -227,7 +228,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				}
 			}
 			if p.OpenDrawer != nil {
-				p.OpenDrawer(renderFunc, width, minWidth)
+				panel := NewPluginPanelWidget(p, renderFunc, nil)
+				p.OpenDrawer(panel, width, minWidth)
 			}
 			return 0
 		}))
@@ -259,7 +261,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				eventFunc = fn
 			}
 			if p.OpenTab != nil {
-				p.OpenTab(title, renderFunc, eventFunc)
+				panel := NewPluginPanelWidget(p, renderFunc, eventFunc)
+				p.OpenTab(title, panel)
 			}
 			return 0
 		}))

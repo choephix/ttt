@@ -78,7 +78,7 @@ func TestCommandHandlerCallable(t *testing.T) {
 		t.Fatalf("expected 1 command, got %d", len(p.Commands))
 	}
 
-	if err := p.CallLuaFunc(p.Commands[0].Handler); err != nil {
+	if err := p.Commands[0].Handler(); err != nil {
 		t.Fatalf("error calling handler: %v", err)
 	}
 
