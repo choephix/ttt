@@ -277,7 +277,7 @@ Generated: 2026-06-27
 - **Actual**: The dot (●) remains in the tab title even after fully undoing all changes. The file content is correctly restored, but the unsaved-changes indicator is not cleared.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/transform_t40_initial.txt (no dot), transform_t40_modified.txt (dot appears after comment), transform_t40_after_undo.txt (dot still shown after undo). Root cause: Buffer.Dirty in /home/enko/Documents/ttt/internal/core/buffer/buffer.go is only set to false on save/load, not when the undo stack returns to the save point.`
 
-### BUG-025: Sort Lines Ascending/Descending without selection moves trailing empty line to top
+### ~~BUG-025: Sort Lines Ascending/Descending without selection moves trailing empty line to top~~ FIXED
 - **Category**: transform
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open a file that ends with a trailing newline (e.g., sort_test.txt: cherry, apple, banana, zebra, mango)
