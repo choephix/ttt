@@ -176,7 +176,7 @@ func registerEditorCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "editor.focus", Title: "Focus Editor",
+		ID: "editor.focus", Title: "View: Focus Editor",
 		Keywords: []string{"editor"},
 		Handler:  app.FocusEditor,
 	})
@@ -262,31 +262,31 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.next", Title: "Next Tab",
+		ID: "tab.next", Title: "View: Next Tab",
 		Keywords: []string{"tab", "switch"},
 		Handler:  func() { app.contextNextTab() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.prev", Title: "Previous Tab",
+		ID: "tab.prev", Title: "View: Previous Tab",
 		Keywords: []string{"tab", "switch"},
 		Handler:  func() { app.contextPrevTab() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.close", Title: "Close Tab",
+		ID: "tab.close", Title: "View: Close Tab",
 		Keywords: []string{"tab"},
 		Handler:  app.CloseTab,
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.closeOthers", Title: "Close Other Tabs",
+		ID: "tab.closeOthers", Title: "View: Close Other Tabs",
 		Keywords: []string{"tab"},
 		Handler:  func() { app.EditorGroup.CloseOtherTabs() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.closeAll", Title: "Close All Tabs",
+		ID: "tab.closeAll", Title: "View: Close All Tabs",
 		Keywords: []string{"tab"},
 		Handler:  func() { app.EditorGroup.CloseAllTabs() },
 	})

@@ -32,14 +32,14 @@ func (a *App) ToggleTerminalFullscreen() {
 }
 
 func (a *App) focusedRegion() string {
-	switch a.Root.Focused.(type) {
-	case *ui.SidebarWidget:
+	f := a.Root.Focused
+	if f == a.Sidebar || f == a.Sidebar.ActiveWidget() {
 		return "sidebar"
-	case *ui.BottomPanelWidget:
-		return "bottom"
-	default:
-		return "editor"
 	}
+	if f == a.BottomPanel || f == a.BottomPanel.ActiveWidget() {
+		return "bottom"
+	}
+	return "editor"
 }
 
 func (a *App) focusNextGroup() {
@@ -267,7 +267,7 @@ func registerViewCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "sidebar.toggle", Title: "Toggle Sidebar",
+		ID: "sidebar.toggle", Title: "View: Toggle Sidebar",
 		Keywords: []string{"view", "panel", "show", "hide"},
 		Handler:  app.ToggleSidebar,
 	})
@@ -305,7 +305,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.wider", Title: "Increase Sidebar Width",
+		ID: "sidebar.wider", Title: "View: Increase Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {
 			app.SetSidebarWidth(app.SplitPanel.DividerPos + 1)
@@ -313,7 +313,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
+		ID: "sidebar.narrower", Title: "View: Decrease Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {
 			if app.Sidebar.Visible {
@@ -323,25 +323,25 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.focus", Title: "Focus Sidebar",
+		ID: "sidebar.focus", Title: "View: Focus Sidebar",
 		Keywords: []string{"view"},
 		Handler:  app.FocusSidebar,
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.toggle", Title: "Toggle Panel",
+		ID: "panel.toggle", Title: "View: Toggle Panel",
 		Keywords: []string{"view", "bottom", "show", "hide"},
 		Handler:  app.ToggleBottomPanel,
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.focus", Title: "Focus Panel",
+		ID: "panel.focus", Title: "View: Focus Panel",
 		Keywords: []string{"view", "bottom"},
 		Handler:  app.FocusPanel,
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.show", Title: "Show Panel Tab",
+		ID: "panel.show", Title: "View: Show Panel Tab",
 		Keywords: []string{"view", "bottom", "tab", "switch"},
 		Handler: func() {
 			ids := app.BottomPanel.PanelIDs()
@@ -360,7 +360,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.taller", Title: "Increase Panel Height",
+		ID: "panel.taller", Title: "View: Increase Panel Height",
 		Keywords: []string{"view", "resize", "bottom"},
 		Handler: func() {
 			if !app.ContentSplit.ShowBottom {
@@ -371,7 +371,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.shorter", Title: "Decrease Panel Height",
+		ID: "panel.shorter", Title: "View: Decrease Panel Height",
 		Keywords: []string{"view", "resize", "bottom"},
 		Handler: func() {
 			if app.ContentSplit.ShowBottom && app.ContentSplit.BottomH > 1 {
@@ -381,43 +381,43 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "focus.nextGroup", Title: "Focus Next Group",
+		ID: "focus.nextGroup", Title: "View: Focus Next Group",
 		Keywords: []string{"focus", "panel", "sidebar", "editor"},
 		Handler:  app.focusNextGroup,
 	})
 
 	reg.Register(command.Command{
-		ID: "focus.prevGroup", Title: "Focus Previous Group",
+		ID: "focus.prevGroup", Title: "View: Focus Previous Group",
 		Keywords: []string{"focus", "panel", "sidebar", "editor"},
 		Handler:  app.focusPrevGroup,
 	})
 
 	reg.Register(command.Command{
-		ID: "focus.terminal", Title: "Focus Terminal",
+		ID: "focus.terminal", Title: "View: Focus Terminal",
 		Keywords: []string{"focus", "terminal", "shell"},
 		Handler:  app.focusTerminal,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.new", Title: "New Terminal",
+		ID: "terminal.new", Title: "Terminal: New Terminal",
 		Keywords: []string{"terminal", "shell", "console", "bash"},
 		Handler:  app.SpawnTerminal,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.toggle", Title: "Toggle Terminal",
+		ID: "terminal.toggle", Title: "Terminal: Toggle Terminal",
 		Keywords: []string{"terminal", "shell", "console", "bash"},
 		Handler:  app.ToggleTerminal,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.fullscreen", Title: "Toggle Terminal Fullscreen",
+		ID: "terminal.fullscreen", Title: "Terminal: Toggle Fullscreen",
 		Keywords: []string{"terminal", "shell", "maximize"},
 		Handler:  app.ToggleTerminalFullscreen,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.closeAll", Title: "Close All Terminals",
+		ID: "terminal.closeAll", Title: "Terminal: Close All",
 		Keywords: []string{"terminal", "shell"},
 		Handler:  app.CloseAllTerminals,
 	})

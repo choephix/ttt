@@ -34,6 +34,8 @@ var ForceKeyCommands = map[string]bool{
 	"command.palette":     true,
 	"file.quickOpen":      true,
 	"sidebar.toggle":      true,
+	"focus.nextGroup":     true,
+	"focus.prevGroup":     true,
 }
 
 func ParseKeyBindings(bindings []KeyBinding) error {

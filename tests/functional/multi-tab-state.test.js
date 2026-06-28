@@ -15,11 +15,11 @@ afterEach(() => {
 });
 
 function switchToNextTab() {
-  tui.exec("Next Tab");
+  tui.exec("View: Next Tab");
 }
 
 function switchToPrevTab() {
-  tui.exec("Previous Tab");
+  tui.exec("View: Previous Tab");
 }
 
 describe("multi-tab state isolation", () => {
