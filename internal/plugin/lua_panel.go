@@ -20,6 +20,42 @@ type PanelProxy struct {
 	descCounts  map[WidgetKind]int
 }
 
+func (pp *PanelProxy) wrapSimpleCallback(fn *lua.LFunction) func() {
+	p := pp.plugin
+	return func() {
+		p.CallLuaFunc(fn)
+	}
+}
+
+func (pp *PanelProxy) wrapStringCallback(fn *lua.LFunction) func(string) {
+	p := pp.plugin
+	return func(s string) {
+		if p.State != nil {
+			p.CallLuaFunc(fn, lua.LString(s))
+		}
+	}
+}
+
+func (pp *PanelProxy) wrapNodeCallback(fn *lua.LFunction) func(*widgets.TreeNode) {
+	p := pp.plugin
+	return func(node *widgets.TreeNode) {
+		if p.State != nil {
+			tbl := TreeNodeToLua(p.State, node)
+			p.CallLuaFunc(fn, tbl)
+		}
+	}
+}
+
+func (pp *PanelProxy) wrapCommandCallback(fn *lua.LFunction) func(string, *widgets.TreeNode) {
+	p := pp.plugin
+	return func(command string, node *widgets.TreeNode) {
+		if p.State != nil {
+			tbl := TreeNodeToLua(p.State, node)
+			p.CallLuaFunc(fn, lua.LString(command), tbl)
+		}
+	}
+}
+
 func NewPanelProxy(surface widgets.Surface, plugin *Plugin) *PanelProxy {
 	return &PanelProxy{
 		surface:    surface,
@@ -279,13 +315,13 @@ func panelTreeWidget(L *lua.LState) int {
 		desc.Indent = int(lua.LVAsNumber(v))
 	}
 	if fn, ok := L.GetField(tbl, "on_select").(*lua.LFunction); ok {
-		desc.OnSelect = fn
+		desc.OnSelect = proxy.wrapNodeCallback(fn)
 	}
 	if fn, ok := L.GetField(tbl, "on_expand").(*lua.LFunction); ok {
-		desc.OnExpand = fn
+		desc.OnExpand = proxy.wrapNodeCallback(fn)
 	}
 	if fn, ok := L.GetField(tbl, "on_command").(*lua.LFunction); ok {
-		desc.OnCommand = fn
+		desc.OnCommand = proxy.wrapCommandCallback(fn)
 	}
 	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
 		desc.NodeMenu = parseLuaMenuEntries(L, menu)
@@ -311,10 +347,10 @@ func panelListWidget(L *lua.LState) int {
 		desc.Items = LuaTableToTreeNodes(L, items)
 	}
 	if fn, ok := L.GetField(tbl, "on_select").(*lua.LFunction); ok {
-		desc.OnSelect = fn
+		desc.OnSelect = proxy.wrapNodeCallback(fn)
 	}
 	if fn, ok := L.GetField(tbl, "on_command").(*lua.LFunction); ok {
-		desc.OnCommand = fn
+		desc.OnCommand = proxy.wrapCommandCallback(fn)
 	}
 	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
 		desc.NodeMenu = parseLuaMenuEntries(L, menu)
@@ -340,7 +376,7 @@ func panelButtonWidget(L *lua.LState) int {
 		desc.Label = v.String()
 	}
 	if fn, ok := L.GetField(tbl, "on_click").(*lua.LFunction); ok {
-		desc.OnClick = fn
+		desc.OnClick = proxy.wrapSimpleCallback(fn)
 	}
 
 	proxy.appendDesc(WidgetButton, desc)
@@ -363,10 +399,10 @@ func panelInputWidget(L *lua.LState) int {
 		desc.Prefix = v.String()
 	}
 	if fn, ok := L.GetField(tbl, "on_change").(*lua.LFunction); ok {
-		desc.OnChange = fn
+		desc.OnChange = proxy.wrapStringCallback(fn)
 	}
 	if fn, ok := L.GetField(tbl, "on_submit").(*lua.LFunction); ok {
-		desc.OnSubmit = fn
+		desc.OnSubmit = proxy.wrapStringCallback(fn)
 	}
 	if v := L.GetField(tbl, "clear_on_submit"); v != lua.LNil {
 		desc.ClearOnSubmit = lua.LVAsBool(v)
@@ -568,7 +604,7 @@ func panelDropdownWidget(L *lua.LState) int {
 	}
 
 	if fn, ok := L.GetField(tbl, "on_menu").(*lua.LFunction); ok {
-		desc.OnMenu = fn
+		desc.OnMenu = proxy.wrapStringCallback(fn)
 	}
 
 	proxy.appendDesc(WidgetDropdown, desc)

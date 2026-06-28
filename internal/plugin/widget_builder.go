@@ -4,7 +4,6 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/gdamore/tcell/v2"
-	lua "github.com/yuin/gopher-lua"
 )
 
 type WidgetState struct {
@@ -329,9 +328,7 @@ func wireDropdownCallback(dd *widgets.DropdownWidget, desc WidgetDesc, p *Plugin
 		dd.Config.OnMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
 			p.ShowContextMenu(entries, screenX, screenY, func(cmd string) {
 				if desc.OnMenu != nil {
-					if p.State != nil {
-						p.CallLuaFunc(desc.OnMenu, lua.LString(cmd))
-					}
+					desc.OnMenu(cmd)
 				}
 			})
 		}
@@ -340,31 +337,13 @@ func wireDropdownCallback(dd *widgets.DropdownWidget, desc WidgetDesc, p *Plugin
 
 func wireTreeCallbacks(tw *widgets.TreeWidget, desc WidgetDesc, p *Plugin) {
 	if desc.OnSelect != nil {
-		fn := desc.OnSelect
-		tw.Config.OnSelect = func(node *widgets.TreeNode) {
-			if p.State != nil {
-				tbl := TreeNodeToLua(p.State, node)
-				p.CallLuaFunc(fn, tbl)
-			}
-		}
+		tw.Config.OnSelect = desc.OnSelect
 	}
 	if desc.OnExpand != nil {
-		fn := desc.OnExpand
-		tw.Config.OnExpand = func(node *widgets.TreeNode) {
-			if p.State != nil {
-				tbl := TreeNodeToLua(p.State, node)
-				p.CallLuaFunc(fn, tbl)
-			}
-		}
+		tw.Config.OnExpand = desc.OnExpand
 	}
 	if desc.OnCommand != nil {
-		fn := desc.OnCommand
-		tw.Config.OnCommand = func(command string, node *widgets.TreeNode) {
-			if p.State != nil {
-				tbl := TreeNodeToLua(p.State, node)
-				p.CallLuaFunc(fn, lua.LString(command), tbl)
-			}
-		}
+		tw.Config.OnCommand = desc.OnCommand
 	}
 	if len(desc.NodeMenu) > 0 {
 		tw.Config.NodeMenu = desc.NodeMenu
@@ -400,12 +379,9 @@ func createButtonWidget(desc WidgetDesc, p *Plugin) *widgets.ButtonWidget {
 	return bw
 }
 
-func wireButtonCallback(bw *widgets.ButtonWidget, desc WidgetDesc, p *Plugin) {
+func wireButtonCallback(bw *widgets.ButtonWidget, desc WidgetDesc, _ *Plugin) {
 	if desc.OnClick != nil {
-		fn := desc.OnClick
-		bw.Config.OnClick = func() {
-			p.CallLuaFunc(fn)
-		}
+		bw.Config.OnClick = desc.OnClick
 	}
 }
 
@@ -418,22 +394,15 @@ func createInputWidget(desc WidgetDesc, p *Plugin) *widgets.InputWidget {
 	return iw
 }
 
-func wireInputCallbacks(iw *widgets.InputWidget, desc WidgetDesc, p *Plugin) {
+func wireInputCallbacks(iw *widgets.InputWidget, desc WidgetDesc, _ *Plugin) {
 	if desc.OnChange != nil {
-		fn := desc.OnChange
-		iw.Config.OnChange = func(text string) {
-			if p.State != nil {
-				p.CallLuaFunc(fn, lua.LString(text))
-			}
-		}
+		iw.Config.OnChange = desc.OnChange
 	}
 	if desc.OnSubmit != nil {
-		fn := desc.OnSubmit
+		onSubmit := desc.OnSubmit
 		clearOnSubmit := desc.ClearOnSubmit
 		iw.Config.OnSubmit = func(text string) {
-			if p.State != nil {
-				p.CallLuaFunc(fn, lua.LString(text))
-			}
+			onSubmit(text)
 			if clearOnSubmit {
 				iw.Clear()
 			}
