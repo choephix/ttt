@@ -83,7 +83,7 @@ Generated: 2026-06-27
 - **Actual**: app.go is silently closed with all unsaved changes lost. No confirmation is shown. Only main.go remains.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_step62_close_other_test.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_state62d_after_close.json. The debug state confirms: after typing in app.go (modified: True) and running Close Other Tabs, only main.go (modified: False) remains. Root cause: 'tab.closeOthers' command calls app.EditorGroup.CloseOtherTabs() directly (internal/app/commands_editor.go:283), which replaces the tabs array unconditionally without checking dirty state on the tabs being discarded.`
 
-### BUG-007: Terminal: Toggle Fullscreen off hides the terminal panel instead of restoring to split view
+### ~~BUG-007: Terminal: Toggle Fullscreen off hides the terminal panel instead of restoring to split view~~ NOT A BUG
 - **Category**: terminal
 - **Severity**: major
 - **Steps to reproduce**: 1. Open the editor
@@ -94,7 +94,7 @@ Generated: 2026-06-27
 - **Actual**: The terminal panel is hidden entirely — ShowBottom is set to false via HideBottomPanel(). The code at commands_view.go line 26-27 checks 'if ShowBottom && BottomH >= fullH { HideBottomPanel() }' which treats exiting fullscreen the same as toggling the panel off. The user must manually re-open the terminal after exiting fullscreen.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/terminal_step8a_before_fs.txt (TERMINAL visible), /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/terminal_step8b_during_fs.txt (fullscreen), /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/terminal_step8c_after_fs.txt (panel gone)`
 
-### BUG-008: Search result click: matched line not visible (viewport off by 1 row)
+### ~~BUG-008: Search result click: matched line not visible (viewport off by 1 row)~~ FIXED
 - **Category**: sidebar
 - **Severity**: major
 - **Steps to reproduce**: 1. Open editor with a project directory
