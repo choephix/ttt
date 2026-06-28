@@ -10,31 +10,6 @@ import (
 
 const panelTypeName = "panel"
 
-var styleMap = map[string]term.Style{
-	"default":          term.StyleDefault,
-	"muted":            term.StyleMuted,
-	"border":           term.StyleBorder,
-	"success":          term.StyleSuccess,
-	"danger":           term.StyleDanger,
-	"warning":          term.StyleWarning,
-	"selected":         term.StyleSidebarSelected,
-	"item":             term.StylePaletteItem,
-	"line":             term.StyleLineNumber,
-	"input":            term.StyleInput,
-	"bold":             term.StyleHoverBold,
-	"code":             term.StyleHoverCode,
-	"syntax_comment":   term.StyleSyntaxComment,
-	"syntax_string":    term.StyleSyntaxString,
-	"syntax_keyword":   term.StyleSyntaxKeyword,
-	"syntax_number":    term.StyleSyntaxNumber,
-	"syntax_operator":  term.StyleSyntaxOperator,
-	"syntax_function":  term.StyleSyntaxFunction,
-	"syntax_type":      term.StyleSyntaxType,
-	"syntax_builtin":   term.StyleSyntaxBuiltin,
-	"syntax_variable":  term.StyleSyntaxVariable,
-	"syntax_tag":       term.StyleSyntaxTag,
-	"syntax_attribute": term.StyleSyntaxAttribute,
-}
 
 type PanelProxy struct {
 	surface     widgets.Surface
@@ -114,14 +89,14 @@ func resolveStyle(L *lua.LState, argPos int) term.Style {
 
 	if tbl, ok := v.(*lua.LTable); ok {
 		if s := L.GetField(tbl, "style"); s != lua.LNil {
-			if mapped, ok := styleMap[s.String()]; ok {
+			if mapped, ok := StyleByName(s.String()); ok {
 				return mapped
 			}
 		}
 	}
 
 	if str, ok := v.(lua.LString); ok {
-		if mapped, ok := styleMap[string(str)]; ok {
+		if mapped, ok := StyleByName(string(str)); ok {
 			return mapped
 		}
 	}
@@ -130,7 +105,7 @@ func resolveStyle(L *lua.LState, argPos int) term.Style {
 }
 
 func resolveStyleName(name string) term.Style {
-	if s, ok := styleMap[name]; ok {
+	if s, ok := StyleByName(name); ok {
 		return s
 	}
 	return term.StyleDefault
