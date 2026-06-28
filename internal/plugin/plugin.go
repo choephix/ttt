@@ -12,6 +12,15 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+type MarkdownSpan struct {
+	Text  string
+	Style term.Style
+}
+
+type MarkdownLine struct {
+	Spans []MarkdownSpan
+}
+
 type PluginCommand struct {
 	ID      string
 	Title   string
@@ -58,6 +67,7 @@ type Plugin struct {
 	ScreenshotToFile  func(path string) error
 	DebugDumpToFile   func(path string) error
 	QuitApp           func()
+	RenderMarkdown    func(text string) []MarkdownLine
 	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
 	CloseDrawer       func()
 	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)

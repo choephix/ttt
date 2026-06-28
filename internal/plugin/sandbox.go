@@ -3,7 +3,6 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
@@ -355,8 +354,12 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		}))
 
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
+			if p.RenderMarkdown == nil {
+				L.Push(L.NewTable())
+				return 1
+			}
 			text := L.CheckString(1)
-			rendered := markdown.Render(text)
+			rendered := p.RenderMarkdown(text)
 			result := L.NewTable()
 			for i, line := range rendered {
 				lineTable := L.NewTable()

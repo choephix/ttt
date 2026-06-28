@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/eugenioenko/ttt/internal/config"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -25,23 +24,24 @@ type BottomRegistration struct {
 }
 
 type Manager struct {
-	plugins    []*Plugin
-	registry   *Registry
-	pluginsDir string
-	extraDirs  []string
+	plugins      []*Plugin
+	registry     *Registry
+	pluginsDir   string
+	registryPath string
+	extraDirs    []string
 
 	SidebarPanels []SidebarRegistration
 	BottomPanels  []BottomRegistration
 }
 
-func NewManager(pluginsDir string, extraDirs ...string) *Manager {
-	return &Manager{pluginsDir: pluginsDir, extraDirs: extraDirs}
+func NewManager(pluginsDir, registryPath string, extraDirs ...string) *Manager {
+	return &Manager{pluginsDir: pluginsDir, registryPath: registryPath, extraDirs: extraDirs}
 }
 
 func (m *Manager) LoadAll() []*Plugin {
 	os.MkdirAll(m.pluginsDir, 0755)
 
-	regPath := config.ConfigFilePath("plugins.ttt.json")
+	regPath := m.registryPath
 	reg, err := LoadRegistry(regPath)
 	if err != nil {
 		slog.Error("load plugin registry", "error", err)

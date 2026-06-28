@@ -6,6 +6,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -327,6 +328,18 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
+	}
+	p.RenderMarkdown = func(text string) []plugin.MarkdownLine {
+		rendered := markdown.Render(text)
+		lines := make([]plugin.MarkdownLine, len(rendered))
+		for i, line := range rendered {
+			spans := make([]plugin.MarkdownSpan, len(line.Spans))
+			for j, span := range line.Spans {
+				spans[j] = plugin.MarkdownSpan{Text: span.Text, Style: span.Style}
+			}
+			lines[i] = plugin.MarkdownLine{Spans: spans}
+		}
+		return lines
 	}
 	p.Editor = NewPluginEditorAPI(a)
 	fsRoots := a.Workspace.Paths()

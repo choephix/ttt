@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func TestManagerInstallRejectsNonHTTPS(t *testing.T) {
-	m := NewManager(t.TempDir())
+	m := NewManager(t.TempDir(), filepath.Join(t.TempDir(), "registry.json"))
 
 	tests := []struct {
 		url     string
