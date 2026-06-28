@@ -269,6 +269,14 @@ func (p *SelectDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 
 		if btn&tcell.Button1 != 0 {
+			inBox := mx >= p.boxX && mx < p.boxX+p.boxW && my >= p.boxY && my < p.boxY+p.boxH
+			if !inBox {
+				if p.OnDismiss != nil {
+					p.OnDismiss()
+				}
+				return EventConsumed
+			}
+
 			if my == p.inputY {
 				p.Input.HandleClick(mx, my)
 				return EventConsumed

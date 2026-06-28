@@ -297,7 +297,7 @@ Generated: 2026-06-27
 - **Actual**: The dialog shows raw internal IDs: 'terminal', 'problems', 'references', 'output', 'plugin.notepad', 'plugin.todo-scanner'. The 'plugin.' prefix and raw ID format are not user-friendly.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_step23_show_panel_tab.txt. Root cause: the 'panel.show' command handler (internal/app/commands_view.go:344) iterates over BottomPanel.PanelIDs() and uses each ID as both the SelectItem ID and Label. PanelIDs() returns internal IDs, not display titles. The fix is to expose panel titles alongside IDs (e.g. a PanelItems() method on TabbedPanel) and use those as labels.`
 
-### BUG-027: View: Focus Terminal does not give keyboard focus when terminal panel is not currently visible
+### ~~BUG-027: View: Focus Terminal does not give keyboard focus when terminal panel is not currently visible~~ FIXED
 - **Category**: terminal
 - **Severity**: minor
 - **Steps to reproduce**: 1. Start the editor with no terminal open
@@ -306,7 +306,7 @@ Generated: 2026-06-27
 - **Actual**: The terminal panel opens and a new terminal is spawned (ShowBottom is set, showTerminalPanel is called), but keyboard focus is NOT transferred to the terminal. Focus remains on the previously focused widget (the file explorer tree). The bug is in focusTerminal() in commands_view.go lines 132-139: the early 'return' statement after showTerminalPanel() exits before calling a.Root.SetFocus(), unlike the else branch (when panel is already visible) which correctly calls SetFocus.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/terminal_step10_focus_terminal.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/terminal_state10_focus_terminal.json`
 
-### BUG-028: Opening file from Explorer keeps focus in sidebar tree; typing is silently consumed
+### ~~BUG-028: Opening file from Explorer keeps focus in sidebar tree; typing is silently consumed~~ WONTFIX
 - **Category**: sidebar
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open editor with a project directory (sidebar showing Explorer)
@@ -317,7 +317,7 @@ Generated: 2026-06-27
 - **Actual**: Focus stays on the Explorer Tree widget (confirmed via debug state: focused widget is Tree). The file opens correctly in the editor, but typing is silently consumed by the tree as navigation shortcuts with no visible effect on screen. The status bar still shows the untouched file state. Users must click the editor or press Escape before they can type.
 - **Evidence**: `sidebar_step16_type_after_click_open.txt (typed 'test' but file unchanged, no modification indicator), sidebar_state15_click_open_file.json (focus field shows 'other', focused widget is Tree after file open). Files at /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/`
 
-### BUG-029: Clicking on search result group header collapses the group instead of opening file
+### ~~BUG-029: Clicking on search result group header collapses the group instead of opening file~~ NOT A BUG
 - **Category**: sidebar
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open Find panel and search for text
@@ -327,7 +327,7 @@ Generated: 2026-06-27
 - **Actual**: Clicking the file group header collapses the group (arrow changes from ▼ to ▶), hiding the child result lines. The file is NOT opened. No navigation occurs.
 - **Evidence**: `sidebar_step30_click_testbutton.txt shows group collapsed (▶ icon) after click, editor still shows 'untitled' with no file opened. Files at /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/`
 
-### BUG-030: Tab dirty indicator (●) does not clear after undoing back to the last saved state
+### ~~BUG-030: Tab dirty indicator (●) does not clear after undoing back to the last saved state~~ FIXED (duplicate of BUG-024)
 - **Category**: edit
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open file. 2. Type 'X' (file is now modified, ● appears). 3. Save the file (exec 'Save File'). 4. Confirm ● disappears after save. 5. Type 'Y'. 6. Press Ctrl+Z to undo. 7. Content is now identical to the last saved state.
@@ -335,7 +335,7 @@ Generated: 2026-06-27
 - **Actual**: After undoing back to the saved content, the tab still shows ● and the buffer reports modified=true. The indicator only clears if the file is saved again. Simpler case also reproduces: type ABC on a fresh file, then exec 'Undo' three times — content returns to original but ● remains and buffer reports modified=true.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edit_screen49_undo_to_save.txt (shows ● after undo to saved state), edit_state49_undo_to_save.json (modified: true), edit_screen41_dirty.txt (same pattern after simpler type+undo)`
 
-### BUG-031: Cut and Copy without a selection are no-ops instead of acting on the current line
+### ~~BUG-031: Cut and Copy without a selection are no-ops instead of acting on the current line~~ REVIEW (#278)
 - **Category**: edit
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open file with text. 2. Ensure no selection is active (cursor on line 1, no selection). 3. Execute 'Cut' command. 4. Observe buffer and clipboard.
@@ -343,7 +343,7 @@ Generated: 2026-06-27
 - **Actual**: Cut without selection is a complete no-op: buffer is unchanged (modified=false) and the clipboard is not updated with line content. Copy without selection also leaves the clipboard unchanged. The clipboard retains whatever was there from a prior operation.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edit_screen33_cut_nsel.txt (buffer unchanged after Cut with no selection), edit_state33_cut_nsel.json (modified: false, same 6 lines)`
 
-### BUG-032: Delete Line on empty file causes viewport horizontal offset — first character typed after is invisible
+### ~~BUG-032: Delete Line on empty file causes viewport horizontal offset — first character typed after is invisible~~ NOT REPRODUCIBLE
 - **Category**: edge
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open editor with no files (new untitled buffer)
@@ -354,7 +354,7 @@ Generated: 2026-06-27
 - **Actual**: The first character typed is not rendered. Display shows 'BCDEFGH' (missing 'A'). Status bar correctly reports Ln 1, Col 9 indicating 8 chars exist. Pressing Home corrects the display, revealing the missing first character.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edge_step31f_type_after_del.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edge_step31g_after_home.txt`
 
-### BUG-033: Go to Line dialog gives no feedback when input is invalid (non-numeric, 0, or negative)
+### ~~BUG-033: Go to Line dialog gives no feedback when input is invalid (non-numeric, 0, or negative)~~ FIXED (duplicate of BUG-020)
 - **Category**: edge
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open any file
@@ -367,7 +367,7 @@ Generated: 2026-06-27
 
 ## Cosmetic
 
-### BUG-034: Close button (x) is only visible on the active tab; inactive tabs show no close button
+### ~~BUG-034: Close button (x) is only visible on the active tab; inactive tabs show no close button~~ NOT A BUG
 - **Category**: tabs
 - **Severity**: cosmetic
 - **Steps to reproduce**: 1. Open two or more files: `bin/ttt alpha.go beta.go gamma.go`
@@ -377,7 +377,7 @@ Generated: 2026-06-27
 - **Actual**: Only the active tab shows the 'x' close button. Inactive tabs display only the filename with no close affordance. To close an inactive tab, users must first click it to make it active (which changes the editor content), then click the 'x' button. This requires 2 clicks and changes the active buffer unnecessarily.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_step6_multi_files.txt (row 3 shows inactive tabs without x, active tab 'delta.txt x' with x)`
 
-### BUG-035: New untitled file naming skips '-1', jumping directly to '-2'
+### ~~BUG-035: New untitled file naming skips '-1', jumping directly to '-2'~~ NOT A BUG
 - **Category**: file
 - **Severity**: cosmetic
 - **Steps to reproduce**: 1. Launch ttt with no files (default untitled tab opens)
@@ -387,7 +387,7 @@ Generated: 2026-06-27
 - **Actual**: Tabs are named: 'untitled', 'untitled-2', 'untitled-3', 'untitled-4'. The first new file has no number and the subsequent ones start from -2, skipping -1.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/file_naming2.txt`
 
-### BUG-036: Inconsistent editor border box-drawing style across sessions (rounded vs straight corners)
+### ~~BUG-036: Inconsistent editor border box-drawing style across sessions (rounded vs straight corners)~~ NOT A BUG
 - **Category**: folding
 - **Severity**: cosmetic
 - **Steps to reproduce**: 1. Open a file and observe the editor pane border style
@@ -397,7 +397,7 @@ Generated: 2026-06-27
 - **Actual**: Editor border alternates between rounded corners (╭──╮ with U+256D) and straight corners (┌──┐ with U+250C) across different invocations with no user-visible action to explain the change. A third style (double-line ╔══╗) appears momentarily during mouse tab-click operations.
 - **Evidence**: `folding_step1_initial.txt: rounded corners ╭──╮ on first invocation. folding_step26_linenums_on.txt: straight corners ┌──┐ in a later invocation. folding_step44_before_nav.txt: rounded corners ╭──╮ again. folding_step20_fold_active.txt: double-line ╔══╗ during tab switching.`
 
-### BUG-037: Debug state 'focus' field always returns 'other' regardless of which pane is focused
+### ~~BUG-037: Debug state 'focus' field always returns 'other' regardless of which pane is focused~~ DEFERRED
 - **Category**: view
 - **Severity**: cosmetic
 - **Steps to reproduce**: 1. Open the editor with any file
@@ -409,7 +409,7 @@ Generated: 2026-06-27
 - **Actual**: All three states return 'focus: other'. The describeFocus() function checks for *ui.EditorPaneWidget but the editor group uses *ui.EditorGroupWidget as Root.Focused. Similarly, focus on sidebar/panel is set to their active child widgets (WidgetAdapter, TerminalPanelWidget), not the SidebarWidget/BottomPanelWidget containers that describeFocus() checks for. The only case that works is 'search' (SearchWidget). This only affects the debug dump — functionality is not impacted.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_state5_focus_editor.json (shows focus: other after View: Focus Editor), /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_state7_focus_panel.json (shows focus: other after View: Focus Panel). Root cause in internal/app/debug_dump.go:156 — the type switch checks EditorPaneWidget instead of EditorGroupWidget, and checks SidebarWidget/BottomPanelWidget instead of the widgets that are actually set as Root.Focused.`
 
-### BUG-038: Sidebar tab bar shows no visual indicator of which panel is currently active
+### ~~BUG-038: Sidebar tab bar shows no visual indicator of which panel is currently active~~ ISSUE (#279)
 - **Category**: sidebar
 - **Severity**: cosmetic
 - **Steps to reproduce**: 1. Open editor with project directory
@@ -420,7 +420,7 @@ Generated: 2026-06-27
 - **Actual**: All tab labels appear identical in text rendering regardless of which panel is active. While this may use colors in a real terminal that are not captured in text screenshots, even the text layout contains no structural indicator (no underline character, no bracket, no arrow) marking the active tab.
 - **Evidence**: `sidebar_step8_click_find.txt vs sidebar_step8_click_changes.txt vs sidebar_step8_click_explore.txt all show identical tab bar text 'Explore  Find  Changes  >>  ...'. Files at /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/`
 
-### BUG-039: Bottom panel tab clicks do not switch the active tab
+### ~~BUG-039: Bottom panel tab clicks do not switch the active tab~~ NOT REPRODUCIBLE
 - **Category**: mouse
 - **Severity**: major
 - **Steps to reproduce**: 1. Open terminal (Terminal: Toggle Terminal) to show bottom panel
@@ -430,7 +430,7 @@ Generated: 2026-06-27
 - **Actual**: The active panel stays on "terminal" regardless of which tab is clicked. Tested clicks at X positions 3, 5, 13, 15, 23, 25, 33, 35, 41, 43, 51, 53 — all kept active=terminal.
 - **Evidence**: `mouse_bptab_x*.json files all show bottom_panel.active=terminal`
 
-### BUG-040: Command palette not dismissed by clicking outside its bounds
+### ~~BUG-040: Command palette not dismissed by clicking outside its bounds~~ FIXED
 - **Category**: mouse
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open command palette (Ctrl+P)
@@ -439,7 +439,7 @@ Generated: 2026-06-27
 - **Actual**: The palette stays open after clicking outside. Escape works correctly to dismiss.
 - **Evidence**: `mouse_test19b_state.json shows overlay still present after clicking at (5, 30)`
 
-### BUG-041: Debug state focus field always reports "other" regardless of actual focus
+### ~~BUG-041: Debug state focus field always reports "other" regardless of actual focus~~ DEFERRED (duplicate of BUG-037)
 - **Category**: mouse
 - **Severity**: cosmetic
 - **Steps to reproduce**: 1. Click in editor, sidebar, or bottom panel
