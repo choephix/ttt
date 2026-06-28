@@ -213,7 +213,7 @@ Generated: 2026-06-27
 - **Actual**: The filename is truncated to only a few characters and the directory path is appended directly with no separator. For example: 'settings.local.json' becomes 'settin.claude/worktrees/agent-a07104541439a4bc5/.claude' making it unreadable and ambiguous.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/file_gotofile_display.txt`
 
-### BUG-019: No read-only file indicator when opening files with restricted permissions
+### ~~BUG-019: No read-only file indicator when opening files with restricted permissions~~ ISSUE #277
 - **Category**: file
 - **Severity**: minor
 - **Steps to reproduce**: 1. Create a read-only file: echo 'content' > /tmp/test.txt && chmod 444 /tmp/test.txt
@@ -223,7 +223,7 @@ Generated: 2026-06-27
 - **Actual**: No indicator is shown anywhere. The file opens and can be edited normally. Ctrl+S saves silently without any warning. On Linux, the atomic save (temp file + rename in same directory) can succeed even for chmod 444 files when the containing directory is writable, so the user unknowingly overwrites a read-only file.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/file_readonly_open.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/file_readonly_save.txt`
 
-### BUG-020: Go to Line dialog stays open and does not navigate when entering line number 0
+### ~~BUG-020: Go to Line dialog stays open and does not navigate when entering line number 0~~ FIXED
 - **Category**: folding
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open any file in the editor
@@ -235,7 +235,7 @@ Generated: 2026-06-27
 - **Actual**: Dialog stays open indefinitely with no feedback and no navigation. The cursor does not move. User must press Escape to close the stuck dialog. The same issue occurs for any non-positive number (0, -1, etc.).
 - **Evidence**: `folding_step52_goto0_verify.txt shows dialog still open after 500ms wait. folding_state52_goto0.json shows cursor.line=0 (unchanged initial position, no navigation occurred). Root cause: /home/enko/Documents/ttt/internal/ui/selectdialog_widget.go line 305 has condition `n > 0` which silently rejects 0 without calling OnGoToLine or OnDismiss. For comparison, line 1 works correctly: folding_step53_goto1.txt shows dialog dismissed and cursor at line 1.`
 
-### BUG-021: Fold gutter indicators (▼) not shown on fresh file open — only appear after tab switching
+### ~~BUG-021: Fold gutter indicators (▼) not shown on fresh file open — only appear after tab switching~~ NOT A BUG (hover-to-reveal by design)
 - **Category**: folding
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open a Go file with foldable blocks
