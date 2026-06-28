@@ -71,7 +71,7 @@ Generated: 2026-06-27
 - **Actual**: All tabs are silently closed immediately. The unsaved changes are lost with no prompt. A new empty 'untitled' tab opens instead.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_step60_close_all_no_confirm.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_state60_close_all_no_confirm.json, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/view_step70_closeall_named_modified.txt. Root cause: the 'tab.closeAll' command calls app.EditorGroup.CloseAllTabs() directly (internal/app/commands_editor.go:291), which unconditionally replaces all tabs without checking dirty state, unlike app.CloseTab() which correctly checks IsDirty() and shows a confirmation dialog.`
 
-### BUG-006: View: Close Other Tabs silently discards unsaved changes in non-active tabs
+### ~~BUG-006: View: Close Other Tabs silently discards unsaved changes in non-active tabs~~ FIXED
 - **Category**: view
 - **Severity**: major
 - **Steps to reproduce**: 1. Open two files (e.g. bin/ttt main.go app.go)
