@@ -449,3 +449,26 @@ Generated: 2026-06-27
 - **Evidence**: `All mouse_*.json state files show focus="other"`
 
 > Note: BUG-041 is a duplicate of BUG-037, listed here for mouse category completeness.
+
+## Exec-based QA findings
+
+### BUG-042: Typing over a selection creates two separate undo steps instead of one atomic operation
+- **Category**: edit/undo
+- **Severity**: minor
+- **Steps to reproduce**: `bin/ttt --size 80x24 --exec "wait 200; key home; key shift+end; wait 100; type REPLACED; wait 100; key ctrl+z; wait 200; screenshot /tmp/screen.txt; quit" /tmp/test.txt`
+- **Expected**: After Ctrl+Z, the content should restore to "Hello World" (state before the selection was replaced) — single atomic undo like VS Code
+- **Actual**: After one Ctrl+Z, only the typed text "REPLACED" is undone but the selection deletion is not — content is empty. Requires a second Ctrl+Z to restore "Hello World".
+
+### BUG-043: Ctrl+PageUp/PageDown swallowed by editor as page scroll instead of switching tabs
+- **Category**: navigation/keybinding
+- **Severity**: major
+- **Steps to reproduce**: `echo '// FILE A' > /tmp/a.go && echo '// FILE B' > /tmp/b.go && bin/ttt --size 120x40 /tmp/a.go /tmp/b.go --exec "wait 200; key ctrl+pgup; wait 300; screenshot /tmp/screen.txt; quit" 2>/dev/null`
+- **Expected**: Ctrl+PageUp switches to the previous tab (from fileB to fileA)
+- **Actual**: The editor scrolls up one page within the current file. Tab does not change. Editor widget's PgUp/PgDn handlers don't check for Ctrl modifier, consuming the event before the global tab.next/tab.prev keybindings can fire.
+
+### BUG-044: Horizontal scrollbar thumb fills entire track and never updates position or size
+- **Category**: mouse/scrollbar
+- **Severity**: minor
+- **Steps to reproduce**: Create a file with a 260-char line, open it, press End to scroll right: `bin/ttt /tmp/segments.txt --size 80x24 --exec "wait 200; screenshot /tmp/before.txt; key end; wait 200; screenshot /tmp/after.txt; quit" 2>/dev/null`
+- **Expected**: Horizontal scrollbar thumb should be proportionally sized and move to indicate scroll position
+- **Actual**: The thumb fills the entire track (71/71 chars) at all scroll positions — start, middle, and end. Does not shrink or move. Vertical scrollbar works correctly; bug is horizontal-only.
