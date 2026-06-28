@@ -136,7 +136,6 @@ func (a *App) focusTerminal() {
 			a.ContentSplit.BottomH = min(r.H/2, maxH)
 		}
 		a.showTerminalPanel()
-		return
 	}
 	a.BottomPanel.SetActivePanel("terminal")
 	if w := a.BottomPanel.ActiveWidget(); w != nil {
