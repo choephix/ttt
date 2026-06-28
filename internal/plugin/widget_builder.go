@@ -458,7 +458,7 @@ func createProgressWidget(desc WidgetDesc) *widgets.ProgressWidget {
 	style := resolveStyleName(desc.StyleName)
 	ch := desc.Char
 	if ch == 0 {
-		ch = '█'
+		ch = '▄'
 	}
 	pw := widgets.NewProgressWidget(widgets.ProgressConfig{
 		Value: desc.Value,

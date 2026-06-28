@@ -44,7 +44,7 @@ func (p *ProgressWidget) Render(surface Surface) {
 
 	ch := p.Config.Char
 	if ch == 0 {
-		ch = '█'
+		ch = '▄'
 	}
 
 	filled := int(value * float64(w))
