@@ -148,14 +148,15 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 		mx, my := e.Position()
 		r := sv.rect
 
-		if btn&tcell.WheelLeft != 0 {
+		mod := e.Modifiers()
+		if btn&tcell.WheelLeft != 0 || (btn&tcell.WheelUp != 0 && mod&tcell.ModShift != 0) {
 			sv.scrollX -= 3
 			if sv.scrollX < 0 {
 				sv.scrollX = 0
 			}
 			return EventConsumed
 		}
-		if btn&tcell.WheelRight != 0 {
+		if btn&tcell.WheelRight != 0 || (btn&tcell.WheelDown != 0 && mod&tcell.ModShift != 0) {
 			sv.scrollHRight(3)
 			return EventConsumed
 		}
