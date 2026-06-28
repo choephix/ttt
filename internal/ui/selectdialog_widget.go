@@ -204,10 +204,18 @@ func (p *SelectDialogWidget) Render(surface Surface) {
 			if idx == p.Selected {
 				detailStyle = style
 			}
-			detailRunes := []rune(item.Detail)
-			sx := contentRight - 1 - len(detailRunes)
-			if sx > boxX+1 {
-				surface.DrawText(sx, y, item.Detail, contentRight-1, detailStyle)
+			labelEnd := boxX + 2 + len([]rune(item.Label))
+			minGap := 3
+			availStart := labelEnd + minGap
+			availW := contentRight - 1 - availStart
+			if availW > 0 {
+				detail := item.Detail
+				detailRunes := []rune(detail)
+				if len(detailRunes) > availW {
+					detail = "…" + string(detailRunes[len(detailRunes)-availW+1:])
+				}
+				sx := contentRight - 1 - len([]rune(detail))
+				surface.DrawText(sx, y, detail, contentRight-1, detailStyle)
 			}
 		}
 	}
