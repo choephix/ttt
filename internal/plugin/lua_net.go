@@ -109,9 +109,9 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 		}
 		callback := L.CheckFunction(callbackIdx)
 
-		p.runAsync(func() func() {
+		go func() {
 			status, body, respHeaders, err := p.Network.Get(url, headers)
-			return func() {
+			resultFn := func() {
 				if p.State == nil {
 					return
 				}
@@ -120,7 +120,8 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 					p.logError("async net get callback", callErr)
 				}
 			}
-		})
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
+		}()
 
 		return 0
 	}
@@ -144,9 +145,9 @@ func netPostAsync(p *Plugin) lua.LGFunction {
 		}
 		callback := L.CheckFunction(3)
 
-		p.runAsync(func() func() {
+		go func() {
 			status, respBody, respHeaders, err := p.Network.Post(url, headers, body)
-			return func() {
+			resultFn := func() {
 				if p.State == nil {
 					return
 				}
@@ -155,7 +156,8 @@ func netPostAsync(p *Plugin) lua.LGFunction {
 					p.logError("async net post callback", callErr)
 				}
 			}
-		})
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
+		}()
 
 		return 0
 	}

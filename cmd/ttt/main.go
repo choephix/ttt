@@ -236,10 +236,10 @@ Docs: https://tttedit.dev
 	pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
 
 	for _, p := range pluginManager.Plugins() {
-		p.Host.RequestRedraw = func() {
+		p.RequestRedraw = func() {
 			screen.PostEvent(tcell.NewEventInterrupt(nil))
 		}
-		p.Host.PostAsync = func(result *plugin.PluginAsyncResult) {
+		p.PostAsync = func(result *plugin.PluginAsyncResult) {
 			screen.PostEvent(tcell.NewEventInterrupt(result))
 		}
 	}

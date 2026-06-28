@@ -10,7 +10,7 @@ func TestLogInfo(t *testing.T) {
 	defer cleanup()
 
 	var logged []struct{ level, message string }
-	p.Host.Log = func(level, message string) {
+	p.Log = func(level, message string) {
 		logged = append(logged, struct{ level, message string }{level, message})
 	}
 
@@ -38,7 +38,7 @@ func TestLogWithLevel(t *testing.T) {
 	defer cleanup()
 
 	var logged []struct{ level, message string }
-	p.Host.Log = func(level, message string) {
+	p.Log = func(level, message string) {
 		logged = append(logged, struct{ level, message string }{level, message})
 	}
 
@@ -80,7 +80,7 @@ func TestLogNoPermissionNeeded(t *testing.T) {
 	defer cleanup()
 
 	var called bool
-	p.Host.Log = func(level, message string) {
+	p.Log = func(level, message string) {
 		called = true
 	}
 
@@ -101,7 +101,7 @@ func TestLogErrorRouting(t *testing.T) {
 	defer cleanup()
 
 	var logged []struct{ level, message string }
-	p.Host.Log = func(level, message string) {
+	p.Log = func(level, message string) {
 		logged = append(logged, struct{ level, message string }{level, message})
 	}
 

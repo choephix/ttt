@@ -32,29 +32,6 @@ type PluginKeybinding struct {
 	Command string
 }
 
-type HostCallbacks struct {
-	RequestRedraw   func()
-	PostAsync       func(*PluginAsyncResult)
-	Log             func(level, message string)
-	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
-	ShowInfoDialog  func(title string, entries []widgets.KeyValueEntry)
-	ShowConfirmDialog func(message string, onConfirm func())
-	OpenDrawer      func(panel *PluginPanelWidget, width, minWidth int)
-	CloseDrawer     func()
-	OpenTab         func(id string, panel *PluginPanelWidget)
-	CloseTab        func(id string)
-	RenderMarkdown  func(text string) []MarkdownLine
-	Borders         *term.BorderSet
-}
-
-type DebugCallbacks struct {
-	SimulateClick    func(x, y int)
-	SimulateDrag     func(x1, y1, x2, y2 int)
-	ScreenshotToFile func(path string) error
-	DebugDumpToFile  func(path string) error
-	QuitApp          func()
-}
-
 type Plugin struct {
 	mu sync.Mutex
 
@@ -79,8 +56,23 @@ type Plugin struct {
 	Commands          []PluginCommand
 	PluginKeybindings []PluginKeybinding
 
-	Host  HostCallbacks
-	Debug DebugCallbacks
+	RequestRedraw     func()
+	PostAsync         func(*PluginAsyncResult)
+	Log               func(level, message string)
+	ShowContextMenu   func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
+	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
+	ShowConfirmDialog func(message string, onConfirm func())
+	OpenDrawer        func(panel *PluginPanelWidget, width, minWidth int)
+	CloseDrawer       func()
+	OpenTab           func(id string, panel *PluginPanelWidget)
+	CloseTab          func(id string)
+	RenderMarkdown    func(text string) []MarkdownLine
+	Borders           *term.BorderSet
+	SimulateClick     func(x, y int)
+	SimulateDrag      func(x1, y1, x2, y2 int)
+	ScreenshotToFile  func(path string) error
+	DebugDumpToFile   func(path string) error
+	QuitApp           func()
 
 	Editor     EditorAPI
 	Filesystem FilesystemAPI
@@ -149,25 +141,18 @@ func (p *Plugin) InitFromSource(source string) error {
 	return nil
 }
 
-func (p *Plugin) runAsync(work func() func()) {
-	go func() {
-		callback := work()
-		p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: callback})
-	}()
-}
-
 func (p *Plugin) logError(context string, err error) {
 	slog.Error("plugin error", "plugin", p.Name, "context", context, "error", err)
-	if p.Host.Log != nil {
-		p.Host.Log("error", context+": "+err.Error())
+	if p.Log != nil {
+		p.Log("error", context+": "+err.Error())
 	}
 }
 
 func (p *Plugin) SafePostAsync(result *PluginAsyncResult) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.Host.PostAsync != nil {
-		p.Host.PostAsync(result)
+	if p.PostAsync != nil {
+		p.PostAsync(result)
 	}
 }
 
@@ -186,8 +171,23 @@ func (p *Plugin) Destroy() {
 	p.sidebarMenuFunc = nil
 	p.Commands = nil
 	p.PluginKeybindings = nil
-	p.Host = HostCallbacks{}
-	p.Debug = DebugCallbacks{}
+	p.RequestRedraw = nil
+	p.PostAsync = nil
+	p.Log = nil
+	p.ShowContextMenu = nil
+	p.ShowInfoDialog = nil
+	p.ShowConfirmDialog = nil
+	p.OpenDrawer = nil
+	p.CloseDrawer = nil
+	p.OpenTab = nil
+	p.CloseTab = nil
+	p.RenderMarkdown = nil
+	p.Borders = nil
+	p.SimulateClick = nil
+	p.SimulateDrag = nil
+	p.ScreenshotToFile = nil
+	p.DebugDumpToFile = nil
+	p.QuitApp = nil
 	p.EventListeners = nil
 }
 

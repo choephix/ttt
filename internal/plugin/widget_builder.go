@@ -263,8 +263,8 @@ func createBoxWidget(desc WidgetDesc, p *Plugin) *widgets.BoxWidget {
 	hasSideBorders := desc.BorderTop || desc.BorderBottom || desc.BorderLeft || desc.BorderRight
 	if desc.Border || hasSideBorders {
 		borders := term.SingleBorderSet()
-		if p.Host.Borders != nil {
-			borders = *p.Host.Borders
+		if p.Borders != nil {
+			borders = *p.Borders
 		}
 		if desc.Border {
 			box = widgets.NewBoxWithBorder(borders)
@@ -301,9 +301,9 @@ func createDropdownWidget(desc WidgetDesc, p *Plugin) *widgets.DropdownWidget {
 }
 
 func wireDropdownCallback(dd *widgets.DropdownWidget, desc WidgetDesc, p *Plugin) {
-	if p.Host.ShowContextMenu != nil && len(desc.Entries) > 0 {
+	if p.ShowContextMenu != nil && len(desc.Entries) > 0 {
 		dd.Config.OnMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
-			p.Host.ShowContextMenu(entries, screenX, screenY, func(cmd string) {
+			p.ShowContextMenu(entries, screenX, screenY, func(cmd string) {
 				if desc.OnMenu != nil {
 					desc.OnMenu(cmd)
 				}
@@ -324,9 +324,9 @@ func wireTreeCallbacks(tw *widgets.TreeWidget, desc WidgetDesc, p *Plugin) {
 	}
 	if len(desc.NodeMenu) > 0 {
 		tw.Config.NodeMenu = desc.NodeMenu
-		if p.Host.ShowContextMenu != nil {
+		if p.ShowContextMenu != nil {
 			tw.Config.OnMenu = func(entries []widgets.MenuEntry, node *widgets.TreeNode, sx, sy int) {
-				p.Host.ShowContextMenu(entries, sx, sy, func(cmd string) {
+				p.ShowContextMenu(entries, sx, sy, func(cmd string) {
 					if tw.Config.OnCommand != nil {
 						tw.Config.OnCommand(cmd, node)
 					}

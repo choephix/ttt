@@ -90,9 +90,9 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 			callback = L.CheckFunction(3)
 		}
 
-		p.runAsync(func() func() {
+		go func() {
 			stdout, stderr, exitCode, err := p.System.Exec(binary, args)
-			return func() {
+			resultFn := func() {
 				if p.State == nil {
 					return
 				}
@@ -110,7 +110,8 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 					p.logError("async exec callback", callErr)
 				}
 			}
-		})
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
+		}()
 
 		return 0
 	}

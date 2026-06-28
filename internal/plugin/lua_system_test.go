@@ -159,7 +159,7 @@ func TestSystemExecAsyncWithoutArgs(t *testing.T) {
 	)
 	defer cleanup()
 
-	p.Host.PostAsync = func(result *PluginAsyncResult) {
+	p.PostAsync = func(result *PluginAsyncResult) {
 		ch <- result.Callback
 	}
 
@@ -190,7 +190,7 @@ func TestSystemExecAsyncRaceSafety(t *testing.T) {
 	)
 
 	done := make(chan struct{})
-	p.Host.PostAsync = func(result *PluginAsyncResult) {
+	p.PostAsync = func(result *PluginAsyncResult) {
 		close(done)
 	}
 
@@ -217,7 +217,7 @@ func TestSystemExecAsyncNilStateSafety(t *testing.T) {
 		mock,
 	)
 
-	p.Host.PostAsync = func(result *PluginAsyncResult) {
+	p.PostAsync = func(result *PluginAsyncResult) {
 		ch <- result.Callback
 	}
 
