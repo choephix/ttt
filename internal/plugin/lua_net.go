@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"log/slog"
-
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -60,8 +58,9 @@ func httpResultToLua(L *lua.LState, status int, body string, headers map[string]
 func netGet(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		var headers map[string]string
@@ -77,8 +76,9 @@ func netGet(p *Plugin) lua.LGFunction {
 func netPost(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		opts, _ := L.Get(2).(*lua.LTable)
@@ -99,8 +99,9 @@ func netPost(p *Plugin) lua.LGFunction {
 func netGetAsync(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		var headers map[string]string
@@ -114,14 +115,15 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 		go func() {
 			status, body, respHeaders, err := p.Network.Get(url, headers)
 			resultFn := func() {
+				if p.State == nil {
+					return
+				}
 				tbl := httpResultToLua(p.State, status, body, respHeaders, err)
 				if callErr := p.CallLuaFunc(callback, tbl); callErr != nil {
-					slog.Error("plugin async net callback error", "plugin", p.Name, "error", callErr)
+					p.logError("async net get callback", callErr)
 				}
 			}
-			if p.PostAsync != nil {
-				p.PostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
-			}
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
 		}()
 
 		return 0
@@ -131,8 +133,9 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 func netPostAsync(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		opts, _ := L.Get(2).(*lua.LTable)
@@ -149,14 +152,15 @@ func netPostAsync(p *Plugin) lua.LGFunction {
 		go func() {
 			status, respBody, respHeaders, err := p.Network.Post(url, headers, body)
 			resultFn := func() {
+				if p.State == nil {
+					return
+				}
 				tbl := httpResultToLua(p.State, status, respBody, respHeaders, err)
 				if callErr := p.CallLuaFunc(callback, tbl); callErr != nil {
-					slog.Error("plugin async net callback error", "plugin", p.Name, "error", callErr)
+					p.logError("async net post callback", callErr)
 				}
 			}
-			if p.PostAsync != nil {
-				p.PostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
-			}
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: resultFn})
 		}()
 
 		return 0

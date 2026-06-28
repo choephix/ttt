@@ -102,6 +102,29 @@ func TestFsWrite(t *testing.T) {
 	}
 }
 
+func TestFsWriteErrorFormat(t *testing.T) {
+	p, cleanup := setupTestPluginWithFs(PermissionSet{FsWrite: true}, &mockFilesystemAPI{})
+	defer cleanup()
+
+	p.Filesystem = nil
+
+	err := p.State.DoString(`
+		local fs = require("ttt.fs")
+		local ok, err_msg = fs.write("/tmp/test.txt", "data")
+		_G.is_nil = (ok == nil)
+		_G.has_err = (err_msg ~= nil)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if p.State.GetGlobal("is_nil").String() != "true" {
+		t.Error("expected nil result on error")
+	}
+	if p.State.GetGlobal("has_err").String() != "true" {
+		t.Error("expected error message")
+	}
+}
+
 func TestFsExists(t *testing.T) {
 	mock := &mockFilesystemAPI{
 		files: map[string]string{"/tmp/exists.txt": ""},

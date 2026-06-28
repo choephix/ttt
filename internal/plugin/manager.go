@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/eugenioenko/ttt/internal/config"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -25,23 +24,24 @@ type BottomRegistration struct {
 }
 
 type Manager struct {
-	plugins    []*Plugin
-	registry   *Registry
-	pluginsDir string
-	extraDirs  []string
+	plugins      []*Plugin
+	registry     *Registry
+	pluginsDir   string
+	registryPath string
+	extraDirs    []string
 
 	SidebarPanels []SidebarRegistration
 	BottomPanels  []BottomRegistration
 }
 
-func NewManager(pluginsDir string, extraDirs ...string) *Manager {
-	return &Manager{pluginsDir: pluginsDir, extraDirs: extraDirs}
+func NewManager(pluginsDir, registryPath string, extraDirs ...string) *Manager {
+	return &Manager{pluginsDir: pluginsDir, registryPath: registryPath, extraDirs: extraDirs}
 }
 
 func (m *Manager) LoadAll() []*Plugin {
 	os.MkdirAll(m.pluginsDir, 0755)
 
-	regPath := config.ConfigFilePath("plugins.ttt.json")
+	regPath := m.registryPath
 	reg, err := LoadRegistry(regPath)
 	if err != nil {
 		slog.Error("load plugin registry", "error", err)
@@ -112,16 +112,34 @@ func (m *Manager) LoadAll() []*Plugin {
 }
 
 func (m *Manager) collectRegistrations(p *Plugin) {
+	id := "plugin." + p.Name
+
+	filtered := m.SidebarPanels[:0]
+	for _, reg := range m.SidebarPanels {
+		if reg.ID != id {
+			filtered = append(filtered, reg)
+		}
+	}
+	m.SidebarPanels = filtered
+
+	filteredBottom := m.BottomPanels[:0]
+	for _, reg := range m.BottomPanels {
+		if reg.ID != id {
+			filteredBottom = append(filteredBottom, reg)
+		}
+	}
+	m.BottomPanels = filteredBottom
+
 	if p.SidebarTitle != "" && p.RenderFunc != nil {
 		m.SidebarPanels = append(m.SidebarPanels, SidebarRegistration{
-			ID:     "plugin." + p.Name,
+			ID:     id,
 			Title:  p.SidebarTitle,
 			Widget: NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc),
 		})
 	}
 	if p.BottomTitle != "" && p.BottomRenderFunc != nil {
 		m.BottomPanels = append(m.BottomPanels, BottomRegistration{
-			ID:     "plugin." + p.Name,
+			ID:     id,
 			Title:  p.BottomTitle,
 			Widget: NewPluginPanelWidget(p, p.BottomRenderFunc, p.BottomEventFunc),
 		})
@@ -169,9 +187,9 @@ func (m *Manager) SetEditorAPI(api EditorAPI) {
 	}
 }
 
-func (m *Manager) SetFilesystemAPI(api FilesystemAPI) {
+func (m *Manager) SetFilesystemAPI(factory func(pluginDir string) FilesystemAPI) {
 	for _, p := range m.plugins {
-		p.Filesystem = api
+		p.Filesystem = factory(p.Dir)
 	}
 }
 
@@ -214,6 +232,9 @@ func (m *Manager) DispatchEvent(name string, args ...interface{}) {
 }
 
 func (m *Manager) Install(repoURL string) (*Plugin, error) {
+	if !strings.HasPrefix(repoURL, "https://") {
+		return nil, fmt.Errorf("only https:// URLs are allowed for plugin install")
+	}
 	name := filepath.Base(repoURL)
 	name = strings.TrimSuffix(name, ".git")
 	if name == "" || name == "." {
@@ -320,23 +341,24 @@ func (m *Manager) Update(name string) (*Plugin, bool, error) {
 		if p.Name == name {
 			p.Destroy()
 			p.Manifest = newManifest
+			p.Granted = regEntry.Permissions
 			if err := p.Init(); err != nil {
 				return nil, false, err
 			}
 			m.collectRegistrations(p)
 			regEntry.Version = newManifest.Version
 			m.registry.Save()
-			return nil, false, nil
+			return p, false, nil
 		}
 	}
 
 	return nil, false, nil
 }
 
-func (m *Manager) SetEnabled(name string, enabled bool) error {
+func (m *Manager) SetEnabled(name string, enabled bool) (*Plugin, error) {
 	m.registry.SetEnabled(name, enabled)
 	if err := m.registry.Save(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if !enabled {
@@ -347,18 +369,18 @@ func (m *Manager) SetEnabled(name string, enabled bool) error {
 				break
 			}
 		}
-		return nil
+		return nil, nil
 	}
 
 	dir := filepath.Join(m.pluginsDir, name)
 	manifest, err := LoadManifest(dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	regEntry := m.registry.Find(name)
 	if regEntry == nil {
-		return fmt.Errorf("plugin %q not in registry", name)
+		return nil, fmt.Errorf("plugin %q not in registry", name)
 	}
 
 	p := &Plugin{
@@ -368,12 +390,12 @@ func (m *Manager) SetEnabled(name string, enabled bool) error {
 		Granted:  regEntry.Permissions,
 	}
 	if err := p.Init(); err != nil {
-		return err
+		return nil, err
 	}
 
 	m.plugins = append(m.plugins, p)
 	m.collectRegistrations(p)
-	return nil
+	return p, nil
 }
 
 func (m *Manager) Reload(name string) (*Plugin, error) {

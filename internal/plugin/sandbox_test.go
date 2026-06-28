@@ -1,20 +1,109 @@
 package plugin
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
 	lua "github.com/yuin/gopher-lua"
 )
 
+func TestManagerInstallRejectsNonHTTPS(t *testing.T) {
+	m := NewManager(t.TempDir(), filepath.Join(t.TempDir(), "registry.json"))
+
+	tests := []struct {
+		url     string
+		blocked bool
+	}{
+		{"https://github.com/user/plugin.git", false},
+		{"http://github.com/user/plugin.git", true},
+		{"file:///tmp/evil", true},
+		{"git@github.com:user/plugin.git", true},
+		{"ssh://git@github.com/user/plugin.git", true},
+	}
+
+	for _, tt := range tests {
+		_, err := m.Install(tt.url)
+		if tt.blocked && err == nil {
+			t.Errorf("expected %q to be blocked", tt.url)
+		}
+		if !tt.blocked && err != nil && !strings.Contains(err.Error(), "git clone") {
+			t.Errorf("expected %q to pass URL validation, got: %v", tt.url, err)
+		}
+	}
+}
+
+func TestPluginInitPathTraversalBlocked(t *testing.T) {
+	dir := t.TempDir()
+
+	p := &Plugin{
+		Name: "evil",
+		Dir:  dir,
+		Manifest: Manifest{
+			Name:  "evil",
+			Entry: "../../etc/passwd",
+		},
+	}
+
+	err := p.Init()
+	if err == nil {
+		t.Fatal("expected error for path traversal in entry field")
+	}
+	if p.State != nil {
+		t.Error("expected State to be nil after failed init")
+	}
+}
+
 func TestSandboxDangerousGlobalsRemoved(t *testing.T) {
 	L := NewSandbox()
 	defer L.Close()
 
-	for _, name := range []string{"dofile", "loadfile"} {
+	for _, name := range []string{
+		"dofile", "loadfile", "load", "loadstring",
+		"getfenv", "setfenv", "rawset", "rawget", "print",
+	} {
 		v := L.GetGlobal(name)
 		if v != lua.LNil {
 			t.Errorf("expected %s to be nil, got %s", name, v.Type().String())
 		}
+	}
+}
+
+func TestSandboxLoadCannotCompileCode(t *testing.T) {
+	L := NewSandbox()
+	defer L.Close()
+
+	if err := L.DoString(`load("return 1+1")()`); err == nil {
+		t.Error("load() should not be available to compile arbitrary code")
+	}
+
+	if err := L.DoString(`loadstring("return 1+1")()`); err == nil {
+		t.Error("loadstring() should not be available to compile arbitrary code")
+	}
+}
+
+func TestSandboxPackageLoadersRestricted(t *testing.T) {
+	L := NewSandbox()
+	defer L.Close()
+
+	err := L.DoString(`
+		local loaders = package.loaders
+		if #loaders ~= 1 then
+			error("expected exactly 1 loader (preload), got " .. #loaders)
+		end
+	`)
+	if err != nil {
+		t.Fatalf("package.loaders check failed: %v", err)
+	}
+
+	err = L.DoString(`
+		local loader = package.loaders[2]
+		if loader ~= nil then
+			error("filesystem loader should not be present")
+		end
+	`)
+	if err != nil {
+		t.Fatalf("filesystem loader check failed: %v", err)
 	}
 }
 

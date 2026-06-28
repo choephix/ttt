@@ -41,6 +41,19 @@ func TestEventToLuaKeyEventSpecial(t *testing.T) {
 	}
 }
 
+func TestEventToLuaKeyEventModNilWhenNone(t *testing.T) {
+	L := lua.NewState()
+	defer L.Close()
+
+	ev := tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone)
+	tbl := eventToLua(L, ev)
+
+	mod := tbl.RawGetString("mod")
+	if mod != lua.LNil {
+		t.Errorf("expected mod to be nil when no modifier, got %s (%q)", mod.Type(), mod.String())
+	}
+}
+
 func TestEventToLuaKeyEventCtrl(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
@@ -51,6 +64,19 @@ func TestEventToLuaKeyEventCtrl(t *testing.T) {
 	mod := tbl.RawGetString("mod").String()
 	if mod != "ctrl" {
 		t.Errorf("expected mod=ctrl, got %s", mod)
+	}
+}
+
+func TestEventToLuaKeyEventCombinedModifiers(t *testing.T) {
+	L := lua.NewState()
+	defer L.Close()
+
+	ev := tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModCtrl|tcell.ModShift)
+	tbl := eventToLua(L, ev)
+
+	mod := tbl.RawGetString("mod").String()
+	if mod != "ctrl+shift" {
+		t.Errorf("expected mod=ctrl+shift, got %s", mod)
 	}
 }
 

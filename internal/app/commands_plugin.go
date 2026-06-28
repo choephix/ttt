@@ -6,12 +6,12 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
 	"github.com/gdamore/tcell/v2"
-	lua "github.com/yuin/gopher-lua"
 )
 
 func registerPluginCommands(app *App) {
@@ -220,6 +220,9 @@ func (a *App) handlePluginUpdateResult(result *pluginUpdateResult) {
 		}
 		return
 	}
+	if !result.needsApproval && result.plugin != nil {
+		a.WirePlugin(result.plugin)
+	}
 	if a.PluginsPanel != nil {
 		a.PluginsPanel.Refresh()
 	}
@@ -251,7 +254,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 		{Label: "&Allow", Handler: func() {
 			a.DismissDialog()
 			if err := a.PluginManager.ApproveAndLoad(p); err == nil {
-				a.wirePlugin(p)
+				a.WirePlugin(p)
 			}
 			if a.PluginsPanel != nil {
 				a.PluginsPanel.Refresh()
@@ -269,7 +272,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	a.ShowDialog(adapter)
 }
 
-func (a *App) wirePlugin(p *plugin.Plugin) {
+func (a *App) WirePlugin(p *plugin.Plugin) {
 	for _, reg := range a.PluginManager.SidebarPanels {
 		if reg.ID == "plugin."+p.Name {
 			if !a.Sidebar.HasPanel(reg.ID) {
@@ -325,8 +328,24 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
+	p.RenderMarkdown = func(text string) []plugin.MarkdownLine {
+		rendered := markdown.Render(text)
+		lines := make([]plugin.MarkdownLine, len(rendered))
+		for i, line := range rendered {
+			spans := make([]plugin.MarkdownSpan, len(line.Spans))
+			for j, span := range line.Spans {
+				spans[j] = plugin.MarkdownSpan{Text: span.Text, Style: span.Style}
+			}
+			lines[i] = plugin.MarkdownLine{Spans: spans}
+		}
+		return lines
+	}
 	p.Editor = NewPluginEditorAPI(a)
-	p.Filesystem = NewPluginFilesystemAPI()
+	fsRoots := a.Workspace.Paths()
+	if p.Dir != "" {
+		fsRoots = append(fsRoots, p.Dir)
+	}
+	p.Filesystem = NewPluginFilesystemAPI(fsRoots...)
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
@@ -365,8 +384,7 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 		a.Root.SetFocus(menu)
 	}
 
-	p.OpenDrawer = func(renderFunc *lua.LFunction, width, minWidth int) {
-		panelWidget := plugin.NewPluginPanelWidget(p, renderFunc, nil)
+	p.OpenDrawer = func(panel *plugin.PluginPanelWidget, width, minWidth int) {
 		drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
 			Width:    width,
 			MinWidth: minWidth,
@@ -375,21 +393,20 @@ func (a *App) wirePlugin(p *plugin.Plugin) {
 				a.DismissDialog()
 			},
 		})
-		drawer.SetContent(panelWidget)
+		drawer.SetContent(panel)
 		a.ShowDrawer(drawer)
 	}
 	p.CloseDrawer = func() {
 		a.DismissDialog()
 	}
-	p.OpenTab = func(id string, renderFunc, eventFunc *lua.LFunction) {
-		panelWidget := plugin.NewPluginPanelWidget(p, renderFunc, eventFunc)
-		a.EditorGroup.OpenPluginTab(id, panelWidget)
+	p.OpenTab = func(id string, panel *plugin.PluginPanelWidget) {
+		a.EditorGroup.OpenPluginTab(id, panel)
 	}
 	p.CloseTab = func(id string) {
 		a.EditorGroup.ClosePluginTab(id)
 	}
 
-	if p.SidebarMenuFunc != nil {
+	if p.HasSidebarMenu() {
 		for _, entry := range p.SidebarMenuEntries {
 			if entry.Separator || entry.Command == "" {
 				continue
@@ -423,13 +440,14 @@ func (a *App) wirePluginLog(p *plugin.Plugin) {
 func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
 	for _, cmd := range p.Commands {
 		handler := cmd.Handler
-		plug := p
+		cmdID := cmd.ID
+		plugName := p.Name
 		a.Reg.Register(command.Command{
 			ID:    cmd.ID,
 			Title: cmd.Title,
 			Handler: func() {
-				if err := plug.CallLuaFunc(handler); err != nil {
-					slog.Error("plugin command error", "plugin", plug.Name, "command", cmd.ID, "error", err)
+				if err := handler(); err != nil {
+					slog.Error("plugin command error", "plugin", plugName, "command", cmdID, "error", err)
 				}
 			},
 		})
@@ -463,7 +481,7 @@ func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
 
 func (a *App) RegisterStartupPluginCommands() {
 	for _, p := range a.PluginManager.Plugins() {
-		a.wirePlugin(p)
+		a.WirePlugin(p)
 	}
 }
 
@@ -508,7 +526,7 @@ func (a *App) doPluginReload(name string) {
 		return
 	}
 
-	a.wirePlugin(p)
+	a.WirePlugin(p)
 
 	a.Output.AddLine(ui.OutputLine{
 		Time:       time.Now().Format("15:04:05"),

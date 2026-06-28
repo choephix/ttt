@@ -50,17 +50,20 @@ func fsRead(p *Plugin) lua.LGFunction {
 func fsWrite(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Filesystem == nil {
+			L.Push(lua.LNil)
 			L.Push(lua.LString("filesystem API not available"))
-			return 1
+			return 2
 		}
 		path := L.CheckString(1)
 		content := L.CheckString(2)
 		err := p.Filesystem.WriteFile(path, content)
 		if err != nil {
+			L.Push(lua.LNil)
 			L.Push(lua.LString(err.Error()))
-			return 1
+			return 2
 		}
-		return 0
+		L.Push(lua.LTrue)
+		return 1
 	}
 }
 

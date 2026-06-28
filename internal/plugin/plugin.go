@@ -1,18 +1,30 @@
 package plugin
 
 import (
+	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
 )
 
+type MarkdownSpan struct {
+	Text  string
+	Style term.Style
+}
+
+type MarkdownLine struct {
+	Spans []MarkdownSpan
+}
+
 type PluginCommand struct {
 	ID      string
 	Title   string
-	Handler *lua.LFunction
+	Handler func() error
 }
 
 type PluginKeybinding struct {
@@ -21,6 +33,8 @@ type PluginKeybinding struct {
 }
 
 type Plugin struct {
+	mu sync.Mutex
+
 	Name     string
 	Dir      string
 	Repo     string
@@ -31,7 +45,7 @@ type Plugin struct {
 
 	SidebarTitle       string
 	SidebarMenuEntries []widgets.MenuEntry
-	SidebarMenuFunc    *lua.LFunction
+	sidebarMenuFunc    *lua.LFunction
 	RenderFunc         *lua.LFunction
 	EventFunc          *lua.LFunction
 
@@ -42,22 +56,23 @@ type Plugin struct {
 	Commands          []PluginCommand
 	PluginKeybindings []PluginKeybinding
 
-	RequestRedraw   func()
-	PostAsync       func(*PluginAsyncResult)
-	Log             func(level, message string)
-	ShowContextMenu func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
+	RequestRedraw     func()
+	PostAsync         func(*PluginAsyncResult)
+	Log               func(level, message string)
+	ShowContextMenu   func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
 	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
 	ShowConfirmDialog func(message string, onConfirm func())
+	OpenDrawer        func(panel *PluginPanelWidget, width, minWidth int)
+	CloseDrawer       func()
+	OpenTab           func(id string, panel *PluginPanelWidget)
+	CloseTab          func(id string)
+	RenderMarkdown    func(text string) []MarkdownLine
+	Borders           *term.BorderSet
 	SimulateClick     func(x, y int)
 	SimulateDrag      func(x1, y1, x2, y2 int)
 	ScreenshotToFile  func(path string) error
 	DebugDumpToFile   func(path string) error
 	QuitApp           func()
-	OpenDrawer        func(renderFunc *lua.LFunction, width, minWidth int)
-	CloseDrawer       func()
-	OpenTab           func(id string, renderFunc, eventFunc *lua.LFunction)
-	CloseTab          func(id string)
-	Borders         *term.BorderSet
 
 	Editor     EditorAPI
 	Filesystem FilesystemAPI
@@ -78,8 +93,21 @@ func (p *Plugin) Init() error {
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
+	setupJSONModule(p.State)
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
+	absEntry, err := filepath.Abs(entry)
+	if err != nil {
+		p.State.Close()
+		p.State = nil
+		return fmt.Errorf("invalid entry path: %w", err)
+	}
+	absDir, _ := filepath.Abs(p.Dir)
+	if !strings.HasPrefix(absEntry, absDir+string(filepath.Separator)) {
+		p.State.Close()
+		p.State = nil
+		return fmt.Errorf("entry path %q escapes plugin directory", p.Manifest.Entry)
+	}
 	if err := p.State.DoFile(entry); err != nil {
 		p.LastError = err
 		p.State.Close()
@@ -101,6 +129,7 @@ func (p *Plugin) InitFromSource(source string) error {
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
+	setupJSONModule(p.State)
 
 	if err := p.State.DoString(source); err != nil {
 		p.LastError = err
@@ -121,7 +150,17 @@ func (p *Plugin) logError(context string, err error) {
 	}
 }
 
+func (p *Plugin) SafePostAsync(result *PluginAsyncResult) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.PostAsync != nil {
+		p.PostAsync(result)
+	}
+}
+
 func (p *Plugin) Destroy() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.State != nil {
 		p.State.Close()
 		p.State = nil
@@ -131,23 +170,36 @@ func (p *Plugin) Destroy() {
 	p.EventFunc = nil
 	p.BottomRenderFunc = nil
 	p.BottomEventFunc = nil
+	p.sidebarMenuFunc = nil
 	p.Commands = nil
 	p.PluginKeybindings = nil
 	p.RequestRedraw = nil
 	p.PostAsync = nil
 	p.Log = nil
 	p.ShowContextMenu = nil
+	p.ShowInfoDialog = nil
 	p.ShowConfirmDialog = nil
 	p.OpenDrawer = nil
 	p.CloseDrawer = nil
 	p.OpenTab = nil
 	p.CloseTab = nil
+	p.RenderMarkdown = nil
+	p.Borders = nil
+	p.SimulateClick = nil
+	p.SimulateDrag = nil
+	p.ScreenshotToFile = nil
+	p.DebugDumpToFile = nil
+	p.QuitApp = nil
 	p.EventListeners = nil
 }
 
+func (p *Plugin) HasSidebarMenu() bool {
+	return p.sidebarMenuFunc != nil
+}
+
 func (p *Plugin) CallSidebarAction(cmd string) {
-	if p.SidebarMenuFunc != nil && p.State != nil {
-		p.CallLuaFunc(p.SidebarMenuFunc, lua.LString(cmd))
+	if p.sidebarMenuFunc != nil && p.State != nil {
+		p.CallLuaFunc(p.sidebarMenuFunc, lua.LString(cmd))
 	}
 }
 

@@ -305,6 +305,102 @@ ttt.show_info("Shortcuts", {
 })
 ```
 
+### `ttt.open_drawer(config)`
+
+Open a drawer panel on the right side of the editor. Requires `panel.drawer` permission.
+
+| Parameter   | Type     | Required | Description                                      |
+|-------------|----------|----------|--------------------------------------------------|
+| `width`     | number   | no       | Initial drawer width in columns.                 |
+| `min_width` | number   | no       | Minimum resize width in columns.                 |
+| `render`    | function | yes      | Render function. Receives a panel proxy object.  |
+
+```lua
+ttt.open_drawer({
+  width = 50,
+  min_width = 30,
+  render = function(panel)
+    panel:label("Drawer content")
+  end,
+})
+```
+
+### `ttt.close_drawer()`
+
+Close the current drawer panel. No arguments. Requires `panel.drawer` permission.
+
+```lua
+ttt.close_drawer()
+```
+
+### `ttt.open_tab(config)`
+
+Open a custom editor tab with plugin-rendered content. Requires `panel.editor` permission.
+
+| Parameter  | Type     | Required | Description                                       |
+|------------|----------|----------|---------------------------------------------------|
+| `title`    | string   | yes      | Tab title displayed in the editor tab bar.        |
+| `render`   | function | yes      | Render function. Receives a panel proxy object.   |
+| `on_event` | function | no       | Fallback handler for key/mouse events not consumed by widgets. |
+
+```lua
+ttt.open_tab({
+  title = "Preview",
+  render = function(panel)
+    panel:label("Tab content here")
+  end,
+  on_event = function(ev) end,
+})
+```
+
+### `ttt.close_tab(id)`
+
+Close a plugin editor tab by its ID (string). Requires `panel.editor` permission.
+
+```lua
+ttt.close_tab("my-tab-id")
+```
+
+### `ttt.markdown(text)`
+
+Parse a markdown string into styled spans. Returns a table of lines, where each line is a table of spans with `text` and `style` fields. No permission required.
+
+```lua
+local lines = ttt.markdown("# Hello\nSome **bold** text")
+-- lines[1] = { {text = "Hello", style = "bold"} }
+-- lines[2] = { {text = "Some ", style = "default"}, {text = "bold", style = "bold"}, ... }
+```
+
+### `ttt.json` Module
+
+The `ttt.json` module provides JSON encoding and decoding. No permission required.
+
+```lua
+local json = require("ttt.json")
+```
+
+#### `json.encode(value)`
+
+Encode a Lua table or value to a JSON string.
+
+```lua
+local str = json.encode({name = "test", value = 42})
+-- '{"name":"test","value":42}'
+```
+
+#### `json.decode(str)`
+
+Decode a JSON string to a Lua table. Returns `nil, error_string` on failure.
+
+```lua
+local tbl, err = json.decode('{"name":"test"}')
+if tbl then
+  -- tbl.name == "test"
+else
+  ttt.log("error", "JSON decode failed: " .. err)
+end
+```
+
 ---
 
 ## Widget API
@@ -336,6 +432,7 @@ panel:label({ text = "Hint: press Enter", style = "muted", padding_left = 1 })
 | `text`  | string | yes      | Label text to display.                            |
 | `style` | string | no       | Named style (see [Styles](#styles)). Default: `"default"`. |
 | `badge` | string | no       | Badge text displayed after the label.             |
+| `width` | number | no       | Fixed width in columns. Text is truncated or padded to fit. |
 | + [box model fields](#box-model) | | | Margin and padding. |
 
 Labels are not focusable — they display text only and don't receive keyboard events.
@@ -437,8 +534,9 @@ panel:tree({
 | `indent`     | number   | `2`     | Number of spaces per nesting level.            |
 | `on_select`  | function | nil     | Callback when a node is activated (Enter or double-click). Receives the node table. |
 | `on_expand`  | function | nil     | Callback when a node is expanded or collapsed. Receives the node table. |
-| `on_command` | function | nil     | Callback when a context menu command is selected. Receives `(command, node)`. |
-| `node_menu`  | table    | nil     | Array of [menu entries](#menu-entry-format) for right-click context menu on nodes. |
+| `on_command`   | function | nil     | Callback when a context menu command or key command is selected. Receives `(command, node)`. |
+| `node_menu`    | table    | nil     | Array of [menu entries](#menu-entry-format) for right-click context menu on nodes. |
+| `key_commands` | table    | nil     | Map of single-char keys to command strings. When pressed, triggers `on_command(command, selected_node)`. |
 
 **Keyboard navigation:** When focused, Up/Down arrows move selection, Enter activates `on_select`, Left/Right collapse/expand nodes. Shift+Enter opens the context menu on the selected node.
 
@@ -474,10 +572,11 @@ panel:list({
 
 | Field        | Type     | Default | Description                                            |
 |--------------|----------|---------|--------------------------------------------------------|
-| `items`      | table    | `{}`    | Array of [tree node tables](#tree-node-format).        |
-| `on_select`  | function | nil     | Callback when an item is activated. Receives the node table. |
-| `on_command` | function | nil     | Callback when a context menu command is selected. Receives `(command, node)`. |
-| `node_menu`  | table    | nil     | Array of [menu entries](#menu-entry-format) for the right-click context menu. |
+| `items`        | table    | `{}`    | Array of [tree node tables](#tree-node-format).        |
+| `on_select`    | function | nil     | Callback when an item is activated. Receives the node table. |
+| `on_command`   | function | nil     | Callback when a context menu command or key command is selected. Receives `(command, node)`. |
+| `node_menu`    | table    | nil     | Array of [menu entries](#menu-entry-format) for the right-click context menu. |
+| `key_commands` | table    | nil     | Map of single-char keys to command strings. When pressed, triggers `on_command(command, selected_node)`. |
 
 ---
 
@@ -579,6 +678,7 @@ panel:hstack({
 |----------|----------|----------|------------------------------------------------------------|
 | `render` | function | yes      | Builder function that receives a child panel proxy. Call widget methods on it to add children. |
 | `gap`    | number   | no       | Horizontal gap (in columns) between children. Default: `0`. |
+| `height` | number   | no       | Fixed height in rows.                                       |
 
 The first child in the hstack expands to fill remaining horizontal space. All subsequent children are given their natural/fixed width. This is useful for toolbar-style layouts with a label or spacer on the left and action buttons on the right.
 
@@ -1365,6 +1465,19 @@ Named styles available for both widget and raw cell rendering. Actual colors dep
 | `item`     | List/palette item              |
 | `line`     | Line numbers                   |
 | `input`    | Input field text               |
+| `bold`     | Bold/emphasized text           |
+| `code`     | Code/monospace text            |
+| `syntax_comment`   | Syntax: comments       |
+| `syntax_string`    | Syntax: string literals |
+| `syntax_keyword`   | Syntax: keywords       |
+| `syntax_number`    | Syntax: numeric literals |
+| `syntax_operator`  | Syntax: operators      |
+| `syntax_function`  | Syntax: function names |
+| `syntax_type`      | Syntax: type names     |
+| `syntax_builtin`   | Syntax: built-in identifiers |
+| `syntax_variable`  | Syntax: variables      |
+| `syntax_tag`       | Syntax: HTML/XML tags  |
+| `syntax_attribute` | Syntax: HTML/XML attributes |
 
 Styles can be passed as a string or a table:
 
@@ -1436,7 +1549,8 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 |------------------|----------|---------------------------------------------------|
 | `panel.sidebar`  | boolean  | Register a sidebar panel.                         |
 | `panel.bottom`   | boolean  | Register a bottom panel.                          |
-| `panel.drawer`   | boolean  | Register a drawer panel. (Reserved for future use.) |
+| `panel.drawer`   | boolean  | Open drawer panels via `ttt.open_drawer()`.         |
+| `panel.editor`   | boolean  | Open editor tabs via `ttt.open_tab()`.              |
 | `commands`       | boolean  | Register commands in the command palette.         |
 | `keybindings`    | boolean  | Bind keyboard shortcuts.                          |
 | `editor.read`    | boolean  | Read the contents of editor buffers (`ttt.editor` read functions). |
@@ -1477,7 +1591,7 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 
 | Module   | Available | Notes                        |
 |----------|-----------|------------------------------|
-| `base`   | yes       | `print`, `type`, `tostring`, `tonumber`, `pairs`, `ipairs`, `select`, `unpack`, `error`, `pcall`, `xpcall`, `assert`, `rawget`, `rawset`, `rawequal`, `setmetatable`, `getmetatable` |
+| `base`   | yes       | `type`, `tostring`, `tonumber`, `pairs`, `ipairs`, `select`, `unpack`, `error`, `pcall`, `xpcall`, `assert`, `rawequal`, `setmetatable`, `getmetatable` |
 | `string` | yes       | Full string library (`format`, `find`, `gsub`, `match`, `sub`, `rep`, `upper`, `lower`, `byte`, `char`, `len`, `reverse`) |
 | `table`  | yes       | Full table library (`insert`, `remove`, `sort`, `concat`, `maxn`) |
 | `math`   | yes       | Full math library (`floor`, `ceil`, `sqrt`, `sin`, `cos`, `random`, `pi`, etc.) |
@@ -1485,13 +1599,14 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 | `io`     | **no**    | Blocked entirely.            |
 | `debug`  | **no**    | Not loaded.                  |
 
-**Removed globals:** `dofile`, `loadfile` are set to nil.
+**Removed globals:** `dofile`, `loadfile`, `load`, `loadstring`, `getfenv`, `setfenv`, `rawset`, `rawget`, `print` are removed from the sandbox.
 
 **Module loading:** `require()` only allows these modules:
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `markdown` |
+| `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |
 | `ttt.system`   | Command execution, env vars    |

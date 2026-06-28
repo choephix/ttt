@@ -135,7 +135,7 @@ func (a *App) debugRunPlugin() {
 	}
 
 	a.PluginManager.RegisterDebugPlugin(p)
-	a.wirePlugin(p)
+	a.WirePlugin(p)
 
 	hasSidebar := p.SidebarTitle != ""
 	hasBottom := p.BottomTitle != ""
@@ -218,7 +218,7 @@ func LoadPluginFromFile(a *App, path string) {
 	}
 
 	a.PluginManager.RegisterDebugPlugin(p)
-	a.wirePlugin(p)
+	a.WirePlugin(p)
 
 	slog.Info("plugin loaded from file", "path", path, "name", name)
 }

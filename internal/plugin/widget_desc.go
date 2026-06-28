@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"github.com/eugenioenko/ttt/internal/widgets"
-	lua "github.com/yuin/gopher-lua"
 )
 
 type WidgetKind int
@@ -74,19 +73,19 @@ type WidgetDesc struct {
 
 	Items     []*widgets.TreeNode
 	Indent    int
-	OnSelect  *lua.LFunction
-	OnExpand  *lua.LFunction
-	OnCommand *lua.LFunction
+	OnSelect  func(node *widgets.TreeNode)
+	OnExpand  func(node *widgets.TreeNode)
+	OnCommand func(command string, node *widgets.TreeNode)
 	NodeMenu    []widgets.MenuEntry
 	KeyCommands map[rune]string
 
 	Label   string
-	OnClick *lua.LFunction
+	OnClick func()
 
 	Placeholder    string
 	Prefix         string
-	OnChange       *lua.LFunction
-	OnSubmit       *lua.LFunction
+	OnChange       func(text string)
+	OnSubmit       func(text string)
 	ClearOnSubmit  bool
 
 	Children     []WidgetDesc
@@ -100,6 +99,6 @@ type WidgetDesc struct {
 	Gap          int
 
 	Entries         []widgets.MenuEntry
-	OnMenu         *lua.LFunction
+	OnMenu         func(command string)
 	KeyValueEntries []widgets.KeyValueEntry
 }

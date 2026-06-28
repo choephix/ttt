@@ -72,10 +72,12 @@ func TestSystemExecDeniedBinary(t *testing.T) {
 
 	err := p.State.DoString(`
 		local sys = require("ttt.system")
-		sys.exec("rm", {"-rf", "/"})
+		local result, err = sys.exec("rm", {"-rf", "/"})
+		assert(result == nil, "expected nil result")
+		assert(err ~= nil, "expected error string")
 	`)
-	if err == nil {
-		t.Fatal("expected error for unapproved binary")
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -147,4 +149,91 @@ func TestSystemNoEnvPermission(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when system.env not granted")
 	}
+}
+
+func TestSystemExecAsyncWithoutArgs(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "output"}
+
+	ch := make(chan func(), 1)
+	p, cleanup := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+	defer cleanup()
+
+	p.PostAsync = func(result *PluginAsyncResult) {
+		ch <- result.Callback
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("echo", function(result)
+			_G.got_stdout = result.stdout
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async without args failed: %v", err)
+	}
+
+	callback := <-ch
+	callback()
+
+	if p.State.GetGlobal("got_stdout").String() != "output" {
+		t.Errorf("expected stdout 'output', got %q", p.State.GetGlobal("got_stdout").String())
+	}
+}
+
+func TestSystemExecAsyncRaceSafety(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "ok"}
+
+	p, _ := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+
+	done := make(chan struct{})
+	p.PostAsync = func(result *PluginAsyncResult) {
+		close(done)
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("echo", {"hello"}, function(result) end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async call failed: %v", err)
+	}
+
+	// Wait for goroutine to finish posting, then destroy.
+	// The race detector would flag if SafePostAsync and Destroy weren't synchronized.
+	<-done
+	p.Destroy()
+}
+
+func TestSystemExecAsyncNilStateSafety(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "ok"}
+
+	ch := make(chan func(), 1)
+	p, _ := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+
+	p.PostAsync = func(result *PluginAsyncResult) {
+		ch <- result.Callback
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("echo", {"hello"}, function(result) end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async call failed: %v", err)
+	}
+
+	capturedCallback := <-ch
+
+	p.Destroy()
+
+	capturedCallback()
 }

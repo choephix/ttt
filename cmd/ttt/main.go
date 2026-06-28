@@ -210,9 +210,10 @@ Docs: https://tttedit.dev
 	app.RegisterCommands(editor)
 	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
 
-	pluginsDir := filepath.Join(filepath.Dir(config.ConfigFilePath("plugins.ttt.json")), "plugins")
+	registryPath := config.ConfigFilePath("plugins.ttt.json")
+	pluginsDir := filepath.Join(filepath.Dir(registryPath), "plugins")
 	localPluginsDir := filepath.Join(editor.Workspace.Primary(), "plugins")
-	pluginManager := plugin.NewManager(pluginsDir, localPluginsDir)
+	pluginManager := plugin.NewManager(pluginsDir, registryPath, localPluginsDir)
 	pendingApprovals := pluginManager.LoadAll()
 	editor.PluginManager = pluginManager
 	defer pluginManager.Shutdown()
@@ -224,7 +225,13 @@ Docs: https://tttedit.dev
 		editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
 	}
 	pluginManager.SetEditorAPI(app.NewPluginEditorAPI(editor))
-	pluginManager.SetFilesystemAPI(app.NewPluginFilesystemAPI())
+	pluginManager.SetFilesystemAPI(func(pluginDir string) plugin.FilesystemAPI {
+		roots := editor.Workspace.Paths()
+		if pluginDir != "" {
+			roots = append(roots, pluginDir)
+		}
+		return app.NewPluginFilesystemAPI(roots...)
+	})
 	pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
 	pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
 
@@ -260,8 +267,12 @@ Docs: https://tttedit.dev
 		editor.PluginUninstallByName(name)
 	}
 	pluginsPanel.OnToggle = func(name string, enabled bool) {
-		if err := pluginManager.SetEnabled(name, enabled); err != nil {
+		p, err := pluginManager.SetEnabled(name, enabled)
+		if err != nil {
 			slog.Error("toggle plugin", "error", err)
+		}
+		if p != nil {
+			editor.WirePlugin(p)
 		}
 		pluginsPanel.Refresh()
 	}

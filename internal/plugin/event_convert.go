@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"strings"
+
 	"github.com/gdamore/tcell/v2"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -30,15 +32,19 @@ func keyEventToLua(L *lua.LState, e *tcell.EventKey) *lua.LTable {
 		L.SetField(tbl, "key", lua.LString(name))
 	}
 
-	mod := ""
+	var mods []string
 	if e.Modifiers()&tcell.ModCtrl != 0 {
-		mod = "ctrl"
-	} else if e.Modifiers()&tcell.ModAlt != 0 {
-		mod = "alt"
-	} else if e.Modifiers()&tcell.ModShift != 0 {
-		mod = "shift"
+		mods = append(mods, "ctrl")
 	}
-	L.SetField(tbl, "mod", lua.LString(mod))
+	if e.Modifiers()&tcell.ModAlt != 0 {
+		mods = append(mods, "alt")
+	}
+	if e.Modifiers()&tcell.ModShift != 0 {
+		mods = append(mods, "shift")
+	}
+	if len(mods) > 0 {
+		L.SetField(tbl, "mod", lua.LString(strings.Join(mods, "+")))
+	}
 
 	return tbl
 }

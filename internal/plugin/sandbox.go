@@ -3,45 +3,10 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/eugenioenko/ttt/internal/markdown"
-	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
 )
 
-// reverseStyleMap maps term.Style constants to plugin style name strings.
-var reverseStyleMap = map[term.Style]string{
-	term.StyleDefault:         "default",
-	term.StyleMuted:           "muted",
-	term.StyleBorder:          "border",
-	term.StyleSuccess:         "success",
-	term.StyleDanger:          "danger",
-	term.StyleWarning:         "warning",
-	term.StyleSidebarSelected: "selected",
-	term.StylePaletteItem:     "item",
-	term.StyleLineNumber:      "line",
-	term.StyleInput:           "input",
-	term.StyleHoverBold:       "bold",
-	term.StyleHoverCode:       "code",
-	term.StyleSyntaxComment:   "syntax_comment",
-	term.StyleSyntaxString:    "syntax_string",
-	term.StyleSyntaxKeyword:   "syntax_keyword",
-	term.StyleSyntaxNumber:    "syntax_number",
-	term.StyleSyntaxOperator:  "syntax_operator",
-	term.StyleSyntaxFunction:  "syntax_function",
-	term.StyleSyntaxType:      "syntax_type",
-	term.StyleSyntaxBuiltin:   "syntax_builtin",
-	term.StyleSyntaxVariable:  "syntax_variable",
-	term.StyleSyntaxTag:       "syntax_tag",
-	term.StyleSyntaxAttribute: "syntax_attribute",
-}
-
-func styleToName(s term.Style) string {
-	if name, ok := reverseStyleMap[s]; ok {
-		return name
-	}
-	return "default"
-}
 
 func NewSandbox() *lua.LState {
 	L := lua.NewState(lua.Options{SkipOpenLibs: true})
@@ -61,8 +26,25 @@ func NewSandbox() *lua.LState {
 		L.Call(1, 0)
 	}
 
-	for _, name := range []string{"dofile", "loadfile"} {
+	for _, name := range []string{
+		"dofile", "loadfile", "load", "loadstring",
+		"getfenv", "setfenv",
+		"rawset", "rawget",
+		"print",
+	} {
 		L.SetGlobal(name, lua.LNil)
+	}
+
+	pkg := L.GetGlobal("package")
+	if tbl, ok := pkg.(*lua.LTable); ok {
+		loaders := L.GetField(tbl, "loaders")
+		if lt, ok := loaders.(*lua.LTable); ok {
+			preload := lt.RawGetInt(1)
+			for i := lt.Len(); i >= 1; i-- {
+				lt.Remove(i)
+			}
+			lt.RawSetInt(1, preload)
+		}
 	}
 
 	return L
@@ -96,7 +78,7 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 					p.SidebarMenuEntries = parseLuaMenuEntries(L, actions)
 				}
 				if fn, ok := L.GetField(st, "on_action").(*lua.LFunction); ok {
-					p.SidebarMenuFunc = fn
+					p.sidebarMenuFunc = fn
 				}
 			}
 
@@ -134,10 +116,11 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 					if id == lua.LNil || title == lua.LNil || !hOk {
 						return
 					}
+					fn := handler
 					p.Commands = append(p.Commands, PluginCommand{
 						ID:      id.String(),
 						Title:   title.String(),
-						Handler: handler,
+						Handler: func() error { return p.CallLuaFunc(fn) },
 					})
 				})
 			}
@@ -245,7 +228,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				}
 			}
 			if p.OpenDrawer != nil {
-				p.OpenDrawer(renderFunc, width, minWidth)
+				panel := NewPluginPanelWidget(p, renderFunc, nil)
+				p.OpenDrawer(panel, width, minWidth)
 			}
 			return 0
 		}))
@@ -277,7 +261,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				eventFunc = fn
 			}
 			if p.OpenTab != nil {
-				p.OpenTab(title, renderFunc, eventFunc)
+				panel := NewPluginPanelWidget(p, renderFunc, eventFunc)
+				p.OpenTab(title, panel)
 			}
 			return 0
 		}))
@@ -338,15 +323,19 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		}))
 
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
+			if p.RenderMarkdown == nil {
+				L.Push(L.NewTable())
+				return 1
+			}
 			text := L.CheckString(1)
-			rendered := markdown.Render(text)
+			rendered := p.RenderMarkdown(text)
 			result := L.NewTable()
 			for i, line := range rendered {
 				lineTable := L.NewTable()
 				for j, span := range line.Spans {
 					spanTable := L.NewTable()
 					L.SetField(spanTable, "text", lua.LString(span.Text))
-					L.SetField(spanTable, "style", lua.LString(styleToName(span.Style)))
+					L.SetField(spanTable, "style", lua.LString(NameByStyle(span.Style)))
 					lineTable.RawSetInt(j+1, spanTable)
 				}
 				result.RawSetInt(i+1, lineTable)

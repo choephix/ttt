@@ -12,6 +12,13 @@ type BoxWidget struct {
 	FixedWidth  int
 }
 
+func (b *BoxWidget) WidgetChildren() []Widget {
+	if b.Child != nil {
+		return []Widget{b.Child}
+	}
+	return nil
+}
+
 func NewBoxWidget(bm BoxModel) *BoxWidget {
 	return &BoxWidget{BaseWidget: BaseWidget{Box: bm}}
 }
