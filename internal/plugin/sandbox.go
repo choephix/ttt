@@ -161,8 +161,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				level = "info"
 				message = L.CheckString(1)
 			}
-			if p.Log != nil {
-				p.Log(level, message)
+			if p.Host.Log != nil {
+				p.Host.Log(level, message)
 			}
 			return 0
 		}))
@@ -185,8 +185,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				}
 				entries = append(entries, entry)
 			})
-			if p.ShowInfoDialog != nil {
-				p.ShowInfoDialog(title, entries)
+			if p.Host.ShowInfoDialog != nil {
+				p.Host.ShowInfoDialog(title, entries)
 			}
 			return 0
 		}))
@@ -194,8 +194,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		L.SetField(mod, "confirm", L.NewFunction(func(L *lua.LState) int {
 			message := L.CheckString(1)
 			callback := L.CheckFunction(2)
-			if p.ShowConfirmDialog != nil {
-				p.ShowConfirmDialog(message, func() {
+			if p.Host.ShowConfirmDialog != nil {
+				p.Host.ShowConfirmDialog(message, func() {
 					if err := p.CallLuaFunc(callback); err != nil {
 						p.logError("confirm callback", err)
 					}
@@ -227,16 +227,16 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 					minWidth = int(n)
 				}
 			}
-			if p.OpenDrawer != nil {
+			if p.Host.OpenDrawer != nil {
 				panel := NewPluginPanelWidget(p, renderFunc, nil)
-				p.OpenDrawer(panel, width, minWidth)
+				p.Host.OpenDrawer(panel, width, minWidth)
 			}
 			return 0
 		}))
 
 		L.SetField(mod, "close_drawer", L.NewFunction(func(L *lua.LState) int {
-			if p.CloseDrawer != nil {
-				p.CloseDrawer()
+			if p.Host.CloseDrawer != nil {
+				p.Host.CloseDrawer()
 			}
 			return 0
 		}))
@@ -260,17 +260,17 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			if fn, ok := L.GetField(tbl, "on_event").(*lua.LFunction); ok {
 				eventFunc = fn
 			}
-			if p.OpenTab != nil {
+			if p.Host.OpenTab != nil {
 				panel := NewPluginPanelWidget(p, renderFunc, eventFunc)
-				p.OpenTab(title, panel)
+				p.Host.OpenTab(title, panel)
 			}
 			return 0
 		}))
 
 		L.SetField(mod, "close_tab", L.NewFunction(func(L *lua.LState) int {
 			id := L.CheckString(1)
-			if p.CloseTab != nil {
-				p.CloseTab(id)
+			if p.Host.CloseTab != nil {
+				p.Host.CloseTab(id)
 			}
 			return 0
 		}))
@@ -278,8 +278,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		L.SetField(mod, "click", L.NewFunction(func(L *lua.LState) int {
 			x := L.CheckInt(1)
 			y := L.CheckInt(2)
-			if p.SimulateClick != nil {
-				p.SimulateClick(x, y)
+			if p.Debug.SimulateClick != nil {
+				p.Debug.SimulateClick(x, y)
 			}
 			return 0
 		}))
@@ -289,16 +289,16 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			y1 := L.CheckInt(2)
 			x2 := L.CheckInt(3)
 			y2 := L.CheckInt(4)
-			if p.SimulateDrag != nil {
-				p.SimulateDrag(x1, y1, x2, y2)
+			if p.Debug.SimulateDrag != nil {
+				p.Debug.SimulateDrag(x1, y1, x2, y2)
 			}
 			return 0
 		}))
 
 		L.SetField(mod, "screenshot", L.NewFunction(func(L *lua.LState) int {
 			path := L.CheckString(1)
-			if p.ScreenshotToFile != nil {
-				if err := p.ScreenshotToFile(path); err != nil {
+			if p.Debug.ScreenshotToFile != nil {
+				if err := p.Debug.ScreenshotToFile(path); err != nil {
 					L.ArgError(1, err.Error())
 				}
 			}
@@ -307,8 +307,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 
 		L.SetField(mod, "debug", L.NewFunction(func(L *lua.LState) int {
 			path := L.CheckString(1)
-			if p.DebugDumpToFile != nil {
-				if err := p.DebugDumpToFile(path); err != nil {
+			if p.Debug.DebugDumpToFile != nil {
+				if err := p.Debug.DebugDumpToFile(path); err != nil {
 					L.ArgError(1, err.Error())
 				}
 			}
@@ -316,19 +316,19 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		}))
 
 		L.SetField(mod, "quit", L.NewFunction(func(L *lua.LState) int {
-			if p.QuitApp != nil {
-				p.QuitApp()
+			if p.Debug.QuitApp != nil {
+				p.Debug.QuitApp()
 			}
 			return 0
 		}))
 
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
-			if p.RenderMarkdown == nil {
+			if p.Host.RenderMarkdown == nil {
 				L.Push(L.NewTable())
 				return 1
 			}
 			text := L.CheckString(1)
-			rendered := p.RenderMarkdown(text)
+			rendered := p.Host.RenderMarkdown(text)
 			result := L.NewTable()
 			for i, line := range rendered {
 				lineTable := L.NewTable()

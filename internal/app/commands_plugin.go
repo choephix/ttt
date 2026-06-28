@@ -289,17 +289,17 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 			break
 		}
 	}
-	p.RequestRedraw = func() {
+	p.Host.RequestRedraw = func() {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
-	p.SimulateClick = func(x, y int) {
+	p.Debug.SimulateClick = func(x, y int) {
 		go func() {
 			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.Button1, tcell.ModNone))
 			time.Sleep(50 * time.Millisecond)
 			a.Screen.PostEvent(tcell.NewEventMouse(x, y, tcell.ButtonNone, tcell.ModNone))
 		}()
 	}
-	p.SimulateDrag = func(x1, y1, x2, y2 int) {
+	p.Debug.SimulateDrag = func(x1, y1, x2, y2 int) {
 		go func() {
 			a.Screen.PostEvent(tcell.NewEventMouse(x1, y1, tcell.Button1, tcell.ModNone))
 			time.Sleep(30 * time.Millisecond)
@@ -313,22 +313,22 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 			a.Screen.PostEvent(tcell.NewEventMouse(x2, y2, tcell.ButtonNone, tcell.ModNone))
 		}()
 	}
-	p.ScreenshotToFile = func(path string) error {
+	p.Debug.ScreenshotToFile = func(path string) error {
 		return a.DumpScreenshot(path)
 	}
-	p.DebugDumpToFile = func(path string) error {
+	p.Debug.DebugDumpToFile = func(path string) error {
 		return a.DumpDebugState(path)
 	}
-	p.QuitApp = func() {
+	p.Debug.QuitApp = func() {
 		if a.Running != nil {
 			*a.Running = false
 		}
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
-	p.PostAsync = func(result *plugin.PluginAsyncResult) {
+	p.Host.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
-	p.RenderMarkdown = func(text string) []plugin.MarkdownLine {
+	p.Host.RenderMarkdown = func(text string) []plugin.MarkdownLine {
 		rendered := markdown.Render(text)
 		lines := make([]plugin.MarkdownLine, len(rendered))
 		for i, line := range rendered {
@@ -349,11 +349,11 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
-	p.Borders = a.Borders
-	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
+	p.Host.Borders = a.Borders
+	p.Host.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
 		a.ShowInfoDialog(title, entries)
 	}
-	p.ShowConfirmDialog = func(message string, onConfirm func()) {
+	p.Host.ShowConfirmDialog = func(message string, onConfirm func()) {
 		a.ShowConfirmDialogEx("Confirm", message, []string{"Cancel", "OK"}, []func(){
 			func() { a.DismissDialog() },
 			func() {
@@ -362,7 +362,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 			},
 		})
 	}
-	p.ShowContextMenu = func(entries []widgets.MenuEntry, x, y int, onCommand func(string)) {
+	p.Host.ShowContextMenu = func(entries []widgets.MenuEntry, x, y int, onCommand func(string)) {
 		items := make([]ui.ContextMenuItem, len(entries))
 		for i, e := range entries {
 			items[i] = ui.ContextMenuItem{
@@ -384,7 +384,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		a.Root.SetFocus(menu)
 	}
 
-	p.OpenDrawer = func(panel *plugin.PluginPanelWidget, width, minWidth int) {
+	p.Host.OpenDrawer = func(panel *plugin.PluginPanelWidget, width, minWidth int) {
 		drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
 			Width:    width,
 			MinWidth: minWidth,
@@ -396,13 +396,13 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		drawer.SetContent(panel)
 		a.ShowDrawer(drawer)
 	}
-	p.CloseDrawer = func() {
+	p.Host.CloseDrawer = func() {
 		a.DismissDialog()
 	}
-	p.OpenTab = func(id string, panel *plugin.PluginPanelWidget) {
+	p.Host.OpenTab = func(id string, panel *plugin.PluginPanelWidget) {
 		a.EditorGroup.OpenPluginTab(id, panel)
 	}
-	p.CloseTab = func(id string) {
+	p.Host.CloseTab = func(id string) {
 		a.EditorGroup.ClosePluginTab(id)
 	}
 
@@ -426,7 +426,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 }
 
 func (a *App) wirePluginLog(p *plugin.Plugin) {
-	p.Log = func(level, message string) {
+	p.Host.Log = func(level, message string) {
 		a.Output.AddLine(ui.OutputLine{
 			Time:       time.Now().Format("15:04:05"),
 			PluginName: p.Name,

@@ -616,8 +616,8 @@ func panelRedraw(L *lua.LState) int {
 	if proxy == nil {
 		return 0
 	}
-	if proxy.plugin != nil && proxy.plugin.RequestRedraw != nil {
-		proxy.plugin.RequestRedraw()
+	if proxy.plugin != nil && proxy.plugin.Host.RequestRedraw != nil {
+		proxy.plugin.Host.RequestRedraw()
 	}
 	return 0
 }

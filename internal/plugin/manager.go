@@ -207,7 +207,7 @@ func (m *Manager) SetNetworkAPI(api NetworkAPI) {
 
 func (m *Manager) SetLogFactory(factory func(pluginName string) func(level, message string)) {
 	for _, p := range m.plugins {
-		p.Log = factory(p.Name)
+		p.Host.Log = factory(p.Name)
 	}
 }
 
@@ -415,7 +415,7 @@ func (m *Manager) Reload(name string) (*Plugin, error) {
 	granted := old.Granted
 	repo := old.Repo
 	dir := old.Dir
-	logFn := old.Log
+	logFn := old.Host.Log
 
 	old.Destroy()
 
@@ -431,7 +431,7 @@ func (m *Manager) Reload(name string) (*Plugin, error) {
 		Repo:     repo,
 		Manifest: manifest,
 		Granted:  granted,
-		Log:      logFn,
+		Host:     HostCallbacks{Log: logFn},
 	}
 
 	if err := p.Init(); err != nil {
