@@ -287,7 +287,7 @@ Generated: 2026-06-27
 - **Actual**: The trailing empty line is treated as a sortable line (empty string sorts before all words alphabetically) and moves to the first position. Result: (empty line), apple, banana, cherry, mango, zebra. The empty line is now at the top of the file.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/transform_t30_before.txt (original: cherry, apple, banana, zebra, mango, empty), transform_t30_after.txt (after sort: empty line at position 1 followed by sorted words).`
 
-### BUG-026: View: Show Panel Tab dialog displays internal IDs instead of friendly panel names
+### ~~BUG-026: View: Show Panel Tab dialog displays internal IDs instead of friendly panel names~~ FIXED
 - **Category**: view
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open the bottom panel: run 'View: Toggle Panel'
