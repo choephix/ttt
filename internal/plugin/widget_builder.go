@@ -69,6 +69,10 @@ func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 		return createDividerWidget(desc)
 	case WidgetDropdown:
 		return createDropdownWidget(desc, p)
+	case WidgetProgress:
+		return createProgressWidget(desc)
+	case WidgetTable:
+		return createTableWidget(desc)
 	}
 	return widgets.NewLabelWidget(widgets.LabelConfig{Text: "unknown widget"})
 }
@@ -147,6 +151,23 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 				}
 			}
 		}
+	case WidgetProgress:
+		if pw, ok := w.(*widgets.ProgressWidget); ok {
+			pw.Config.Value = desc.Value
+			if desc.Char != 0 {
+				pw.Config.Char = desc.Char
+			}
+			if desc.StyleName != "" {
+				pw.Config.Style = resolveStyleName(desc.StyleName)
+			}
+		}
+	case WidgetTable:
+		if tw, ok := w.(*widgets.TableWidget); ok {
+			tw.Config.Columns = desc.Columns
+			tw.Config.Rows = desc.Rows
+			tw.Config.OnSelect = desc.OnSelectIndex
+			tw.Config.OnCommand = desc.OnCommandStr
+		}
 	}
 }
 
@@ -187,6 +208,12 @@ func widgetMatchesKind(w widgets.Widget, kind WidgetKind) bool {
 		return ok
 	case WidgetDropdown:
 		_, ok := w.(*widgets.DropdownWidget)
+		return ok
+	case WidgetProgress:
+		_, ok := w.(*widgets.ProgressWidget)
+		return ok
+	case WidgetTable:
+		_, ok := w.(*widgets.TableWidget)
 		return ok
 	}
 	return false
@@ -425,4 +452,32 @@ func wireInputCallbacks(iw *widgets.InputWidget, desc WidgetDesc, _ *Plugin) {
 			}
 		}
 	}
+}
+
+func createProgressWidget(desc WidgetDesc) *widgets.ProgressWidget {
+	style := resolveStyleName(desc.StyleName)
+	ch := desc.Char
+	if ch == 0 {
+		ch = '█'
+	}
+	pw := widgets.NewProgressWidget(widgets.ProgressConfig{
+		Value: desc.Value,
+		Style: style,
+		Char:  ch,
+	})
+	applyBoxModel(&pw.Box, desc)
+	return pw
+}
+
+func createTableWidget(desc WidgetDesc) *widgets.TableWidget {
+	tw := widgets.NewTableWidget(widgets.TableConfig{
+		Columns:     desc.Columns,
+		Rows:        desc.Rows,
+		OnSelect:    desc.OnSelectIndex,
+		OnCommand:   desc.OnCommandStr,
+		NodeMenu:    desc.NodeMenu,
+		KeyCommands: desc.KeyCommands,
+	})
+	applyBoxModel(&tw.Box, desc)
+	return tw
 }

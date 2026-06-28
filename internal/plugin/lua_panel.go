@@ -97,6 +97,8 @@ func RegisterPanelType(L *lua.LState) {
 		"scrollview": panelScrollViewWidget,
 		"hstack":    panelHStackWidget,
 		"divider":   panelDividerWidget,
+		"progress":  panelProgressWidget,
+		"table":     panelTableWidget,
 		"redraw":    panelRedraw,
 	}))
 }
@@ -616,6 +618,103 @@ func panelDropdownWidget(L *lua.LState) int {
 
 	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetDropdown, desc)
+	return 0
+}
+
+func panelProgressWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if v := L.GetField(tbl, "value"); v != lua.LNil {
+		desc.Value = float64(lua.LVAsNumber(v))
+	}
+	if v := L.GetField(tbl, "style"); v != lua.LNil {
+		desc.StyleName = v.String()
+	}
+	if v := L.GetField(tbl, "char"); v != lua.LNil {
+		s := v.String()
+		if len([]rune(s)) > 0 {
+			desc.Char = []rune(s)[0]
+		}
+	}
+
+	parseBoxModel(L, tbl, &desc)
+	proxy.appendDesc(WidgetProgress, desc)
+	return 0
+}
+
+func panelTableWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	tbl := L.CheckTable(2)
+	desc := WidgetDesc{}
+
+	if cols, ok := L.GetField(tbl, "columns").(*lua.LTable); ok {
+		cols.ForEach(func(_, v lua.LValue) {
+			ct, ok := v.(*lua.LTable)
+			if !ok {
+				return
+			}
+			col := widgets.TableColumn{
+				Label: L.GetField(ct, "label").String(),
+			}
+			if w := L.GetField(ct, "width"); w != lua.LNil {
+				col.Width = int(lua.LVAsNumber(w))
+			}
+			if a := L.GetField(ct, "align"); a != lua.LNil {
+				col.Align = a.String()
+			}
+			desc.Columns = append(desc.Columns, col)
+		})
+	}
+
+	if rows, ok := L.GetField(tbl, "rows").(*lua.LTable); ok {
+		rows.ForEach(func(_, rv lua.LValue) {
+			rt, ok := rv.(*lua.LTable)
+			if !ok {
+				return
+			}
+			var row []string
+			rt.ForEach(func(_, cv lua.LValue) {
+				row = append(row, cv.String())
+			})
+			desc.Rows = append(desc.Rows, row)
+		})
+	}
+
+	if fn, ok := L.GetField(tbl, "on_select").(*lua.LFunction); ok {
+		luaFn := fn
+		desc.OnSelectIndex = func(rowIndex int) {
+			if proxy.plugin != nil && proxy.plugin.State != nil {
+				proxy.plugin.CallLuaFunc(luaFn, lua.LNumber(rowIndex+1))
+			}
+		}
+	}
+	if fn, ok := L.GetField(tbl, "on_command").(*lua.LFunction); ok {
+		luaFn := fn
+		desc.OnCommandStr = func(command string, rowIndex int) {
+			if proxy.plugin != nil && proxy.plugin.State != nil {
+				proxy.plugin.CallLuaFunc(luaFn, lua.LString(command), lua.LNumber(rowIndex+1))
+			}
+		}
+	}
+	if menu, ok := L.GetField(tbl, "node_menu").(*lua.LTable); ok {
+		desc.NodeMenu = parseLuaMenuEntries(L, menu)
+	}
+	if kc, ok := L.GetField(tbl, "key_commands").(*lua.LTable); ok {
+		desc.KeyCommands = parseLuaKeyCommands(L, kc)
+	}
+
+	parseBoxModel(L, tbl, &desc)
+	proxy.appendDesc(WidgetTable, desc)
 	return 0
 }
 
