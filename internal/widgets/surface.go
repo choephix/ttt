@@ -35,6 +35,10 @@ type FocusableWidget interface {
 	IsFocused() bool
 }
 
+type ContainerWidget interface {
+	WidgetChildren() []Widget
+}
+
 type CursorPositioner interface {
 	CursorPosition() (x, y int, visible bool)
 }
@@ -43,41 +47,11 @@ func hasFocusedChild(w Widget) bool {
 	if fw, ok := w.(FocusableWidget); ok && fw.IsFocused() {
 		return true
 	}
-	switch v := w.(type) {
-	case *VStackWidget:
-		for _, child := range v.Children {
+	if cw, ok := w.(ContainerWidget); ok {
+		for _, child := range cw.WidgetChildren() {
 			if hasFocusedChild(child) {
 				return true
 			}
-		}
-	case *HStackWidget:
-		for _, child := range v.Children {
-			if hasFocusedChild(child) {
-				return true
-			}
-		}
-	case *BoxWidget:
-		if v.Child != nil {
-			return hasFocusedChild(v.Child)
-		}
-	case *ScrollViewWidget:
-		if v.Child != nil {
-			return hasFocusedChild(v.Child)
-		}
-	case *TabbedWidget:
-		if c := v.ActiveChild(); c != nil {
-			return hasFocusedChild(c)
-		}
-	case *DialogWidget:
-		if v.Content != nil && hasFocusedChild(v.Content) {
-			return true
-		}
-		if v.footer != nil {
-			return hasFocusedChild(v.footer)
-		}
-	case *DrawerWidget:
-		if v.Content != nil {
-			return hasFocusedChild(v.Content)
 		}
 	}
 	return false

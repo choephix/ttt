@@ -42,38 +42,9 @@ func collectFocusable(w Widget, out *[]FocusableWidget) {
 	if fw, ok := w.(FocusableWidget); ok && fw.Focusable() {
 		*out = append(*out, fw)
 	}
-	switch v := w.(type) {
-	case *VStackWidget:
-		for _, child := range v.Children {
+	if cw, ok := w.(ContainerWidget); ok {
+		for _, child := range cw.WidgetChildren() {
 			collectFocusable(child, out)
-		}
-	case *HStackWidget:
-		for _, child := range v.Children {
-			collectFocusable(child, out)
-		}
-	case *BoxWidget:
-		if v.Child != nil {
-			collectFocusable(v.Child, out)
-		}
-	case *ScrollViewWidget:
-		if v.Child != nil {
-			collectFocusable(v.Child, out)
-		}
-	case *TabbedWidget:
-		if c := v.ActiveChild(); c != nil {
-			collectFocusable(c, out)
-		}
-		collectFocusable(v.Tabs, out)
-	case *DialogWidget:
-		if v.Content != nil {
-			collectFocusable(v.Content, out)
-		}
-		if v.footer != nil {
-			collectFocusable(v.footer, out)
-		}
-	case *DrawerWidget:
-		if v.Content != nil {
-			collectFocusable(v.Content, out)
 		}
 	}
 }

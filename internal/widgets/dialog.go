@@ -26,6 +26,17 @@ type DialogWidget struct {
 	footer *HStackWidget
 }
 
+func (d *DialogWidget) WidgetChildren() []Widget {
+	var out []Widget
+	if d.Content != nil {
+		out = append(out, d.Content)
+	}
+	if d.footer != nil {
+		out = append(out, d.footer)
+	}
+	return out
+}
+
 func NewDialogWidget(width int) *DialogWidget {
 	d := &DialogWidget{
 		BoxWidth: width,

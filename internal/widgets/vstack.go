@@ -11,6 +11,8 @@ type VStackWidget struct {
 	Gap      int    `json:"gap,omitempty"`
 }
 
+func (v *VStackWidget) WidgetChildren() []Widget { return v.Children }
+
 func NewVStackWidget(children ...Widget) *VStackWidget {
 	return &VStackWidget{Children: children}
 }

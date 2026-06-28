@@ -21,6 +21,13 @@ type DrawerWidget struct {
 	wasPressed bool
 }
 
+func (d *DrawerWidget) WidgetChildren() []Widget {
+	if d.Content != nil {
+		return []Widget{d.Content}
+	}
+	return nil
+}
+
 func NewDrawerWidget(config DrawerConfig) *DrawerWidget {
 	if config.Width <= 0 {
 		config.Width = 40

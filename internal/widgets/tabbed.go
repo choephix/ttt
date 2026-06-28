@@ -26,6 +26,17 @@ func NewTabbedWidget(tabs *TabsWidget, children []Widget) *TabbedWidget {
 	return tw
 }
 
+func (t *TabbedWidget) WidgetChildren() []Widget {
+	var out []Widget
+	if c := t.ActiveChild(); c != nil {
+		out = append(out, c)
+	}
+	if t.Tabs != nil {
+		out = append(out, t.Tabs)
+	}
+	return out
+}
+
 func (t *TabbedWidget) SetActive(index int) {
 	if index < 0 || index >= len(t.Children) {
 		return

@@ -17,6 +17,13 @@ type ScrollViewWidget struct {
 	lastViewH    int
 }
 
+func (s *ScrollViewWidget) WidgetChildren() []Widget {
+	if s.Child != nil {
+		return []Widget{s.Child}
+	}
+	return nil
+}
+
 func NewScrollViewWidget(child ScrollableWidget) *ScrollViewWidget {
 	return &ScrollViewWidget{Child: child}
 }

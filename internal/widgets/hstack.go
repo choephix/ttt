@@ -12,6 +12,8 @@ type HStackWidget struct {
 	FixedHeight int
 }
 
+func (h *HStackWidget) WidgetChildren() []Widget { return h.Children }
+
 func NewHStackWidget(children ...Widget) *HStackWidget {
 	return &HStackWidget{Children: children}
 }
