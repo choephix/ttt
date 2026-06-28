@@ -30,10 +30,11 @@ type ContextMenuWidget struct {
 	AnchorX  int
 	AnchorY  int
 	Borders  *term.BorderSet
-	OnExec      func(command string)
-	OnDismiss   func()
-	OnNavigate  func(dir int)
-	firstEvent  bool
+	OnExec         func(command string)
+	OnDismiss      func()
+	OnNavigate     func(dir int)
+	OnMouseOutside func(ev tcell.Event)
+	firstEvent     bool
 }
 
 func NewContextMenuWidget(items []ContextMenuItem, x, y int) *ContextMenuWidget {
@@ -226,6 +227,9 @@ func (c *ContextMenuWidget) HandleEvent(ev tcell.Event) EventResult {
 		if btn == tcell.ButtonNone {
 			if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
 				c.Selected = -1
+				if c.OnMouseOutside != nil {
+					c.OnMouseOutside(ev)
+				}
 				return EventConsumed
 			}
 			itemIdx := my - r.Y - 1
