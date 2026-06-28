@@ -72,10 +72,12 @@ func TestSystemExecDeniedBinary(t *testing.T) {
 
 	err := p.State.DoString(`
 		local sys = require("ttt.system")
-		sys.exec("rm", {"-rf", "/"})
+		local result, err = sys.exec("rm", {"-rf", "/"})
+		assert(result == nil, "expected nil result")
+		assert(err ~= nil, "expected error string")
 	`)
-	if err == nil {
-		t.Fatal("expected error for unapproved binary")
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

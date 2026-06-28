@@ -99,12 +99,13 @@ Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to th
 |---|---|---|
 | `p:label(text)` or `p:label({...})` | `text`, `style` | Static text line. `style` is a named style (see below). Supports box model. |
 | `p:title(text)` or `p:title({...})` | `text` | Bold section heading. Supports box model. |
-| `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu` | Expandable tree view. Items are `{id, label, expandable, children}` tables. |
-| `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu` | Flat list (backed by TreeWidget, no indentation). |
+| `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands` | Expandable tree view. Items are `{id, label, expandable, children}` tables. `key_commands` maps single chars to commands via `on_command`. |
+| `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu`, `key_commands` | Flat list (backed by TreeWidget, no indentation). |
 | `p:button({...})` | `label`, `on_click` | Clickable button. |
 | `p:input({...})` | `placeholder`, `prefix`, `clear_on_submit`, `on_change(text)`, `on_submit(text)` | Text input field. `clear_on_submit` (bool) clears text after submit. |
 | `p:vstack({...})` | `render(child_panel)`, `gap` | Vertical stack container. The `render` function receives a child panel proxy to emit nested widgets. |
-| `p:hstack({...})` | `render(child_panel)`, `gap` | Horizontal stack container. First child grows to fill available space, remaining children get fixed width. |
+| `p:keyvalue({...})` | `entries` | Key-value list. `entries` are `{key, value}` tables. |
+| `p:hstack({...})` | `render(child_panel)`, `gap`, `height` | Horizontal stack container. First child grows to fill available space, remaining children get fixed width. |
 | `p:scrollview({...})` | `render(child_panel)` | Scrollable container. Wraps children with mouse wheel scrolling and scrollbar when content overflows. |
 | `p:box({...})` | `render(child_panel)`, `border`, `height` | Container with optional border and fixed height. Children via `render` callback. |
 | `p:divider()` | (none) | Horizontal divider line. Single-line separator, no configuration. |
@@ -118,9 +119,9 @@ Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to th
 - `p:clear(x, y, w, h)` — clear a rectangle
 - `p:redraw()` — request a redraw from the event loop
 
-**Box model:** `margin_top`, `margin_bottom`, `margin_left`, `margin_right`, `padding_top`, `padding_bottom`, `padding_left`, `padding_right` — parsed via `parseBoxModel()` and applied via `applyBoxModel()`. Currently supported on `label` and `title` widgets only.
+**Box model:** `margin_top`, `margin_bottom`, `margin_left`, `margin_right`, `padding_top`, `padding_bottom`, `padding_left`, `padding_right` — parsed via `parseBoxModel()` and applied via `applyBoxModel()`. Supported on `label`, `title`, and `box` widgets.
 
-**Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`. These map to `term.Style*` constants via `styleMap` in `lua_panel.go`.
+**Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`, `bold`, `code`, `syntax_comment`, `syntax_string`, `syntax_keyword`, `syntax_number`, `syntax_operator`, `syntax_function`, `syntax_type`, `syntax_builtin`, `syntax_variable`, `syntax_tag`, `syntax_attribute`. These map to `term.Style*` constants via `StyleByName()` in `styles.go`.
 
 ### Testing
 

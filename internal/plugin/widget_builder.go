@@ -289,10 +289,8 @@ func createHStackWidget(desc WidgetDesc, p *Plugin) *widgets.HStackWidget {
 	return hs
 }
 
-func createDividerWidget(desc WidgetDesc) *widgets.DividerWidget {
-	dw := widgets.NewDividerWidget(widgets.DividerConfig{})
-	applyBoxModel(&dw.Box, desc)
-	return dw
+func createDividerWidget(_ WidgetDesc) *widgets.DividerWidget {
+	return widgets.NewDividerWidget(widgets.DividerConfig{})
 }
 
 func createScrollViewWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget {

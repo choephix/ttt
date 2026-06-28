@@ -31,7 +31,7 @@
 - [ ] **No limit on concurrent async operations** [Security] — a plugin can spawn unlimited goroutines via `exec_async`/`get_async`/`post_async`, exhausting PIDs and FDs. See `security.md` §Medium M6
 - [x] **`print` writes to stdout, corrupting terminal state** [Security] — `print()` from plugins bypasses tcell and corrupts the TUI display. See `security.md` §Medium M7
 - [x] **`event.mod == nil` check never matches** [Bug] — `mod` is always a string (never nil), so the `r` key shortcut in go-test-runner, docker-manager, and todo-scanner never fires. See `bugs.md` §Medium #6
-- [ ] **HTTP client plugin calls `editor.insert()` with wrong argument count** [Bug] — passes `(text)` instead of `(line, col, text)`, causing a type error on every click. See `bugs.md` §Medium #7
+- [x] **HTTP client plugin calls `editor.insert()` with wrong argument count** [Bug] — passes `(text)` instead of `(line, col, text)`, causing a type error on every click. See `bugs.md` §Medium #7
 - [x] **Nested widget reconciliation ignores child type mismatches** [Bug] — children matched by index only; type changes within containers keep the old widget. See `bugs.md` §Medium #8
 - [x] **`keyEventToLua` drops combined modifiers** [Bug] — `else if` chain reports only the first modifier; `Ctrl+Shift` events lose the shift. See `bugs.md` §Medium #9
 - [x] **`ScrollViewWidget` WheelDown doesn't clamp `scrollY`** [Bug] — `scrollY` can exceed bounds between event and render; corrected at draw time but intermediate state is inconsistent. See `bugs.md` §Medium #10
@@ -58,19 +58,19 @@
 - [x] **Notepad plugin rolls its own JSON encoder/decoder (106 lines)** [Duplication] — hand-written JSON parser; provide a built-in `ttt.json` module instead. See `duplication.md` §Medium #11
 - [x] **`fs.write()` error return differs from `fs.read()`/`fs.list()`** [API/Tests] — write returns single error string; reads return `nil, error_string`. See `api-consistency.md` §API #1
 - [ ] **Error handling pattern differs across modules** [API/Tests] — fs uses multi-return, system uses table with `exit_code`, net uses table with `error`, editor silently no-ops. See `api-consistency.md` §API #2
-- [ ] **"API not available" handling inconsistent** [API/Tests] — fs returns nil+error, system/net raise Lua error, editor returns empty silently. See `api-consistency.md` §API #3
+- [x] **"API not available" handling inconsistent** [API/Tests] — fs returns nil+error, system/net raise Lua error, editor returns empty silently. See `api-consistency.md` §API #3
 - [x] **`sys.exec_async` requires args but `sys.exec` does not** [API/Tests] — `exec("binary")` works, but `exec_async("binary", callback)` misinterprets callback as args table. See `api-consistency.md` §API #4
-- [ ] **Box model documentation mismatch** [API/Tests] — code supports box model on `box` widget, but PLUGINS.md and CLAUDE.md omit it. See `api-consistency.md` §API #6
-- [ ] **Divider widget has dead `applyBoxModel` call** [API/Tests] — `createDividerWidget` calls `applyBoxModel` but parser never reads box model fields. See `api-consistency.md` §API #7
-- [ ] **`ttt.open_drawer()` and `ttt.close_drawer()` undocumented** [API/Tests] — implemented in `sandbox.go` with `panel.drawer` permission but missing from PLUGINS.md. See `api-consistency.md` §Doc #1
-- [ ] **`ttt.open_tab()` and `ttt.close_tab()` undocumented** [API/Tests] — implemented with `panel.editor` permission but missing from PLUGINS.md. See `api-consistency.md` §Doc #2
-- [ ] **`ttt.markdown()` undocumented** [API/Tests] — renders markdown to styled spans but missing from PLUGINS.md. See `api-consistency.md` §Doc #3
-- [ ] **`key_commands` on tree/list widgets undocumented** [API/Tests] — maps single-char keys to commands via `on_command`, not mentioned in PLUGINS.md. See `api-consistency.md` §Doc #4
-- [ ] **Extra styles available but undocumented** [API/Tests] — `bold`, `code`, and 11 `syntax_*` styles exist in `styleMap` but are not listed in PLUGINS.md. See `api-consistency.md` §Doc #5
-- [ ] **HStack `height` field undocumented** [API/Tests] — parsed in code but not listed in PLUGINS.md config fields. See `api-consistency.md` §Doc #6
-- [ ] **Label `width` field undocumented** [API/Tests] — parsed in code but not listed in PLUGINS.md config fields. See `api-consistency.md` §Doc #7
-- [ ] **`panel.editor` and `panel.drawer` permissions not fully documented** [API/Tests] — permissions are listed but their corresponding APIs are undocumented. See `api-consistency.md` §Doc #8
-- [ ] **CLAUDE.md widget API section is outdated** [API/Tests] — missing `keyvalue`, `hstack`, `scrollview`, `divider` widgets and `key_commands` feature. See `api-consistency.md` §Doc #9
+- [x] **Box model documentation mismatch** [API/Tests] — code supports box model on `box` widget, but PLUGINS.md and CLAUDE.md omit it. See `api-consistency.md` §API #6
+- [x] **Divider widget has dead `applyBoxModel` call** [API/Tests] — `createDividerWidget` calls `applyBoxModel` but parser never reads box model fields. See `api-consistency.md` §API #7
+- [x] **`ttt.open_drawer()` and `ttt.close_drawer()` undocumented** [API/Tests] — implemented in `sandbox.go` with `panel.drawer` permission but missing from PLUGINS.md. See `api-consistency.md` §Doc #1
+- [x] **`ttt.open_tab()` and `ttt.close_tab()` undocumented** [API/Tests] — implemented with `panel.editor` permission but missing from PLUGINS.md. See `api-consistency.md` §Doc #2
+- [x] **`ttt.markdown()` undocumented** [API/Tests] — renders markdown to styled spans but missing from PLUGINS.md. See `api-consistency.md` §Doc #3
+- [x] **`key_commands` on tree/list widgets undocumented** [API/Tests] — maps single-char keys to commands via `on_command`, not mentioned in PLUGINS.md. See `api-consistency.md` §Doc #4
+- [x] **Extra styles available but undocumented** [API/Tests] — `bold`, `code`, and 11 `syntax_*` styles exist in `styleMap` but are not listed in PLUGINS.md. See `api-consistency.md` §Doc #5
+- [x] **HStack `height` field undocumented** [API/Tests] — parsed in code but not listed in PLUGINS.md config fields. See `api-consistency.md` §Doc #6
+- [x] **Label `width` field undocumented** [API/Tests] — parsed in code but not listed in PLUGINS.md config fields. See `api-consistency.md` §Doc #7
+- [x] **`panel.editor` and `panel.drawer` permissions not fully documented** [API/Tests] — permissions are listed but their corresponding APIs are undocumented. See `api-consistency.md` §Doc #8
+- [x] **CLAUDE.md widget API section is outdated** [API/Tests] — missing `keyvalue`, `hstack`, `scrollview`, `divider` widgets and `key_commands` feature. See `api-consistency.md` §Doc #9
 - [ ] **No unit tests for widget descriptor building** [API/Tests] — `lua_panel.go` widget-building functions untested; primary plugin authoring surface. See `api-consistency.md` §Test #4
 - [ ] **No tests for async functions** [API/Tests] — `sysExecAsync`, `netGetAsync`, `netPostAsync` goroutine/callback paths untested. See `api-consistency.md` §Test #5
 - [ ] **No tests for critical widget files** [API/Tests] — `tree.go`, `scrollview.go`, `box.go`, `hstack.go`, `vstack.go` have no dedicated tests. See `api-consistency.md` §Test #7

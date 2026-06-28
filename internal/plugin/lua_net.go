@@ -58,8 +58,9 @@ func httpResultToLua(L *lua.LState, status int, body string, headers map[string]
 func netGet(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		var headers map[string]string
@@ -75,8 +76,9 @@ func netGet(p *Plugin) lua.LGFunction {
 func netPost(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		opts, _ := L.Get(2).(*lua.LTable)
@@ -97,8 +99,9 @@ func netPost(p *Plugin) lua.LGFunction {
 func netGetAsync(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		var headers map[string]string
@@ -130,8 +133,9 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 func netPostAsync(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Network == nil {
-			L.ArgError(1, "network API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("network API not available"))
+			return 2
 		}
 		url := L.CheckString(1)
 		opts, _ := L.Get(2).(*lua.LTable)

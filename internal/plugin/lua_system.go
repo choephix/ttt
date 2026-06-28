@@ -30,13 +30,15 @@ func setupSystemModule(L *lua.LState, p *Plugin) {
 func sysExec(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.System == nil {
-			L.ArgError(1, "system API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("system API not available"))
+			return 2
 		}
 		binary := L.CheckString(1)
 		if err := p.Granted.CheckExec(binary); err != nil {
-			L.ArgError(1, err.Error())
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
 		}
 
 		var args []string
@@ -46,20 +48,17 @@ func sysExec(p *Plugin) lua.LGFunction {
 			})
 		}
 
+		tbl := L.NewTable()
 		stdout, stderr, exitCode, err := p.System.Exec(binary, args)
 		if err != nil {
-			tbl := L.NewTable()
 			L.SetField(tbl, "stdout", lua.LString(""))
 			L.SetField(tbl, "stderr", lua.LString(err.Error()))
 			L.SetField(tbl, "exit_code", lua.LNumber(-1))
-			L.Push(tbl)
-			return 1
+		} else {
+			L.SetField(tbl, "stdout", lua.LString(stdout))
+			L.SetField(tbl, "stderr", lua.LString(stderr))
+			L.SetField(tbl, "exit_code", lua.LNumber(exitCode))
 		}
-
-		tbl := L.NewTable()
-		L.SetField(tbl, "stdout", lua.LString(stdout))
-		L.SetField(tbl, "stderr", lua.LString(stderr))
-		L.SetField(tbl, "exit_code", lua.LNumber(exitCode))
 		L.Push(tbl)
 		return 1
 	}
@@ -68,13 +67,15 @@ func sysExec(p *Plugin) lua.LGFunction {
 func sysExecAsync(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.System == nil {
-			L.ArgError(1, "system API not available")
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString("system API not available"))
+			return 2
 		}
 		binary := L.CheckString(1)
 		if err := p.Granted.CheckExec(binary); err != nil {
-			L.ArgError(1, err.Error())
-			return 0
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
 		}
 
 		var args []string
