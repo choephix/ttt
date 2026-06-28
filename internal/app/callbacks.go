@@ -456,6 +456,7 @@ func registerWidgetCallbacks(app *App) {
 	app.EditorGroup.TabBar.MoreButton.OnClick = func(sx, sy int) {
 		moreMenu := []ui.ContextMenuItem{
 			{Label: "Close All", Command: "tab.closeAll"},
+			{Label: "Close All Saved", Command: "tab.closeAllSaved"},
 		}
 		openContextMenu(app, moreMenu, sx, sy)
 	}
@@ -466,6 +467,7 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Close", Shortcut: app.KeyFor("tab.close"), Command: "tab.close"},
 			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
+			{Label: "Close All Saved", Shortcut: "", Command: "tab.closeAllSaved"},
 			ui.MenuSep(),
 			{Label: "Copy Absolute Path", Command: "file.copyAbsolutePath"},
 			{Label: "Copy Relative Path", Command: "file.copyRelativePath"},

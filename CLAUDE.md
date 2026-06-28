@@ -157,6 +157,7 @@ cat /tmp/state.json   # see full widget tree, focus, selection, panels
 
 Supported commands:
 - `click X Y` — simulate mouse click at coordinates
+- `hover X Y` — simulate mouse hover (move) at coordinates
 - `key COMBO` — simulate key press (e.g. `key ctrl+p`, `key enter`, `key ctrl+k x`)
 - `type TEXT` — type a string of text
 - `exec "Command Name"` — run a command by title (same as command palette)

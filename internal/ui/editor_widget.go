@@ -1950,7 +1950,11 @@ func (e *EditorPaneWidget) lineRange() (int, int) {
 		}
 		return e.Buf.ClampLine(start.Line), e.Buf.ClampLine(endLine)
 	}
-	return 0, len(e.Buf.Lines) - 1
+	end := len(e.Buf.Lines) - 1
+	if end > 0 && e.Buf.Lines[end] == "" {
+		end--
+	}
+	return 0, end
 }
 
 // copyLines returns a copy of the buffer lines in the given range (inclusive).
@@ -2601,33 +2605,38 @@ func (e *EditorPaneWidget) transformSelection(fn func(string) string) {
 		e.Undo.BreakGroup()
 	}
 
-	// Delete the selection
-	delCmd := &undo.DeleteSelectionCommand{
-		StartLine: start.Line, StartCol: start.Col,
-		EndLine: end.Line, EndCol: end.Col,
-	}
-	e.exec(delCmd)
+	oldLines := make([]string, end.Line-start.Line+1)
+	copy(oldLines, e.Buf.Lines[start.Line:end.Line+1])
 
-	// Insert the transformed text
 	tLines := strings.Split(transformed, "\n")
-	if len(tLines) == 1 {
-		e.exec(&undo.InsertStringCommand{Line: start.Line, Col: start.Col, Text: tLines[0]})
-	} else {
-		currentLine := []rune(e.Buf.Lines[start.Line])
-		col := start.Col
-		if col > len(currentLine) {
-			col = len(currentLine)
-		}
-		suffix := string(currentLine[col:])
-		e.exec(&undo.PasteCommand{
-			Line:   start.Line,
-			Col:    col,
-			Text:   transformed,
-			Suffix: suffix,
-		})
+	prefix := string([]rune(oldLines[0])[:start.Col])
+	lastOld := []rune(oldLines[len(oldLines)-1])
+	suffix := ""
+	if end.Col < len(lastOld) {
+		suffix = string(lastOld[end.Col:])
 	}
 
-	// Restore the selection so the user sees the transformed range
+	newLines := make([]string, len(tLines))
+	for i, tl := range tLines {
+		switch {
+		case len(tLines) == 1:
+			newLines[i] = prefix + tl + suffix
+		case i == 0:
+			newLines[i] = prefix + tl
+		case i == len(tLines)-1:
+			newLines[i] = tl + suffix
+		default:
+			newLines[i] = tl
+		}
+	}
+
+	cmd := &undo.ReplaceLinesCommand{
+		Start:    start.Line,
+		OldLines: oldLines,
+		NewLines: newLines,
+	}
+	e.exec(cmd)
+
 	newEndLine := start.Line + len(tLines) - 1
 	var newEndCol int
 	if len(tLines) == 1 {

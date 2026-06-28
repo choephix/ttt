@@ -95,6 +95,48 @@ func (a *App) CloseTab() {
 	)
 }
 
+func (a *App) CloseOtherTabs() {
+	if !a.EditorGroup.HasDirtyOtherTabs() {
+		a.EditorGroup.CloseOtherTabs()
+		return
+	}
+	a.ShowConfirmDialog("Other tabs have unsaved changes.",
+		[]string{"Abort", "Close Saved", "Discard All"},
+		[]func(){
+			func() { a.DismissDialog() },
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseOtherSaved()
+			},
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseOtherTabs()
+			},
+		},
+	)
+}
+
+func (a *App) CloseAllTabs() {
+	if !a.EditorGroup.HasDirtyTabs() {
+		a.EditorGroup.CloseAllTabs()
+		return
+	}
+	a.ShowConfirmDialog("You have unsaved changes.",
+		[]string{"Abort", "Close Saved", "Discard All"},
+		[]func(){
+			func() { a.DismissDialog() },
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseAllSaved()
+			},
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseAllTabs()
+			},
+		},
+	)
+}
+
 func (a *App) NewFile() {
 	a.EditorGroup.NewFile()
 	a.Root.SetFocus(a.EditorGroup)
@@ -282,13 +324,19 @@ func registerEditorCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "tab.closeOthers", Title: "View: Close Other Tabs",
 		Keywords: []string{"tab"},
-		Handler:  func() { app.EditorGroup.CloseOtherTabs() },
+		Handler:  app.CloseOtherTabs,
 	})
 
 	reg.Register(command.Command{
 		ID: "tab.closeAll", Title: "View: Close All Tabs",
 		Keywords: []string{"tab"},
-		Handler:  func() { app.EditorGroup.CloseAllTabs() },
+		Handler:  app.CloseAllTabs,
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeAllSaved", Title: "View: Close All Saved Tabs",
+		Keywords: []string{"tab", "close", "saved"},
+		Handler:  func() { app.EditorGroup.CloseAllSaved() },
 	})
 
 	reg.Register(command.Command{

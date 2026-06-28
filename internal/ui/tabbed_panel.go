@@ -134,6 +134,19 @@ func (tp *TabbedPanel) PanelIDs() []string {
 	return ids
 }
 
+type PanelInfo struct {
+	ID    string
+	Title string
+}
+
+func (tp *TabbedPanel) PanelEntries() []PanelInfo {
+	entries := make([]PanelInfo, len(tp.panels))
+	for i, p := range tp.panels {
+		entries[i] = PanelInfo{ID: p.ID, Title: p.Title}
+	}
+	return entries
+}
+
 func (tp *TabbedPanel) SetPanelDirty(id string, dirty bool) {
 	tp.Tabs.SetDirty(id, dirty)
 }

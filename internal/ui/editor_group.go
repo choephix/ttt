@@ -14,7 +14,9 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"errors"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -83,6 +85,8 @@ type EditorGroupWidget struct {
 	OnFileChange           func(path, lang, text string)
 	OnFileClose            func(path, lang string)
 	OnError                func(msg string)
+	OnNotify               func(msg string)
+	pendingNotify          []string
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -146,6 +150,24 @@ func (g *EditorGroupWidget) reportError(msg string) {
 	}
 }
 
+func (g *EditorGroupWidget) notify(msg string) {
+	if g.OnNotify != nil {
+		g.OnNotify(msg)
+	} else {
+		g.pendingNotify = append(g.pendingNotify, msg)
+	}
+}
+
+func (g *EditorGroupWidget) FlushNotifications() {
+	if g.OnNotify == nil {
+		return
+	}
+	for _, msg := range g.pendingNotify {
+		g.OnNotify(msg)
+	}
+	g.pendingNotify = nil
+}
+
 func (g *EditorGroupWidget) PinActiveTab() {
 	if t := g.activeTab(); t != nil {
 		t.Pinned = true
@@ -172,8 +194,11 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		newBuf.TrimTrailingWhitespace = ec.TrimTrailingWS
 	}
 	if err := newBuf.LoadFile(path); err != nil {
-		g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
-		return
+		if !errors.Is(err, os.ErrNotExist) {
+			g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
+			return
+		}
+		g.notify(fmt.Sprintf("New file: %s", filepath.Base(path)))
 	}
 	tabSize := g.TabSize
 	useTabs := !g.InsertSpaces
@@ -524,6 +549,37 @@ func (g *EditorGroupWidget) CloseOtherTabs() {
 	g.syncTabs()
 }
 
+func (g *EditorGroupWidget) CloseOtherSaved() {
+	t := g.activeTab()
+	if t == nil || len(g.tabs) <= 1 {
+		return
+	}
+	kept := []editorTab{*t}
+	for i := range g.tabs {
+		if i == g.active {
+			continue
+		}
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			kept = append(kept, g.tabs[i])
+		}
+	}
+	g.tabs = kept
+	g.active = 0
+	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) HasDirtyOtherTabs() bool {
+	for i := range g.tabs {
+		if i == g.active {
+			continue
+		}
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *EditorGroupWidget) CloseAllTabs() {
 	g.tabs = []editorTab{{
 		FilePath: "untitled",
@@ -538,6 +594,33 @@ func (g *EditorGroupWidget) CloseAllTabs() {
 	g.syncTabs()
 }
 
+func (g *EditorGroupWidget) CloseAllSaved() {
+	var kept []editorTab
+	for i := range g.tabs {
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			kept = append(kept, g.tabs[i])
+		}
+	}
+	if len(kept) == 0 {
+		g.CloseAllTabs()
+		return
+	}
+	g.tabs = kept
+	if g.active >= len(g.tabs) {
+		g.active = len(g.tabs) - 1
+	}
+	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) HasDirtyTabs() bool {
+	for i := range g.tabs {
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *EditorGroupWidget) Save() bool {
 	t := g.activeTab()
 	if t == nil || t.Content != nil {
@@ -550,6 +633,9 @@ func (g *EditorGroupWidget) Save() bool {
 		g.reportError(fmt.Sprintf("Failed to save %s: %v", t.FilePath, err))
 		return false
 	}
+	if t.Undo != nil {
+		t.Undo.MarkSaved()
+	}
 	return true
 }
 
@@ -561,6 +647,9 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 	if err := t.Buf.SaveFile(path); err != nil {
 		g.reportError(fmt.Sprintf("Failed to save %s: %v", path, err))
 		return
+	}
+	if t.Undo != nil {
+		t.Undo.MarkSaved()
 	}
 	t.FilePath = path
 	t.Virtual = false
@@ -677,6 +766,9 @@ func (g *EditorGroupWidget) Undo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
+		if t.Undo.AtSavePoint() {
+			t.Buf.Dirty = false
+		}
 		g.undoRedoPostProcess()
 	}
 }
@@ -690,6 +782,9 @@ func (g *EditorGroupWidget) Redo() {
 		if pos := t.Undo.Redo(t.Buf); pos != nil {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
+		}
+		if t.Undo.AtSavePoint() {
+			t.Buf.Dirty = false
 		}
 		g.undoRedoPostProcess()
 	}
@@ -737,6 +832,22 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.ExpandFoldContaining(bufLine)
 	g.Editor.Cursor.Line = bufLine
 	g.Editor.Cursor.Col = 0
+	h := g.Editor.Viewport.Height
+	if h <= 0 {
+		r := g.GetRect()
+		h = r.H - 3
+		if h > 0 {
+			g.Editor.Viewport.Height = h
+		}
+	}
+	if h > 0 {
+		margin := h / 3
+		top := bufLine - margin
+		if top < 0 {
+			top = 0
+		}
+		g.Editor.Viewport.TopLine = top
+	}
 	g.Editor.scrollViewport()
 }
 

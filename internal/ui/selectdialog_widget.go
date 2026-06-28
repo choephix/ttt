@@ -204,10 +204,18 @@ func (p *SelectDialogWidget) Render(surface Surface) {
 			if idx == p.Selected {
 				detailStyle = style
 			}
-			detailRunes := []rune(item.Detail)
-			sx := contentRight - 1 - len(detailRunes)
-			if sx > boxX+1 {
-				surface.DrawText(sx, y, item.Detail, contentRight-1, detailStyle)
+			labelEnd := boxX + 2 + len([]rune(item.Label))
+			minGap := 3
+			availStart := labelEnd + minGap
+			availW := contentRight - 1 - availStart
+			if availW > 0 {
+				detail := item.Detail
+				detailRunes := []rune(detail)
+				if len(detailRunes) > availW {
+					detail = "…" + string(detailRunes[len(detailRunes)-availW+1:])
+				}
+				sx := contentRight - 1 - len([]rune(detail))
+				surface.DrawText(sx, y, detail, contentRight-1, detailStyle)
 			}
 		}
 	}
@@ -261,6 +269,14 @@ func (p *SelectDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 
 		if btn&tcell.Button1 != 0 {
+			inBox := mx >= p.boxX && mx < p.boxX+p.boxW && my >= p.boxY && my < p.boxY+p.boxH
+			if !inBox {
+				if p.OnDismiss != nil {
+					p.OnDismiss()
+				}
+				return EventConsumed
+			}
+
 			if my == p.inputY {
 				p.Input.HandleClick(mx, my)
 				return EventConsumed
@@ -302,7 +318,10 @@ func (p *SelectDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		if p.mode == paletteGoToLineMode {
 			if p.OnGoToLine != nil {
 				text := strings.TrimPrefix(p.Input.Text, ":")
-				if n, err := strconv.Atoi(text); err == nil && n > 0 {
+				if n, err := strconv.Atoi(text); err == nil {
+					if n < 1 {
+						n = 1
+					}
 					p.OnGoToLine(n)
 				}
 			}

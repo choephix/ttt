@@ -36,12 +36,12 @@ func TestSortLinesAscNoSelection(t *testing.T) {
 	h.app.EditorGroup.OpenFile(f)
 	h.redraw()
 
-	// No selection — sorts all lines including the trailing empty line
+	// No selection — sorts all lines (trailing empty line stays at bottom)
 	h.exec("editor.sortLinesAsc")
 
 	lines := h.app.EditorGroup.Editor.Buf.Lines
-	if lines[0] != "" || lines[1] != "apple" || lines[2] != "banana" || lines[3] != "cherry" {
-		t.Errorf("expected ['', apple, banana, cherry], got %v", lines)
+	if lines[0] != "apple" || lines[1] != "banana" || lines[2] != "cherry" || lines[3] != "" {
+		t.Errorf("expected [apple, banana, cherry, ''], got %v", lines)
 	}
 }
 
@@ -92,12 +92,12 @@ func TestReverseLinesNoSelection(t *testing.T) {
 	h.app.EditorGroup.OpenFile(f)
 	h.redraw()
 
-	// No selection — reverses all lines including trailing empty line
+	// No selection — reverses all lines (trailing empty line stays at bottom)
 	h.exec("editor.reverseLines")
 
 	lines := h.app.EditorGroup.Editor.Buf.Lines
-	if lines[0] != "" || lines[1] != "third" || lines[2] != "second" || lines[3] != "first" {
-		t.Errorf("expected ['', third, second, first], got %v", lines)
+	if lines[0] != "third" || lines[1] != "second" || lines[2] != "first" || lines[3] != "" {
+		t.Errorf("expected [third, second, first, ''], got %v", lines)
 	}
 }
 
@@ -131,12 +131,12 @@ func TestSortLinesUndo(t *testing.T) {
 	h.app.EditorGroup.OpenFile(f)
 	h.redraw()
 
-	// No selection — sort all lines
+	// No selection — sort all lines (trailing empty line stays at bottom)
 	h.exec("editor.sortLinesAsc")
 
 	lines := h.app.EditorGroup.Editor.Buf.Lines
-	if lines[0] != "" {
-		t.Errorf("expected first line '' after sort, got %q", lines[0])
+	if lines[0] != "apple" || lines[1] != "banana" || lines[2] != "cherry" || lines[3] != "" {
+		t.Errorf("expected [apple, banana, cherry, ''] after sort, got %v", lines)
 	}
 
 	// Undo should restore original order

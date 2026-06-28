@@ -240,14 +240,20 @@ func (a *App) SpawnTerminal() {
 }
 
 func (a *App) CloseTerminal(panelID string) {
+	idx := -1
 	for i, tt := range a.Terminals {
 		if tt.ID == panelID {
-			tt.Term.Close()
-			a.Terminals = append(a.Terminals[:i], a.Terminals[i+1:]...)
-			a.TerminalPanel.RemoveTerminal(i)
+			idx = i
 			break
 		}
 	}
+	if idx < 0 {
+		return
+	}
+	a.Terminals[idx].Term.Close()
+	a.Terminals = append(a.Terminals[:idx], a.Terminals[idx+1:]...)
+	a.TerminalPanel.RemoveTerminal(idx)
+
 	if a.TerminalPanel.Count() == 0 {
 		a.FocusEditor()
 	} else {
@@ -256,9 +262,15 @@ func (a *App) CloseTerminal(panelID string) {
 }
 
 func (a *App) CloseAllTerminals() {
-	for i := len(a.Terminals) - 1; i >= 0; i-- {
-		a.CloseTerminal(a.Terminals[i].ID)
+	terms := a.Terminals
+	a.Terminals = nil
+	for i := len(terms) - 1; i >= 0; i-- {
+		a.TerminalPanel.RemoveTerminal(i)
 	}
+	for _, tt := range terms {
+		tt.Term.Close()
+	}
+	a.FocusEditor()
 }
 
 func (a *App) refreshWorkspaceWidgets() {
@@ -364,6 +376,10 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.EditorGroup.OnError = func(msg string) {
 		a.StatusError(msg)
 	}
+	a.EditorGroup.OnNotify = func(msg string) {
+		a.StatusNotify(msg)
+	}
+	a.EditorGroup.FlushNotifications()
 	a.EditorGroup.OnFileOpen = func(path, lang, text string) {
 		a.NotifyLSPOpen(path, lang, text)
 		a.RequestGitGutterForActiveFile()
