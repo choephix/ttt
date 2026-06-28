@@ -310,7 +310,10 @@ func (p *SelectDialogWidget) HandleEvent(ev tcell.Event) EventResult {
 		if p.mode == paletteGoToLineMode {
 			if p.OnGoToLine != nil {
 				text := strings.TrimPrefix(p.Input.Text, ":")
-				if n, err := strconv.Atoi(text); err == nil && n > 0 {
+				if n, err := strconv.Atoi(text); err == nil {
+					if n < 1 {
+						n = 1
+					}
 					p.OnGoToLine(n)
 				}
 			}
