@@ -344,13 +344,13 @@ func registerViewCommands(app *App) {
 		ID: "panel.show", Title: "View: Show Panel Tab",
 		Keywords: []string{"view", "bottom", "tab", "switch"},
 		Handler: func() {
-			ids := app.BottomPanel.PanelIDs()
-			if len(ids) == 0 {
+			panels := app.BottomPanel.PanelEntries()
+			if len(panels) == 0 {
 				return
 			}
 			var items []widgets.SelectItem
-			for _, id := range ids {
-				items = append(items, widgets.SelectItem{ID: id, Label: id})
+			for _, p := range panels {
+				items = append(items, widgets.SelectItem{ID: p.ID, Label: p.Title})
 			}
 			app.ShowSelectDialog("Show Panel", items, func(id string) {
 				app.BottomPanel.SetActivePanel(id)
