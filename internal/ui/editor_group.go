@@ -633,6 +633,9 @@ func (g *EditorGroupWidget) Save() bool {
 		g.reportError(fmt.Sprintf("Failed to save %s: %v", t.FilePath, err))
 		return false
 	}
+	if t.Undo != nil {
+		t.Undo.MarkSaved()
+	}
 	return true
 }
 
@@ -644,6 +647,9 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 	if err := t.Buf.SaveFile(path); err != nil {
 		g.reportError(fmt.Sprintf("Failed to save %s: %v", path, err))
 		return
+	}
+	if t.Undo != nil {
+		t.Undo.MarkSaved()
 	}
 	t.FilePath = path
 	t.Virtual = false
@@ -760,6 +766,9 @@ func (g *EditorGroupWidget) Undo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
+		if t.Undo.AtSavePoint() {
+			t.Buf.Dirty = false
+		}
 		g.undoRedoPostProcess()
 	}
 }
@@ -773,6 +782,9 @@ func (g *EditorGroupWidget) Redo() {
 		if pos := t.Undo.Redo(t.Buf); pos != nil {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
+		}
+		if t.Undo.AtSavePoint() {
+			t.Buf.Dirty = false
 		}
 		g.undoRedoPostProcess()
 	}

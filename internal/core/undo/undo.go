@@ -16,9 +16,19 @@ type EditCommand interface {
 // UndoStack manages undo and redo stacks with automatic grouping of
 // consecutive character inserts and deletes.
 type UndoStack struct {
-	undo     []EditCommand
-	redo     []EditCommand
-	grouping bool
+	undo      []EditCommand
+	redo      []EditCommand
+	grouping  bool
+	savePoint int
+}
+
+func (s *UndoStack) MarkSaved() {
+	s.grouping = false
+	s.savePoint = len(s.undo)
+}
+
+func (s *UndoStack) AtSavePoint() bool {
+	return len(s.undo) == s.savePoint
 }
 
 // Push adds a command to the undo stack and clears the redo stack.
