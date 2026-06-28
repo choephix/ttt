@@ -93,6 +93,7 @@ func (p *Plugin) Init() error {
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
+	setupJSONModule(p.State)
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
 	absEntry, err := filepath.Abs(entry)
@@ -128,6 +129,7 @@ func (p *Plugin) InitFromSource(source string) error {
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
+	setupJSONModule(p.State)
 
 	if err := p.State.DoString(source); err != nil {
 		p.LastError = err
