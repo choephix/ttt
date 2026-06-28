@@ -26,7 +26,7 @@ func (ws *WidgetState) Reconcile(descs []WidgetDesc, p *Plugin) *widgets.VStackW
 	for i, desc := range descs {
 		newKeys[i] = desc.Key
 
-		if i < len(ws.keys) && ws.keys[i] == desc.Key {
+		if i < len(ws.keys) && ws.keys[i] == desc.Key && widgetMatchesKind(ws.items[i], desc.Kind) {
 			updateWidget(ws.items[i], desc, p)
 			newWidgets[i] = ws.items[i]
 		} else {
@@ -150,10 +150,52 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 	}
 }
 
+func widgetMatchesKind(w widgets.Widget, kind WidgetKind) bool {
+	switch kind {
+	case WidgetLabel:
+		_, ok := w.(*widgets.LabelWidget)
+		return ok
+	case WidgetTitle:
+		_, ok := w.(*widgets.TitleWidget)
+		return ok
+	case WidgetKeyValue:
+		_, ok := w.(*widgets.KeyValueListWidget)
+		return ok
+	case WidgetTree, WidgetList:
+		_, ok := w.(*widgets.TreeWidget)
+		return ok
+	case WidgetButton:
+		_, ok := w.(*widgets.ButtonWidget)
+		return ok
+	case WidgetInput:
+		_, ok := w.(*widgets.InputWidget)
+		return ok
+	case WidgetVStack:
+		_, ok := w.(*widgets.VStackWidget)
+		return ok
+	case WidgetHStack:
+		_, ok := w.(*widgets.HStackWidget)
+		return ok
+	case WidgetScrollView:
+		_, ok := w.(*widgets.ScrollViewWidget)
+		return ok
+	case WidgetBox:
+		_, ok := w.(*widgets.BoxWidget)
+		return ok
+	case WidgetDivider:
+		_, ok := w.(*widgets.DividerWidget)
+		return ok
+	case WidgetDropdown:
+		_, ok := w.(*widgets.DropdownWidget)
+		return ok
+	}
+	return false
+}
+
 func reconcileChildren(old []widgets.Widget, descs []WidgetDesc, p *Plugin) []widgets.Widget {
 	children := make([]widgets.Widget, len(descs))
 	for i, cd := range descs {
-		if i < len(old) {
+		if i < len(old) && widgetMatchesKind(old[i], cd.Kind) {
 			updateWidget(old[i], cd, p)
 			children[i] = old[i]
 		} else {
