@@ -45,7 +45,7 @@ func (s *scrollbar) Render(surface Surface, rx, ry int) {
 		if y >= thumbTop && y < thumbTop+thumbH {
 			style = term.StyleScrollbarThumb
 		}
-		surface.SetCell(rx, ry+y, term.Cell{Ch: '▄', Style: style})
+		surface.SetCell(rx, ry+y, term.Cell{Ch: '█', Style: style})
 	}
 }
 
