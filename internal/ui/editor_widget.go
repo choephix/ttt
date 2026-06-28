@@ -618,26 +618,6 @@ func (e *EditorPaneWidget) deleteSelection() {
 	e.Selection.Clear()
 }
 
-func (e *EditorPaneWidget) replaceSelection(cmds ...undo.EditCommand) {
-	if e.Selection == nil || !e.Selection.Active {
-		return
-	}
-	start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-	all := make([]undo.EditCommand, 0, 1+len(cmds))
-	all = append(all, &undo.DeleteSelectionCommand{
-		StartLine: start.Line, StartCol: start.Col,
-		EndLine: end.Line, EndCol: end.Col,
-	})
-	all = append(all, cmds...)
-	if e.Undo != nil {
-		e.Undo.BreakGroup()
-	}
-	e.exec(&undo.BatchCommand{Commands: all})
-	e.Cursor.Line = start.Line
-	e.Cursor.Col = start.Col
-	e.Selection.Clear()
-}
-
 func (e *EditorPaneWidget) startOrExtendSelection(shift bool) {
 	if e.Selection == nil {
 		return
@@ -1110,9 +1090,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				if multi {
 					e.multiExecRune(r)
 				} else if hasSel {
-					start, _ := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-					e.replaceSelection(&undo.InsertRuneCommand{Line: start.Line, Col: start.Col, Rune: r})
-					e.Cursor.Col = start.Col + 1
+					e.deleteSelection()
+					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
+					e.Cursor.Col++
 				} else {
 					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 					e.Cursor.Col++
