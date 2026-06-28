@@ -245,7 +245,7 @@ Generated: 2026-06-27
 - **Actual**: No ▼ gutter indicators appear on fresh open. Indicators appear only after switching between two tabs (clicking away to another file and back). They also do not appear after running Fold All + Unfold All. This makes fold affordances invisible to users who never switch tabs.
 - **Evidence**: `folding_step54_fresh_gutter.txt: fresh open shows lines 3, 10, 15, 20, 26, 32 without ▼ indicators. folding_step57_gutter_after_keys.txt: after ctrl+k 0 (Fold All) + ctrl+k 9 (Unfold All) keyboard shortcuts, still no ▼ indicators. folding_step56_gutter_after_tabswitch.txt: after clicking away to second_file.go and back, lines 3 and 10 show ▼ indicators. folding_step55_gutter_after_foldall.txt: after exec Fold All + Unfold All via command palette, still no ▼ indicators.`
 
-### BUG-022: Toggle Syntax Highlight requires editor restart to take effect
+### ~~BUG-022: Toggle Syntax Highlight requires editor restart to take effect~~ NOT A BUG
 - **Category**: folding
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open any syntax-highlighted source file
@@ -255,7 +255,7 @@ Generated: 2026-06-27
 - **Actual**: Status bar shows notification: 'Restart to apply syntax highlight changes [OK]'. The syntax highlight state does not change until the editor is restarted. Toggling again shows the same notification again.
 - **Evidence**: `folding_step33_syntax_off.txt: notification 'Restart to apply syntax highlight changes [OK]' visible in status bar after first toggle. folding_step50_syntax_toggle1.txt and folding_step51_syntax_toggle2.txt: same notification on both first and second toggle invocations.`
 
-### BUG-023: Toggle Fold (ctrl+k [) has no effect when cursor is on closing brace
+### ~~BUG-023: Toggle Fold (ctrl+k [) has no effect when cursor is on closing brace~~ NOT A BUG
 - **Category**: folding
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open a Go file with functions
@@ -266,7 +266,7 @@ Generated: 2026-06-27
 - **Actual**: Nothing happens. The fold is only triggered from the opening line of a block (e.g., the 'func Foo() {' line). Pressing ctrl+k [ while on the closing '}' line has no effect and gives no feedback.
 - **Evidence**: `folding_step48_on_closing.txt: cursor on line 12 ('}' of Add function). folding_step49_fold_from_closing.txt: identical content after pressing ctrl+k [, no fold applied, no visible change.`
 
-### BUG-024: Modified indicator (dot) not cleared after Undo restores file to saved state
+### ~~BUG-024: Modified indicator (dot) not cleared after Undo restores file to saved state~~ FIXED
 - **Category**: transform
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open a file (no dot indicator shown)
