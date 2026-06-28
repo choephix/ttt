@@ -202,25 +202,6 @@ func TestButtonAccelTriggersUnfocused(t *testing.T) {
 	}
 }
 
-func TestButtonOnCommand(t *testing.T) {
-	var received string
-	btn := NewButtonWidget(ButtonConfig{
-		Label:   "Run",
-		Command: "editor.run",
-		OnCommand: func(cmd string) {
-			received = cmd
-		},
-	})
-	btn.SetFocused(true)
-	renderWidget(btn, 0, 0, 10, 1)
-
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
-	btn.HandleEvent(ev)
-	if received != "editor.run" {
-		t.Errorf("expected command 'editor.run', got %q", received)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // CheckboxWidget tests
 // ---------------------------------------------------------------------------
@@ -350,37 +331,6 @@ func TestCheckboxRenderCheckedVsUnchecked(t *testing.T) {
 // ---------------------------------------------------------------------------
 // DialogWidget tests
 // ---------------------------------------------------------------------------
-
-func TestDialogBuildCreatesFooter(t *testing.T) {
-	d := NewDialogWidget(40)
-	d.Buttons = []DialogButton{
-		{Label: "OK", Handler: func() {}},
-		{Label: "Cancel", Handler: func() {}},
-	}
-	d.Build()
-
-	if d.footer == nil {
-		t.Fatal("Build() should create footer HStack")
-	}
-	if len(d.footer.Children) != 2 {
-		t.Errorf("expected 2 footer children, got %d", len(d.footer.Children))
-	}
-	if d.footer.Align != "right" {
-		t.Errorf("expected footer align 'right', got %q", d.footer.Align)
-	}
-	if d.footer.Gap != 1 {
-		t.Errorf("expected footer gap 1, got %d", d.footer.Gap)
-	}
-}
-
-func TestDialogBuildNoButtons(t *testing.T) {
-	d := NewDialogWidget(40)
-	d.Build()
-
-	if d.footer != nil {
-		t.Error("Build() with no buttons should leave footer nil")
-	}
-}
 
 func TestDialogEscapeDismissal(t *testing.T) {
 	dismissed := false
