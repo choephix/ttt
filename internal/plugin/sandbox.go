@@ -227,9 +227,19 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 					minWidth = int(n)
 				}
 			}
+			side := "right"
+			if s := L.GetField(tbl, "side"); s != lua.LNil {
+				if sv := s.String(); sv == "left" || sv == "right" {
+					side = sv
+				}
+			}
+			panel := NewPluginPanelWidget(p, renderFunc, nil)
 			if p.OpenDrawer != nil {
-				panel := NewPluginPanelWidget(p, renderFunc, nil)
-				p.OpenDrawer(panel, width, minWidth)
+				p.OpenDrawer(panel, width, minWidth, side)
+			} else {
+				p.pendingDrawer = &pendingDrawerCall{
+					panel: panel, width: width, minWidth: minWidth, side: side,
+				}
 			}
 			return 0
 		}))
