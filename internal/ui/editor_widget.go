@@ -1270,8 +1270,9 @@ func leadingWhitespace(s string) string {
 
 func bufColToVisualCol(line string, bufCol, tabW int) int {
 	visCol := 0
-	for i, ch := range line {
-		if i >= bufCol {
+	ri := 0
+	for _, ch := range line {
+		if ri >= bufCol {
 			break
 		}
 		if ch == '\t' {
@@ -1279,25 +1280,28 @@ func bufColToVisualCol(line string, bufCol, tabW int) int {
 		} else {
 			visCol++
 		}
+		ri++
 	}
 	return visCol
 }
 
 func visualColToBufCol(line string, targetVisCol, tabW int) int {
 	visCol := 0
-	for i, ch := range line {
+	ri := 0
+	for _, ch := range line {
 		if visCol >= targetVisCol {
-			return i
+			return ri
 		}
 		if ch == '\t' {
 			nextStop := ((visCol / tabW) + 1) * tabW
 			if targetVisCol < nextStop {
-				return i
+				return ri
 			}
 			visCol = nextStop
 		} else {
 			visCol++
 		}
+		ri++
 	}
 	return len([]rune(line))
 }

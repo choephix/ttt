@@ -20,6 +20,10 @@ func TestBufColToVisualCol(t *testing.T) {
 		{"tab after text", "ab\tc", 3, 4, 4},
 		{"empty line", "", 0, 4, 0},
 		{"at end of line", "abc", 3, 4, 3},
+		{"cyrillic full", "Привет", 6, 4, 6},
+		{"cyrillic partial", "Привет", 3, 4, 3},
+		{"cyrillic with tab", "\tПривет", 4, 4, 7},
+		{"mixed ascii cyrillic", "hiПривет", 5, 4, 5},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -46,6 +50,9 @@ func TestVisualColToBufCol(t *testing.T) {
 		{"click past line end", "abc", 10, 4, 3},
 		{"two tabs click between", "\t\thello", 5, 4, 1},
 		{"spaces", "    abc", 4, 4, 4},
+		{"cyrillic click", "Привет", 3, 4, 3},
+		{"cyrillic click end", "Привет", 6, 4, 6},
+		{"cyrillic click past", "Привет", 10, 4, 6},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
