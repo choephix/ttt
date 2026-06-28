@@ -149,6 +149,13 @@ func (p *Plugin) InitFromSource(source string) error {
 	return nil
 }
 
+func (p *Plugin) runAsync(work func() func()) {
+	go func() {
+		callback := work()
+		p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: callback})
+	}()
+}
+
 func (p *Plugin) logError(context string, err error) {
 	slog.Error("plugin error", "plugin", p.Name, "context", context, "error", err)
 	if p.Host.Log != nil {

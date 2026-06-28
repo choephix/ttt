@@ -123,67 +123,44 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 		}
 	case WidgetVStack:
 		if vs, ok := w.(*widgets.VStackWidget); ok {
-			children := make([]widgets.Widget, len(desc.Children))
-			for i, cd := range desc.Children {
-				if i < len(vs.Children) {
-					updateWidget(vs.Children[i], cd, p)
-					children[i] = vs.Children[i]
-				} else {
-					children[i] = createWidget(cd, p)
-				}
-			}
-			vs.Children = children
+			vs.Children = reconcileChildren(vs.Children, desc.Children, p)
 		}
 	case WidgetHStack:
 		if hs, ok := w.(*widgets.HStackWidget); ok {
-			children := make([]widgets.Widget, len(desc.Children))
-			for i, cd := range desc.Children {
-				if i < len(hs.Children) {
-					updateWidget(hs.Children[i], cd, p)
-					children[i] = hs.Children[i]
-				} else {
-					children[i] = createWidget(cd, p)
-				}
-			}
-			hs.Children = children
+			hs.Children = reconcileChildren(hs.Children, desc.Children, p)
 		}
 	case WidgetDivider:
 		// nothing to update
 	case WidgetScrollView:
 		if sv, ok := w.(*widgets.ScrollViewWidget); ok {
 			if vs, ok := sv.Child.(*widgets.VStackWidget); ok {
-				children := make([]widgets.Widget, len(desc.Children))
-				for i, cd := range desc.Children {
-					if i < len(vs.Children) {
-						updateWidget(vs.Children[i], cd, p)
-						children[i] = vs.Children[i]
-					} else {
-						children[i] = createWidget(cd, p)
-					}
-				}
-				vs.Children = children
+				vs.Children = reconcileChildren(vs.Children, desc.Children, p)
 			}
 		}
 	case WidgetBox:
 		if bw, ok := w.(*widgets.BoxWidget); ok {
 			if len(desc.Children) > 0 {
 				if vs, ok := bw.Child.(*widgets.VStackWidget); ok {
-					children := make([]widgets.Widget, len(desc.Children))
-					for i, cd := range desc.Children {
-						if i < len(vs.Children) {
-							updateWidget(vs.Children[i], cd, p)
-							children[i] = vs.Children[i]
-						} else {
-							children[i] = createWidget(cd, p)
-						}
-					}
-					vs.Children = children
+					vs.Children = reconcileChildren(vs.Children, desc.Children, p)
 				} else {
 					bw.Child = createVStackFromDescs(desc.Children, p)
 				}
 			}
 		}
 	}
+}
+
+func reconcileChildren(old []widgets.Widget, descs []WidgetDesc, p *Plugin) []widgets.Widget {
+	children := make([]widgets.Widget, len(descs))
+	for i, cd := range descs {
+		if i < len(old) {
+			updateWidget(old[i], cd, p)
+			children[i] = old[i]
+		} else {
+			children[i] = createWidget(cd, p)
+		}
+	}
+	return children
 }
 
 func applyBoxModel(box *widgets.BoxModel, desc WidgetDesc) {
