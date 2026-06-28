@@ -32,10 +32,10 @@ func TestProblemsScrollbar(t *testing.T) {
 	h.redraw()
 
 	// The scrollbar should render on the rightmost column of the problems area.
-	// The scrollbar uses '█' characters.
+	// The scrollbar uses '▄' characters.
 	screen := h.screenText()
-	if !containsRune(screen, '█') {
-		t.Errorf("expected scrollbar character '█' on screen when items exceed visible height, got:\n%s", screen)
+	if !containsRune(screen, '▄') {
+		t.Errorf("expected scrollbar character '▄' on screen when items exceed visible height, got:\n%s", screen)
 	}
 
 	// Now test with fewer items that fit — scrollbar should NOT appear
@@ -46,7 +46,7 @@ func TestProblemsScrollbar(t *testing.T) {
 	h.redraw()
 
 	screen = h.screenText()
-	if containsRune(screen, '█') {
+	if containsRune(screen, '▄') {
 		t.Errorf("expected no scrollbar when items fit in visible area, got:\n%s", screen)
 	}
 }

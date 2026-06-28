@@ -43,9 +43,9 @@ func (s *Scrollbar) Render(surface Surface, rx, ry int) {
 	thumbTop, thumbH := s.ThumbPos()
 	for y := 0; y < s.Height; y++ {
 		if y >= thumbTop && y < thumbTop+thumbH {
-			surface.SetCell(rx, ry+y, term.Cell{Ch: '█', Style: term.StyleScrollbarThumb})
+			surface.SetCell(rx, ry+y, term.Cell{Ch: '▄', Style: term.StyleScrollbarThumb})
 		} else {
-			surface.SetCell(rx, ry+y, term.Cell{Ch: '█', Style: term.StyleScrollbar})
+			surface.SetCell(rx, ry+y, term.Cell{Ch: '▄', Style: term.StyleScrollbar})
 		}
 	}
 }

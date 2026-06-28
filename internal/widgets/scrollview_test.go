@@ -291,3 +291,95 @@ func TestScrollViewNoChildRender(t *testing.T) {
 	s := renderWidget(sv, 0, 0, 20, 10)
 	_ = s
 }
+
+func TestScrollViewHorizontalWheelRight(t *testing.T) {
+	child := newScrollTestChild(60, 5)
+	sv := NewScrollViewWidget(child)
+	renderWidget(sv, 0, 0, 20, 10)
+
+	ev := tcell.NewEventMouse(5, 5, tcell.WheelRight, tcell.ModNone)
+	result := sv.HandleEvent(ev)
+	if result != EventConsumed {
+		t.Error("WheelRight should be consumed")
+	}
+	if sv.scrollX != 3 {
+		t.Errorf("expected scrollX=3 after WheelRight, got %d", sv.scrollX)
+	}
+}
+
+func TestScrollViewHorizontalWheelLeft(t *testing.T) {
+	child := newScrollTestChild(60, 5)
+	sv := NewScrollViewWidget(child)
+	sv.scrollX = 10
+	renderWidget(sv, 0, 0, 20, 10)
+
+	ev := tcell.NewEventMouse(5, 5, tcell.WheelLeft, tcell.ModNone)
+	result := sv.HandleEvent(ev)
+	if result != EventConsumed {
+		t.Error("WheelLeft should be consumed")
+	}
+	if sv.scrollX != 7 {
+		t.Errorf("expected scrollX=7 after WheelLeft, got %d", sv.scrollX)
+	}
+}
+
+func TestScrollViewHorizontalWheelLeftClampsAtZero(t *testing.T) {
+	child := newScrollTestChild(60, 5)
+	sv := NewScrollViewWidget(child)
+	sv.scrollX = 1
+	renderWidget(sv, 0, 0, 20, 10)
+
+	ev := tcell.NewEventMouse(5, 5, tcell.WheelLeft, tcell.ModNone)
+	sv.HandleEvent(ev)
+	if sv.scrollX != 0 {
+		t.Errorf("expected scrollX=0 after WheelLeft clamp, got %d", sv.scrollX)
+	}
+}
+
+func TestScrollViewHorizontalWheelRightClampsAtMax(t *testing.T) {
+	child := newScrollTestChild(60, 5)
+	sv := NewScrollViewWidget(child)
+	sv.scrollX = 38
+	renderWidget(sv, 0, 0, 20, 10)
+
+	ev := tcell.NewEventMouse(5, 5, tcell.WheelRight, tcell.ModNone)
+	sv.HandleEvent(ev)
+	if sv.scrollX > 40 {
+		t.Errorf("scrollX should be clamped, got %d", sv.scrollX)
+	}
+}
+
+func TestScrollViewHorizontalBarClick(t *testing.T) {
+	child := newScrollTestChild(60, 15)
+	sv := NewScrollViewWidget(child)
+	renderWidget(sv, 0, 0, 20, 10)
+
+	// hbar is at bottom row (y=9), click in the middle
+	ev := tcell.NewEventMouse(10, 9, tcell.Button1, tcell.ModNone)
+	result := sv.HandleEvent(ev)
+	if result != EventConsumed {
+		t.Error("click on horizontal scrollbar should be consumed")
+	}
+	if sv.scrollX == 0 {
+		t.Error("clicking in middle of hbar should scroll horizontally")
+	}
+}
+
+func TestScrollViewHorizontalBarRendersHalfBlock(t *testing.T) {
+	child := newScrollTestChild(60, 5)
+	sv := NewScrollViewWidget(child)
+	s := renderWidget(sv, 0, 0, 20, 10)
+
+	// No hbar needed since content height (5) fits in viewport (10)
+	// but content width (60) > viewport width (20), so hbar at y=9
+	foundHBar := false
+	for x := range 20 {
+		if s.cells[9][x].Ch == '▄' {
+			foundHBar = true
+			break
+		}
+	}
+	if !foundHBar {
+		t.Error("expected horizontal scrollbar with '▄' character")
+	}
+}
