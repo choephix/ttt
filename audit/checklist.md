@@ -19,8 +19,8 @@
 - [x] **Plugin loses all app callbacks after Update (no-approval path)** [Bug] — `Destroy()` nils all callbacks, `Init()` does not restore them, caller does not call `wirePlugin()`. See `bugs.md` §High #3
 - [x] **Plugin not wired after `SetEnabled(true)`** [Bug] — new plugin object has nil callbacks and API interfaces; `wirePlugin()` is never called. See `bugs.md` §High #4
 - [x] **Duplicate panel registrations accumulate after Update** [Bug] — `collectRegistrations` appends without removing old entries, growing lists unboundedly with stale refs. See `bugs.md` §High #5
-- [ ] **Plugin package directly imports tcell** [Architecture] — `event_convert.go`, `panel_widget.go`, `widget_builder.go` violate the rule that only `internal/term/` imports tcell. See `architecture.md` §V1
-- [ ] **Duplicate style maps across files** [Architecture/Duplication] — `styleMap` and `reverseStyleMap` are manually mirrored in `lua_panel.go` and `sandbox.go`; adding a style requires editing both. See `architecture.md` §V2, `duplication.md` §High #5
+- [ ] **Plugin package directly imports tcell** [Architecture] — deferred: widgets.Widget interface requires tcell.Event; removing tcell from plugin requires changing the widget interface system-wide. See `architecture.md` §V1
+- [x] **Duplicate style maps across files** [Architecture/Duplication] — `styleMap` and `reverseStyleMap` are manually mirrored in `lua_panel.go` and `sandbox.go`; adding a style requires editing both. See `architecture.md` §V2, `duplication.md` §High #5
 
 ## Medium
 
@@ -35,22 +35,22 @@
 - [ ] **Nested widget reconciliation ignores child type mismatches** [Bug] — children matched by index only; type changes within containers keep the old widget. See `bugs.md` §Medium #8
 - [x] **`keyEventToLua` drops combined modifiers** [Bug] — `else if` chain reports only the first modifier; `Ctrl+Shift` events lose the shift. See `bugs.md` §Medium #9
 - [x] **`ScrollViewWidget` WheelDown doesn't clamp `scrollY`** [Bug] — `scrollY` can exceed bounds between event and render; corrected at draw time but intermediate state is inconsistent. See `bugs.md` §Medium #10
-- [ ] **Plugin struct has 10 callback fields (god struct)** [Architecture] — every host capability is a separate field; `wirePlugin` is 100+ lines; `Destroy()` has 14 nil-assignments. See `architecture.md` §D1
-- [ ] **Lua callback fields leak into `WidgetDesc`** [Architecture] — `WidgetDesc` stores `*lua.LFunction` pointers, coupling descriptors to gopher-lua types. See `architecture.md` §D2
-- [ ] **Manager imports `internal/config` for a single path call** [Architecture] — uses `config.ConfigFilePath()` only for registry path; prevents isolated testing. See `architecture.md` §D3
-- [ ] **Manager shells out to `git` directly** [Architecture] — `Install()`/`Update()` use `os/exec` with no interface; impossible to unit test. See `architecture.md` §D4
-- [ ] **`sandbox.go` imports `internal/markdown`** [Architecture] — creates transitive dependency chain `plugin -> markdown -> core/highlight + term`. See `architecture.md` §D5
-- [ ] **`OpenDrawer`/`OpenTab` callbacks take `*lua.LFunction` parameters** [Architecture] — Lua types leak through Plugin struct into the app layer. See `architecture.md` §D6
-- [ ] **App package imports gopher-lua** [Architecture] — `commands_plugin.go` imports `lua` because callbacks expose `*lua.LFunction`. See `architecture.md` §Coupling C1
-- [ ] **`PluginPanelWidget` lives in plugin package instead of widgets** [Architecture] — a UI widget that handles rendering and events sits in the plugin package, forcing a tcell import. See `architecture.md` §Coupling C2
-- [ ] **Two separate widget builder systems** [Architecture] — `widgets/builder.go` (JSON) and `plugin/widget_builder.go` (Lua) duplicate construction patterns; new widget types need changes in both. See `architecture.md` §Coupling C3
-- [ ] **`PanelProxy` couples Lua parsing with descriptor construction** [Architecture] — each `panel*Widget` function interleaves Lua table extraction and `WidgetDesc` building, making isolated testing impossible. See `architecture.md` §Coupling C4
-- [ ] **Event dispatch uses type assertions in the event loop** [Architecture] — each new async plugin operation adds another case to the type switch; central choke point. See `architecture.md` §Coupling C5
-- [ ] **Children-update pattern duplicated 4 times in `updateWidget`** [Duplication] — identical reconciliation loop for VStack, HStack, ScrollView, and Box. See `duplication.md` §High #1
+- [x] **Plugin struct has 10 callback fields (god struct)** [Architecture] — every host capability is a separate field; `wirePlugin` is 100+ lines; `Destroy()` has 14 nil-assignments. See `architecture.md` §D1
+- [x] **Lua callback fields leak into `WidgetDesc`** [Architecture] — `WidgetDesc` stores `*lua.LFunction` pointers, coupling descriptors to gopher-lua types. See `architecture.md` §D2
+- [x] **Manager imports `internal/config` for a single path call** [Architecture] — uses `config.ConfigFilePath()` only for registry path; prevents isolated testing. See `architecture.md` §D3
+- [x] **Manager shells out to `git` directly** [Architecture] — `Install()`/`Update()` use `os/exec` with no interface; impossible to unit test. See `architecture.md` §D4
+- [x] **`sandbox.go` imports `internal/markdown`** [Architecture] — creates transitive dependency chain `plugin -> markdown -> core/highlight + term`. See `architecture.md` §D5
+- [x] **`OpenDrawer`/`OpenTab` callbacks take `*lua.LFunction` parameters** [Architecture] — Lua types leak through Plugin struct into the app layer. See `architecture.md` §D6
+- [x] **App package imports gopher-lua** [Architecture] — `commands_plugin.go` imports `lua` because callbacks expose `*lua.LFunction`. See `architecture.md` §Coupling C1
+- [ ] **`PluginPanelWidget` lives in plugin package instead of widgets** [Architecture] — deferred: moving it requires abstracting the Plugin→Widget coupling; same root cause as V1. See `architecture.md` §Coupling C2
+- [ ] **Two separate widget builder systems** [Architecture] — acceptable: JSON and plugin builders serve different inputs with different lifecycles (static vs reconciled); merging would create import cycles. See `architecture.md` §Coupling C3
+- [x] **`PanelProxy` couples Lua parsing with descriptor construction** [Architecture] — each `panel*Widget` function interleaves Lua table extraction and `WidgetDesc` building, making isolated testing impossible. See `architecture.md` §Coupling C4
+- [ ] **Event dispatch uses type assertions in the event loop** [Architecture] — acceptable: plugin async ops use a single PluginAsyncResult.Callback; the type switch is per-subsystem not per-operation. See `architecture.md` §Coupling C5
+- [x] **Children-update pattern duplicated 4 times in `updateWidget`** [Duplication] — identical reconciliation loop for VStack, HStack, ScrollView, and Box. See `duplication.md` §High #1
 - [ ] **`checkPanelProxy` nil-guard boilerplate in every widget parser** [Duplication] — same 4-line block repeated 18 times in `lua_panel.go`. See `duplication.md` §High #2
 - [ ] **API nil-guard boilerplate across all Lua bindings** [Duplication] — `p.Editor == nil` / `p.Filesystem == nil` / etc. guards repeated 25 times across 4 files. See `duplication.md` §High #3
 - [ ] **`hasFocusedChild` and `collectFocusable` duplicate type-switch tree** [Duplication] — 7 identical cases in parallel; every new container widget needs both updated. See `duplication.md` §High #4
-- [ ] **Async callback pattern repeated 3 times** [Duplication] — `sysExecAsync`, `netGetAsync`, `netPostAsync` share identical goroutine/PostAsync/error-logging structure. See `duplication.md` §Medium #6
+- [x] **Async callback pattern repeated 3 times** [Duplication] — `sysExecAsync`, `netGetAsync`, `netPostAsync` share identical goroutine/PostAsync/error-logging structure. See `duplication.md` §Medium #6
 - [ ] **Tree/List widget parsers share most field extraction** [Duplication] — `panelTreeWidget` and `panelListWidget` parse the same fields; List is Tree without `indent`/`on_expand`. See `duplication.md` §Medium #7
 - [ ] **Container parsers share `render` + `collectChildren` extraction** [Duplication] — VStack, HStack, ScrollView, Box all start with the same child-collection block. See `duplication.md` §Medium #8
 - [ ] **`Set*API` boilerplate in Manager** [Duplication] — 5 consecutive methods with identical `for _, p := range m.plugins { p.X = api }` pattern. See `duplication.md` §Medium #9
