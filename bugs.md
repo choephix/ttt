@@ -11,7 +11,7 @@ Generated: 2026-06-27
 
 ## Critical
 
-### BUG-001: Multi-line text transform undo causes content loss and file corruption after one Ctrl+Z
+### ~~BUG-001: Multi-line text transform undo causes content loss and file corruption after one Ctrl+Z~~ FIXED
 - **Category**: transform
 - **Severity**: critical
 - **Steps to reproduce**: 1. Open any text file with 3+ lines
@@ -23,7 +23,7 @@ Generated: 2026-06-27
 - **Actual**: After one Ctrl+Z, the original lines 1-3 are GONE from the file. Lines that were previously below the selection (lines 4+) shift up and appear as lines 1+. If the user saves now, the original content is permanently lost. A second Ctrl+Z is required to fully restore the file.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/transform_final_multi1undo.txt shows original lines 1-3 (hello world, HELLO WORLD, Hello World) gone after 1 undo, replaced by former lines 4+. transform_final_multi2undo.txt shows correct restoration after 2 undos. Same root cause as transform-001: transformSelection() in /home/enko/Documents/ttt/internal/ui/editor_widget.go uses BreakGroup() creating non-atomic delete+paste undo groups.`
 
-### BUG-002: Terminal: Close All panics with slice bounds out of range when 2+ terminals are open
+### ~~BUG-002: Terminal: Close All panics with slice bounds out of range when 2+ terminals are open~~ FIXED
 - **Category**: terminal
 - **Severity**: critical
 - **Steps to reproduce**: 1. Open the editor
