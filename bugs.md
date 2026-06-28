@@ -107,7 +107,7 @@ Generated: 2026-06-27
 - **Actual**: Editor shows from line N+1 (e.g. line 4 when the match is on line 3). The cursor is correctly placed at Ln 3 Col 1 per status bar, but that line is above the viewport and not visible. The user cannot see the matched code.
 - **Evidence**: `sidebar_step_main_func_result.txt (Ln 3 cursor, viewport shows line 4+), sidebar_step31_click_result_line.txt (Ln 5 cursor, viewport shows line 6+), sidebar_step_final_click_result.txt (Ln 3 cursor, viewport shows line 4+). Files at /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/`
 
-### BUG-009: After clicking search result, keypresses modify search query instead of editing opened file
+### ~~BUG-009: After clicking search result, keypresses modify search query instead of editing opened file~~ NOT A BUG
 - **Category**: sidebar
 - **Severity**: major
 - **Steps to reproduce**: 1. Open Find panel (exec 'Show Search')
@@ -119,7 +119,7 @@ Generated: 2026-06-27
 - **Actual**: Focus returns to the search input field after clicking the result. Typing 'hello' changes the search query from 'TestButton' to 'TestButtonhello', triggering a new search (showing 'No results'). The opened file is not modified.
 - **Evidence**: `sidebar_step32_type_after_result.txt shows search input changed to 'TestButtonhello' and 'No results', file was not modified. Files at /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/`
 
-### BUG-010: Ctrl+Right / Ctrl+Left keybindings move by 1 char instead of jumping by word
+### ~~BUG-010: Ctrl+Right / Ctrl+Left keybindings move by 1 char instead of jumping by word~~ NOT A BUG
 - **Category**: edit
 - **Severity**: major
 - **Steps to reproduce**: 1. Open any file with text (e.g. 'Hello World'). 2. Cursor is at col 0. 3. Press Ctrl+Right (bound to editor.moveWordRight). 4. Observe cursor position.
@@ -127,7 +127,7 @@ Generated: 2026-06-27
 - **Actual**: Cursor advances only 1 character (col 0 → col 1). Ctrl+Left behaves identically — moves 1 character backward instead of jumping to the previous word boundary. The exec 'Move Word Right' command (via command palette) correctly jumps to col 5, confirming the command logic is correct but the keybinding is broken.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edit_state19_ctrl_right.json (cursor at col 1), edit_state44_ctrl_left.json (cursor at col 10 instead of word start), edit_state17_word_right.json (exec correctly lands at col 5)`
 
-### BUG-011: Alt+Backspace / Alt+Delete / Ctrl+Delete keybindings delete only 1 char instead of a whole word
+### ~~BUG-011: Alt+Backspace / Alt+Delete / Ctrl+Delete keybindings delete only 1 char instead of a whole word~~ NOT A BUG
 - **Category**: edit
 - **Severity**: major
 - **Steps to reproduce**: 1. Open file with 'Hello World' on line 1. 2. Press End to move to col 11 (end of line). 3. Press Alt+Backspace (bound to editor.deleteWordLeft). 4. Check cursor position and line content.
@@ -135,7 +135,7 @@ Generated: 2026-06-27
 - **Actual**: Alt+Backspace deletes only the single character immediately to the left ('d'), leaving 'Hello Worl' with cursor at col 10. Alt+Delete and Ctrl+Delete also each delete only 1 character forward. Root cause: EditorPaneWidget.HandleEvent matches tcell.KeyBackspace and tcell.KeyDelete without checking for Alt/Ctrl modifiers, consuming the event before global key handlers run. The exec 'Delete Word Left' command correctly deletes the full word (cursor moves to col 6), confirming the command is working but the keybinding is broken.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edit_state45_alt_bs.json (cursor at col 10 instead of col 6), edit_screen46_alt_del.txt ('ello World' after alt+delete from col 0), edit_state_key_delword.json vs edit_state_palette_delword.json (col 10 vs col 6)`
 
-### BUG-012: View: Close All Tabs discards unsaved changes without prompting
+### ~~BUG-012: View: Close All Tabs discards unsaved changes without prompting~~ DUPLICATE of BUG-005
 - **Category**: edge
 - **Severity**: major
 - **Steps to reproduce**: 1. Open a named file (e.g. bin/ttt /tmp/test.txt)
@@ -146,7 +146,7 @@ Generated: 2026-06-27
 - **Actual**: The modified file is closed immediately without any dialog. Unsaved changes are silently discarded. A new untitled tab opens.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edge_step32a_before.txt, /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/edge_step32b_after.txt`
 
-### BUG-013: View: Close Other Tabs discards unsaved changes in background tabs without prompting
+### ~~BUG-013: View: Close Other Tabs discards unsaved changes in background tabs without prompting~~ DUPLICATE of BUG-006
 - **Category**: edge
 - **Severity**: major
 - **Steps to reproduce**: 1. Open 3 files: bin/ttt file1.txt file2.txt file3.txt
@@ -159,7 +159,7 @@ Generated: 2026-06-27
 
 ## Minor
 
-### BUG-014: Tab bar clips partial tab names in overflow mode without truncation indicator
+### ~~BUG-014: Tab bar clips partial tab names in overflow mode without truncation indicator~~ NOT A BUG
 - **Category**: tabs
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open 12 or more files: `bin/ttt file1.go file2.go ... file12.go`
@@ -171,7 +171,7 @@ Generated: 2026-06-27
 - **Actual**: Partially-visible tabs show raw clipped filenames at both edges. On the LEFT: 'a.go' is displayed instead of 'gamma.go' (showing only the last 4 characters of the filename). On the RIGHT: 'file_6.g' is displayed instead of 'file_6.go' (missing the trailing 'o'). These appear as genuine filenames and can mislead users into thinking there is a file called 'a.go'.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_step58_overflow_confirm.txt (left overflow 'a.go'), /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_step59_both_overflow.txt (right overflow 'file_6.g')`
 
-### BUG-015: Tab bar overflow menu (⋮) only shows 'Close All', missing list of hidden tabs
+### ~~BUG-015: Tab bar overflow menu (⋮) only shows 'Close All', missing list of hidden tabs~~ NOT A BUG
 - **Category**: tabs
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open 12 or more files to cause tab bar overflow
@@ -180,7 +180,7 @@ Generated: 2026-06-27
 - **Actual**: The ⋮ dropdown only contains a single option: 'Close All'. There is no way to see or navigate to tabs that have scrolled off-screen via this menu. Users must use Ctrl+K , / Ctrl+K . repeatedly to cycle through hidden tabs.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_step43_more_button.txt`
 
-### BUG-016: New File (Ctrl+N) always appends tab at end of list instead of after current tab
+### ~~BUG-016: New File (Ctrl+N) always appends tab at end of list instead of after current tab~~ NOT A BUG
 - **Category**: tabs
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open three files: `bin/ttt alpha.go beta.go gamma.go`
@@ -191,7 +191,7 @@ Generated: 2026-06-27
 - **Actual**: The new untitled tab is always appended at the end of the tab list regardless of which tab is currently active: [alpha.go, beta.go, gamma.go, untitled]. The new tab is at the end even when the active tab is in the middle.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_state54_new_file_position.json (active_tab=1 was beta.go, untitled at index 3 = end), /tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_state55_new_from_middle.json`
 
-### BUG-017: File explorer single-click on a file replaces current tab content instead of opening new tab
+### ~~BUG-017: File explorer single-click on a file replaces current tab content instead of opening new tab~~ NOT A BUG
 - **Category**: tabs
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open a directory: `bin/ttt /path/to/dir/`
@@ -203,7 +203,7 @@ Generated: 2026-06-27
 - **Actual**: When the current tab is 'untitled', clicking a file in the explorer replaces the untitled tab content (expected). However, subsequent explorer clicks on different files replace the current tab's content rather than opening new tabs. Only if the file is already open in another tab does it switch to the existing tab. Starting from a directory with no explicit files, clicking through multiple files leaves only 1 tab open at a time.
 - **Evidence**: `/tmp/claude-1000/-home-enko-Documents-ttt/f9eb676f-0e80-45ca-9c81-8abb71498225/scratchpad/qa/tabs_state3_all_open.json (after clicking 4 files in explorer, only 1 tab 'gamma.go' remains)`
 
-### BUG-018: Go to File picker - filename truncated and fused with directory name without separator
+### ~~BUG-018: Go to File picker - filename truncated and fused with directory name without separator~~ FIXED
 - **Category**: file
 - **Severity**: minor
 - **Steps to reproduce**: 1. Open ttt on a project with deep git worktree paths (e.g., .claude/worktrees/...)
