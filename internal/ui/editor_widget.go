@@ -830,7 +830,12 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	shift := kev.Modifiers()&tcell.ModShift != 0
+	mods := kev.Modifiers()
+	if mods&tcell.ModAlt != 0 || mods&tcell.ModCtrl != 0 {
+		return EventIgnored
+	}
+
+	shift := mods&tcell.ModShift != 0
 	hasSel := e.Selection != nil && e.Selection.Active
 
 	multi := e.isMultiActive()

@@ -10,6 +10,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/plugin"
+	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
@@ -45,6 +46,13 @@ func registerDebugCommands(app *App) {
 		Title:    "Debug: Dump State",
 		Keywords: []string{"debug", "dump", "state", "json"},
 		Handler:  func() { app.debugDumpState() },
+	})
+
+	reg.Register(command.Command{
+		ID:       "debug.keyboardTester",
+		Title:    "Debug: Keyboard Tester",
+		Keywords: []string{"debug", "keyboard", "key", "tester", "input"},
+		Handler:  func() { app.debugKeyboardTester() },
 	})
 }
 
@@ -176,6 +184,26 @@ func (a *App) debugDumpState() {
 		}
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}()
+}
+
+func (a *App) debugKeyboardTester() {
+	if a.Root.HasOverlay() {
+		return
+	}
+	kt := ui.NewKeyTesterWidget()
+	kt.Borders = a.Borders
+	kt.LookupBinding = func(combo string) string {
+		for _, kb := range a.Keybindings {
+			if kb.Key == combo {
+				return kb.Command
+			}
+		}
+		return ""
+	}
+	kt.OnDismiss = func() {
+		a.DismissDialog()
+	}
+	a.ShowDialog(kt)
 }
 
 func LoadPluginFromFile(a *App, path string) {
