@@ -38,7 +38,7 @@ Generated: 2026-06-27
 
 ## Major
 
-### BUG-003: Non-existent file from CLI - silently ignored with no error shown
+### ~~BUG-003: Non-existent file from CLI - silently ignored with no error shown~~ FIXED
 - **Category**: file
 - **Severity**: major
 - **Steps to reproduce**: 1. Run: /home/enko/Documents/ttt/bin/ttt /path/to/nonexistent_file.txt

@@ -85,6 +85,8 @@ type EditorGroupWidget struct {
 	OnFileChange           func(path, lang, text string)
 	OnFileClose            func(path, lang string)
 	OnError                func(msg string)
+	OnNotify               func(msg string)
+	pendingNotify          []string
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -148,6 +150,24 @@ func (g *EditorGroupWidget) reportError(msg string) {
 	}
 }
 
+func (g *EditorGroupWidget) notify(msg string) {
+	if g.OnNotify != nil {
+		g.OnNotify(msg)
+	} else {
+		g.pendingNotify = append(g.pendingNotify, msg)
+	}
+}
+
+func (g *EditorGroupWidget) FlushNotifications() {
+	if g.OnNotify == nil {
+		return
+	}
+	for _, msg := range g.pendingNotify {
+		g.OnNotify(msg)
+	}
+	g.pendingNotify = nil
+}
+
 func (g *EditorGroupWidget) PinActiveTab() {
 	if t := g.activeTab(); t != nil {
 		t.Pinned = true
@@ -178,7 +198,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 			g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
 			return
 		}
-		slog.Info("new file buffer created", "path", path)
+		g.notify(fmt.Sprintf("New file: %s", filepath.Base(path)))
 	}
 	tabSize := g.TabSize
 	useTabs := !g.InsertSpaces

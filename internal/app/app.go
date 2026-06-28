@@ -376,6 +376,10 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.EditorGroup.OnError = func(msg string) {
 		a.StatusError(msg)
 	}
+	a.EditorGroup.OnNotify = func(msg string) {
+		a.StatusNotify(msg)
+	}
+	a.EditorGroup.FlushNotifications()
 	a.EditorGroup.OnFileOpen = func(path, lang, text string) {
 		a.NotifyLSPOpen(path, lang, text)
 		a.RequestGitGutterForActiveFile()
