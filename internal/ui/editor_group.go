@@ -563,6 +563,33 @@ func (g *EditorGroupWidget) CloseAllTabs() {
 	g.syncTabs()
 }
 
+func (g *EditorGroupWidget) CloseAllSaved() {
+	var kept []editorTab
+	for i := range g.tabs {
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			kept = append(kept, g.tabs[i])
+		}
+	}
+	if len(kept) == 0 {
+		g.CloseAllTabs()
+		return
+	}
+	g.tabs = kept
+	if g.active >= len(g.tabs) {
+		g.active = len(g.tabs) - 1
+	}
+	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) HasDirtyTabs() bool {
+	for i := range g.tabs {
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *EditorGroupWidget) Save() bool {
 	t := g.activeTab()
 	if t == nil || t.Content != nil {

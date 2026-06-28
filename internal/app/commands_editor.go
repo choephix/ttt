@@ -288,7 +288,32 @@ func registerEditorCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "tab.closeAll", Title: "View: Close All Tabs",
 		Keywords: []string{"tab"},
-		Handler:  func() { app.EditorGroup.CloseAllTabs() },
+		Handler: func() {
+			if !app.EditorGroup.HasDirtyTabs() {
+				app.EditorGroup.CloseAllTabs()
+				return
+			}
+			app.ShowConfirmDialog("You have unsaved changes.",
+				[]string{"Abort", "Close Saved", "Discard All"},
+				[]func(){
+					func() { app.DismissDialog() },
+					func() {
+						app.DismissDialog()
+						app.EditorGroup.CloseAllSaved()
+					},
+					func() {
+						app.DismissDialog()
+						app.EditorGroup.CloseAllTabs()
+					},
+				},
+			)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeAllSaved", Title: "View: Close All Saved Tabs",
+		Keywords: []string{"tab", "close", "saved"},
+		Handler:  func() { app.EditorGroup.CloseAllSaved() },
 	})
 
 	reg.Register(command.Command{
