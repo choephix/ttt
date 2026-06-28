@@ -23,19 +23,43 @@ type BottomRegistration struct {
 	Widget *PluginPanelWidget
 }
 
+type GitRunner interface {
+	Clone(url, targetDir string) error
+	Pull(dir string) error
+}
+
+type execGitRunner struct{}
+
+func (execGitRunner) Clone(url, targetDir string) error {
+	cmd := exec.Command("git", "clone", url, targetDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git clone failed: %s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func (execGitRunner) Pull(dir string) error {
+	cmd := exec.Command("git", "-C", dir, "pull")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git pull failed: %s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 type Manager struct {
 	plugins      []*Plugin
 	registry     *Registry
 	pluginsDir   string
 	registryPath string
 	extraDirs    []string
+	git          GitRunner
 
 	SidebarPanels []SidebarRegistration
 	BottomPanels  []BottomRegistration
 }
 
 func NewManager(pluginsDir, registryPath string, extraDirs ...string) *Manager {
-	return &Manager{pluginsDir: pluginsDir, registryPath: registryPath, extraDirs: extraDirs}
+	return &Manager{pluginsDir: pluginsDir, registryPath: registryPath, git: execGitRunner{}, extraDirs: extraDirs}
 }
 
 func (m *Manager) LoadAll() []*Plugin {
@@ -246,9 +270,8 @@ func (m *Manager) Install(repoURL string) (*Plugin, error) {
 		return nil, fmt.Errorf("plugin %q already exists", name)
 	}
 
-	cmd := exec.Command("git", "clone", repoURL, targetDir)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("git clone failed: %s: %s", err, strings.TrimSpace(string(out)))
+	if err := m.git.Clone(repoURL, targetDir); err != nil {
+		return nil, err
 	}
 
 	manifest, err := LoadManifest(targetDir)
@@ -306,9 +329,8 @@ func (m *Manager) Update(name string) (*Plugin, bool, error) {
 		return nil, false, fmt.Errorf("plugin %q not found", name)
 	}
 
-	cmd := exec.Command("git", "-C", dir, "pull")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return nil, false, fmt.Errorf("git pull failed: %s: %s", err, strings.TrimSpace(string(out)))
+	if err := m.git.Pull(dir); err != nil {
+		return nil, false, err
 	}
 
 	newManifest, err := LoadManifest(dir)
