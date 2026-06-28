@@ -342,6 +342,8 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+k y", Command: "view.keybindings"},
 		{Key: "ctrl+t", Command: "terminal.toggle"},
 		{Key: "alt+t", Command: "terminal.fullscreen"},
+		{Key: "f6", Command: "focus.nextGroup"},
+		{Key: "shift+f6", Command: "focus.prevGroup"},
 		{Key: "f10", Command: "menu.file"},
 		{Key: "alt+f", Command: "menu.file"},
 		{Key: "alt+e", Command: "menu.edit"},
