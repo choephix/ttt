@@ -63,6 +63,13 @@ func (s *UndoStack) BreakGroup() {
 	s.grouping = false
 }
 
+// ContinueGroup allows subsequent rune inserts to be appended to the
+// current top-of-stack entry. Used after replaceSelection so that typing
+// over a selection groups the replacement with continued typing.
+func (s *UndoStack) ContinueGroup() {
+	s.grouping = true
+}
+
 func canGroup(grp *BatchCommand, cmd EditCommand) bool {
 	if len(grp.Commands) == 0 {
 		return false
