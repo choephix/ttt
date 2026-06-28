@@ -1950,7 +1950,11 @@ func (e *EditorPaneWidget) lineRange() (int, int) {
 		}
 		return e.Buf.ClampLine(start.Line), e.Buf.ClampLine(endLine)
 	}
-	return 0, len(e.Buf.Lines) - 1
+	end := len(e.Buf.Lines) - 1
+	if end > 0 && e.Buf.Lines[end] == "" {
+		end--
+	}
+	return 0, end
 }
 
 // copyLines returns a copy of the buffer lines in the given range (inclusive).
