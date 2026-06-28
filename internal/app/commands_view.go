@@ -228,6 +228,25 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "panel.show", Title: "Show Panel Tab",
+		Keywords: []string{"view", "bottom", "tab", "switch"},
+		Handler: func() {
+			ids := app.BottomPanel.PanelIDs()
+			if len(ids) == 0 {
+				return
+			}
+			var items []widgets.SelectItem
+			for _, id := range ids {
+				items = append(items, widgets.SelectItem{ID: id, Label: id})
+			}
+			app.ShowSelectDialog("Show Panel", items, func(id string) {
+				app.BottomPanel.SetActivePanel(id)
+				app.FocusPanel()
+			}, nil)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "panel.taller", Title: "Increase Panel Height",
 		Keywords: []string{"view", "resize", "bottom"},
 		Handler: func() {

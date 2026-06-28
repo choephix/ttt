@@ -43,6 +43,8 @@ func RunExecScript(a *App, script string) {
 			execDebug(a, args)
 		case "wait":
 			execWait(args)
+		case "panel":
+			execPanel(a, args)
 		case "quit":
 			execQuit(a)
 		default:
@@ -203,6 +205,31 @@ func execWait(args string) {
 		return
 	}
 	time.Sleep(time.Duration(n) * time.Millisecond)
+}
+
+func execPanel(a *App, args string) {
+	id := stripQuotes(strings.TrimSpace(args))
+	if id == "" {
+		slog.Error("exec_script: panel requires a panel ID")
+		return
+	}
+	if !a.BottomPanel.HasPanel(id) {
+		slog.Error("exec_script: panel not found", "id", id)
+		return
+	}
+	a.BottomPanel.SetActivePanel(id)
+	if !a.ContentSplit.ShowBottom {
+		r := a.ContentSplit.GetRect()
+		maxH := r.H - 4
+		if a.ContentSplit.BottomH <= 1 || a.ContentSplit.BottomH > maxH {
+			a.ContentSplit.BottomH = min(r.H/2, maxH)
+		}
+		a.ContentSplit.ShowBottom = true
+	}
+	if w := a.BottomPanel.ActiveWidget(); w != nil {
+		a.Root.SetFocus(w)
+	}
+	a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 }
 
 func execQuit(a *App) {
