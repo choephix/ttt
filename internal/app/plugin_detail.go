@@ -36,7 +36,7 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 
 	installBtn := widgets.NewButtonWidget(widgets.ButtonConfig{
 		Label: "Install",
-		Style: term.StyleSuccess,
+		Style: term.StyleDefault,
 		OnClick: func() {
 			if a.PluginsPanel != nil && a.PluginsPanel.OnInstall != nil {
 				a.PluginsPanel.OnInstall(entry.Repo, entry.Path, entry.Name)
@@ -89,14 +89,17 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 		headerWidgets = append(headerWidgets, tagsLabel)
 	}
 
-	divider := widgets.NewDividerWidget(widgets.DividerConfig{})
-	headerWidgets = append(headerWidgets, divider)
-
 	header := widgets.NewVStackWidget(headerWidgets...)
+	header.Box.PaddingLeft = 1
+	header.Box.PaddingRight = 1
+
+	divider := widgets.NewDividerWidget(widgets.DividerConfig{})
 
 	scroll := widgets.NewScrollViewWidget(md)
+	scroll.Box.PaddingLeft = 1
+	scroll.Box.PaddingRight = 1
 
-	content := widgets.NewVStackWidget(header, scroll)
+	content := widgets.NewVStackWidget(header, divider, scroll)
 	adapter := ui.NewWidgetAdapter(content)
 
 	a.EditorGroup.OpenPluginTab(tabID, entry.Name, adapter)

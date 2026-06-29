@@ -44,22 +44,12 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 	pp.SearchTree = widgets.NewTreeWidget(widgets.TreeConfig{
 		EmptyText: "Loading plugins...",
 		Indent:    1,
-		OnSelect: func(node *widgets.TreeNode) {
-			for _, entry := range pp.available {
-				if node.ID == "available."+entry.Name {
-					if pp.OnOpenDetail != nil {
-						pp.OnOpenDetail(entry)
-					}
-					return
-				}
-			}
-		},
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			if cmd == "activate" {
 				for _, entry := range pp.available {
 					if node.ID == "available."+entry.Name {
-						if pp.OnInstall != nil {
-							pp.OnInstall(entry.Repo, entry.Path, entry.Name)
+						if pp.OnOpenDetail != nil {
+							pp.OnOpenDetail(entry)
 						}
 						return
 					}
