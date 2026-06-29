@@ -48,6 +48,10 @@ func (a *WidgetAdapter) Inner() widgets.Widget { return a.W }
 
 func (a *WidgetAdapter) Focusable() bool { return true }
 
+func (a *WidgetAdapter) SetFocused(focused bool) {
+	a.focus.SetActive(focused)
+}
+
 func (a *WidgetAdapter) Render(surface Surface) {
 	r := a.GetRect()
 	a.W.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})

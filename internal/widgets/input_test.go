@@ -94,6 +94,7 @@ func TestInputClickFocus(t *testing.T) {
 
 	// Set up focus manager
 	fm := NewFocusManager()
+	fm.SetActive(true)
 	vs := NewVStackWidget(inp)
 	vs.SetRect(Rect{X: 5, Y: 10, W: 20, H: 3})
 	fm.Collect(vs)
@@ -156,6 +157,7 @@ func TestTabbedTabSwitchFocus(t *testing.T) {
 	})
 
 	fm := NewFocusManager()
+	fm.SetActive(true)
 
 	// Initial state: tab 0 active
 	surface := renderWidget(tabbed, 0, 0, 30, 20)
@@ -253,6 +255,7 @@ func TestTabbedClickInputViaFocusManager(t *testing.T) {
 	})
 
 	fm := NewFocusManager()
+	fm.SetActive(true)
 
 	// Wire OnChange like the adapter does
 	tabbed.OnChange = func(int) {
