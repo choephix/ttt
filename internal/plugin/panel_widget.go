@@ -79,6 +79,11 @@ func (pw *PluginPanelWidget) CursorPosition() (int, int, bool) {
 	return 0, 0, false
 }
 
-func (pw *PluginPanelWidget) Focusable() bool           { return true }
-func (pw *PluginPanelWidget) SetFocused(focused bool)    { pw.focused = focused }
-func (pw *PluginPanelWidget) IsFocused() bool            { return pw.focused }
+func (pw *PluginPanelWidget) Focusable() bool { return true }
+func (pw *PluginPanelWidget) SetFocused(focused bool) {
+	pw.focused = focused
+	if pw.state != nil && pw.state.focus != nil {
+		pw.state.focus.SetActive(focused)
+	}
+}
+func (pw *PluginPanelWidget) IsFocused() bool { return pw.focused }

@@ -89,6 +89,7 @@ type EditorGroupWidget struct {
 	OnError                func(msg string)
 	OnNotify               func(msg string)
 	pendingNotify          []string
+	focused                bool
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -136,6 +137,15 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 }
 
 func (g *EditorGroupWidget) Focusable() bool { return true }
+
+func (g *EditorGroupWidget) SetFocused(focused bool) {
+	g.focused = focused
+	if t := g.activeTab(); t != nil && t.Content != nil {
+		if setter, ok := t.Content.(interface{ SetFocused(bool) }); ok {
+			setter.SetFocused(focused)
+		}
+	}
+}
 
 func (g *EditorGroupWidget) activeTab() *editorTab {
 	if len(g.tabs) == 0 || g.active < 0 || g.active >= len(g.tabs) {
@@ -496,9 +506,21 @@ func (g *EditorGroupWidget) SetUseTabs(useTabs bool) {
 
 func (g *EditorGroupWidget) SwitchTab(idx int) {
 	if idx >= 0 && idx < len(g.tabs) {
+		if t := g.activeTab(); t != nil && t.Content != nil {
+			if setter, ok := t.Content.(interface{ SetFocused(bool) }); ok {
+				setter.SetFocused(false)
+			}
+		}
 		g.saveMultiState()
 		g.active = idx
 		g.syncTabs()
+		if g.focused {
+			if t := g.activeTab(); t != nil && t.Content != nil {
+				if setter, ok := t.Content.(interface{ SetFocused(bool) }); ok {
+					setter.SetFocused(true)
+				}
+			}
+		}
 	}
 }
 
@@ -1325,7 +1347,14 @@ func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 	if t.Content != nil {
-		return t.Content.HandleEvent(ev)
+		result = t.Content.HandleEvent(ev)
+		if result != EventIgnored {
+			return result
+		}
+		if _, ok := ev.(*tcell.EventMouse); ok {
+			return EventConsumed
+		}
+		return EventIgnored
 	}
 	result = g.Editor.HandleEvent(ev)
 	g.saveMultiState()

@@ -7,10 +7,18 @@ import (
 type FocusManager struct {
 	items   []FocusableWidget
 	focused int
+	active  bool
 }
 
 func NewFocusManager() *FocusManager {
 	return &FocusManager{focused: -1}
+}
+
+func (fm *FocusManager) SetActive(active bool) {
+	fm.active = active
+	if fm.focused >= 0 && fm.focused < len(fm.items) {
+		fm.items[fm.focused].SetFocused(active)
+	}
 }
 
 func (fm *FocusManager) Collect(w Widget) {
@@ -34,7 +42,9 @@ func (fm *FocusManager) Collect(w Widget) {
 				}
 			}
 		}
-		fm.items[fm.focused].SetFocused(true)
+		if fm.active {
+			fm.items[fm.focused].SetFocused(true)
+		}
 	}
 }
 
@@ -82,7 +92,7 @@ func (fm *FocusManager) setFocus(idx int) {
 		fm.items[fm.focused].SetFocused(false)
 	}
 	fm.focused = idx
-	if fm.focused >= 0 && fm.focused < len(fm.items) {
+	if fm.active && fm.focused >= 0 && fm.focused < len(fm.items) {
 		fm.items[fm.focused].SetFocused(true)
 	}
 }

@@ -23,6 +23,7 @@ func TestFocusManagerCollect(t *testing.T) {
 	vs := NewVStackWidget(tree, label, NewHStackWidget(b1, b2))
 
 	fm := NewFocusManager()
+	fm.SetActive(true)
 	fm.Collect(vs)
 
 	if len(fm.items) != 3 {
@@ -50,6 +51,7 @@ func TestFocusManagerTabCycle(t *testing.T) {
 	vs := NewVStackWidget(tree, NewHStackWidget(b1, b2))
 
 	fm := NewFocusManager()
+	fm.SetActive(true)
 	fm.Collect(vs)
 
 	if fm.Focused() != Widget(tree) {
@@ -115,6 +117,7 @@ func TestFocusManagerKeyRouting(t *testing.T) {
 
 	hs := NewHStackWidget(b1, b2)
 	fm := NewFocusManager()
+	fm.SetActive(true)
 	fm.Collect(hs)
 
 	enterEv := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -165,6 +168,7 @@ func TestActiveBorderOnFocus(t *testing.T) {
 	box.Child = tree
 
 	fm := NewFocusManager()
+	fm.SetActive(true)
 	fm.Collect(box)
 
 	if !tree.IsFocused() {
