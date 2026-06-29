@@ -43,6 +43,9 @@ func (a *App) focusedRegion() string {
 }
 
 func (a *App) focusNextGroup() {
+	if a.Root.HasModalOverlay() {
+		return
+	}
 	regions := []string{"editor"}
 	if a.Sidebar.Visible {
 		regions = append(regions, "sidebar")
@@ -62,6 +65,9 @@ func (a *App) focusNextGroup() {
 }
 
 func (a *App) focusPrevGroup() {
+	if a.Root.HasModalOverlay() {
+		return
+	}
 	regions := []string{"editor"}
 	if a.Sidebar.Visible {
 		regions = append(regions, "sidebar")
