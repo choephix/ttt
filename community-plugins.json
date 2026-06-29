@@ -1,0 +1,808 @@
+[
+  {
+    "name": "cheat-sheet",
+    "author": "eugenioenko",
+    "description": "Fetch programming cheat sheets from cheat.sh and display them in an editor tab",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-cheat-sheet",
+    "version": "0.1.0",
+    "tags": ["reference", "cheatsheet", "documentation", "learning"]
+  },
+  {
+    "name": "color-picker",
+    "author": "eugenioenko",
+    "description": "Open a drawer with color swatches. Click a color to insert its hex value at the cursor",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-color-picker",
+    "version": "0.1.0",
+    "tags": ["color", "css", "design", "utility"]
+  },
+  {
+    "name": "docker-manager",
+    "author": "eugenioenko",
+    "description": "Manage Docker containers, images and volumes from a sidebar panel",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-docker-manager",
+    "version": "0.1.0",
+    "tags": ["docker", "containers", "devops", "infrastructure"]
+  },
+  {
+    "name": "go-test-runner",
+    "author": "eugenioenko",
+    "description": "Run Go tests and view results in a sidebar panel with pass/fail indicators",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-go-test-runner",
+    "version": "0.1.0",
+    "tags": ["go", "testing", "runner", "golang"]
+  },
+  {
+    "name": "http-client",
+    "author": "eugenioenko",
+    "description": "Simple HTTP client for testing APIs with request history",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-http-client",
+    "version": "0.1.0",
+    "tags": ["http", "api", "rest", "networking"]
+  },
+  {
+    "name": "markdown-preview",
+    "author": "eugenioenko",
+    "description": "Preview markdown files with styled rendering in a split pane",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-markdown-preview",
+    "version": "0.1.0",
+    "tags": ["markdown", "preview", "documentation", "writing"]
+  },
+  {
+    "name": "notepad",
+    "author": "eugenioenko",
+    "description": "Persistent scratchpad for jotting down notes per workspace",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-notepad",
+    "version": "0.1.0",
+    "tags": ["notes", "scratchpad", "productivity", "utility"]
+  },
+  {
+    "name": "todo-scanner",
+    "author": "eugenioenko",
+    "description": "Scans workspace for TODO, FIXME, HACK, and NOTE comments",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-todo-scanner",
+    "version": "0.1.0",
+    "tags": ["todo", "scanner", "productivity", "comments"]
+  },
+  {
+    "name": "git-graph",
+    "author": "devtools-collective",
+    "description": "Visualize git commit history as an ASCII branch graph in a tab",
+    "repo": "https://github.com/devtools-collective/ttt-git-graph",
+    "version": "1.2.0",
+    "tags": ["git", "visualization", "history", "branches"]
+  },
+  {
+    "name": "file-bookmarks",
+    "author": "sarah-codes",
+    "description": "Bookmark files and lines for quick navigation across workspaces",
+    "repo": "https://github.com/sarah-codes/ttt-file-bookmarks",
+    "version": "0.3.1",
+    "tags": ["bookmarks", "navigation", "productivity"]
+  },
+  {
+    "name": "snippet-manager",
+    "author": "codesmith-io",
+    "description": "Save, search, and insert code snippets with variable placeholders",
+    "repo": "https://github.com/codesmith-io/ttt-snippets",
+    "version": "2.0.0",
+    "tags": ["snippets", "templates", "productivity", "code"]
+  },
+  {
+    "name": "database-explorer",
+    "author": "devtools-collective",
+    "description": "Connect to PostgreSQL and MySQL databases, browse tables and run queries",
+    "repo": "https://github.com/devtools-collective/ttt-db-explorer",
+    "version": "0.5.0",
+    "tags": ["database", "sql", "postgres", "mysql"]
+  },
+  {
+    "name": "rest-client",
+    "author": "apitester",
+    "description": "Send HTTP requests from .http files with environment variable support",
+    "repo": "https://github.com/apitester/ttt-rest-client",
+    "version": "1.1.0",
+    "tags": ["http", "api", "rest", "testing"]
+  },
+  {
+    "name": "pomodoro-timer",
+    "author": "focus-tools",
+    "description": "Pomodoro technique timer in the status bar with session tracking",
+    "repo": "https://github.com/focus-tools/ttt-pomodoro",
+    "version": "0.2.0",
+    "tags": ["timer", "productivity", "focus", "pomodoro"]
+  },
+  {
+    "name": "json-formatter",
+    "author": "sarah-codes",
+    "description": "Format, minify, and validate JSON with syntax error highlighting",
+    "repo": "https://github.com/sarah-codes/ttt-json-formatter",
+    "version": "1.0.0",
+    "tags": ["json", "formatter", "validator", "utility"]
+  },
+  {
+    "name": "csv-viewer",
+    "author": "data-viz",
+    "description": "View CSV files as aligned columns with sorting and filtering",
+    "repo": "https://github.com/data-viz/ttt-csv-viewer",
+    "version": "0.4.0",
+    "tags": ["csv", "data", "viewer", "table"]
+  },
+  {
+    "name": "kubernetes-panel",
+    "author": "cloudops",
+    "description": "Monitor Kubernetes pods, deployments, and services from a sidebar",
+    "repo": "https://github.com/cloudops/ttt-k8s-panel",
+    "version": "0.6.0",
+    "tags": ["kubernetes", "k8s", "devops", "cloud"]
+  },
+  {
+    "name": "spell-checker",
+    "author": "writing-tools",
+    "description": "Spell check comments and strings using hunspell dictionaries",
+    "repo": "https://github.com/writing-tools/ttt-spellcheck",
+    "version": "1.0.2",
+    "tags": ["spelling", "writing", "linting", "comments"]
+  },
+  {
+    "name": "live-share",
+    "author": "collab-dev",
+    "description": "Real-time collaborative editing via WebSocket with cursor sharing",
+    "repo": "https://github.com/collab-dev/ttt-live-share",
+    "version": "0.1.0",
+    "tags": ["collaboration", "realtime", "sharing", "multiplayer"]
+  },
+  {
+    "name": "project-templates",
+    "author": "scaffold-io",
+    "description": "Create new projects from templates with variable substitution",
+    "repo": "https://github.com/scaffold-io/ttt-templates",
+    "version": "1.3.0",
+    "tags": ["templates", "scaffold", "project", "generator"]
+  },
+  {
+    "name": "regex-tester",
+    "author": "codesmith-io",
+    "description": "Test regular expressions with live match highlighting and group extraction",
+    "repo": "https://github.com/codesmith-io/ttt-regex",
+    "version": "0.8.0",
+    "tags": ["regex", "testing", "utility", "patterns"]
+  },
+  {
+    "name": "wakatime",
+    "author": "wakatime",
+    "description": "Automatic time tracking for programming activity metrics",
+    "repo": "https://github.com/wakatime/ttt-wakatime",
+    "version": "2.1.0",
+    "tags": ["time-tracking", "metrics", "productivity", "analytics"]
+  },
+  {
+    "name": "env-manager",
+    "author": "devtools-collective",
+    "description": "Manage .env files with variable validation and secret masking",
+    "repo": "https://github.com/devtools-collective/ttt-env-manager",
+    "version": "0.3.0",
+    "tags": ["env", "environment", "secrets", "configuration"]
+  },
+  {
+    "name": "diff-viewer",
+    "author": "sarah-codes",
+    "description": "Side-by-side diff viewer for comparing any two files",
+    "repo": "https://github.com/sarah-codes/ttt-diff-viewer",
+    "version": "1.1.0",
+    "tags": ["diff", "compare", "files", "viewer"]
+  },
+  {
+    "name": "ascii-art",
+    "author": "creative-dev",
+    "description": "Generate ASCII art text banners using figlet fonts",
+    "repo": "https://github.com/creative-dev/ttt-ascii-art",
+    "version": "0.2.0",
+    "tags": ["ascii", "art", "text", "fun"]
+  },
+  {
+    "name": "ssh-manager",
+    "author": "cloudops",
+    "description": "Manage SSH connections and open remote terminals from a panel",
+    "repo": "https://github.com/cloudops/ttt-ssh-manager",
+    "version": "0.4.0",
+    "tags": ["ssh", "remote", "terminal", "connections"]
+  },
+  {
+    "name": "test-coverage",
+    "author": "quality-tools",
+    "description": "Display test coverage inline with gutter highlights for covered lines",
+    "repo": "https://github.com/quality-tools/ttt-coverage",
+    "version": "0.7.0",
+    "tags": ["testing", "coverage", "quality", "visualization"]
+  },
+  {
+    "name": "changelog-generator",
+    "author": "release-tools",
+    "description": "Generate changelogs from conventional commits between tags",
+    "repo": "https://github.com/release-tools/ttt-changelog",
+    "version": "1.0.0",
+    "tags": ["changelog", "git", "release", "documentation"]
+  },
+  {
+    "name": "lorem-ipsum",
+    "author": "creative-dev",
+    "description": "Insert placeholder text in various formats and lengths",
+    "repo": "https://github.com/creative-dev/ttt-lorem",
+    "version": "0.1.0",
+    "tags": ["text", "placeholder", "utility", "generator"]
+  },
+  {
+    "name": "yaml-validator",
+    "author": "config-tools",
+    "description": "Validate YAML files against JSON Schema with inline error markers",
+    "repo": "https://github.com/config-tools/ttt-yaml-validator",
+    "version": "0.5.0",
+    "tags": ["yaml", "validator", "schema", "configuration"]
+  },
+  {
+    "name": "terraform-panel",
+    "author": "cloudops",
+    "description": "Run terraform plan and apply from a bottom panel with state viewer",
+    "repo": "https://github.com/cloudops/ttt-terraform",
+    "version": "0.3.0",
+    "tags": ["terraform", "infrastructure", "iac", "devops"]
+  },
+  {
+    "name": "git-blame-inline",
+    "author": "devtools-collective",
+    "description": "Show inline git blame annotations at end of each line",
+    "repo": "https://github.com/devtools-collective/ttt-blame-inline",
+    "version": "1.0.0",
+    "tags": ["git", "blame", "annotations", "history"]
+  },
+  {
+    "name": "file-size-indicator",
+    "author": "metrics-lab",
+    "description": "Show file sizes in the explorer tree and warn on large files",
+    "repo": "https://github.com/metrics-lab/ttt-filesize",
+    "version": "0.2.0",
+    "tags": ["files", "metrics", "explorer", "utility"]
+  },
+  {
+    "name": "rust-analyzer-helper",
+    "author": "rust-community",
+    "description": "Enhanced rust-analyzer integration with cargo command shortcuts",
+    "repo": "https://github.com/rust-community/ttt-rust-helper",
+    "version": "0.6.0",
+    "tags": ["rust", "cargo", "lsp", "language"]
+  },
+  {
+    "name": "python-venv",
+    "author": "pydev-tools",
+    "description": "Manage Python virtual environments and switch interpreters",
+    "repo": "https://github.com/pydev-tools/ttt-python-venv",
+    "version": "0.4.0",
+    "tags": ["python", "virtualenv", "environment", "language"]
+  },
+  {
+    "name": "npm-scripts",
+    "author": "webdev-hub",
+    "description": "List and run npm/yarn/pnpm scripts from package.json in a panel",
+    "repo": "https://github.com/webdev-hub/ttt-npm-scripts",
+    "version": "1.0.0",
+    "tags": ["npm", "node", "scripts", "javascript"]
+  },
+  {
+    "name": "tailwind-preview",
+    "author": "webdev-hub",
+    "description": "Preview Tailwind CSS classes with color swatches and spacing guides",
+    "repo": "https://github.com/webdev-hub/ttt-tailwind-preview",
+    "version": "0.3.0",
+    "tags": ["tailwind", "css", "preview", "frontend"]
+  },
+  {
+    "name": "image-viewer",
+    "author": "creative-dev",
+    "description": "Display images as sixel or ASCII art in an editor tab",
+    "repo": "https://github.com/creative-dev/ttt-image-viewer",
+    "version": "0.2.0",
+    "tags": ["image", "viewer", "sixel", "media"]
+  },
+  {
+    "name": "code-stats",
+    "author": "metrics-lab",
+    "description": "Show lines of code, functions, and complexity metrics per file",
+    "repo": "https://github.com/metrics-lab/ttt-code-stats",
+    "version": "0.5.0",
+    "tags": ["metrics", "statistics", "complexity", "analysis"]
+  },
+  {
+    "name": "ai-autocomplete",
+    "author": "ml-editors",
+    "description": "AI-powered code completions using local LLM models",
+    "repo": "https://github.com/ml-editors/ttt-ai-complete",
+    "version": "0.1.0",
+    "tags": ["ai", "autocomplete", "llm", "machine-learning"]
+  },
+  {
+    "name": "conventional-commits",
+    "author": "release-tools",
+    "description": "Guided commit message builder following conventional commits spec",
+    "repo": "https://github.com/release-tools/ttt-conventional-commits",
+    "version": "1.2.0",
+    "tags": ["git", "commits", "conventions", "workflow"]
+  },
+  {
+    "name": "task-runner",
+    "author": "workflow-tools",
+    "description": "Define and run project tasks from a tasks.json configuration file",
+    "repo": "https://github.com/workflow-tools/ttt-task-runner",
+    "version": "0.8.0",
+    "tags": ["tasks", "runner", "automation", "workflow"]
+  },
+  {
+    "name": "bracket-colorizer",
+    "author": "readability-tools",
+    "description": "Color-code matching brackets with customizable palette",
+    "repo": "https://github.com/readability-tools/ttt-readability-pack",
+    "path": "bracket-colorizer",
+    "version": "1.0.0",
+    "tags": ["brackets", "colors", "readability", "editor"]
+  },
+  {
+    "name": "indent-guides",
+    "author": "readability-tools",
+    "description": "Show vertical indent guide lines with scope highlighting",
+    "repo": "https://github.com/readability-tools/ttt-readability-pack",
+    "path": "indent-guides",
+    "version": "0.4.0",
+    "tags": ["indentation", "guides", "readability", "editor"]
+  },
+  {
+    "name": "minimap",
+    "author": "readability-tools",
+    "description": "Code minimap overview in the right gutter for quick navigation",
+    "repo": "https://github.com/readability-tools/ttt-readability-pack",
+    "path": "minimap",
+    "version": "0.2.0",
+    "tags": ["minimap", "navigation", "overview", "editor"]
+  },
+  {
+    "name": "open-in-browser",
+    "author": "webdev-hub",
+    "description": "Open the current file in a web browser with live reload",
+    "repo": "https://github.com/webdev-hub/ttt-open-browser",
+    "version": "0.3.0",
+    "tags": ["browser", "preview", "html", "frontend"]
+  },
+  {
+    "name": "makefile-runner",
+    "author": "workflow-tools",
+    "description": "List and execute Makefile targets from a sidebar panel",
+    "repo": "https://github.com/workflow-tools/ttt-makefile-runner",
+    "version": "0.5.0",
+    "tags": ["make", "build", "runner", "automation"]
+  },
+  {
+    "name": "clipboard-history",
+    "author": "productivity-pack",
+    "description": "Browse and paste from clipboard history ring with search",
+    "repo": "https://github.com/productivity-pack/ttt-clipboard-history",
+    "version": "0.6.0",
+    "tags": ["clipboard", "history", "paste", "productivity"]
+  },
+  {
+    "name": "github-issues",
+    "author": "devtools-collective",
+    "description": "Browse, create, and reference GitHub issues from the editor",
+    "repo": "https://github.com/devtools-collective/ttt-github-issues",
+    "version": "0.7.0",
+    "tags": ["github", "issues", "tracking", "workflow"]
+  },
+  {
+    "name": "jira-integration",
+    "author": "enterprise-tools",
+    "description": "View and update Jira tickets linked to the current branch",
+    "repo": "https://github.com/enterprise-tools/ttt-jira",
+    "version": "0.4.0",
+    "tags": ["jira", "tickets", "tracking", "enterprise"]
+  },
+  {
+    "name": "eslint-panel",
+    "author": "webdev-hub",
+    "description": "Run ESLint and display results with quick-fix suggestions",
+    "repo": "https://github.com/webdev-hub/ttt-eslint",
+    "version": "1.1.0",
+    "tags": ["eslint", "javascript", "linting", "typescript"]
+  },
+  {
+    "name": "prettier-format",
+    "author": "webdev-hub",
+    "description": "Format files on save using Prettier with config detection",
+    "repo": "https://github.com/webdev-hub/ttt-prettier",
+    "version": "1.0.0",
+    "tags": ["prettier", "formatter", "javascript", "css"]
+  },
+  {
+    "name": "latex-preview",
+    "author": "academic-tools",
+    "description": "Compile LaTeX documents and preview PDF output in a tab",
+    "repo": "https://github.com/academic-tools/ttt-latex",
+    "version": "0.3.0",
+    "tags": ["latex", "pdf", "academic", "preview"]
+  },
+  {
+    "name": "plantuml-render",
+    "author": "diagram-tools",
+    "description": "Render PlantUML diagrams as ASCII art inline",
+    "repo": "https://github.com/diagram-tools/ttt-plantuml",
+    "version": "0.2.0",
+    "tags": ["plantuml", "diagrams", "uml", "visualization"]
+  },
+  {
+    "name": "mermaid-preview",
+    "author": "diagram-tools",
+    "description": "Preview Mermaid diagrams with live rendering as you type",
+    "repo": "https://github.com/diagram-tools/ttt-mermaid",
+    "version": "0.4.0",
+    "tags": ["mermaid", "diagrams", "flowchart", "visualization"]
+  },
+  {
+    "name": "word-count",
+    "author": "writing-tools",
+    "description": "Display word count, character count, and reading time in status bar",
+    "repo": "https://github.com/writing-tools/ttt-wordcount",
+    "version": "0.1.0",
+    "tags": ["writing", "metrics", "wordcount", "status"]
+  },
+  {
+    "name": "table-editor",
+    "author": "writing-tools",
+    "description": "Edit markdown tables with column alignment and tab navigation",
+    "repo": "https://github.com/writing-tools/ttt-table-editor",
+    "version": "0.5.0",
+    "tags": ["markdown", "tables", "editor", "writing"]
+  },
+  {
+    "name": "aws-explorer",
+    "author": "cloudops",
+    "description": "Browse AWS S3 buckets, Lambda functions, and CloudWatch logs",
+    "repo": "https://github.com/cloudops/ttt-aws-explorer",
+    "version": "0.3.0",
+    "tags": ["aws", "cloud", "s3", "lambda"]
+  },
+  {
+    "name": "redis-viewer",
+    "author": "data-viz",
+    "description": "Connect to Redis and browse keys with value inspection",
+    "repo": "https://github.com/data-viz/ttt-redis-viewer",
+    "version": "0.2.0",
+    "tags": ["redis", "database", "cache", "viewer"]
+  },
+  {
+    "name": "protobuf-lint",
+    "author": "api-tools",
+    "description": "Lint Protocol Buffer files with buf integration",
+    "repo": "https://github.com/api-tools/ttt-protobuf",
+    "version": "0.3.0",
+    "tags": ["protobuf", "grpc", "linting", "api"]
+  },
+  {
+    "name": "graphql-explorer",
+    "author": "api-tools",
+    "description": "Introspect GraphQL schemas and run queries with variables",
+    "repo": "https://github.com/api-tools/ttt-graphql",
+    "version": "0.5.0",
+    "tags": ["graphql", "api", "schema", "queries"]
+  },
+  {
+    "name": "debugger-dap",
+    "author": "devtools-collective",
+    "description": "Debug Adapter Protocol client with breakpoints and variable inspection",
+    "repo": "https://github.com/devtools-collective/ttt-debugger",
+    "version": "0.1.0",
+    "tags": ["debugger", "dap", "breakpoints", "debugging"]
+  },
+  {
+    "name": "symbol-outline",
+    "author": "navigation-tools",
+    "description": "Document outline showing functions, classes, and types in a tree",
+    "repo": "https://github.com/navigation-tools/ttt-outline",
+    "version": "1.0.0",
+    "tags": ["outline", "symbols", "navigation", "structure"]
+  },
+  {
+    "name": "breadcrumbs",
+    "author": "navigation-tools",
+    "description": "Show file path breadcrumbs with scope context above the editor",
+    "repo": "https://github.com/navigation-tools/ttt-breadcrumbs",
+    "version": "0.3.0",
+    "tags": ["breadcrumbs", "navigation", "context", "scope"]
+  },
+  {
+    "name": "zen-mode",
+    "author": "focus-tools",
+    "description": "Distraction-free writing mode hiding all UI chrome",
+    "repo": "https://github.com/focus-tools/ttt-zen-mode",
+    "version": "0.2.0",
+    "tags": ["focus", "writing", "zen", "distraction-free"]
+  },
+  {
+    "name": "font-preview",
+    "author": "creative-dev",
+    "description": "Preview installed fonts with sample text in various sizes",
+    "repo": "https://github.com/creative-dev/ttt-font-preview",
+    "version": "0.1.0",
+    "tags": ["fonts", "preview", "design", "typography"]
+  },
+  {
+    "name": "base64-tools",
+    "author": "codesmith-io",
+    "description": "Encode and decode Base64, URL-encode, and hex conversions",
+    "repo": "https://github.com/codesmith-io/ttt-base64",
+    "version": "0.4.0",
+    "tags": ["base64", "encoding", "conversion", "utility"]
+  },
+  {
+    "name": "jwt-decoder",
+    "author": "security-tools",
+    "description": "Decode and inspect JWT tokens with expiry validation",
+    "repo": "https://github.com/security-tools/ttt-jwt",
+    "version": "0.3.0",
+    "tags": ["jwt", "tokens", "security", "decoding"]
+  },
+  {
+    "name": "uuid-generator",
+    "author": "codesmith-io",
+    "description": "Generate and insert UUIDs in v4, v5, and ULID formats",
+    "repo": "https://github.com/codesmith-io/ttt-uuid",
+    "version": "0.2.0",
+    "tags": ["uuid", "generator", "utility", "identifiers"]
+  },
+  {
+    "name": "time-converter",
+    "author": "codesmith-io",
+    "description": "Convert between unix timestamps, ISO 8601, and relative dates",
+    "repo": "https://github.com/codesmith-io/ttt-time-converter",
+    "version": "0.2.0",
+    "tags": ["time", "conversion", "dates", "utility"]
+  },
+  {
+    "name": "git-stash-viewer",
+    "author": "devtools-collective",
+    "description": "Browse, apply, and drop git stashes from a panel",
+    "repo": "https://github.com/devtools-collective/ttt-stash-viewer",
+    "version": "0.4.0",
+    "tags": ["git", "stash", "viewer", "workflow"]
+  },
+  {
+    "name": "docker-compose",
+    "author": "cloudops",
+    "description": "Manage docker-compose services with logs and restart controls",
+    "repo": "https://github.com/cloudops/ttt-docker-compose",
+    "version": "0.5.0",
+    "tags": ["docker", "compose", "services", "devops"]
+  },
+  {
+    "name": "github-copilot",
+    "author": "ml-editors",
+    "description": "GitHub Copilot integration for inline code suggestions",
+    "repo": "https://github.com/ml-editors/ttt-copilot",
+    "version": "0.2.0",
+    "tags": ["ai", "copilot", "suggestions", "github"]
+  },
+  {
+    "name": "error-lens",
+    "author": "quality-tools",
+    "description": "Show diagnostic messages inline at the end of the error line",
+    "repo": "https://github.com/quality-tools/ttt-error-lens",
+    "version": "1.1.0",
+    "tags": ["diagnostics", "errors", "inline", "lsp"]
+  },
+  {
+    "name": "import-sorter",
+    "author": "codesmith-io",
+    "description": "Sort and group import statements by convention on save",
+    "repo": "https://github.com/codesmith-io/ttt-import-sorter",
+    "version": "0.6.0",
+    "tags": ["imports", "sorting", "formatting", "organization"]
+  },
+  {
+    "name": "github-actions",
+    "author": "devtools-collective",
+    "description": "Monitor GitHub Actions workflow runs and view logs",
+    "repo": "https://github.com/devtools-collective/ttt-gh-actions",
+    "version": "0.5.0",
+    "tags": ["github", "ci", "actions", "workflow"]
+  },
+  {
+    "name": "path-intellisense",
+    "author": "navigation-tools",
+    "description": "Autocomplete file paths in strings and imports",
+    "repo": "https://github.com/navigation-tools/ttt-path-intellisense",
+    "version": "1.0.0",
+    "tags": ["paths", "autocomplete", "imports", "navigation"]
+  },
+  {
+    "name": "remote-ssh",
+    "author": "cloudops",
+    "description": "Edit files on remote machines over SSH with SFTP sync",
+    "repo": "https://github.com/cloudops/ttt-remote-ssh",
+    "version": "0.2.0",
+    "tags": ["ssh", "remote", "sftp", "editing"]
+  },
+  {
+    "name": "hex-editor",
+    "author": "low-level-tools",
+    "description": "View and edit binary files in hexadecimal with ASCII sidebar",
+    "repo": "https://github.com/low-level-tools/ttt-hex-editor",
+    "version": "0.3.0",
+    "tags": ["hex", "binary", "editor", "low-level"]
+  },
+  {
+    "name": "log-viewer",
+    "author": "devtools-collective",
+    "description": "Tail and filter log files with color-coded severity levels",
+    "repo": "https://github.com/devtools-collective/ttt-log-viewer",
+    "version": "0.7.0",
+    "tags": ["logs", "viewer", "filtering", "debugging"]
+  },
+  {
+    "name": "commit-lint",
+    "author": "quality-tools",
+    "description": "Validate commit messages against conventional commit format",
+    "repo": "https://github.com/quality-tools/ttt-commit-lint",
+    "version": "0.4.0",
+    "tags": ["git", "commits", "linting", "conventions"]
+  },
+  {
+    "name": "surround",
+    "author": "editing-tools",
+    "description": "Quickly surround selections with brackets, quotes, or HTML tags",
+    "repo": "https://github.com/editing-tools/ttt-editing-pack",
+    "path": "surround",
+    "version": "1.0.0",
+    "tags": ["editing", "surround", "brackets", "shortcuts"]
+  },
+  {
+    "name": "multi-cursor-extras",
+    "author": "editing-tools",
+    "description": "Extended multi-cursor commands: select all occurrences, column select, split lines",
+    "repo": "https://github.com/editing-tools/ttt-editing-pack",
+    "path": "multi-cursor-extras",
+    "version": "0.5.0",
+    "tags": ["multicursor", "editing", "selection", "productivity"]
+  },
+  {
+    "name": "case-converter",
+    "author": "editing-tools",
+    "description": "Convert between camelCase, snake_case, PascalCase, SCREAMING_CASE, and kebab-case",
+    "repo": "https://github.com/editing-tools/ttt-editing-pack",
+    "path": "case-converter",
+    "version": "0.3.0",
+    "tags": ["case", "conversion", "naming", "utility"]
+  },
+  {
+    "name": "emmet",
+    "author": "webdev-hub",
+    "description": "Expand Emmet abbreviations for HTML and CSS with tab trigger",
+    "repo": "https://github.com/webdev-hub/ttt-emmet",
+    "version": "1.0.0",
+    "tags": ["emmet", "html", "css", "abbreviations"]
+  },
+  {
+    "name": "live-server",
+    "author": "webdev-hub",
+    "description": "Local HTTP server with auto-reload for web development",
+    "repo": "https://github.com/webdev-hub/ttt-live-server",
+    "version": "0.4.0",
+    "tags": ["server", "http", "livereload", "frontend"]
+  },
+  {
+    "name": "test-explorer",
+    "author": "quality-tools",
+    "description": "Discover and run tests for any language with tree view results",
+    "repo": "https://github.com/quality-tools/ttt-test-explorer",
+    "version": "0.6.0",
+    "tags": ["testing", "explorer", "runner", "multi-language"]
+  },
+  {
+    "name": "git-worktree",
+    "author": "devtools-collective",
+    "description": "Manage git worktrees with quick switch and creation from branches",
+    "repo": "https://github.com/devtools-collective/ttt-worktree",
+    "version": "0.3.0",
+    "tags": ["git", "worktree", "branches", "workflow"]
+  },
+  {
+    "name": "cron-editor",
+    "author": "workflow-tools",
+    "description": "Edit cron expressions with human-readable description and next-run preview",
+    "repo": "https://github.com/workflow-tools/ttt-cron-editor",
+    "version": "0.2.0",
+    "tags": ["cron", "scheduling", "editor", "utility"]
+  },
+  {
+    "name": "ssh-config",
+    "author": "cloudops",
+    "description": "Visual editor for ~/.ssh/config with host autocompletion",
+    "repo": "https://github.com/cloudops/ttt-ssh-config",
+    "version": "0.3.0",
+    "tags": ["ssh", "config", "editor", "remote"]
+  },
+  {
+    "name": "toml-tools",
+    "author": "config-tools",
+    "description": "TOML validation and formatting with schema support",
+    "repo": "https://github.com/config-tools/ttt-toml-tools",
+    "version": "0.2.0",
+    "tags": ["toml", "validator", "formatter", "configuration"]
+  },
+  {
+    "name": "dependency-graph",
+    "author": "metrics-lab",
+    "description": "Visualize package dependencies as an ASCII tree with version info",
+    "repo": "https://github.com/metrics-lab/ttt-dep-graph",
+    "version": "0.4.0",
+    "tags": ["dependencies", "graph", "packages", "visualization"]
+  },
+  {
+    "name": "github-pr-review",
+    "author": "devtools-collective",
+    "description": "Review pull requests with inline comment threads",
+    "repo": "https://github.com/devtools-collective/ttt-pr-review",
+    "version": "0.5.0",
+    "tags": ["github", "pull-request", "review", "comments"]
+  },
+  {
+    "name": "kanban-board",
+    "author": "productivity-pack",
+    "description": "Simple kanban board in a tab for tracking work items",
+    "repo": "https://github.com/productivity-pack/ttt-kanban",
+    "version": "0.3.0",
+    "tags": ["kanban", "board", "tasks", "productivity"]
+  },
+  {
+    "name": "focus-timer",
+    "author": "focus-tools",
+    "description": "Configurable focus/break timer with notifications and statistics",
+    "repo": "https://github.com/focus-tools/ttt-focus-timer",
+    "version": "0.4.0",
+    "tags": ["timer", "focus", "breaks", "productivity"]
+  },
+  {
+    "name": "leetcode",
+    "author": "practice-tools",
+    "description": "Browse and solve LeetCode problems directly in the editor",
+    "repo": "https://github.com/practice-tools/ttt-leetcode",
+    "version": "0.2.0",
+    "tags": ["leetcode", "algorithms", "practice", "interviews"]
+  },
+  {
+    "name": "color-theme-studio",
+    "author": "creative-dev",
+    "description": "Create and preview custom color themes with live editor",
+    "repo": "https://github.com/creative-dev/ttt-theme-studio",
+    "version": "0.3.0",
+    "tags": ["themes", "colors", "customization", "design"]
+  },
+  {
+    "name": "benchmark-runner",
+    "author": "quality-tools",
+    "description": "Run Go benchmarks and display results with comparison graphs",
+    "repo": "https://github.com/quality-tools/ttt-benchmark",
+    "version": "0.2.0",
+    "tags": ["benchmarks", "performance", "go", "testing"]
+  },
+  {
+    "name": "dotenv-vault",
+    "author": "security-tools",
+    "description": "Encrypt and sync .env files across team members securely",
+    "repo": "https://github.com/security-tools/ttt-dotenv-vault",
+    "version": "0.1.0",
+    "tags": ["env", "encryption", "secrets", "security"]
+  },
+  {
+    "name": "swagger-preview",
+    "author": "api-tools",
+    "description": "Preview OpenAPI/Swagger specs with endpoint listing and try-it-out",
+    "repo": "https://github.com/api-tools/ttt-swagger",
+    "version": "0.4.0",
+    "tags": ["swagger", "openapi", "api", "documentation"]
+  }
+]
