@@ -9,6 +9,7 @@ import (
 type RegistryEntry struct {
 	Name        string        `json:"name"`
 	Repo        string        `json:"repo,omitempty"`
+	Path        string        `json:"path,omitempty"`
 	Version     string        `json:"version"`
 	Enabled     bool          `json:"enabled"`
 	Permissions PermissionSet `json:"permissions"`
@@ -76,10 +77,11 @@ func (r *Registry) Remove(name string) {
 	}
 }
 
-func (r *Registry) AddOrUpdate(name, repo, version string, perms PermissionSet) {
+func (r *Registry) AddOrUpdate(name, repo, path, version string, perms PermissionSet) {
 	entry := r.Find(name)
 	if entry != nil {
 		entry.Repo = repo
+		entry.Path = path
 		entry.Version = version
 		entry.Permissions = perms
 		entry.Enabled = true
@@ -88,6 +90,7 @@ func (r *Registry) AddOrUpdate(name, repo, version string, perms PermissionSet) 
 	r.Entries = append(r.Entries, RegistryEntry{
 		Name:        name,
 		Repo:        repo,
+		Path:        path,
 		Version:     version,
 		Enabled:     true,
 		Permissions: perms,

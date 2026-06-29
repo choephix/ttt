@@ -38,6 +38,7 @@ type Plugin struct {
 	Name     string
 	Dir      string
 	Repo     string
+	RepoPath string
 	Manifest Manifest
 	Granted  PermissionSet
 	Enabled  bool

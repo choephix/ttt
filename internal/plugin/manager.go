@@ -87,6 +87,9 @@ func (m *Manager) LoadAll() []*Plugin {
 				continue
 			}
 
+			p.Repo = regEntry.Repo
+			p.RepoPath = regEntry.Path
+
 			if !regEntry.Enabled {
 				continue
 			}
@@ -152,6 +155,7 @@ func (m *Manager) ApproveAndLoad(p *Plugin) error {
 	m.registry.AddOrUpdate(
 		p.Manifest.Name,
 		p.Repo,
+		p.RepoPath,
 		p.Manifest.Version,
 		p.Manifest.Permissions,
 	)
@@ -231,10 +235,15 @@ func (m *Manager) DispatchEvent(name string, args ...interface{}) {
 	}
 }
 
-func (m *Manager) Install(repoURL string) (*Plugin, error) {
+func (m *Manager) Install(repoURL, repoPath string) (*Plugin, error) {
 	if !strings.HasPrefix(repoURL, "https://") {
 		return nil, fmt.Errorf("only https:// URLs are allowed for plugin install")
 	}
+
+	if repoPath != "" {
+		return m.installFromSubdir(repoURL, repoPath)
+	}
+
 	name := filepath.Base(repoURL)
 	name = strings.TrimSuffix(name, ".git")
 	if name == "" || name == "." {
@@ -263,6 +272,75 @@ func (m *Manager) Install(repoURL string) (*Plugin, error) {
 		Repo:     repoURL,
 		Manifest: manifest,
 	}, nil
+}
+
+func (m *Manager) installFromSubdir(repoURL, repoPath string) (*Plugin, error) {
+	tmpDir, err := os.MkdirTemp("", "ttt-plugin-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cmd := exec.Command("git", "clone", "--depth", "1", repoURL, tmpDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("git clone failed: %s: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	srcDir := filepath.Join(tmpDir, repoPath)
+	if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("path %q not found in repository", repoPath)
+	}
+
+	manifest, err := LoadManifest(srcDir)
+	if err != nil {
+		return nil, fmt.Errorf("invalid plugin: %w", err)
+	}
+
+	targetDir := filepath.Join(m.pluginsDir, manifest.Name)
+	if _, err := os.Stat(targetDir); err == nil {
+		return nil, fmt.Errorf("plugin %q already exists", manifest.Name)
+	}
+
+	if err := copyDir(srcDir, targetDir); err != nil {
+		os.RemoveAll(targetDir)
+		return nil, fmt.Errorf("copy plugin: %w", err)
+	}
+
+	return &Plugin{
+		Name:     manifest.Name,
+		Dir:      targetDir,
+		Repo:     repoURL,
+		RepoPath: repoPath,
+		Manifest: manifest,
+	}, nil
+}
+
+func copyDir(src, dst string) error {
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		srcPath := filepath.Join(src, e.Name())
+		dstPath := filepath.Join(dst, e.Name())
+		if e.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			data, err := os.ReadFile(srcPath)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(dstPath, data, 0644); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (m *Manager) Uninstall(name string) error {
@@ -306,6 +384,12 @@ func (m *Manager) Update(name string) (*Plugin, bool, error) {
 		return nil, false, fmt.Errorf("plugin %q not found", name)
 	}
 
+	regEntry := m.registry.Find(name)
+
+	if regEntry != nil && regEntry.Path != "" {
+		return m.updateFromSubdir(name, dir, regEntry)
+	}
+
 	cmd := exec.Command("git", "-C", dir, "pull")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, false, fmt.Errorf("git pull failed: %s: %s", err, strings.TrimSpace(string(out)))
@@ -316,7 +400,6 @@ func (m *Manager) Update(name string) (*Plugin, bool, error) {
 		return nil, false, fmt.Errorf("invalid manifest after update: %w", err)
 	}
 
-	regEntry := m.registry.Find(name)
 	if regEntry == nil {
 		p := &Plugin{Name: newManifest.Name, Dir: dir, Manifest: newManifest}
 		return p, true, nil
@@ -334,6 +417,66 @@ func (m *Manager) Update(name string) (*Plugin, bool, error) {
 		regEntry.Enabled = false
 		m.registry.Save()
 		p := &Plugin{Name: newManifest.Name, Dir: dir, Manifest: newManifest}
+		return p, true, nil
+	}
+
+	for _, p := range m.plugins {
+		if p.Name == name {
+			p.Destroy()
+			p.Manifest = newManifest
+			p.Granted = regEntry.Permissions
+			if err := p.Init(); err != nil {
+				return nil, false, err
+			}
+			m.collectRegistrations(p)
+			regEntry.Version = newManifest.Version
+			m.registry.Save()
+			return p, false, nil
+		}
+	}
+
+	return nil, false, nil
+}
+
+func (m *Manager) updateFromSubdir(name, dir string, regEntry *RegistryEntry) (*Plugin, bool, error) {
+	if regEntry.Repo == "" {
+		return nil, false, fmt.Errorf("plugin %q has no repository URL", name)
+	}
+
+	tmpDir, err := os.MkdirTemp("", "ttt-plugin-update-*")
+	if err != nil {
+		return nil, false, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cmd := exec.Command("git", "clone", "--depth", "1", regEntry.Repo, tmpDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, false, fmt.Errorf("git clone failed: %s: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	srcDir := filepath.Join(tmpDir, regEntry.Path)
+	newManifest, err := LoadManifest(srcDir)
+	if err != nil {
+		return nil, false, fmt.Errorf("invalid manifest after update: %w", err)
+	}
+
+	os.RemoveAll(dir)
+	if err := copyDir(srcDir, dir); err != nil {
+		return nil, false, fmt.Errorf("copy plugin: %w", err)
+	}
+
+	diff := DiffPermissions(regEntry.Permissions, newManifest.Permissions)
+	if !diff.IsEmpty() {
+		for i, p := range m.plugins {
+			if p.Name == name {
+				p.Destroy()
+				m.plugins = append(m.plugins[:i], m.plugins[i+1:]...)
+				break
+			}
+		}
+		regEntry.Enabled = false
+		m.registry.Save()
+		p := &Plugin{Name: newManifest.Name, Dir: dir, Repo: regEntry.Repo, RepoPath: regEntry.Path, Manifest: newManifest}
 		return p, true, nil
 	}
 

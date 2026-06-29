@@ -21,6 +21,7 @@ type ButtonConfig struct {
 type ButtonWidget struct {
 	BaseWidget
 	Config      ButtonConfig
+	Disabled    bool
 	label       string
 	accelIndex  int
 	accelRune   rune
@@ -48,6 +49,12 @@ func NewButtonWidget(config ButtonConfig) *ButtonWidget {
 	return b
 }
 
+func (b *ButtonWidget) SetLabel(label string) {
+	b.label = label
+	b.accelIndex = -1
+	b.accelRune = 0
+}
+
 func (b *ButtonWidget) Height() int { return 1 + b.BoxOverheadH() }
 func (b *ButtonWidget) Width() int {
 	w := len([]rune(b.label)) + b.BoxOverheadW()
@@ -63,7 +70,9 @@ func (b *ButtonWidget) Render(surface Surface) {
 	if style == 0 {
 		style = term.StyleButton
 	}
-	if b.focused {
+	if b.Disabled {
+		style = term.StyleMuted
+	} else if b.focused {
 		style = term.StyleButtonFocused
 	}
 
@@ -125,6 +134,9 @@ func (b *ButtonWidget) HandleEvent(ev tcell.Event) EventResult {
 }
 
 func (b *ButtonWidget) trigger() {
+	if b.Disabled {
+		return
+	}
 	if b.Config.OnClick != nil {
 		b.Config.OnClick()
 	}

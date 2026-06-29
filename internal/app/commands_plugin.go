@@ -107,7 +107,7 @@ func (a *App) showPluginList() {
 func (a *App) pluginInstall() {
 	a.ShowInputDialogEx("Install Plugin", "Repository URL", "", "Install", func(repoURL string) {
 		go func() {
-			p, err := a.PluginManager.Install(repoURL)
+			p, err := a.PluginManager.Install(repoURL, "")
 			a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginInstallResult{
 				plugin: p,
 				err:    err,
@@ -118,19 +118,29 @@ func (a *App) pluginInstall() {
 
 type pluginInstallResult struct {
 	plugin *plugin.Plugin
+	name   string
 	err    error
 }
 
 func (a *App) handlePluginInstallResult(result *pluginInstallResult) {
 	if result.err != nil {
+		a.resetPluginDetailButton(result.name)
 		a.ShowConfirmDialogEx("Install Failed", result.err.Error(), []string{"Close"}, []func(){
 			func() { a.DismissDialog() },
 		})
 		return
 	}
+	a.updatePluginDetailButtons()
 	a.PendingPluginApprovals = append(a.PendingPluginApprovals, result.plugin)
 	if len(a.PendingPluginApprovals) == 1 {
 		a.ShowPluginApprovalDialog(result.plugin)
+	}
+}
+
+func (a *App) resetPluginDetailButton(name string) {
+	if state, ok := a.pluginDetailWidgets[name]; ok {
+		state.installBtn.SetLabel("Install")
+		state.installBtn.Disabled = false
 	}
 }
 
@@ -167,6 +177,7 @@ func (a *App) doPluginUninstall(name string) {
 		slog.Error("plugin uninstall", "error", err)
 	}
 
+	a.resetPluginDetailButton(name)
 	if a.PluginsPanel != nil {
 		a.PluginsPanel.Refresh()
 	}
@@ -249,6 +260,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	dialog.Buttons = []widgets.DialogButton{
 		{Label: "&Cancel", Handler: func() {
 			a.DismissDialog()
+			a.resetPluginDetailButton(p.Manifest.Name)
 			a.showNextPluginApproval()
 		}},
 		{Label: "&Allow", Handler: func() {
@@ -256,6 +268,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 			if err := a.PluginManager.ApproveAndLoad(p); err == nil {
 				a.WirePlugin(p)
 			}
+			a.updatePluginDetailButtons()
 			if a.PluginsPanel != nil {
 				a.PluginsPanel.Refresh()
 			}
@@ -264,6 +277,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	}
 	dialog.OnDismiss = func() {
 		a.DismissDialog()
+		a.resetPluginDetailButton(p.Manifest.Name)
 		a.showNextPluginApproval()
 	}
 	dialog.Build()
@@ -401,7 +415,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		a.DismissDialog()
 	}
 	p.OpenTab = func(id string, panel *plugin.PluginPanelWidget) {
-		a.EditorGroup.OpenPluginTab(id, panel)
+		a.EditorGroup.OpenPluginTab(id, id, panel)
 	}
 	p.CloseTab = func(id string) {
 		a.EditorGroup.ClosePluginTab(id)
@@ -558,13 +572,15 @@ func (a *App) pluginReloadAll() {
 
 type RemoteRegistryResult struct {
 	Entries []plugin.RemoteRegistryEntry
+	Err     error
 }
 
-func (a *App) PluginInstallFromURL(repoURL string) {
+func (a *App) PluginInstallFromURL(repoURL, repoPath, name string) {
 	go func() {
-		p, err := a.PluginManager.Install(repoURL)
+		p, err := a.PluginManager.Install(repoURL, repoPath)
 		a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginInstallResult{
 			plugin: p,
+			name:   name,
 			err:    err,
 		}))
 	}()
@@ -593,9 +609,60 @@ func (a *App) PluginUpdateByName(name string) {
 }
 
 func (a *App) handleRemoteRegistryResult(result *RemoteRegistryResult) {
-	if a.PluginsPanel != nil {
-		a.PluginsPanel.SetAvailable(result.Entries)
+	if a.PluginsPanel == nil {
+		return
 	}
+	if result.Err != nil {
+		a.PluginsPanel.SearchTree.Config.EmptyText = "Could not load registry"
+		a.PluginsPanel.SearchTree.SetItems(nil)
+		return
+	}
+	a.PluginsPanel.SetAvailable(result.Entries)
+}
+
+func (a *App) ShowPluginDropdownMenu(entries []widgets.MenuEntry, x, y int) {
+	items := make([]ui.ContextMenuItem, len(entries))
+	for i, e := range entries {
+		items[i] = ui.ContextMenuItem{
+			Label:   e.Label,
+			Command: e.Command,
+			IsSep:   e.Separator,
+		}
+	}
+	menu := ui.NewContextMenuWidget(items, x, y)
+	menu.Borders = a.Borders
+	menu.OnExec = func(cmd string) {
+		a.Root.PopOverlay()
+		a.handlePluginDropdownCommand(cmd)
+	}
+	menu.OnDismiss = func() {
+		a.Root.PopOverlay()
+	}
+	a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	a.Root.SetFocus(menu)
+}
+
+func (a *App) handlePluginDropdownCommand(cmd string) {
+	switch cmd {
+	case "updateAll":
+		names := a.PluginManager.InstalledPluginNames()
+		for _, name := range names {
+			a.PluginUpdateByName(name)
+		}
+	case "refresh":
+		a.PluginRefreshRegistry()
+	}
+}
+
+func (a *App) PluginRefreshRegistry() {
+	if a.PluginsPanel != nil {
+		a.PluginsPanel.SearchTree.Config.EmptyText = "Loading plugins..."
+		a.PluginsPanel.SearchTree.SetItems(nil)
+	}
+	go func() {
+		entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&RemoteRegistryResult{Entries: entries, Err: err}))
+	}()
 }
 
 func (a *App) showNextPluginApproval() {
