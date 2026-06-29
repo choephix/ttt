@@ -182,6 +182,9 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	switch kev.Key() {
 	case tcell.KeyRune:
+		if kev.Modifiers()&^tcell.ModShift != 0 {
+			return EventIgnored
+		}
 		if inp.HasSelection() {
 			inp.deleteSelection()
 		}

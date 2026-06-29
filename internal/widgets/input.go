@@ -250,6 +250,9 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) EventResult {
 
 	switch ev.Key() {
 	case tcell.KeyRune:
+		if ev.Modifiers()&^tcell.ModShift != 0 {
+			return EventIgnored
+		}
 		if inp.hasSelection() {
 			inp.deleteSelection()
 		}
