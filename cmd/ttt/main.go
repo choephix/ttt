@@ -20,6 +20,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -260,8 +261,8 @@ Docs: https://tttedit.dev
 	pluginsPanel := app.NewPluginsPanel(pluginManager)
 	editor.Sidebar.AddPanel("plugins", "Plugins", pluginsPanel.Adapter)
 	editor.PluginsPanel = pluginsPanel
-	pluginsPanel.OnInstall = func(repoURL string) {
-		editor.PluginInstallFromURL(repoURL)
+	pluginsPanel.OnInstall = func(repoURL, repoPath, name string) {
+		editor.PluginInstallFromURL(repoURL, repoPath, name)
 	}
 	pluginsPanel.OnUninstall = func(name string) {
 		editor.PluginUninstallByName(name)
@@ -279,14 +280,16 @@ Docs: https://tttedit.dev
 	pluginsPanel.OnUpdate = func(name string) {
 		editor.PluginUpdateByName(name)
 	}
+	pluginsPanel.OnOpenDetail = func(entry plugin.RemoteRegistryEntry) {
+		editor.OpenPluginDetail(entry)
+	}
+	pluginsPanel.OnDropdownMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
+		editor.ShowPluginDropdownMenu(entries, screenX, screenY)
+	}
 
 	go func() {
 		entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
-		if err != nil {
-			slog.Debug("fetch plugin registry", "error", err)
-			return
-		}
-		screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries}))
+		screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries, Err: err}))
 	}()
 
 	if len(pendingApprovals) > 0 {

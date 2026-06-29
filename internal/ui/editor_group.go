@@ -44,6 +44,7 @@ type Diagnostic struct {
 
 type editorTab struct {
 	FilePath    string
+	Title       string
 	Buf         *buffer.Buffer
 	Cur         *cursor.Cursor
 	Vp          *view.Viewport
@@ -84,6 +85,7 @@ type EditorGroupWidget struct {
 	OnFileOpen             func(path, lang, text string)
 	OnFileChange           func(path, lang, text string)
 	OnFileClose            func(path, lang string)
+	OnContentTabClose      func(id string)
 	OnError                func(msg string)
 	OnNotify               func(msg string)
 	pendingNotify          []string
@@ -300,10 +302,11 @@ func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff, oldLines, ne
 	g.SwitchTab(len(g.tabs) - 1)
 }
 
-func (g *EditorGroupWidget) OpenPluginTab(id string, content Widget) {
+func (g *EditorGroupWidget) OpenPluginTab(id, title string, content Widget) {
 	for i, t := range g.tabs {
 		if t.FilePath == id {
 			t.Content = content
+			t.Title = title
 			g.tabs[i] = t
 			g.SwitchTab(i)
 			return
@@ -311,6 +314,7 @@ func (g *EditorGroupWidget) OpenPluginTab(id string, content Widget) {
 	}
 	g.tabs = append(g.tabs, editorTab{
 		FilePath: id,
+		Title:    title,
 		Content:  content,
 		Pinned:   true,
 	})
@@ -320,6 +324,9 @@ func (g *EditorGroupWidget) OpenPluginTab(id string, content Widget) {
 func (g *EditorGroupWidget) ClosePluginTab(id string) {
 	for i, t := range g.tabs {
 		if t.FilePath == id {
+			if t.Content != nil && g.OnContentTabClose != nil {
+				g.OnContentTabClose(t.FilePath)
+			}
 			g.tabs = append(g.tabs[:i], g.tabs[i+1:]...)
 			if len(g.tabs) == 0 {
 				g.tabs = []editorTab{{
@@ -521,6 +528,9 @@ func (g *EditorGroupWidget) CloseTab() {
 	if g.OnFileClose != nil && closing.Highlighter != nil && !closing.Virtual {
 		g.OnFileClose(closing.FilePath, closing.Highlighter.Language())
 	}
+	if closing.Content != nil && g.OnContentTabClose != nil {
+		g.OnContentTabClose(closing.FilePath)
+	}
 	g.tabs = append(g.tabs[:g.active], g.tabs[g.active+1:]...)
 	if len(g.tabs) == 0 {
 		g.tabs = []editorTab{{
@@ -544,6 +554,13 @@ func (g *EditorGroupWidget) CloseOtherTabs() {
 	if t == nil || len(g.tabs) <= 1 {
 		return
 	}
+	if g.OnContentTabClose != nil {
+		for i, tab := range g.tabs {
+			if i != g.active && tab.Content != nil {
+				g.OnContentTabClose(tab.FilePath)
+			}
+		}
+	}
 	g.tabs = []editorTab{*t}
 	g.active = 0
 	g.syncTabs()
@@ -561,6 +578,10 @@ func (g *EditorGroupWidget) CloseOtherSaved() {
 		}
 		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
 			kept = append(kept, g.tabs[i])
+			continue
+		}
+		if g.tabs[i].Content != nil && g.OnContentTabClose != nil {
+			g.OnContentTabClose(g.tabs[i].FilePath)
 		}
 	}
 	g.tabs = kept
@@ -1206,8 +1227,12 @@ func (g *EditorGroupWidget) syncTabs() {
 		if len(g.tabs) == 1 && ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
 			closable = false
 		}
+		name := ts.FilePath
+		if ts.Title != "" {
+			name = ts.Title
+		}
 		uiTabs = append(uiTabs, Tab{
-			Name:     ts.FilePath,
+			Name:     name,
 			Active:   i == g.active,
 			Dirty:    dirty,
 			Closable: closable,

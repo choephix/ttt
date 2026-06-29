@@ -8,13 +8,16 @@ import (
 	"time"
 )
 
-const DefaultRegistryURL = "https://raw.githubusercontent.com/eugenioenko/ttt-plugins/main/registry.json"
+const DefaultRegistryURL = "https://raw.githubusercontent.com/eugenioenko/ttt/main/community-plugins.json"
 
 type RemoteRegistryEntry struct {
-	Name        string `json:"name"`
-	Repo        string `json:"repo"`
-	Description string `json:"description"`
-	Author      string `json:"author"`
+	Name        string   `json:"name"`
+	Repo        string   `json:"repo"`
+	Description string   `json:"description"`
+	Author      string   `json:"author"`
+	Version     string   `json:"version,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Path        string   `json:"path,omitempty"`
 }
 
 func FetchRemoteRegistry(url string) ([]RemoteRegistryEntry, error) {

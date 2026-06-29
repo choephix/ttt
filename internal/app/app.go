@@ -82,6 +82,7 @@ type App struct {
 	PendingPluginApprovals  []*plugin.Plugin
 	PluginsPanel            *PluginsPanel
 	Output                  *ui.OutputWidget
+	pluginDetailWidgets     map[string]*pluginDetailState
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -392,6 +393,9 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		if a.PluginManager != nil {
 			a.PluginManager.DispatchEvent("file.close", path)
 		}
+	}
+	a.EditorGroup.OnContentTabClose = func(id string) {
+		a.cleanupPluginDetailTab(id)
 	}
 	if path := a.EditorGroup.ActiveFilePath(); path != "" {
 		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {

@@ -215,9 +215,10 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		Problems:          problems,
 		References:        references,
 		Output:            output,
-		DocVersions:       make(map[string]int),
-		AllDiagnostics:    make(map[string][]ui.Diagnostic),
-		LspNotified:       make(map[string]bool),
+		DocVersions:         make(map[string]int),
+		AllDiagnostics:      make(map[string][]ui.Diagnostic),
+		LspNotified:         make(map[string]bool),
+		pluginDetailWidgets: make(map[string]*pluginDetailState),
 	}
 }
 

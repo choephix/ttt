@@ -23,7 +23,7 @@ func TestManagerInstallRejectsNonHTTPS(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := m.Install(tt.url)
+		_, err := m.Install(tt.url, "")
 		if tt.blocked && err == nil {
 			t.Errorf("expected %q to be blocked", tt.url)
 		}

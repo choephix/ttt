@@ -1,0 +1,66 @@
+[
+  {
+    "name": "cheat-sheet",
+    "author": "eugenioenko",
+    "description": "Fetch programming cheat sheets from cheat.sh and display them in an editor tab",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-cheat-sheet",
+    "version": "0.1.0",
+    "tags": ["reference", "cheatsheet", "documentation", "learning"]
+  },
+  {
+    "name": "color-picker",
+    "author": "eugenioenko",
+    "description": "Open a drawer with color swatches. Click a color to insert its hex value at the cursor",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-color-picker",
+    "version": "0.1.0",
+    "tags": ["color", "css", "design", "utility"]
+  },
+  {
+    "name": "docker-manager",
+    "author": "eugenioenko",
+    "description": "Manage Docker containers, images and volumes",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-docker-manager",
+    "version": "0.1.0",
+    "tags": ["docker", "containers", "devops", "infrastructure"]
+  },
+  {
+    "name": "go-test-runner",
+    "author": "eugenioenko",
+    "description": "Run Go tests and view results in a sidebar panel",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-go-test-runner",
+    "version": "0.1.0",
+    "tags": ["go", "testing", "runner", "golang"]
+  },
+  {
+    "name": "http-client",
+    "author": "eugenioenko",
+    "description": "Simple HTTP client for testing APIs",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-http-client",
+    "version": "0.1.0",
+    "tags": ["http", "api", "rest", "networking"]
+  },
+  {
+    "name": "markdown-preview",
+    "author": "eugenioenko",
+    "description": "Preview markdown files with styled rendering",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-markdown-preview",
+    "version": "0.1.0",
+    "tags": ["markdown", "preview", "documentation", "writing"]
+  },
+  {
+    "name": "notepad",
+    "author": "eugenioenko",
+    "description": "Persistent scratchpad for jotting down notes per workspace",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-notepad",
+    "version": "0.1.0",
+    "tags": ["notes", "scratchpad", "productivity", "utility"]
+  },
+  {
+    "name": "todo-scanner",
+    "author": "eugenioenko",
+    "description": "Scans workspace for TODO, FIXME, HACK, and NOTE comments",
+    "repo": "https://github.com/eugenioenko/ttt-plugin-todo-scanner",
+    "version": "0.1.0",
+    "tags": ["todo", "scanner", "productivity", "comments"]
+  }
+]
