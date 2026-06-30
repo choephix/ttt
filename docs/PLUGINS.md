@@ -2055,7 +2055,7 @@ end)
 
 ### Reference Plugin
 
-For a complete, production-quality example, see the [Docker Manager plugin](../plugins/docker-manager/) included in this repository. It demonstrates:
+For a complete, production-quality example, see the [Docker Manager plugin](https://github.com/eugenioenko/ttt-plugins/tree/main/docker-manager) in the community plugins repository. It demonstrates:
 
 - Sidebar panel with multiple sections using VStack and Box
 - Header actions menu with `actions` and `on_action`

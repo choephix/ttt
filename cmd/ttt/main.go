@@ -215,89 +215,92 @@ Docs: https://tttedit.dev
 	pluginsDir := filepath.Join(filepath.Dir(registryPath), "plugins")
 	localPluginsDir := filepath.Join(editor.Workspace.Primary(), "plugins")
 	pluginManager := plugin.NewManager(pluginsDir, registryPath, localPluginsDir)
-	pendingApprovals := pluginManager.LoadAll()
 	editor.PluginManager = pluginManager
 	defer pluginManager.Shutdown()
 
-	for _, reg := range pluginManager.SidebarPanels {
-		editor.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
-	}
-	for _, reg := range pluginManager.BottomPanels {
-		editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
-	}
-	pluginManager.SetEditorAPI(app.NewPluginEditorAPI(editor))
-	pluginManager.SetFilesystemAPI(func(pluginDir string) plugin.FilesystemAPI {
-		roots := editor.Workspace.Paths()
-		if pluginDir != "" {
-			roots = append(roots, pluginDir)
-		}
-		return app.NewPluginFilesystemAPI(roots...)
-	})
-	pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
-	pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
+	if cfg.Settings.Plugins.IsEnabled() {
+		pendingApprovals := pluginManager.LoadAll()
 
-	for _, p := range pluginManager.Plugins() {
-		p.RequestRedraw = func() {
-			screen.PostEvent(tcell.NewEventInterrupt(nil))
+		for _, reg := range pluginManager.SidebarPanels {
+			editor.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
 		}
-		p.PostAsync = func(result *plugin.PluginAsyncResult) {
-			screen.PostEvent(tcell.NewEventInterrupt(result))
+		for _, reg := range pluginManager.BottomPanels {
+			editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
 		}
-	}
-	pluginManager.SetLogFactory(func(pluginName string) func(string, string) {
-		return func(level, message string) {
-			editor.Output.AddLine(ui.OutputLine{
-				Time:       time.Now().Format("15:04:05"),
-				PluginName: pluginName,
-				Level:      level,
-				Message:    message,
-			})
-			screen.PostEvent(tcell.NewEventInterrupt(nil))
-		}
-	})
+		pluginManager.SetEditorAPI(app.NewPluginEditorAPI(editor))
+		pluginManager.SetFilesystemAPI(func(pluginDir string) plugin.FilesystemAPI {
+			roots := editor.Workspace.Paths()
+			if pluginDir != "" {
+				roots = append(roots, pluginDir)
+			}
+			return app.NewPluginFilesystemAPI(roots...)
+		})
+		pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
+		pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
 
-	editor.RegisterStartupPluginCommands()
-
-	pluginsPanel := app.NewPluginsPanel(pluginManager)
-	editor.Sidebar.AddPanel("plugins", "Plugins", pluginsPanel.Adapter)
-	editor.PluginsPanel = pluginsPanel
-	pluginsPanel.OnInstall = func(repoURL, repoPath, name string) {
-		editor.PluginInstallFromURL(repoURL, repoPath, name)
-	}
-	pluginsPanel.OnUninstall = func(name string) {
-		editor.PluginUninstallByName(name)
-	}
-	pluginsPanel.OnToggle = func(name string, enabled bool) {
-		if !enabled {
-			editor.Sidebar.RemovePanel("plugin." + name)
-			editor.BottomPanel.RemovePanel("plugin." + name)
+		for _, p := range pluginManager.Plugins() {
+			p.RequestRedraw = func() {
+				screen.PostEvent(tcell.NewEventInterrupt(nil))
+			}
+			p.PostAsync = func(result *plugin.PluginAsyncResult) {
+				screen.PostEvent(tcell.NewEventInterrupt(result))
+			}
 		}
-		p, err := pluginManager.SetEnabled(name, enabled)
-		if err != nil {
-			slog.Error("toggle plugin", "error", err)
-		}
-		if p != nil {
-			editor.WirePlugin(p)
-		}
-		pluginsPanel.Refresh()
-	}
-	pluginsPanel.OnUpdate = func(name string) {
-		editor.PluginUpdateByName(name)
-	}
-	pluginsPanel.OnOpenDetail = func(entry plugin.RemoteRegistryEntry) {
-		editor.OpenPluginDetail(entry)
-	}
-	pluginsPanel.OnDropdownMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
-		editor.ShowPluginDropdownMenu(entries, screenX, screenY)
-	}
+		pluginManager.SetLogFactory(func(pluginName string) func(string, string) {
+			return func(level, message string) {
+				editor.Output.AddLine(ui.OutputLine{
+					Time:       time.Now().Format("15:04:05"),
+					PluginName: pluginName,
+					Level:      level,
+					Message:    message,
+				})
+				screen.PostEvent(tcell.NewEventInterrupt(nil))
+			}
+		})
 
-	go func() {
-		entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
-		screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries, Err: err}))
-	}()
+		editor.RegisterStartupPluginCommands()
 
-	if len(pendingApprovals) > 0 {
-		editor.PendingPluginApprovals = pendingApprovals
+		pluginsPanel := app.NewPluginsPanel(pluginManager)
+		editor.Sidebar.AddPanel("plugins", "Plugins", pluginsPanel.Adapter)
+		editor.PluginsPanel = pluginsPanel
+		pluginsPanel.OnInstall = func(repoURL, repoPath, name string) {
+			editor.PluginInstallFromURL(repoURL, repoPath, name)
+		}
+		pluginsPanel.OnUninstall = func(name string) {
+			editor.PluginUninstallByName(name)
+		}
+		pluginsPanel.OnToggle = func(name string, enabled bool) {
+			if !enabled {
+				editor.Sidebar.RemovePanel("plugin." + name)
+				editor.BottomPanel.RemovePanel("plugin." + name)
+			}
+			p, err := pluginManager.SetEnabled(name, enabled)
+			if err != nil {
+				slog.Error("toggle plugin", "error", err)
+			}
+			if p != nil {
+				editor.WirePlugin(p)
+			}
+			pluginsPanel.Refresh()
+		}
+		pluginsPanel.OnUpdate = func(name string) {
+			editor.PluginUpdateByName(name)
+		}
+		pluginsPanel.OnOpenDetail = func(entry plugin.RemoteRegistryEntry) {
+			editor.OpenPluginDetail(entry)
+		}
+		pluginsPanel.OnDropdownMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
+			editor.ShowPluginDropdownMenu(entries, screenX, screenY)
+		}
+
+		go func() {
+			entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
+			screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries, Err: err}))
+		}()
+
+		if len(pendingApprovals) > 0 {
+			editor.PendingPluginApprovals = pendingApprovals
+		}
 	}
 
 	if len(prURLs) > 0 {

@@ -402,6 +402,42 @@ Restart TTT (or switch themes) to pick up changes.
 
 To use your terminal's native colors instead of the theme's, set foreground/background to empty strings in your theme file.
 
+### Plugins
+
+TTT supports Lua plugins that add sidebar panels, bottom panel tabs, commands, and keybindings. Plugins run in a sandboxed Lua VM with a permission system — users approve each plugin's capabilities on first load.
+
+#### Installing Plugins
+
+Open the **Plugins** sidebar tab to browse and install from the community registry, or use **Plugins: Install from URL** from the command palette to install from any git repository.
+
+Community plugins are maintained at [ttt-plugins](https://github.com/eugenioenko/ttt-plugins):
+
+| Plugin | Description |
+|--------|-------------|
+| cheat-sheet | Fetch cheat sheets from cheat.sh |
+| color-picker | Color picker with hex/RGB swatches |
+| docker-manager | Docker container management |
+| go-test-runner | Run Go tests and view results |
+| http-client | HTTP request client |
+| json-viewer | Interactive JSON tree viewer |
+| markdown-preview | Markdown preview panel |
+| notepad | Persistent scratchpad |
+| todo-scanner | Scan for TODO/FIXME/HACK/NOTE comments |
+
+#### Managing Plugins
+
+- Click an installed plugin to **enable/disable** it (persists across restarts)
+- **↑** button to update, **×** to uninstall
+- **Plugins: Reload** from the command palette for live reload during development
+
+#### Disabling the Plugin System
+
+To disable plugins entirely: `"plugins": { "enabled": false }` in settings.
+
+#### Creating Plugins
+
+Plugins are Lua scripts with a `plugin.ttt.json` manifest. See the [Plugin Authoring Guide](docs/PLUGINS.md) for the full API. To list your plugin in the built-in browser, submit a PR adding it to `community-plugins.json`.
+
 ### Menu Bar
 
 File, Edit, Selection, View, and Help menus accessible via the menu bar or keyboard shortcuts. Menus display resolved keybindings next to each command. Navigate between menus with left/right arrow keys.
@@ -444,6 +480,7 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `autocomplete.autoSuggest` | bool | `true` | Show completions automatically as you type |
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
 | `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
+| `plugins.enabled` | bool | `true` | Enable the plugin system (set `false` to disable all plugins) |
 
 Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`](config/settings.json)):
 
@@ -489,6 +526,9 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
     "autoSuggest": true,
     "debounce": 150,
     "signatureHelp": true
+  },
+  "plugins": {
+    "enabled": true
   }
 }
 ```

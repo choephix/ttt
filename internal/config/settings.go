@@ -131,6 +131,14 @@ func DefaultExplorerSettings() ExplorerSettings {
 	}
 }
 
+type PluginSettings struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+func (p PluginSettings) IsEnabled() bool {
+	return p.Enabled == nil || *p.Enabled
+}
+
 type Settings struct {
 	Version      int                  `json:"version"`
 	Theme        string               `json:"theme,omitempty"`
@@ -141,6 +149,7 @@ type Settings struct {
 	Terminal     TerminalSettings     `json:"terminal,omitzero"`
 	LSP          LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
+	Plugins      PluginSettings       `json:"plugins,omitzero"`
 }
 
 func DefaultSettings() Settings {

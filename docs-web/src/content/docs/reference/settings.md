@@ -70,6 +70,12 @@ All editor settings are nested under the `editor` key.
 |-----|------|---------|-------------|
 | `search.debounce` | int | `350` | Milliseconds to debounce global search input |
 
+## Plugins
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `plugins.enabled` | bool | `true` | Enable the plugin system. When `false`, no plugins are loaded and the Plugins sidebar tab is hidden. |
+
 ## Autocomplete
 
 | Key | Type | Default | Description |
@@ -141,6 +147,9 @@ All editor settings are nested under the `editor` key.
     "autoSuggest": true,
     "debounce": 150,
     "signatureHelp": true
+  },
+  "plugins": {
+    "enabled": true
   }
 }
 ```
