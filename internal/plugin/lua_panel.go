@@ -100,6 +100,7 @@ func RegisterPanelType(L *lua.LState) {
 		"progress":  panelProgressWidget,
 		"table":     panelTableWidget,
 		"redraw":    panelRedraw,
+		"markdown":  panelMarkdownWidget,
 	}))
 }
 
@@ -721,6 +722,27 @@ func panelTableWidget(L *lua.LState) int {
 
 	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetTable, desc)
+	return 0
+}
+
+func panelMarkdownWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	desc := WidgetDesc{}
+	arg := L.Get(2)
+	switch v := arg.(type) {
+	case lua.LString:
+		desc.MarkdownContent = string(v)
+	case *lua.LTable:
+		if t := L.GetField(v, "text"); t != lua.LNil {
+			desc.MarkdownContent = t.String()
+		}
+		parseBoxModel(L, v, &desc)
+	}
+	proxy.appendDesc(WidgetMarkdown, desc)
 	return 0
 }
 

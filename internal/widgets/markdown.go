@@ -3,6 +3,8 @@ package widgets
 import (
 	"strings"
 
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
+	"github.com/eugenioenko/ttt/internal/core/selection"
 	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v2"
@@ -10,19 +12,36 @@ import (
 
 type MarkdownWidget struct {
 	BaseWidget
+	rawText   string
 	lines     []markdown.Line
 	wrapWidth int
 	wrapped   []markdown.Line
+
+	sel      selection.Selection
+	selEnd   selection.Position
+	dragging bool
+
+	scrollParent *ScrollViewWidget
 }
 
 func NewMarkdownWidget() *MarkdownWidget {
 	return &MarkdownWidget{}
 }
 
+func (m *MarkdownWidget) SetScrollParent(sv *ScrollViewWidget) {
+	m.scrollParent = sv
+}
+
 func (m *MarkdownWidget) SetContent(text string) {
+	if text == m.rawText {
+		return
+	}
+	m.rawText = text
 	m.lines = markdown.Render(text)
 	m.wrapWidth = 0
 	m.wrapped = nil
+	m.sel.Clear()
+	m.dragging = false
 }
 
 func (m *MarkdownWidget) Height() int { return 0 }
@@ -34,8 +53,13 @@ func (m *MarkdownWidget) ScrollSize() (int, int) {
 	if w <= 0 {
 		w = 80
 	}
-	m.rewrap(w)
-	return w, len(m.wrapped)
+	wrapW := w - m.Box.PaddingLeft - m.Box.PaddingRight
+	if wrapW < 1 {
+		wrapW = 1
+	}
+	m.rewrap(wrapW)
+	h := len(m.wrapped) + m.Box.PaddingTop + m.Box.PaddingBottom
+	return w, h
 }
 
 func (m *MarkdownWidget) rewrap(width int) {
@@ -114,7 +138,16 @@ func flattenMarkdownStyles(line markdown.Line) []term.Style {
 	return styles
 }
 
+func (m *MarkdownWidget) wrappedTextLines() []string {
+	lines := make([]string, len(m.wrapped))
+	for i, l := range m.wrapped {
+		lines[i] = l.Text()
+	}
+	return lines
+}
+
 func (m *MarkdownWidget) Render(surface Surface) {
+	surface = m.RenderBox(surface)
 	w, h := surface.Size()
 	if w <= 0 || h <= 0 {
 		return
@@ -130,13 +163,97 @@ func (m *MarkdownWidget) Render(surface Surface) {
 				if x >= w {
 					break
 				}
-				surface.SetCell(x, y, term.Cell{Ch: ch, Style: span.Style})
+				cell := term.Cell{Ch: ch, Style: span.Style}
+				if m.sel.Contains(y, x, m.selEnd.Line, m.selEnd.Col) {
+					cell.BgStyle = term.StyleSelection
+				}
+				surface.SetCell(x, y, cell)
 				x++
+			}
+		}
+		if m.sel.Active {
+			for pad := x; pad < w; pad++ {
+				if m.sel.Contains(y, pad, m.selEnd.Line, m.selEnd.Col) {
+					surface.SetCell(pad, y, term.Cell{Ch: ' ', BgStyle: term.StyleSelection})
+				}
 			}
 		}
 	}
 }
 
+func (m *MarkdownWidget) mouseToContent(mx, my int) selection.Position {
+	if m.scrollParent == nil {
+		return selection.Position{}
+	}
+	pr := m.scrollParent.GetRect()
+
+	contentY := my - pr.Y + m.scrollParent.scrollY
+	contentX := mx - pr.X + m.scrollParent.scrollX
+
+	if contentY < 0 {
+		contentY = 0
+	}
+	if contentX < 0 {
+		contentX = 0
+	}
+	if contentY >= len(m.wrapped) {
+		contentY = len(m.wrapped) - 1
+		if contentY < 0 {
+			contentY = 0
+		}
+	}
+	if contentY < len(m.wrapped) {
+		lineLen := len([]rune(m.wrapped[contentY].Text()))
+		if contentX > lineLen {
+			contentX = lineLen
+		}
+	}
+	return selection.Position{Line: contentY, Col: contentX}
+}
+
 func (m *MarkdownWidget) HandleEvent(ev tcell.Event) EventResult {
+	switch e := ev.(type) {
+	case *tcell.EventKey:
+		if e.Key() == tcell.KeyCtrlC && m.sel.Active {
+			text := m.sel.Text(m.wrappedTextLines(), m.selEnd.Line, m.selEnd.Col)
+			if text != "" {
+				clipboard.Set(text)
+			}
+			return EventConsumed
+		}
+	case *tcell.EventMouse:
+		if m.scrollParent == nil {
+			return EventIgnored
+		}
+		btn := e.Buttons()
+		mx, my := e.Position()
+
+		pr := m.scrollParent.GetRect()
+
+		inside := mx >= pr.X && mx < pr.X+pr.W &&
+			my >= pr.Y && my < pr.Y+pr.H
+
+		if btn&tcell.Button1 != 0 {
+			pos := m.mouseToContent(mx, my)
+			if m.dragging {
+				m.selEnd = pos
+				return EventConsumed
+			}
+			if inside {
+				m.sel.Start(pos.Line, pos.Col)
+				m.selEnd = pos
+				m.dragging = true
+				return EventConsumed
+			}
+		}
+
+		if btn == tcell.ButtonNone && m.dragging {
+			m.dragging = false
+			if m.sel.Anchor == m.selEnd {
+				m.sel.Clear()
+			}
+			return EventConsumed
+		}
+	}
 	return EventIgnored
 }

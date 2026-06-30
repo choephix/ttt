@@ -95,9 +95,10 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 
 	divider := widgets.NewDividerWidget(widgets.DividerConfig{})
 
+	md.Box.PaddingLeft = 1
+	md.Box.PaddingRight = 1
 	scroll := widgets.NewScrollViewWidget(md)
-	scroll.Box.PaddingLeft = 1
-	scroll.Box.PaddingRight = 1
+	md.SetScrollParent(scroll)
 
 	content := widgets.NewVStackWidget(header, divider, scroll)
 	adapter := ui.NewWidgetAdapter(content)

@@ -22,6 +22,7 @@ const (
 	WidgetDivider
 	WidgetProgress
 	WidgetTable
+	WidgetMarkdown
 )
 
 func (k WidgetKind) String() string {
@@ -56,6 +57,8 @@ func (k WidgetKind) String() string {
 		return "progress"
 	case WidgetTable:
 		return "table"
+	case WidgetMarkdown:
+		return "markdown"
 	}
 	return "unknown"
 }
@@ -116,4 +119,6 @@ type WidgetDesc struct {
 	Rows          [][]string
 	OnSelectIndex func(int)
 	OnCommandStr  func(command string, rowIndex int)
+
+	MarkdownContent string
 }

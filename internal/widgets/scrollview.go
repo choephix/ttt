@@ -100,8 +100,8 @@ func (sv *ScrollViewWidget) Render(surface Surface) {
 	}
 
 	if hasVBar {
-		sv.vbar.X = sv.rect.X + w - 1
-		sv.vbar.Y = sv.rect.Y
+		sv.vbar.X = sv.rect.X + sv.Box.MarginLeft + sv.Box.PaddingLeft + w - 1
+		sv.vbar.Y = sv.rect.Y + sv.Box.MarginTop + sv.Box.PaddingTop
 		sv.vbar.Height = viewH
 		sv.vbar.TotalItems = contentH
 		sv.vbar.TopItem = sv.scrollY
