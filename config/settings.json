@@ -33,5 +33,8 @@
     "autoSuggest": true,
     "debounce": 150,
     "signatureHelp": true
+  },
+  "markdown": {
+    "wrapWidth": 80
   }
 }

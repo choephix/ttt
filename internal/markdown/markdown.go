@@ -29,9 +29,13 @@ func (l Line) Text() string {
 	return b.String()
 }
 
-const WrapWidth = 60
+const DefaultWrapWidth = 80
 
 func Render(text string) []Line {
+	return RenderWithWidth(text, DefaultWrapWidth)
+}
+
+func RenderWithWidth(text string, wrapWidth int) []Line {
 	text = strings.TrimRight(text, "\n")
 	text = reDividerBlanks.ReplaceAllString(text, "\n---")
 	text = reDividerBlanksAfter.ReplaceAllString(text, "---\n")
@@ -60,7 +64,7 @@ func Render(text string) []Line {
 			continue
 		}
 		parsed := renderInline(line)
-		lines = append(lines, wrapLine(parsed, WrapWidth)...)
+		lines = append(lines, wrapLine(parsed, wrapWidth)...)
 		i++
 	}
 	return lines

@@ -24,8 +24,8 @@ type HoverWidget struct {
 	hscrollbar HScrollbar
 }
 
-func NewHoverWidget(text string, x, y int) *HoverWidget {
-	lines := markdown.Render(text)
+func NewHoverWidget(text string, x, y, wrapWidth int) *HoverWidget {
+	lines := markdown.RenderWithWidth(text, wrapWidth)
 	maxW := 0
 	for _, line := range lines {
 		if w := len([]rune(line.Text())); w > maxW {

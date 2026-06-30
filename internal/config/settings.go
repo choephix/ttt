@@ -133,6 +133,16 @@ func (p PluginSettings) IsEnabled() bool {
 	return p.Enabled == nil || *p.Enabled
 }
 
+type MarkdownSettings struct {
+	WrapWidth int `json:"wrapWidth,omitempty"`
+}
+
+func DefaultMarkdownSettings() MarkdownSettings {
+	return MarkdownSettings{
+		WrapWidth: 80,
+	}
+}
+
 type Settings struct {
 	Version      int                  `json:"version"`
 	Theme        string               `json:"theme,omitempty"`
@@ -144,6 +154,7 @@ type Settings struct {
 	LSP          LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
 	Plugins      PluginSettings       `json:"plugins,omitzero"`
+	Markdown     MarkdownSettings     `json:"markdown,omitzero"`
 	Formatters   map[string]string    `json:"formatters,omitempty"`
 }
 
@@ -156,6 +167,7 @@ func DefaultSettings() Settings {
 		Terminal:     DefaultTerminalSettings(),
 		LSP:          DefaultLSPSettings(),
 		Autocomplete: DefaultAutocompleteSettings(),
+		Markdown:     DefaultMarkdownSettings(),
 	}
 }
 
