@@ -13,12 +13,12 @@ import (
 
 type Manager struct {
 	servers       map[string]*Client
-	config        config.LSPSettings
+	config        *config.LSPSettings
 	mu            sync.Mutex
 	OnDiagnostics func(params PublishDiagnosticsParams)
 }
 
-func NewManager(cfg config.LSPSettings) *Manager {
+func NewManager(cfg *config.LSPSettings) *Manager {
 	return &Manager{
 		servers: make(map[string]*Client),
 		config:  cfg,

@@ -61,8 +61,8 @@ All editor settings are nested under the `editor` key.
 | `lsp.hoverDelay` | int | `500` | Milliseconds to wait before showing hover information |
 | `lsp.saveOnRename` | bool | `false` | Auto-save files affected by a rename operation |
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
-| `lsp.notifyAvailability` | bool | `true` | Show a notification when a language server is available but not installed |
-| `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
+| `lsp.notifyAvailability` | bool | `true` | Show a notification when a language server binary is not installed |
+| `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. Configured automatically by LSP plugins (e.g. `lsp-go`, `lsp-typescript`). The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
 
 ## Search
 
@@ -153,19 +153,7 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
     "codeActionsOnSave": [
       "source.organizeImports",
       "source.fixAll"
-    ],
-    "servers": {
-      "go": { "command": ["gopls"] },
-      "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
-        "languages": {
-          ".ts": "typescript",
-          ".tsx": "typescriptreact",
-          ".js": "javascript",
-          ".jsx": "javascriptreact"
-        }
-      }
-    }
+    ]
   },
   "autocomplete": {
     "enabled": true,

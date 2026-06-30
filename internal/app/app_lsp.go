@@ -833,7 +833,7 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
 			if !a.LspNotified[serverKey] && a.Settings.LSP.ShouldNotifyAvailability() {
 				a.LspNotified[serverKey] = true
-				msg := fmt.Sprintf("%s autocomplete support is available. Click Docs for installation instructions.", lang)
+				msg := fmt.Sprintf("LSP Code Assist binary is not installed for %s. Click Docs for installation instructions.", lang)
 				anchor := serverKey
 				a.Status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
 					OpenURL("https://tttedit.dev/guides/lsp/#" + anchor)

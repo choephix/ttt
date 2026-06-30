@@ -204,38 +204,40 @@ Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
 
 ### LSP (Language Server Protocol)
 
-TTT has built-in LSP support for language-aware editing features. Install a language server and TTT detects it automatically — zero configuration needed. If a server isn't installed, TTT shows a brief notification with a link to install instructions.
+TTT has built-in LSP support for language-aware editing features. Language servers are configured via plugins — install the LSP plugin for your language and the corresponding server binary.
 
-#### Built-in Language Support
+#### LSP Plugins
 
-| Language | Server | Install |
-|----------|--------|---------|
-| Go | gopls | `go install golang.org/x/tools/gopls@latest` |
-| TypeScript / JavaScript | typescript-language-server | `npm i -g typescript typescript-language-server` |
-| Python | pyright | `pip install pyright` |
-| C / C++ | clangd | `sudo apt install clangd` |
-| Rust | rust-analyzer | `rustup component add rust-analyzer` |
-| Vue | vue-language-server | `npm i -g @vue/language-server` |
-| Svelte | svelteserver | `npm i -g svelte-language-server` |
-| CSS / SCSS / Less | vscode-css-language-server | `npm i -g vscode-langservers-extracted` |
-| HTML | vscode-html-language-server | `npm i -g vscode-langservers-extracted` |
-| JSON | vscode-json-language-server | `npm i -g vscode-langservers-extracted` |
-| YAML | yaml-language-server | `npm i -g yaml-language-server` |
-| Bash | bash-language-server | `npm i -g bash-language-server` |
-| Lua | lua-language-server | [LuaLS releases](https://github.com/LuaLS/lua-language-server/releases) |
-| Zig | zls | [ZLS releases](https://github.com/zigtools/zls) |
-| Kotlin | kotlin-language-server | [Releases](https://github.com/fwcd/kotlin-language-server/releases) |
-| Java | jdtls | [Eclipse JDT.LS](https://github.com/eclipse-jdtls/eclipse.jdt.ls) |
-| Ruby | ruby-lsp | `gem install ruby-lsp` |
-| Dart | dart language-server | Included with [Dart SDK](https://dart.dev/get-dart) |
-| Elixir | elixir-ls | [Releases](https://github.com/elixir-lsp/elixir-ls/releases) |
-| PHP | phpactor | `composer global require phpactor/phpactor` |
-| Terraform | terraform-ls | [Releases](https://github.com/hashicorp/terraform-ls) |
-| Markdown | marksman | [Releases](https://github.com/artempyanykh/marksman/releases) |
-| Tailwind CSS | tailwindcss-language-server | `npm i -g @tailwindcss/language-server` |
-| Docker | docker-langserver | `npm i -g dockerfile-language-server-nodejs` |
+Install LSP plugins from the Plugins panel or command palette. Each plugin configures the language server automatically. Available plugins:
 
-You can also add custom servers or override built-in ones in `~/.config/ttt/settings.json`. See the [LSP docs](https://tttedit.dev/guides/lsp/) for details.
+| Plugin | Language | Server |
+|--------|----------|--------|
+| `lsp-go` | Go | gopls |
+| `lsp-typescript` | TypeScript / JavaScript | typescript-language-server |
+| `lsp-python` | Python | pyright |
+| `lsp-c` | C / C++ | clangd |
+| `lsp-rust` | Rust | rust-analyzer |
+| `lsp-lua` | Lua | lua-language-server |
+| `lsp-zig` | Zig | zls |
+| `lsp-vue` | Vue | vue-language-server |
+| `lsp-svelte` | Svelte | svelteserver |
+| `lsp-css` | CSS / SCSS / Less | vscode-css-language-server |
+| `lsp-html` | HTML | vscode-html-language-server |
+| `lsp-json` | JSON | vscode-json-language-server |
+| `lsp-yaml` | YAML | yaml-language-server |
+| `lsp-bash` | Bash | bash-language-server |
+| `lsp-docker` | Docker | docker-langserver |
+| `lsp-tailwindcss` | Tailwind CSS | tailwindcss-language-server |
+| `lsp-kotlin` | Kotlin | kotlin-language-server |
+| `lsp-java` | Java | jdtls |
+| `lsp-ruby` | Ruby | ruby-lsp |
+| `lsp-dart` | Dart | dart language-server |
+| `lsp-elixir` | Elixir | elixir-ls |
+| `lsp-php` | PHP | phpactor |
+| `lsp-terraform` | Terraform | terraform-ls |
+| `lsp-markdown` | Markdown | marksman |
+
+You can also add custom servers manually in `~/.config/ttt/settings.json`. See the [LSP docs](https://tttedit.dev/guides/lsp/) for details.
 
 To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 
@@ -493,7 +495,7 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `terminal.shell` | string | `""` | Shell command for the integrated terminal (empty = system default) |
 | `terminal.scrollback` | int | `1000` | Number of scrollback lines to retain in the terminal |
 | `lsp.saveOnRename` | bool | `false` | Auto-save all files affected by a rename operation |
-| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...], "languages": {...} }` for LSP servers |
+| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...], "languages": {...} }` for LSP servers. Configured automatically by LSP plugins. |
 | `autocomplete.enabled` | bool | `true` | Enable LSP-powered autocompletion |
 | `autocomplete.autoSuggest` | bool | `true` | Show completions automatically as you type |
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
@@ -525,19 +527,7 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
     "scrollback": 1000
   },
   "lsp": {
-    "saveOnRename": false,
-    "servers": {
-      "go": { "command": ["gopls"] },
-      "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
-        "languages": {
-          ".ts": "typescript",
-          ".tsx": "typescriptreact",
-          ".js": "javascript",
-          ".jsx": "javascriptreact"
-        }
-      }
-    }
+    "saveOnRename": false
   },
   "autocomplete": {
     "enabled": true,

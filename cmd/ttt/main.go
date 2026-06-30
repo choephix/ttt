@@ -192,7 +192,7 @@ Docs: https://tttedit.dev
 		clipboard.SetOSCWriter(tty)
 	}
 
-	lspManager := lsp.NewManager(cfg.Settings.LSP)
+	lspManager := lsp.NewManager(&cfg.Settings.LSP)
 	defer lspManager.Shutdown()
 
 	renderer := &render.Renderer{}

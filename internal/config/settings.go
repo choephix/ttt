@@ -1,13 +1,9 @@
 package config
 
 import (
-	_ "embed"
 	"encoding/json"
 	"os"
 )
-
-//go:embed lsp_servers.json
-var lspServersJSON []byte
 
 type TerminalSettings struct {
 	Shell      string `json:"shell,omitempty"`
@@ -64,11 +60,9 @@ func (l LSPSettings) IsHoverEnabled() bool {
 }
 
 func DefaultLSPSettings() LSPSettings {
-	var servers map[string]LSPServerConfig
-	json.Unmarshal(lspServersJSON, &servers)
 	return LSPSettings{
 		HoverDelay: 500,
-		Servers:    servers,
+		Servers:    make(map[string]LSPServerConfig),
 	}
 }
 
