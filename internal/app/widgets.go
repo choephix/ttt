@@ -142,10 +142,10 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	references := ui.NewReferencesWidget()
 	output := ui.NewOutputWidget()
 	bottomPanel := ui.NewBottomPanelWidget(borders)
-	bottomPanel.AddPanel("terminal", "TERMINAL", terminalPanel)
-	bottomPanel.AddPanel("problems", "PROBLEMS", problems)
-	bottomPanel.AddPanel("references", "REFERENCES", references)
-	bottomPanel.AddPanel("output", "OUTPUT", output)
+	bottomPanel.AddPanel("terminal", "Terminal", terminalPanel)
+	bottomPanel.AddPanel("problems", "Problems", problems)
+	bottomPanel.AddPanel("references", "References", references)
+	bottomPanel.AddPanel("output", "Output", output)
 
 	contentSplit := ui.NewContentSplitWidget()
 	contentSplit.Top = editorGroup
