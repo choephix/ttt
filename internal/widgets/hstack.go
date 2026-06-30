@@ -24,7 +24,7 @@ func (s *HStackWidget) Height() int {
 	}
 	return 0
 }
-func (s *HStackWidget) Width() int  { return 0 }
+func (s *HStackWidget) Width() int { return 0 }
 
 func (s *HStackWidget) Render(surface Surface) {
 	inner := s.RenderBox(surface)

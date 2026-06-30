@@ -121,4 +121,3 @@ func (n *NavigationPanel) loadChildren(node *widgets.TreeNode) {
 		node.Children = append(node.Children, child)
 	}
 }
-

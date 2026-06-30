@@ -6,17 +6,17 @@ import (
 )
 
 type ChangesGroup struct {
-	Dir      string
-	Name     string
-	Staged   []git.FileStatus
-	Unstaged []git.FileStatus
-	IsPR     bool
-	PRURL           string
-	PRDiffs         map[string]string
-	PROwner         string
-	PRRepo          string
-	PRBaseSHA       string
-	PRHeadSHA       string
+	Dir       string
+	Name      string
+	Staged    []git.FileStatus
+	Unstaged  []git.FileStatus
+	IsPR      bool
+	PRURL     string
+	PRDiffs   map[string]string
+	PROwner   string
+	PRRepo    string
+	PRBaseSHA string
+	PRHeadSHA string
 }
 
 func StatusStyle(status string) term.Style {

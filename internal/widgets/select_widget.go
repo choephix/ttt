@@ -121,7 +121,7 @@ func (s *SelectWidget) RenderPopup(surface Surface) {
 
 	s.scrollbar.Render(surface, w-1, 0)
 }
-func (s *SelectWidget) Width() int  { return 0 }
+func (s *SelectWidget) Width() int { return 0 }
 
 func (s *SelectWidget) Focusable() bool   { return true }
 func (s *SelectWidget) SetFocused(f bool) { s.focused = f; s.input.SetFocused(f) }

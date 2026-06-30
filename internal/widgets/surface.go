@@ -12,7 +12,7 @@ type Rect struct {
 type EventResult int
 
 const (
-	EventIgnored  EventResult = iota
+	EventIgnored EventResult = iota
 	EventConsumed
 	EventDismissed
 	EventCaptured

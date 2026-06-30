@@ -97,10 +97,10 @@ func (fm *FocusManager) setFocus(idx int) {
 	}
 }
 
-func (fm *FocusManager) ItemCount() int              { return len(fm.items) }
-func (fm *FocusManager) Items() []FocusableWidget     { return fm.items }
-func (fm *FocusManager) HasNext() bool                { return fm.focused < len(fm.items)-1 }
-func (fm *FocusManager) HasPrev() bool                { return fm.focused > 0 }
+func (fm *FocusManager) ItemCount() int           { return len(fm.items) }
+func (fm *FocusManager) Items() []FocusableWidget { return fm.items }
+func (fm *FocusManager) HasNext() bool            { return fm.focused < len(fm.items)-1 }
+func (fm *FocusManager) HasPrev() bool            { return fm.focused > 0 }
 
 func (fm *FocusManager) Focused() Widget {
 	if fm.focused >= 0 && fm.focused < len(fm.items) {

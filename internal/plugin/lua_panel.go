@@ -10,7 +10,6 @@ import (
 
 const panelTypeName = "panel"
 
-
 type PanelProxy struct {
 	surface     widgets.Surface
 	plugin      *Plugin
@@ -80,27 +79,27 @@ func (pp *PanelProxy) appendDesc(kind WidgetKind, desc WidgetDesc) {
 func RegisterPanelType(L *lua.LState) {
 	mt := L.NewTypeMetatable(panelTypeName)
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"size":     panelSize,
-		"cell":     panelCell,
-		"text":     panelText,
-		"clear":    panelClear,
-		"label":    panelLabelWidget,
-		"tree":     panelTreeWidget,
-		"list":     panelListWidget,
-		"button":   panelButtonWidget,
-		"input":    panelInputWidget,
-		"vstack":   panelVStackWidget,
-		"box":      panelBoxWidget,
-		"dropdown": panelDropdownWidget,
-		"title":    panelTitleWidget,
+		"size":       panelSize,
+		"cell":       panelCell,
+		"text":       panelText,
+		"clear":      panelClear,
+		"label":      panelLabelWidget,
+		"tree":       panelTreeWidget,
+		"list":       panelListWidget,
+		"button":     panelButtonWidget,
+		"input":      panelInputWidget,
+		"vstack":     panelVStackWidget,
+		"box":        panelBoxWidget,
+		"dropdown":   panelDropdownWidget,
+		"title":      panelTitleWidget,
 		"keyvalue":   panelKeyValueWidget,
 		"scrollview": panelScrollViewWidget,
-		"hstack":    panelHStackWidget,
-		"divider":   panelDividerWidget,
-		"progress":  panelProgressWidget,
-		"table":     panelTableWidget,
-		"redraw":    panelRedraw,
-		"markdown":  panelMarkdownWidget,
+		"hstack":     panelHStackWidget,
+		"divider":    panelDividerWidget,
+		"progress":   panelProgressWidget,
+		"table":      panelTableWidget,
+		"redraw":     panelRedraw,
+		"markdown":   panelMarkdownWidget,
 	}))
 }
 

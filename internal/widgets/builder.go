@@ -17,18 +17,18 @@ type WidgetDef struct {
 	Padded bool        `json:"padded,omitempty"`
 
 	// box model (applies to any widget)
-	BorderTop    bool `json:"borderTop,omitempty"`
-	BorderBottom bool `json:"borderBottom,omitempty"`
-	BorderLeft   bool `json:"borderLeft,omitempty"`
-	BorderRight  bool `json:"borderRight,omitempty"`
-	PaddingTop   int  `json:"paddingTop,omitempty"`
-	PaddingBottom int `json:"paddingBottom,omitempty"`
-	PaddingLeft  int  `json:"paddingLeft,omitempty"`
-	PaddingRight int  `json:"paddingRight,omitempty"`
-	MarginTop    int  `json:"marginTop,omitempty"`
-	MarginBottom int  `json:"marginBottom,omitempty"`
-	MarginLeft   int  `json:"marginLeft,omitempty"`
-	MarginRight  int  `json:"marginRight,omitempty"`
+	BorderTop     bool `json:"borderTop,omitempty"`
+	BorderBottom  bool `json:"borderBottom,omitempty"`
+	BorderLeft    bool `json:"borderLeft,omitempty"`
+	BorderRight   bool `json:"borderRight,omitempty"`
+	PaddingTop    int  `json:"paddingTop,omitempty"`
+	PaddingBottom int  `json:"paddingBottom,omitempty"`
+	PaddingLeft   int  `json:"paddingLeft,omitempty"`
+	PaddingRight  int  `json:"paddingRight,omitempty"`
+	MarginTop     int  `json:"marginTop,omitempty"`
+	MarginBottom  int  `json:"marginBottom,omitempty"`
+	MarginLeft    int  `json:"marginLeft,omitempty"`
+	MarginRight   int  `json:"marginRight,omitempty"`
 
 	// tree / list
 	Items          []*TreeNode `json:"items,omitempty"`
@@ -53,7 +53,7 @@ type WidgetDef struct {
 	Tabs []TabItem `json:"tabs,omitempty"`
 
 	// dialog
-	Width        int              `json:"width,omitempty"`
+	Width         int                `json:"width,omitempty"`
 	DialogButtons []DialogButtonJSON `json:"buttons,omitempty"`
 
 	// scroll

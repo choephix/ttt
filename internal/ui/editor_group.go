@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/buffer"
@@ -14,7 +15,6 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
-	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -64,32 +64,32 @@ type editorTab struct {
 
 type EditorGroupWidget struct {
 	BaseWidget
-	TabBar                 *TabBarWidget
-	Editor                 *EditorPaneWidget
-	Autocomplete           *AutocompleteWidget
-	Hover                  *HoverWidget
-	SignatureHelp          *SignatureHelpWidget
-	tabs                   []editorTab
-	active                 int
-	TabSize                int
-	InsertSpaces           bool
-	LineNumbers            bool
+	TabBar                  *TabBarWidget
+	Editor                  *EditorPaneWidget
+	Autocomplete            *AutocompleteWidget
+	Hover                   *HoverWidget
+	SignatureHelp           *SignatureHelpWidget
+	tabs                    []editorTab
+	active                  int
+	TabSize                 int
+	InsertSpaces            bool
+	LineNumbers             bool
 	GutterStyle             string
 	WordWrap                bool
 	SyntaxHighlight         bool
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	InsertFinalNewline      bool
-	TrimTrailingWhitespace bool
-	Borders                *term.BorderSet
-	OnFileOpen             func(path, lang, text string)
-	OnFileChange           func(path, lang, text string)
-	OnFileClose            func(path, lang string)
-	OnContentTabClose      func(id string)
-	OnError                func(msg string)
-	OnNotify               func(msg string)
-	pendingNotify          []string
-	focused                bool
+	TrimTrailingWhitespace  bool
+	Borders                 *term.BorderSet
+	OnFileOpen              func(path, lang, text string)
+	OnFileChange            func(path, lang, text string)
+	OnFileClose             func(path, lang string)
+	OnContentTabClose       func(id string)
+	OnError                 func(msg string)
+	OnNotify                func(msg string)
+	pendingNotify           []string
+	focused                 bool
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -230,15 +230,15 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 	folds := fold.NewState()
 	folds.SetRanges(fold.ComputeIndentRanges(newBuf.Lines))
 	newTab := editorTab{
-		FilePath:    path,
-		Buf:         newBuf,
-		Cur:         &cursor.Cursor{},
-		Vp:          &view.Viewport{},
-		Undo:        &undo.UndoStack{},
-		Sel:         &selection.Selection{},
-		Folds:       folds,
-		TabSize:     tabSize,
-		UseTabs:     useTabs,
+		FilePath: path,
+		Buf:      newBuf,
+		Cur:      &cursor.Cursor{},
+		Vp:       &view.Viewport{},
+		Undo:     &undo.UndoStack{},
+		Sel:      &selection.Selection{},
+		Folds:    folds,
+		TabSize:  tabSize,
+		UseTabs:  useTabs,
 	}
 	if g.SyntaxHighlight {
 		newTab.Highlighter = highlight.New(path)

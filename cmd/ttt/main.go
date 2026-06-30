@@ -64,11 +64,11 @@ func handlePanic(screen *term.TcellScreen) {
 }
 
 type cliFlags struct {
-	configFile string
-	pluginFile string
-	exec       string
+	configFile   string
+	pluginFile   string
+	exec         string
 	sizeW, sizeH int
-	debug      bool
+	debug        bool
 }
 
 func parseFlags() cliFlags {

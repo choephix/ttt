@@ -229,9 +229,9 @@ func (sv *ScrollViewWidget) scrollHToClick(clickX, barW, totalW int) {
 	}
 }
 
-func (sv *ScrollViewWidget) Focusable() bool           { return true }
-func (sv *ScrollViewWidget) SetFocused(focused bool)    { sv.focused = focused }
-func (sv *ScrollViewWidget) IsFocused() bool            { return sv.focused }
+func (sv *ScrollViewWidget) Focusable() bool         { return true }
+func (sv *ScrollViewWidget) SetFocused(focused bool) { sv.focused = focused }
+func (sv *ScrollViewWidget) IsFocused() bool         { return sv.focused }
 
 func (sv *ScrollViewWidget) clamp(contentW, contentH, viewW, viewH int) {
 	maxY := contentH - viewH

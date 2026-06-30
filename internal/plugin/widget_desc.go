@@ -71,31 +71,31 @@ type WidgetDesc struct {
 	TextStyle string
 	Badge     string
 
-	MarginTop    int
-	MarginBottom int
-	MarginLeft   int
-	MarginRight  int
+	MarginTop     int
+	MarginBottom  int
+	MarginLeft    int
+	MarginRight   int
 	PaddingTop    int
 	PaddingBottom int
 	PaddingLeft   int
 	PaddingRight  int
 
-	Items     []*widgets.TreeNode
-	Indent    int
-	OnSelect  func(node *widgets.TreeNode)
-	OnExpand  func(node *widgets.TreeNode)
-	OnCommand func(command string, node *widgets.TreeNode)
+	Items       []*widgets.TreeNode
+	Indent      int
+	OnSelect    func(node *widgets.TreeNode)
+	OnExpand    func(node *widgets.TreeNode)
+	OnCommand   func(command string, node *widgets.TreeNode)
 	NodeMenu    []widgets.MenuEntry
 	KeyCommands map[rune]string
 
 	Label   string
 	OnClick func()
 
-	Placeholder    string
-	Prefix         string
-	OnChange       func(text string)
-	OnSubmit       func(text string)
-	ClearOnSubmit  bool
+	Placeholder   string
+	Prefix        string
+	OnChange      func(text string)
+	OnSubmit      func(text string)
+	ClearOnSubmit bool
 
 	Children     []WidgetDesc
 	Border       bool
@@ -108,7 +108,7 @@ type WidgetDesc struct {
 	Gap          int
 
 	Entries         []widgets.MenuEntry
-	OnMenu         func(command string)
+	OnMenu          func(command string)
 	KeyValueEntries []widgets.KeyValueEntry
 
 	Value     float64

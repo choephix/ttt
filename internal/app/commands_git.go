@@ -8,8 +8,8 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/git"
-	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/github"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 

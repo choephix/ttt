@@ -40,15 +40,15 @@ func NewProblemsWidget() *ProblemsWidget {
 	return p
 }
 
-func (p *ProblemsWidget) Focusable() bool                       { return true }
-func (p *ProblemsWidget) SetFocused(f bool)                      { p.tree.SetFocused(f) }
-func (p *ProblemsWidget) IsFocused() bool                        { return p.tree.IsFocused() }
-func (p *ProblemsWidget) GetRect() Rect                          { return Rect(p.tree.GetRect()) }
-func (p *ProblemsWidget) SetRect(r Rect)                         { p.tree.SetRect(widgets.Rect(r)) }
-func (p *ProblemsWidget) Height() int                            { return 0 }
-func (p *ProblemsWidget) Width() int                             { return 0 }
-func (p *ProblemsWidget) SetBoxModel(bm widgets.BoxModel)        { p.tree.SetBoxModel(bm) }
-func (p *ProblemsWidget) Render(surface Surface)                 { p.tree.Render(surface) }
+func (p *ProblemsWidget) Focusable() bool                 { return true }
+func (p *ProblemsWidget) SetFocused(f bool)               { p.tree.SetFocused(f) }
+func (p *ProblemsWidget) IsFocused() bool                 { return p.tree.IsFocused() }
+func (p *ProblemsWidget) GetRect() Rect                   { return Rect(p.tree.GetRect()) }
+func (p *ProblemsWidget) SetRect(r Rect)                  { p.tree.SetRect(widgets.Rect(r)) }
+func (p *ProblemsWidget) Height() int                     { return 0 }
+func (p *ProblemsWidget) Width() int                      { return 0 }
+func (p *ProblemsWidget) SetBoxModel(bm widgets.BoxModel) { p.tree.SetBoxModel(bm) }
+func (p *ProblemsWidget) Render(surface Surface)          { p.tree.Render(surface) }
 func (p *ProblemsWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventResult(p.tree.HandleEvent(ev))
 }

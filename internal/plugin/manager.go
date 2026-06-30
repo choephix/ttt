@@ -33,12 +33,12 @@ type Manager struct {
 	SidebarPanels []SidebarRegistration
 	BottomPanels  []BottomRegistration
 
-	editorAPI    EditorAPI
-	settingsAPI  SettingsAPI
-	networkAPI   NetworkAPI
-	systemAPI    SystemAPI
-	fsFactory    func(pluginDir string) FilesystemAPI
-	logFactory   func(pluginName string) func(level, message string)
+	editorAPI   EditorAPI
+	settingsAPI SettingsAPI
+	networkAPI  NetworkAPI
+	systemAPI   SystemAPI
+	fsFactory   func(pluginDir string) FilesystemAPI
+	logFactory  func(pluginName string) func(level, message string)
 }
 
 func NewManager(pluginsDir, registryPath string, extraDirs ...string) *Manager {

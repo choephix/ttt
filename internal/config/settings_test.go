@@ -208,7 +208,6 @@ func TestDefaultLSPSettings(t *testing.T) {
 	}
 }
 
-
 func TestReferenceSettingsMatchesDefaults(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	refPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "config", "settings.json")

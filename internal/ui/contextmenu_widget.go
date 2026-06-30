@@ -25,11 +25,11 @@ func MenuSep() ContextMenuItem {
 
 type ContextMenuWidget struct {
 	BaseWidget
-	Items    []ContextMenuItem
-	Selected int
-	AnchorX  int
-	AnchorY  int
-	Borders  *term.BorderSet
+	Items          []ContextMenuItem
+	Selected       int
+	AnchorX        int
+	AnchorY        int
+	Borders        *term.BorderSet
 	OnExec         func(command string)
 	OnDismiss      func()
 	OnNavigate     func(dir int)

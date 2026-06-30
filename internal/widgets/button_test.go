@@ -208,9 +208,9 @@ func TestButtonHeightIncludesBoxOverhead(t *testing.T) {
 	btn := NewButtonWidget(ButtonConfig{
 		Label: "Test",
 		Box: &BoxModel{
-			MarginTop:    1,
-			MarginBottom: 1,
-			PaddingTop:   1,
+			MarginTop:     1,
+			MarginBottom:  1,
+			PaddingTop:    1,
 			PaddingBottom: 1,
 		},
 	})

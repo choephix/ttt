@@ -41,7 +41,7 @@ type mockEditorAPI struct {
 	selCleared bool
 }
 
-func (m *mockEditorAPI) BufferText() string  { return m.bufText }
+func (m *mockEditorAPI) BufferText() string { return m.bufText }
 func (m *mockEditorAPI) BufferLines() []string {
 	result := make([]string, len(m.bufLines))
 	copy(result, m.bufLines)
@@ -57,7 +57,7 @@ func (m *mockEditorAPI) Selection() (bool, int, int, int, int) {
 func (m *mockEditorAPI) SelectionText() string { return m.selText }
 func (m *mockEditorAPI) FilePath() string      { return m.filePath }
 func (m *mockEditorAPI) FileName() string      { return m.fileName }
-func (m *mockEditorAPI) Language() string       { return m.language }
+func (m *mockEditorAPI) Language() string      { return m.language }
 func (m *mockEditorAPI) Insert(line, col int, text string) {
 	m.insertedLine = line
 	m.insertedCol = col

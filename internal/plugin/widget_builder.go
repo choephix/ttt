@@ -7,10 +7,10 @@ import (
 )
 
 type WidgetState struct {
-	keys    []string
-	items   []widgets.Widget
-	root    *widgets.VStackWidget
-	focus   *widgets.FocusManager
+	keys  []string
+	items []widgets.Widget
+	root  *widgets.VStackWidget
+	focus *widgets.FocusManager
 }
 
 func NewWidgetState() *WidgetState {
