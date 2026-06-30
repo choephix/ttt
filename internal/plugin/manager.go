@@ -209,6 +209,12 @@ func (m *Manager) SetNetworkAPI(api NetworkAPI) {
 	}
 }
 
+func (m *Manager) SetSettingsAPI(api SettingsAPI) {
+	for _, p := range m.plugins {
+		p.Settings = api
+	}
+}
+
 func (m *Manager) SetLogFactory(factory func(pluginName string) func(level, message string)) {
 	for _, p := range m.plugins {
 		p.Log = factory(p.Name)

@@ -79,5 +79,68 @@
     "path": "todo-scanner",
     "version": "0.1.0",
     "tags": ["todo", "scanner", "productivity", "comments"]
+  },
+  {
+    "name": "formatter-gofmt",
+    "author": "eugenioenko",
+    "description": "Auto-configure gofmt as the Go formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-gofmt",
+    "version": "0.1.0",
+    "tags": ["formatter", "go", "gofmt"]
+  },
+  {
+    "name": "formatter-prettier",
+    "author": "eugenioenko",
+    "description": "Auto-configure Prettier for JS, TS, CSS, HTML, JSON, Markdown, and YAML",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-prettier",
+    "version": "0.1.0",
+    "tags": ["formatter", "javascript", "typescript", "css", "prettier"]
+  },
+  {
+    "name": "formatter-black",
+    "author": "eugenioenko",
+    "description": "Auto-configure Black as the Python formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-black",
+    "version": "0.1.0",
+    "tags": ["formatter", "python", "black"]
+  },
+  {
+    "name": "formatter-rustfmt",
+    "author": "eugenioenko",
+    "description": "Auto-configure rustfmt as the Rust formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-rustfmt",
+    "version": "0.1.0",
+    "tags": ["formatter", "rust", "rustfmt"]
+  },
+  {
+    "name": "formatter-stylua",
+    "author": "eugenioenko",
+    "description": "Auto-configure StyLua as the Lua formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-stylua",
+    "version": "0.1.0",
+    "tags": ["formatter", "lua", "stylua"]
+  },
+  {
+    "name": "formatter-clang-format",
+    "author": "eugenioenko",
+    "description": "Auto-configure clang-format for C and C++ files",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-clang-format",
+    "version": "0.1.0",
+    "tags": ["formatter", "c", "cpp", "clang-format"]
+  },
+  {
+    "name": "formatter-shfmt",
+    "author": "eugenioenko",
+    "description": "Auto-configure shfmt as the shell script formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-shfmt",
+    "version": "0.1.0",
+    "tags": ["formatter", "shell", "bash", "shfmt"]
   }
 ]

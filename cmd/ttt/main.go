@@ -237,6 +237,7 @@ Docs: https://tttedit.dev
 		})
 		pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
 		pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
+		pluginManager.SetSettingsAPI(app.NewPluginSettingsAPI(editor))
 
 		for _, p := range pluginManager.Plugins() {
 			p.RequestRedraw = func() {

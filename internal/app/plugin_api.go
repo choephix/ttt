@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -430,4 +431,44 @@ func (n *PluginNetworkAPI) Post(url string, headers map[string]string, body stri
 		respHeaders[k] = resp.Header.Get(k)
 	}
 	return resp.StatusCode, string(respBody), respHeaders, nil
+}
+
+type PluginSettingsAPI struct {
+	app *App
+}
+
+func NewPluginSettingsAPI(app *App) *PluginSettingsAPI {
+	return &PluginSettingsAPI{app: app}
+}
+
+func (s *PluginSettingsAPI) Get(key string) (string, bool) {
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) != 2 {
+		return "", false
+	}
+	switch parts[0] {
+	case "formatters":
+		if s.app.Settings.Formatters == nil {
+			return "", false
+		}
+		val, ok := s.app.Settings.Formatters[parts[1]]
+		return val, ok
+	}
+	return "", false
+}
+
+func (s *PluginSettingsAPI) Set(key, value string) error {
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid settings key: %s", key)
+	}
+	switch parts[0] {
+	case "formatters":
+		if s.app.Settings.Formatters == nil {
+			s.app.Settings.Formatters = make(map[string]string)
+		}
+		s.app.Settings.Formatters[parts[1]] = value
+		return config.SaveSettings(*s.app.Settings)
+	}
+	return fmt.Errorf("unknown settings group: %s", parts[0])
 }

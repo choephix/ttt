@@ -80,6 +80,7 @@ type Plugin struct {
 	Filesystem FilesystemAPI
 	System     SystemAPI
 	Network    NetworkAPI
+	Settings   SettingsAPI
 
 	EventListeners map[string][]*lua.LFunction
 
@@ -112,6 +113,7 @@ func (p *Plugin) Init() error {
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
 	setupJSONModule(p.State)
+	setupSettingsModule(p.State, p)
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
 	absEntry, err := filepath.Abs(entry)
@@ -148,6 +150,7 @@ func (p *Plugin) InitFromSource(source string) error {
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
 	setupJSONModule(p.State)
+	setupSettingsModule(p.State, p)
 
 	if err := p.State.DoString(source); err != nil {
 		p.LastError = err

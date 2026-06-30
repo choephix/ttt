@@ -1468,6 +1468,59 @@ end)
 
 ---
 
+### `ttt.settings` Module
+
+The `ttt.settings` module provides scoped read/write access to editor settings. Requires the `settings` permission and `settings_keys` to specify which keys the plugin can access.
+
+```lua
+local settings = require("ttt.settings")
+```
+
+### `settings.get(key)`
+
+Read a setting value. Returns the value as a string, or `nil` if not set.
+
+```lua
+local formatter = settings.get("formatters.go")  -- "gofmt" or nil
+```
+
+### `settings.set(key, value)`
+
+Write a setting value. Persists to `settings.json` immediately.
+
+```lua
+settings.set("formatters.go", "gofmt")
+```
+
+**Key format:** Settings keys use dot notation: `group.name`. Currently supported groups:
+
+| Group        | Description                              |
+|--------------|------------------------------------------|
+| `formatters` | External formatter commands by extension  |
+
+**Permission scoping:** The `settings_keys` manifest field controls which keys a plugin can access:
+
+- `"formatters.*"` — wildcard, allows all keys under `formatters.`
+- `"formatters.go"` — exact match, only allows `formatters.go`
+
+```json
+{
+  "permissions": {
+    "settings": true,
+    "settings_keys": ["formatters.*"]
+  }
+}
+```
+
+**Example — formatter plugin:**
+
+```lua
+local settings = require("ttt.settings")
+settings.set("formatters.go", "gofmt")
+```
+
+---
+
 ## Styles
 
 Named styles available for both widget and raw cell rendering. Actual colors depend on the user's theme.
@@ -1581,6 +1634,8 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 | `network.http`   | boolean  | Make outbound HTTP requests (`ttt.net`).          |
 | `events.file`    | boolean  | Listen for file events: `file.open`, `file.close`, `file.save`. |
 | `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`. |
+| `settings`       | boolean  | Read/write editor settings (`ttt.settings`).      |
+| `settings_keys`  | string[] | Allowed settings key patterns. Use `group.*` for prefix match or exact key. |
 
 **Example with multiple permissions:**
 
@@ -1659,6 +1714,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 | `ttt.system`   | Command execution, env vars    |
 | `ttt.net`      | HTTP requests                  |
 | `ttt.events`   | Event listeners                |
+| `ttt.settings` | Read/write editor settings     |
 
 Any other module name passed to `require()` raises an error.
 

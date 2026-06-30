@@ -40,6 +40,11 @@ type NetworkAPI interface {
 	Post(url string, headers map[string]string, body string) (status int, respBody string, respHeaders map[string]string, err error)
 }
 
+type SettingsAPI interface {
+	Get(key string) (string, bool)
+	Set(key, value string) error
+}
+
 type PluginAsyncResult struct {
 	Plugin   *Plugin
 	Callback func()

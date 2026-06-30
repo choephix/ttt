@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"slices"
+	"strings"
 )
 
 type PermissionSet struct {
@@ -21,6 +22,8 @@ type PermissionSet struct {
 	NetworkHTTP  bool     `json:"network.http,omitempty"`
 	EventsFile   bool     `json:"events.file,omitempty"`
 	EventsEditor bool     `json:"events.editor,omitempty"`
+	Settings     bool     `json:"settings,omitempty"`
+	SettingsKeys []string `json:"settings_keys,omitempty"`
 }
 
 type PermissionDiffEntry struct {
@@ -55,6 +58,17 @@ func DiffPermissions(granted, requested PermissionSet) PermissionDiff {
 	check("network.http", granted.NetworkHTTP, requested.NetworkHTTP)
 	check("events.file", granted.EventsFile, requested.EventsFile)
 	check("events.editor", granted.EventsEditor, requested.EventsEditor)
+	check("settings", granted.Settings, requested.Settings)
+
+	grantedSettingsKeys := make(map[string]bool)
+	for _, k := range granted.SettingsKeys {
+		grantedSettingsKeys[k] = true
+	}
+	for _, k := range requested.SettingsKeys {
+		if !grantedSettingsKeys[k] {
+			entries = append(entries, PermissionDiffEntry{Name: "settings_keys", Value: k})
+		}
+	}
 
 	grantedExec := make(map[string]bool)
 	for _, b := range granted.SystemExec {
@@ -104,6 +118,8 @@ func (ps PermissionSet) Check(perm string) error {
 		allowed = ps.EventsFile
 	case "events.editor":
 		allowed = ps.EventsEditor
+	case "settings":
+		allowed = ps.Settings
 	default:
 		return fmt.Errorf("unknown permission: %s", perm)
 	}
@@ -111,6 +127,24 @@ func (ps PermissionSet) Check(perm string) error {
 		return fmt.Errorf("permission denied: %s", perm)
 	}
 	return nil
+}
+
+func (ps PermissionSet) CheckSettingsKey(key string) error {
+	if !ps.Settings {
+		return fmt.Errorf("permission denied: settings")
+	}
+	for _, pattern := range ps.SettingsKeys {
+		if pattern == key {
+			return nil
+		}
+		if strings.HasSuffix(pattern, ".*") {
+			prefix := strings.TrimSuffix(pattern, "*")
+			if strings.HasPrefix(key, prefix) {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("permission denied: settings key %q", key)
 }
 
 func (ps PermissionSet) CheckExec(binary string) error {
@@ -146,6 +180,11 @@ func (ps PermissionSet) DisplayEntries() []PermissionDiffEntry {
 
 	for _, b := range ps.SystemExec {
 		entries = append(entries, PermissionDiffEntry{Name: "Run binary", Value: b})
+	}
+
+	add("Settings", ps.Settings)
+	for _, k := range ps.SettingsKeys {
+		entries = append(entries, PermissionDiffEntry{Name: "Settings key", Value: k})
 	}
 
 	return entries
