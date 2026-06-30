@@ -34,6 +34,7 @@ export default defineConfig({
             { label: 'Extra Themes', link: '/guides/extra-themes/' },
             { label: 'Keybindings', link: '/guides/keybindings/' },
             { label: 'Plugins', link: '/guides/plugins/' },
+            { label: 'Plugin Authoring', link: '/guides/plugin-authoring/' },
           ],
         },
         {

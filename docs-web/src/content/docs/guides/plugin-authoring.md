@@ -1,53 +1,9 @@
-# Plugin Authoring Guide
-
-ttt supports Lua plugins that can render panels in the sidebar and bottom panel using either a widget-based API or raw cell drawing. Plugins run inside a sandboxed Lua 5.1 VM with no file system or network access by default — all capabilities are gated behind a permission system that users approve on first load.
-
-## Table of Contents
-
-- [Getting Started](#getting-started)
-- [Plugin Lifecycle](#plugin-lifecycle)
-- [Registration](#registration)
-  - [Sidebar Panel](#sidebar-panel)
-  - [Bottom Panel](#bottom-panel)
-  - [Commands](#commands)
-  - [Keybindings](#keybindings)
-- [ttt Module Functions](#ttt-module-functions)
-- [Widget API](#widget-api)
-  - [Label](#label)
-  - [Title](#title)
-  - [Key-Value List](#key-value-list)
-  - [Tree](#tree)
-  - [List](#list)
-  - [Button](#button)
-  - [Input](#input)
-  - [VStack](#vstack)
-  - [HStack](#hstack)
-  - [ScrollView](#scrollview)
-  - [Box](#box)
-  - [Divider](#divider)
-  - [Dropdown](#dropdown)
-  - [Box Model](#box-model)
-  - [Requesting Redraws](#requesting-redraws)
-- [Raw Cell API](#raw-cell-api)
-- [Mixing Widgets and Raw Cells](#mixing-widgets-and-raw-cells)
-- [State Management](#state-management)
-- [Reconciliation and State Preservation](#reconciliation-and-state-preservation)
-- [Focus and Keyboard Navigation](#focus-and-keyboard-navigation)
-- [Event Handling](#event-handling)
-- [Editor API](#editor-api)
-- [Filesystem API](#filesystem-api)
-- [System API](#system-api)
-- [Network API](#network-api)
-- [Events API](#events-api)
-- [Styles](#styles)
-- [Logging](#logging)
-- [Error Handling and Debugging](#error-handling-and-debugging)
-- [Permissions Reference](#permissions-reference)
-- [Lua Sandbox](#lua-sandbox)
-- [Managing Plugins](#managing-plugins)
-- [Examples](#examples)
-
 ---
+title: Plugin Authoring
+description: Complete guide to creating plugins for TTT.
+---
+
+TTT supports Lua plugins that can render panels in the sidebar and bottom panel using either a widget-based API or raw cell drawing. Plugins run inside a sandboxed Lua 5.1 VM with no file system or network access by default — all capabilities are gated behind a permission system that users approve on first load.
 
 ## Getting Started
 
@@ -121,8 +77,6 @@ ttt.register({
 })
 ```
 
----
-
 ## Plugin Lifecycle
 
 ### Loading
@@ -143,8 +97,6 @@ When ttt exits, all plugin Lua VMs are closed. Plugins don't need cleanup logic 
 ### Reloading
 
 Run **Plugins: Reload** from the command palette to reload a plugin without restarting ttt. This destroys the plugin's Lua VM, re-reads the manifest, and re-initializes. State is reset — local variables start fresh. Use **Plugins: Reload All** to reload every loaded plugin at once.
-
----
 
 ## Registration
 
@@ -242,8 +194,6 @@ Each keybinding entry is a table with:
 | `command` | string | yes      | Command ID to execute when the key is pressed.        |
 
 Use `ctrl+k <key>` chords for plugin keybindings to avoid conflicts with built-in shortcuts. Avoid `ctrl+shift` combos — they are unreliable in many terminals.
-
----
 
 ## ttt Module Functions
 
@@ -420,8 +370,6 @@ else
 end
 ```
 
----
-
 ## Widget API
 
 The `render` function receives a **panel proxy** object. Call methods on it to build a declarative widget tree. Widgets are stacked vertically in the order they are declared.
@@ -456,8 +404,6 @@ panel:label({ text = "Hint: press Enter", style = "muted", padding_left = 1 })
 
 Labels are not focusable — they display text only and don't receive keyboard events.
 
----
-
 ### Title
 
 Bold heading text. Renders in a prominent style.
@@ -481,8 +427,6 @@ panel:title({ text = "CONTAINERS", margin_top = 1, margin_bottom = 1 })
 
 Titles are not focusable.
 
----
-
 ### Key-Value List
 
 Display a list of key-value pairs, aligned in two columns.
@@ -505,8 +449,6 @@ The argument is an array of tables, each with:
 The outer table also supports [box model fields](#box-model) for margin/padding.
 
 Key-value lists are not focusable.
-
----
 
 ### Tree
 
@@ -559,8 +501,6 @@ panel:tree({
 
 **Keyboard navigation:** When focused, Up/Down arrows move selection, Enter activates `on_select`, Left/Right collapse/expand nodes. Shift+Enter opens the context menu on the selected node.
 
----
-
 ### List
 
 Flat list — functionally identical to a tree but without nesting or expand/collapse behavior.
@@ -597,8 +537,6 @@ panel:list({
 | `node_menu`    | table    | nil     | Array of [menu entries](#menu-entry-format) for the right-click context menu. |
 | `key_commands` | table    | nil     | Map of single-char keys to command strings. When pressed, triggers `on_command(command, selected_node)`. |
 
----
-
 ### Button
 
 Clickable button that responds to Enter, Space, and mouse click when focused.
@@ -618,8 +556,6 @@ panel:button({
 |------------|----------|----------|------------------------------------------------|
 | `label`    | string   | yes      | Button text. Use `&` for an accelerator: `"&Save"` underlines S. |
 | `on_click` | function | no       | Callback when the button is pressed.           |
-
----
 
 ### Input
 
@@ -650,8 +586,6 @@ panel:input({
 
 The input text and cursor position are automatically preserved across re-renders.
 
----
-
 ### VStack
 
 Vertical stack layout container. Groups child widgets with an optional gap between them.
@@ -674,8 +608,6 @@ panel:vstack({
 | `gap`    | number   | no       | Vertical gap (in rows) between children. Default: `0`.     |
 
 VStack is useful for grouping related widgets into sections. The child panel proxy supports all the same widget methods.
-
----
 
 ### HStack
 
@@ -701,8 +633,6 @@ panel:hstack({
 
 The first child in the hstack expands to fill remaining horizontal space. All subsequent children are given their natural/fixed width. This is useful for toolbar-style layouts with a label or spacer on the left and action buttons on the right.
 
----
-
 ### ScrollView
 
 Scrollable container for content that may exceed the available height. Wraps children in a scroll view with mouse wheel scrolling and a scrollbar when content overflows.
@@ -724,8 +654,6 @@ panel:scrollview({
 | `render` | function | yes      | Builder function that receives a child panel proxy. Call widget methods on it to add children. |
 
 Use `scrollview` when the content may exceed the panel height. The scroll position is preserved across re-renders. A scrollbar indicator appears on the right edge when content overflows.
-
----
 
 ### Box
 
@@ -773,8 +701,6 @@ panel:vstack({
 })
 ```
 
----
-
 ### Divider
 
 Horizontal divider line. Renders a single-line separator across the panel width. Useful for visually separating sections.
@@ -786,8 +712,6 @@ panel:label("Section 2")
 ```
 
 No configuration fields. The divider takes no arguments and is not focusable.
-
----
 
 ### Dropdown
 
@@ -816,8 +740,6 @@ panel:dropdown({
 | `entries` | table    | yes      | Array of [menu entries](#menu-entry-format) for the popup. |
 | `on_menu` | function | no       | Callback when a menu item is selected. Receives the command string. |
 
----
-
 ### Tree Node Format
 
 Used in `items` arrays for both `tree` and `list` widgets.
@@ -830,12 +752,10 @@ Used in `items` arrays for both `tree` and `list` widgets.
 | `badge`      | string  | `""`    | Badge text displayed after the label.        |
 | `muted`      | boolean | `false` | Render the label in a dimmed style.          |
 | `expandable` | boolean | `false` | Show expand/collapse chevron indicator. Auto-set to `true` if `children` is non-empty. |
-| `expanded`   | boolean | `false` | Initial expanded state (only used on first render — see [Reconciliation](#reconciliation-and-state-preservation)). |
+| `expanded`   | boolean | `false` | Initial expanded state (only used on first render — see [Reconciliation and State Preservation](#reconciliation-and-state-preservation)). |
 | `children`   | table   | `{}`    | Array of child node tables (recursive).      |
 
 **Callback argument:** `on_select` and `on_expand` callbacks receive a Lua table with the same fields as the node: `id`, `label`, `icon` (if non-empty), `badge` (if non-empty), `expanded`, `muted`, and `children` (if present). The `on_command` callback receives two arguments: `(command_string, node_table)`.
-
----
 
 ### Menu Entry Format
 
@@ -855,8 +775,6 @@ Used in `actions` (sidebar header menu), `node_menu` (tree/list context menu), a
   { label = "Remove", command = "remove" },
 }
 ```
-
----
 
 ### Box Model
 
@@ -879,8 +797,6 @@ Many widgets support margin and padding fields for spacing control. These fields
 panel:label({ text = "Indented label", padding_left = 2, margin_top = 1 })
 panel:title({ text = "SECTION", margin_bottom = 1 })
 ```
-
----
 
 ### Requesting Redraws
 
@@ -908,8 +824,6 @@ ttt.register({
 ```
 
 `panel:redraw()` posts an event to the editor's event loop. The render function will be called again on the next frame, and the updated state will be reflected. This is safe to call from any callback, including async callbacks.
-
----
 
 ## Raw Cell API
 
@@ -974,8 +888,6 @@ panel:clear(0, 0, 40, 10)
 | `w`       | number | yes      | Width in cells.     |
 | `h`       | number | yes      | Height in cells.    |
 
----
-
 ## Mixing Widgets and Raw Cells
 
 You can use both the widget API and the raw cell API in the same render function. When mixed:
@@ -998,8 +910,6 @@ end
 ```
 
 Note that raw cell coordinates are relative to the full panel surface, not offset by widget height. If your widgets take up 2 rows, drawing at y=0 will overlap them.
-
----
 
 ## State Management
 
@@ -1033,8 +943,6 @@ ttt.register({
 
 **Pattern: reactive updates.** Modify your state in callbacks, then call `panel:redraw()` to trigger a re-render with the new state. The render function reads from the current state each time it's called.
 
----
-
 ## Reconciliation and State Preservation
 
 The widget system uses a **reconciliation** algorithm to preserve interactive state across re-renders:
@@ -1055,8 +963,6 @@ The widget system uses a **reconciliation** algorithm to preserve interactive st
 
 **Important:** Node `id` fields are critical for tree state preservation. If you change a node's `id`, it will be treated as a new node and lose its expanded state. Use stable, unique IDs.
 
----
-
 ## Focus and Keyboard Navigation
 
 The plugin panel manages its own focus system. When the plugin panel is focused:
@@ -1069,13 +975,11 @@ The plugin panel manages its own focus system. When the plugin panel is focused:
 
 Labels, titles, and key-value lists are not focusable. If your panel has only non-focusable widgets and raw cells, all events go directly to `on_event`.
 
----
-
 ## Event Handling
 
 There are two levels of event handling:
 
-### 1. Widget Callbacks (Automatic)
+### Widget Callbacks (Automatic)
 
 Widget-specific events are routed automatically to the callbacks you provide:
 
@@ -1091,7 +995,7 @@ Widget-specific events are routed automatically to the callbacks you provide:
 | Input    | Enter pressed      | `on_submit`  | Current text (string)               |
 | Dropdown | menu item selected | `on_menu`    | Command string                      |
 
-### 2. Fallback Event Handler (`on_event`)
+### Fallback Event Handler (`on_event`)
 
 For key and mouse events not consumed by widgets, the `on_event` function receives a Lua table describing the event:
 
@@ -1132,8 +1036,6 @@ on_event = function(event)
   end
 end
 ```
-
----
 
 ## Editor API
 
@@ -1185,8 +1087,6 @@ local line = editor.current_line()
 -- Insert text at cursor
 editor.insert(pos.line, pos.col, "// TODO: ")
 ```
-
----
 
 ## Filesystem API
 
@@ -1255,8 +1155,6 @@ if entries then
 end
 ```
 
----
-
 ## System API
 
 The `ttt.system` module provides command execution and environment variable access.
@@ -1319,8 +1217,6 @@ Read an environment variable. Requires `system.env` permission.
 ```lua
 local home = sys.env("HOME")
 ```
-
----
 
 ## Network API
 
@@ -1418,8 +1314,6 @@ net.post_async("https://api.example.com/data", {
 end)
 ```
 
----
-
 ## Events API
 
 The `ttt.events` module lets plugins react to editor lifecycle events.
@@ -1466,8 +1360,6 @@ events.on("cursor.change", function()
 end)
 ```
 
----
-
 ## Styles
 
 Named styles available for both widget and raw cell rendering. Actual colors depend on the user's theme.
@@ -1508,8 +1400,6 @@ panel:label({ text = "Note", style = "muted" })   -- in widget config
 
 If an unrecognized style name is used, it falls back to `default`.
 
----
-
 ## Logging
 
 Plugins can write messages to the **OUTPUT** bottom panel using `ttt.log()`. No permission is required.
@@ -1537,8 +1427,6 @@ Plugin errors (init failures, render crashes, callback errors) are automatically
 
 Use **Plugins: Clear Output** from the command palette to clear the OUTPUT panel.
 
----
-
 ## Error Handling and Debugging
 
 ### Render Errors
@@ -1557,8 +1445,6 @@ If a callback function (`on_select`, `on_click`, etc.) throws an error, it is ca
 - **Check the plugin list.** Open the command palette and run **Plugins: List Installed** to see status (enabled/disabled/error) and version for each plugin.
 - **Use reload for fast iteration.** Run **Plugins: Reload** from the command palette to reload your plugin without restarting ttt.
 - **Watch stderr.** Run ttt from a terminal to see error logs: `ttt 2>plugin-errors.log`.
-
----
 
 ## Permissions Reference
 
@@ -1602,8 +1488,6 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 
 **How permissions work at runtime:** If a permission is not granted, the corresponding functions are simply not available on the module. For example, without `editor.read`, the `ttt.editor` module will not have `buffer_text`, `cursor`, etc. Calling a function that requires a non-granted permission raises a Lua error.
 
----
-
 ## Lua Sandbox
 
 Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modules are available:
@@ -1633,8 +1517,6 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 | `ttt.events`   | Event listeners                |
 
 Any other module name passed to `require()` raises an error.
-
----
 
 ## Managing Plugins
 
@@ -1687,14 +1569,13 @@ rm -rf ~/.config/ttt/plugins/my-plugin
 
 Run **Plugins: Enable** or **Plugins: Disable** from the command palette to toggle a plugin without removing it. Disabled plugins retain their permissions in the registry.
 
----
-
 ## Examples
 
 ### File Tree Browser
 
 A sidebar panel that shows a static file tree:
 
+`plugin.ttt.json`:
 ```json
 {
   "name": "file-tree",
@@ -1703,6 +1584,7 @@ A sidebar panel that shows a static file tree:
 }
 ```
 
+`init.lua`:
 ```lua
 local ttt = require("ttt")
 
@@ -1751,6 +1633,7 @@ ttt.register({
 
 A bottom panel with a search input and results list:
 
+`plugin.ttt.json`:
 ```json
 {
   "name": "search-panel",
@@ -1759,6 +1642,7 @@ A bottom panel with a search input and results list:
 }
 ```
 
+`init.lua`:
 ```lua
 local ttt = require("ttt")
 
@@ -1811,171 +1695,11 @@ ttt.register({
 })
 ```
 
-### Raw Cell Drawing -- Progress Bar
-
-A sidebar panel using only the raw cell API:
-
-```json
-{
-  "name": "progress",
-  "entry": "init.lua",
-  "permissions": { "panel.sidebar": true }
-}
-```
-
-```lua
-local ttt = require("ttt")
-
-local progress = 0.65  -- 65%
-
-ttt.register({
-  sidebar = {
-    title = "Progress",
-    render = function(panel)
-      local w, h = panel:size()
-
-      panel:text(0, 0, "Build Progress", "muted")
-
-      local bar_w = w - 2
-      local filled = math.floor(bar_w * progress)
-
-      for x = 0, bar_w - 1 do
-        if x < filled then
-          panel:cell(x + 1, 2, "#", "success")
-        else
-          panel:cell(x + 1, 2, ".", "muted")
-        end
-      end
-
-      local pct = math.floor(progress * 100) .. "%"
-      panel:text(1, 4, pct, "default")
-    end,
-  },
-})
-```
-
-### Context Menu with Tree
-
-A sidebar panel demonstrating context menus on tree items:
-
-```json
-{
-  "name": "context-menu-demo",
-  "entry": "init.lua",
-  "permissions": { "panel.sidebar": true }
-}
-```
-
-```lua
-local ttt = require("ttt")
-
-local items = {
-  { id = "item1", label = "First item" },
-  { id = "item2", label = "Second item" },
-  { id = "item3", label = "Third item" },
-}
-
-ttt.register({
-  sidebar = {
-    title = "Context Menu",
-    render = function(panel)
-      panel:list({
-        items = items,
-        on_select = function(node)
-          ttt.log("Selected: " .. node.label)
-        end,
-        on_command = function(command, node)
-          if command == "delete" then
-            ttt.confirm("Delete '" .. node.label .. "'?", function()
-              for i, item in ipairs(items) do
-                if item.id == node.id then
-                  table.remove(items, i)
-                  break
-                end
-              end
-              panel:redraw()
-            end)
-          elseif command == "rename" then
-            ttt.log("Rename " .. node.label)
-          end
-        end,
-        node_menu = {
-          { label = "Rename", command = "rename" },
-          { separator = true },
-          { label = "Delete", command = "delete" },
-        },
-      })
-    end,
-  },
-})
-```
-
-### Layout with VStack and Box
-
-Demonstrates using VStack and Box for structured layouts:
-
-```json
-{
-  "name": "layout-demo",
-  "entry": "init.lua",
-  "permissions": { "panel.sidebar": true }
-}
-```
-
-```lua
-local ttt = require("ttt")
-
-local containers = {
-  { id = "web", label = "web-app", badge = "nginx:latest" },
-  { id = "db", label = "postgres", badge = "postgres:15" },
-}
-
-ttt.register({
-  sidebar = {
-    title = "Layout",
-    render = function(panel)
-      -- Section 1: Containers
-      panel:vstack({
-        render = function(p)
-          p:label({ text = "Containers", badge = tostring(#containers), padding_left = 1 })
-          p:box({
-            border = true,
-            render = function(bp)
-              bp:list({
-                items = containers,
-                on_select = function(node)
-                  ttt.log("Selected: " .. node.label)
-                end,
-              })
-            end,
-          })
-        end,
-      })
-
-      -- Section 2: Info
-      panel:vstack({
-        render = function(p)
-          p:label({ text = "Details", padding_left = 1, margin_top = 1 })
-          p:box({
-            border = true,
-            render = function(bp)
-              bp:keyvalue({
-                { key = "Status", value = "Running" },
-                { key = "Uptime", value = "2h 30m" },
-              })
-            end,
-          })
-        end,
-      })
-    end,
-  },
-})
-```
-
 ### Git Status Panel (Editor + System + Events)
 
 A sidebar panel that shows `git status` output and refreshes on file save:
 
+`plugin.ttt.json`:
 ```json
 {
   "name": "git-status",
@@ -1989,6 +1713,7 @@ A sidebar panel that shows `git status` output and refreshes on file save:
 }
 ```
 
+`init.lua`:
 ```lua
 local ttt = require("ttt")
 local sys = require("ttt.system")
