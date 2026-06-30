@@ -79,5 +79,284 @@
     "path": "todo-scanner",
     "version": "0.1.0",
     "tags": ["todo", "scanner", "productivity", "comments"]
+  },
+  {
+    "name": "formatter-gofmt",
+    "author": "eugenioenko",
+    "description": "Auto-configure gofmt as the Go formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-gofmt",
+    "version": "0.1.0",
+    "tags": ["formatter", "go", "gofmt"]
+  },
+  {
+    "name": "formatter-prettier",
+    "author": "eugenioenko",
+    "description": "Auto-configure Prettier for JS, TS, CSS, HTML, JSON, Markdown, and YAML",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-prettier",
+    "version": "0.1.0",
+    "tags": ["formatter", "javascript", "typescript", "css", "prettier"]
+  },
+  {
+    "name": "formatter-black",
+    "author": "eugenioenko",
+    "description": "Auto-configure Black as the Python formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-black",
+    "version": "0.1.0",
+    "tags": ["formatter", "python", "black"]
+  },
+  {
+    "name": "formatter-rustfmt",
+    "author": "eugenioenko",
+    "description": "Auto-configure rustfmt as the Rust formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-rustfmt",
+    "version": "0.1.0",
+    "tags": ["formatter", "rust", "rustfmt"]
+  },
+  {
+    "name": "formatter-stylua",
+    "author": "eugenioenko",
+    "description": "Auto-configure StyLua as the Lua formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-stylua",
+    "version": "0.1.0",
+    "tags": ["formatter", "lua", "stylua"]
+  },
+  {
+    "name": "formatter-clang-format",
+    "author": "eugenioenko",
+    "description": "Auto-configure clang-format for C and C++ files",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-clang-format",
+    "version": "0.1.0",
+    "tags": ["formatter", "c", "cpp", "clang-format"]
+  },
+  {
+    "name": "formatter-shfmt",
+    "author": "eugenioenko",
+    "description": "Auto-configure shfmt as the shell script formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-shfmt",
+    "version": "0.1.0",
+    "tags": ["formatter", "shell", "bash", "shfmt"]
+  },
+  {
+    "name": "lsp-go",
+    "author": "eugenioenko",
+    "description": "Auto-configure gopls as the Go language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-go",
+    "version": "0.1.0",
+    "tags": ["lsp", "go", "gopls"]
+  },
+  {
+    "name": "lsp-typescript",
+    "author": "eugenioenko",
+    "description": "Auto-configure typescript-language-server for TypeScript and JavaScript",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-typescript",
+    "version": "0.1.0",
+    "tags": ["lsp", "typescript", "javascript"]
+  },
+  {
+    "name": "lsp-python",
+    "author": "eugenioenko",
+    "description": "Auto-configure pyright as the Python language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-python",
+    "version": "0.1.0",
+    "tags": ["lsp", "python", "pyright"]
+  },
+  {
+    "name": "lsp-c",
+    "author": "eugenioenko",
+    "description": "Auto-configure clangd as the C/C++ language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-c",
+    "version": "0.1.0",
+    "tags": ["lsp", "c", "cpp", "clangd"]
+  },
+  {
+    "name": "lsp-rust",
+    "author": "eugenioenko",
+    "description": "Auto-configure rust-analyzer as the Rust language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-rust",
+    "version": "0.1.0",
+    "tags": ["lsp", "rust", "rust-analyzer"]
+  },
+  {
+    "name": "lsp-lua",
+    "author": "eugenioenko",
+    "description": "Auto-configure lua-language-server as the Lua language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-lua",
+    "version": "0.1.0",
+    "tags": ["lsp", "lua"]
+  },
+  {
+    "name": "lsp-zig",
+    "author": "eugenioenko",
+    "description": "Auto-configure zls as the Zig language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-zig",
+    "version": "0.1.0",
+    "tags": ["lsp", "zig", "zls"]
+  },
+  {
+    "name": "lsp-vue",
+    "author": "eugenioenko",
+    "description": "Auto-configure vue-language-server for Vue files",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-vue",
+    "version": "0.1.0",
+    "tags": ["lsp", "vue"]
+  },
+  {
+    "name": "lsp-svelte",
+    "author": "eugenioenko",
+    "description": "Auto-configure svelteserver for Svelte files",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-svelte",
+    "version": "0.1.0",
+    "tags": ["lsp", "svelte"]
+  },
+  {
+    "name": "lsp-css",
+    "author": "eugenioenko",
+    "description": "Auto-configure vscode-css-language-server for CSS, SCSS, and Less",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-css",
+    "version": "0.1.0",
+    "tags": ["lsp", "css", "scss", "less"]
+  },
+  {
+    "name": "lsp-html",
+    "author": "eugenioenko",
+    "description": "Auto-configure vscode-html-language-server for HTML",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-html",
+    "version": "0.1.0",
+    "tags": ["lsp", "html"]
+  },
+  {
+    "name": "lsp-json",
+    "author": "eugenioenko",
+    "description": "Auto-configure vscode-json-language-server for JSON",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-json",
+    "version": "0.1.0",
+    "tags": ["lsp", "json"]
+  },
+  {
+    "name": "lsp-yaml",
+    "author": "eugenioenko",
+    "description": "Auto-configure yaml-language-server for YAML",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-yaml",
+    "version": "0.1.0",
+    "tags": ["lsp", "yaml"]
+  },
+  {
+    "name": "lsp-bash",
+    "author": "eugenioenko",
+    "description": "Auto-configure bash-language-server for shell scripts",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-bash",
+    "version": "0.1.0",
+    "tags": ["lsp", "bash", "shell"]
+  },
+  {
+    "name": "lsp-docker",
+    "author": "eugenioenko",
+    "description": "Auto-configure docker-langserver for Dockerfiles",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-docker",
+    "version": "0.1.0",
+    "tags": ["lsp", "docker", "dockerfile"]
+  },
+  {
+    "name": "lsp-tailwindcss",
+    "author": "eugenioenko",
+    "description": "Auto-configure tailwindcss-language-server for Tailwind CSS",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-tailwindcss",
+    "version": "0.1.0",
+    "tags": ["lsp", "tailwindcss", "css"]
+  },
+  {
+    "name": "lsp-kotlin",
+    "author": "eugenioenko",
+    "description": "Auto-configure kotlin-language-server for Kotlin",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-kotlin",
+    "version": "0.1.0",
+    "tags": ["lsp", "kotlin"]
+  },
+  {
+    "name": "lsp-java",
+    "author": "eugenioenko",
+    "description": "Auto-configure jdtls as the Java language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-java",
+    "version": "0.1.0",
+    "tags": ["lsp", "java", "jdtls"]
+  },
+  {
+    "name": "lsp-ruby",
+    "author": "eugenioenko",
+    "description": "Auto-configure ruby-lsp as the Ruby language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-ruby",
+    "version": "0.1.0",
+    "tags": ["lsp", "ruby"]
+  },
+  {
+    "name": "lsp-dart",
+    "author": "eugenioenko",
+    "description": "Auto-configure dart language-server for Dart",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-dart",
+    "version": "0.1.0",
+    "tags": ["lsp", "dart"]
+  },
+  {
+    "name": "lsp-elixir",
+    "author": "eugenioenko",
+    "description": "Auto-configure elixir-ls as the Elixir language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-elixir",
+    "version": "0.1.0",
+    "tags": ["lsp", "elixir"]
+  },
+  {
+    "name": "lsp-php",
+    "author": "eugenioenko",
+    "description": "Auto-configure phpactor as the PHP language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-php",
+    "version": "0.1.0",
+    "tags": ["lsp", "php", "phpactor"]
+  },
+  {
+    "name": "lsp-terraform",
+    "author": "eugenioenko",
+    "description": "Auto-configure terraform-ls for Terraform files",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-terraform",
+    "version": "0.1.0",
+    "tags": ["lsp", "terraform"]
+  },
+  {
+    "name": "lsp-markdown",
+    "author": "eugenioenko",
+    "description": "Auto-configure marksman as the Markdown language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-markdown",
+    "version": "0.1.0",
+    "tags": ["lsp", "markdown", "marksman"]
   }
 ]

@@ -79,8 +79,6 @@ describe("case transforms", () => {
 
     tui.press("ctrl+z");
     tui.waitStable();
-    tui.press("ctrl+z");
-    tui.waitStable();
 
     snap = tui.snapshot();
     expect(snap).toContain("hello world");

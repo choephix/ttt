@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -50,7 +51,7 @@ func RunEventLoop(
 		} else {
 			app.Status.LineEnding = "\n"
 		}
-		app.Explorer.ActiveFile = filePath
+		app.Explorer.SetActiveFile(filePath)
 		app.SyncWatched()
 
 		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.Highlighter != nil {
@@ -135,6 +136,8 @@ func RunEventLoop(
 	// launch, before the first user interaction.
 	syncStatus()
 	redraw()
+
+	app.ShowPendingPluginApprovals()
 
 	for *running {
 		ev := screen.PollEvent()
@@ -299,8 +302,19 @@ func RunEventLoop(
 						dv.FinishLoading()
 					}
 				}
+			case *plugin.PluginAsyncResult:
+				if v.Callback != nil {
+					v.Callback()
+				}
+			case *pluginInstallResult:
+				app.handlePluginInstallResult(v)
+			case *pluginUpdateResult:
+				app.handlePluginUpdateResult(v)
+			case *RemoteRegistryResult:
+				app.handleRemoteRegistryResult(v)
+			case *pluginReadmeResult:
+				app.handlePluginReadmeResult(v)
 			case *PrFetchResult:
-				app.Changes.Loading = false
 				if v.Err != nil {
 					app.StatusError("PR fetch failed: " + v.Err.Error())
 				} else {
@@ -317,7 +331,7 @@ func RunEventLoop(
 					if !app.Sidebar.Visible {
 						app.ShowSidebar()
 					}
-					app.Root.SetFocus(app.Changes)
+					app.Root.SetFocus(app.Changes.Adapter)
 					app.Sidebar.SetPanelDirty("changes", app.Changes.TotalChanges() > 0)
 					app.StatusNotify(fmt.Sprintf("Opened PR #%d: %s (%d files)", v.Info.Number, v.Info.Title, len(v.Info.Files)))
 				}

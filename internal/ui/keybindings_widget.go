@@ -81,7 +81,7 @@ func (w *KeybindingsWidget) CursorPosition() (int, int, bool) {
 	return w.input.CursorX(w.inputX), w.inputY, true
 }
 
-func (w *KeybindingsWidget) Render(surface *RenderSurface) {
+func (w *KeybindingsWidget) Render(surface Surface) {
 	sw, sh := surface.Size()
 
 	boxW := sw * 7 / 10
@@ -203,7 +203,7 @@ func (w *KeybindingsWidget) Render(surface *RenderSurface) {
 	}
 }
 
-func (w *KeybindingsWidget) renderShortcut(surface *RenderSurface, y, contentRight int, item keybindingEntry, style term.Style) {
+func (w *KeybindingsWidget) renderShortcut(surface Surface, y, contentRight int, item keybindingEntry, style term.Style) {
 	shortcut := ""
 	if w.GetShortcut != nil {
 		shortcut = w.GetShortcut(item.CmdID)
@@ -234,7 +234,7 @@ func (w *KeybindingsWidget) renderShortcut(surface *RenderSurface, y, contentRig
 	}
 }
 
-func (w *KeybindingsWidget) renderFooterActions(surface *RenderSurface, y, ox, oy int) {
+func (w *KeybindingsWidget) renderFooterActions(surface Surface, y, ox, oy int) {
 	type footerBtn struct {
 		label string
 		hit   *HitRegion

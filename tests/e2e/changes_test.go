@@ -16,11 +16,11 @@ func TestChangesKeyNavigation(t *testing.T) {
 		t.Skip("no changed files in working directory")
 	}
 
-	h.app.Changes.Selected = 0
+	h.app.Changes.Tree.SetSelectedIndex(0)
 	h.pressKey(tcell.KeyDown, tcell.ModNone)
 	h.pressKey(tcell.KeyUp, tcell.ModNone)
-	if h.app.Changes.Selected != 0 {
-		t.Errorf("expected Selected 0 after Up, got %d", h.app.Changes.Selected)
+	if h.app.Changes.Tree.SelectedIndex() != 0 {
+		t.Errorf("expected Selected 0 after Up, got %d", h.app.Changes.Tree.SelectedIndex())
 	}
 }
 

@@ -78,7 +78,7 @@ func (inp *InputWidget) deleteSelection() {
 	inp.notify()
 }
 
-func (inp *InputWidget) Render(surface *RenderSurface, x, y, w int) {
+func (inp *InputWidget) Render(surface Surface, x, y, w int) {
 	actionsW := inp.actionsWidth()
 	prefixRunes := []rune(inp.Prefix)
 	prefixW := len(prefixRunes)
@@ -182,6 +182,9 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	switch kev.Key() {
 	case tcell.KeyRune:
+		if kev.Modifiers()&^tcell.ModShift != 0 {
+			return EventIgnored
+		}
 		if inp.HasSelection() {
 			inp.deleteSelection()
 		}

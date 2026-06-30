@@ -245,15 +245,36 @@ const (
 )
 
 type CompletionItem struct {
-	Label               string             `json:"label"`
-	Kind                CompletionItemKind `json:"kind,omitempty"`
-	Detail              string             `json:"detail,omitempty"`
-	InsertText          string             `json:"insertText,omitempty"`
-	FilterText          string             `json:"filterText,omitempty"`
-	SortText            string             `json:"sortText,omitempty"`
-	TextEdit            *TextEdit          `json:"textEdit,omitempty"`
-	AdditionalTextEdits []TextEdit         `json:"additionalTextEdits,omitempty"`
-	Data                json.RawMessage    `json:"data,omitempty"`
+	Label               string              `json:"label"`
+	Kind                CompletionItemKind  `json:"kind,omitempty"`
+	Detail              string              `json:"detail,omitempty"`
+	InsertText          string              `json:"insertText,omitempty"`
+	FilterText          string              `json:"filterText,omitempty"`
+	SortText            string              `json:"sortText,omitempty"`
+	TextEdit            *CompletionTextEdit `json:"textEdit,omitempty"`
+	AdditionalTextEdits []TextEdit          `json:"additionalTextEdits,omitempty"`
+	Data                json.RawMessage     `json:"data,omitempty"`
+}
+
+// CompletionTextEdit handles both TextEdit and InsertReplaceEdit from LSP.
+// gopls sends InsertReplaceEdit (insert/replace fields), while
+// typescript-language-server sends plain TextEdit (range field).
+type CompletionTextEdit struct {
+	Range   Range  `json:"range"`
+	Insert  Range  `json:"insert"`
+	Replace Range  `json:"replace"`
+	NewText string `json:"newText"`
+}
+
+func (c *CompletionTextEdit) EffectiveRange() Range {
+	if c.Range != (Range{}) {
+		return c.Range
+	}
+	return c.Replace
+}
+
+func (c *CompletionTextEdit) ToTextEdit() *TextEdit {
+	return &TextEdit{Range: c.EffectiveRange(), NewText: c.NewText}
 }
 
 type TextEdit struct {

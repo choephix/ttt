@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
-	"github.com/eugenioenko/ttt/internal/ui"
 )
 
 func (a *App) editorPathLang() (string, string) {
@@ -77,27 +76,65 @@ func (a *App) CloseTab() {
 		return
 	}
 	name := a.EditorGroup.ActiveFileName()
-	dialog := ui.NewConfirmDialogWidget3(
-		"Save changes to "+name+"?",
-		"Discard", "Cancel", "Save",
+	a.ShowConfirmDialog("Save changes to "+name+"?",
+		[]string{"Discard", "Cancel", "Save"},
+		[]func(){
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseTab()
+			},
+			func() {
+				a.DismissDialog()
+			},
+			func() {
+				a.DismissDialog()
+				a.Reg.Execute("file.save")
+				a.EditorGroup.CloseTab()
+			},
+		},
 	)
-	dialog.Borders = a.Borders
-	dialog.OnButton[0] = func() {
-		a.DismissDialog()
-		a.EditorGroup.CloseTab()
+}
+
+func (a *App) CloseOtherTabs() {
+	if !a.EditorGroup.HasDirtyOtherTabs() {
+		a.EditorGroup.CloseOtherTabs()
+		return
 	}
-	dialog.OnButton[1] = func() {
-		a.DismissDialog()
+	a.ShowConfirmDialog("Other tabs have unsaved changes.",
+		[]string{"Abort", "Close Saved", "Discard All"},
+		[]func(){
+			func() { a.DismissDialog() },
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseOtherSaved()
+			},
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseOtherTabs()
+			},
+		},
+	)
+}
+
+func (a *App) CloseAllTabs() {
+	if !a.EditorGroup.HasDirtyTabs() {
+		a.EditorGroup.CloseAllTabs()
+		return
 	}
-	dialog.OnButton[2] = func() {
-		a.DismissDialog()
-		a.Reg.Execute("file.save")
-		a.EditorGroup.CloseTab()
-	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	a.ShowConfirmDialog("You have unsaved changes.",
+		[]string{"Abort", "Close Saved", "Discard All"},
+		[]func(){
+			func() { a.DismissDialog() },
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseAllSaved()
+			},
+			func() {
+				a.DismissDialog()
+				a.EditorGroup.CloseAllTabs()
+			},
+		},
+	)
 }
 
 func (a *App) NewFile() {
@@ -140,7 +177,9 @@ func (a *App) doSaveFile() {
 	if lang != "" {
 		a.RunCodeActionsOnSave(path, lang)
 		if a.Settings.Editor.FormatOnSave {
-			a.FormatOnSave(path, lang)
+			if !a.FormatExternalOnSave(path) {
+				a.FormatOnSave(path, lang)
+			}
 		}
 	}
 	if !a.EditorGroup.Save() {
@@ -153,6 +192,9 @@ func (a *App) doSaveFile() {
 		a.NotifyLSPSave(path, lang, text)
 	}
 	a.RequestGitGutterForActiveFile()
+	if a.PluginManager != nil && path != "" {
+		a.PluginManager.DispatchEvent("file.save", path)
+	}
 }
 
 func (a *App) forceQuit() {
@@ -168,7 +210,7 @@ func (a *App) Quit() {
 		return
 	}
 	a.quitPending = true
-	a.ShowConfirmDialog("Unsaved changes! Press Ctrl+Q to force quit", []string{"Cancel", "Quit"}, []func(){
+	a.ShowConfirmDialogEx("Unsaved changes", "Press Ctrl+Q to force quit.", []string{"Cancel", "Quit"}, []func(){
 		func() { a.quitPending = false; a.DismissDialog() },
 		func() { a.forceQuit() },
 	})
@@ -178,7 +220,7 @@ func registerEditorCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "editor.focus", Title: "Focus Editor",
+		ID: "editor.focus", Title: "View: Focus Editor",
 		Keywords: []string{"editor"},
 		Handler:  app.FocusEditor,
 	})
@@ -264,33 +306,45 @@ func registerEditorCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.next", Title: "Next Tab",
-		Keywords: []string{"tab", "switch"},
-		Handler:  func() { app.EditorGroup.NextTab() },
+		ID: "editor.formatExternal", Title: "Format Document (External Formatter)",
+		Keywords: []string{"editor", "format", "formatter", "external"},
+		Handler:  app.RunExternalFormatter,
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.prev", Title: "Previous Tab",
+		ID: "tab.next", Title: "View: Next Tab",
 		Keywords: []string{"tab", "switch"},
-		Handler:  func() { app.EditorGroup.PrevTab() },
+		Handler:  func() { app.contextNextTab() },
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.close", Title: "Close Tab",
+		ID: "tab.prev", Title: "View: Previous Tab",
+		Keywords: []string{"tab", "switch"},
+		Handler:  func() { app.contextPrevTab() },
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.close", Title: "View: Close Tab",
 		Keywords: []string{"tab"},
 		Handler:  app.CloseTab,
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.closeOthers", Title: "Close Other Tabs",
+		ID: "tab.closeOthers", Title: "View: Close Other Tabs",
 		Keywords: []string{"tab"},
-		Handler:  func() { app.EditorGroup.CloseOtherTabs() },
+		Handler:  app.CloseOtherTabs,
 	})
 
 	reg.Register(command.Command{
-		ID: "tab.closeAll", Title: "Close All Tabs",
+		ID: "tab.closeAll", Title: "View: Close All Tabs",
 		Keywords: []string{"tab"},
-		Handler:  func() { app.EditorGroup.CloseAllTabs() },
+		Handler:  app.CloseAllTabs,
+	})
+
+	reg.Register(command.Command{
+		ID: "tab.closeAllSaved", Title: "View: Close All Saved Tabs",
+		Keywords: []string{"tab", "close", "saved"},
+		Handler:  func() { app.EditorGroup.CloseAllSaved() },
 	})
 
 	reg.Register(command.Command{

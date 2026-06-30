@@ -31,7 +31,7 @@ describe("command palette", () => {
     tui.start(dir);
     tui.waitFor("Explore");
 
-    tui.exec("Toggle Sidebar");
+    tui.exec("View: Toggle Sidebar");
     tui.waitStable();
 
     const snap = tui.snapshot();

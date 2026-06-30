@@ -1,0 +1,156 @@
+package plugin
+
+import (
+	"testing"
+
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
+)
+
+type mockSurface struct {
+	w, h  int
+	cells map[[2]int]term.Cell
+	texts []mockText
+}
+
+type mockText struct {
+	x, y  int
+	text  string
+	style term.Style
+}
+
+func newMockSurface(w, h int) *mockSurface {
+	return &mockSurface{w: w, h: h, cells: make(map[[2]int]term.Cell)}
+}
+
+func (s *mockSurface) Size() (int, int)                            { return s.w, s.h }
+func (s *mockSurface) Origin() (int, int)                          { return 0, 0 }
+func (s *mockSurface) SetCell(x, y int, c term.Cell)               { s.cells[[2]int{x, y}] = c }
+func (s *mockSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style) {}
+func (s *mockSurface) ClearRect(x, y, w, h int, style term.Style)  {}
+func (s *mockSurface) Fill(c term.Cell)                             {}
+func (s *mockSurface) Sub(r widgets.Rect) widgets.Surface           { return s }
+
+func (s *mockSurface) DrawText(x, y int, text string, maxW int, style term.Style) int {
+	s.texts = append(s.texts, mockText{x, y, text, style})
+	return len([]rune(text))
+}
+
+func TestPluginPanelWidgetRender(t *testing.T) {
+	p := &Plugin{
+		Name:    "test",
+		Granted: PermissionSet{PanelSidebar: true},
+	}
+	p.State = NewSandbox()
+	defer p.State.Close()
+	setupTTTModule(p.State, p)
+
+	err := p.State.DoString(`
+		local ttt = require("ttt")
+		ttt.register({
+			sidebar = {
+				title = "Test",
+				render = function(panel)
+					panel:text(0, 0, "Hello Plugin!", "default")
+				end,
+			},
+		})
+	`)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	pw := NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc)
+	surface := newMockSurface(40, 10)
+	pw.Render(surface)
+
+	if len(surface.texts) == 0 {
+		t.Fatal("expected text to be drawn")
+	}
+	if surface.texts[0].text != "Hello Plugin!" {
+		t.Errorf("expected 'Hello Plugin!', got %q", surface.texts[0].text)
+	}
+}
+
+func TestPluginPanelWidgetRenderError(t *testing.T) {
+	p := &Plugin{
+		Name:    "broken",
+		Granted: PermissionSet{PanelSidebar: true},
+	}
+	p.State = NewSandbox()
+	defer p.State.Close()
+	setupTTTModule(p.State, p)
+
+	err := p.State.DoString(`
+		local ttt = require("ttt")
+		ttt.register({
+			sidebar = {
+				title = "Broken",
+				render = function(panel)
+					error("intentional crash")
+				end,
+			},
+		})
+	`)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	pw := NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc)
+	surface := newMockSurface(80, 10)
+	pw.Render(surface)
+
+	found := false
+	for _, text := range surface.texts {
+		if text.style == term.StyleDanger {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected error text to be drawn with danger style")
+	}
+}
+
+func TestPluginPanelWidgetCellAPI(t *testing.T) {
+	p := &Plugin{
+		Name:    "cell-test",
+		Granted: PermissionSet{PanelSidebar: true},
+	}
+	p.State = NewSandbox()
+	defer p.State.Close()
+	setupTTTModule(p.State, p)
+
+	err := p.State.DoString(`
+		local ttt = require("ttt")
+		ttt.register({
+			sidebar = {
+				title = "Cells",
+				render = function(panel)
+					panel:cell(0, 0, "X")
+					panel:cell(1, 0, "Y", {style = "success"})
+				end,
+			},
+		})
+	`)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	pw := NewPluginPanelWidget(p, p.RenderFunc, p.EventFunc)
+	surface := newMockSurface(40, 10)
+	pw.Render(surface)
+
+	c1, ok := surface.cells[[2]int{0, 0}]
+	if !ok || c1.Ch != 'X' {
+		t.Error("expected cell (0,0) to be 'X'")
+	}
+
+	c2, ok := surface.cells[[2]int{1, 0}]
+	if !ok || c2.Ch != 'Y' {
+		t.Error("expected cell (1,0) to be 'Y'")
+	}
+	if c2.Style != term.StyleSuccess {
+		t.Errorf("expected success style, got %d", c2.Style)
+	}
+}

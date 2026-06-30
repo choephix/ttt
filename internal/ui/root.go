@@ -145,12 +145,14 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	if res := r.handleGlobalKeys(kev); res == EventConsumed {
-		return EventConsumed
+	if r.Focused != nil {
+		if r.Focused.HandleEvent(ev) == EventConsumed {
+			return EventConsumed
+		}
 	}
 
-	if r.Focused != nil {
-		return r.Focused.HandleEvent(ev)
+	if res := r.handleGlobalKeys(kev); res == EventConsumed {
+		return EventConsumed
 	}
 
 	return EventIgnored
@@ -308,18 +310,13 @@ func (r *Root) PopOverlay() {
 
 func (r *Root) SetFocus(w Widget) {
 	if r.Focused != nil {
-		if rk, ok := r.Focused.(RawKeyConsumer); ok {
-			if setter, ok2 := r.Focused.(interface{ SetFocused(bool) }); ok2 && rk.WantsRawKeys() {
-				setter.SetFocused(false)
-			}
+		if setter, ok := r.Focused.(interface{ SetFocused(bool) }); ok {
+			setter.SetFocused(false)
 		}
 	}
 	r.Focused = w
-	if rk, ok := w.(RawKeyConsumer); ok {
-		if setter, ok2 := w.(interface{ SetFocused(bool) }); ok2 {
-			_ = rk
-			setter.SetFocused(true)
-		}
+	if setter, ok := w.(interface{ SetFocused(bool) }); ok {
+		setter.SetFocused(true)
 	}
 }
 

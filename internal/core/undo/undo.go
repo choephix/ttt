@@ -16,9 +16,19 @@ type EditCommand interface {
 // UndoStack manages undo and redo stacks with automatic grouping of
 // consecutive character inserts and deletes.
 type UndoStack struct {
-	undo     []EditCommand
-	redo     []EditCommand
-	grouping bool
+	undo      []EditCommand
+	redo      []EditCommand
+	grouping  bool
+	savePoint int
+}
+
+func (s *UndoStack) MarkSaved() {
+	s.grouping = false
+	s.savePoint = len(s.undo)
+}
+
+func (s *UndoStack) AtSavePoint() bool {
+	return len(s.undo) == s.savePoint
 }
 
 // Push adds a command to the undo stack and clears the redo stack.
@@ -51,6 +61,13 @@ func (s *UndoStack) Push(cmd EditCommand) {
 // BreakGroup ends the current undo group so the next Push starts a new one.
 func (s *UndoStack) BreakGroup() {
 	s.grouping = false
+}
+
+// ContinueGroup allows subsequent rune inserts to be appended to the
+// current top-of-stack entry. Used after replaceSelection so that typing
+// over a selection groups the replacement with continued typing.
+func (s *UndoStack) ContinueGroup() {
+	s.grouping = true
 }
 
 func canGroup(grp *BatchCommand, cmd EditCommand) bool {

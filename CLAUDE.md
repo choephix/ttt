@@ -89,6 +89,40 @@ Language server support lives in `internal/lsp/`. Servers are configured per-lan
 
 Async completions and signature help use the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document (not incremental). Auto-completion triggers on every text change with a configurable debounce timer (`autocomplete.debounce` in settings.json, default 150ms). Signature help triggers on `(` and `,` characters, dismissed on `)`.
 
+### Plugin Widget API
+
+Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to their `on_render` callback. Implementation lives in `internal/plugin/lua_panel.go` (Lua bindings), `internal/plugin/widget_desc.go` (descriptor struct), and `internal/plugin/widget_builder.go` (Go widget construction). Underlying widget types are in `internal/widgets/`.
+
+**Widget methods** (called as `p:method(args)`):
+
+| Method | Lua fields | Description |
+|---|---|---|
+| `p:label(text)` or `p:label({...})` | `text`, `style` | Static text line. `style` is a named style (see below). Supports box model. |
+| `p:title(text)` or `p:title({...})` | `text` | Bold section heading. Supports box model. |
+| `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands` | Expandable tree view. Items are `{id, label, expandable, children}` tables. `key_commands` maps single chars to commands via `on_command`. |
+| `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu`, `key_commands` | Flat list (backed by TreeWidget, no indentation). |
+| `p:button({...})` | `label`, `on_click` | Clickable button. |
+| `p:input({...})` | `placeholder`, `prefix`, `clear_on_submit`, `on_change(text)`, `on_submit(text)` | Text input field. `clear_on_submit` (bool) clears text after submit. |
+| `p:vstack({...})` | `render(child_panel)`, `gap` | Vertical stack container. The `render` function receives a child panel proxy to emit nested widgets. |
+| `p:keyvalue({...})` | `entries` | Key-value list. `entries` are `{key, value}` tables. |
+| `p:hstack({...})` | `render(child_panel)`, `gap`, `height` | Horizontal stack container. First child grows to fill available space, remaining children get fixed width. |
+| `p:scrollview({...})` | `render(child_panel)` | Scrollable container. Wraps children with mouse wheel scrolling and scrollbar when content overflows. |
+| `p:box({...})` | `render(child_panel)`, `border`, `height` | Container with optional border and fixed height. Children via `render` callback. |
+| `p:divider()` | (none) | Horizontal divider line. Single-line separator, no configuration. |
+| `p:dropdown({...})` | `label`, `entries`, `on_menu(command)` | Dropdown menu button. `entries` are `{label, command, separator}` tables. |
+
+**Raw cell API** (low-level drawing, mutually exclusive with widget methods per render):
+
+- `p:size()` — returns `width, height`
+- `p:cell(x, y, char, style)` — set a single cell
+- `p:text(x, y, text, style)` — draw a string
+- `p:clear(x, y, w, h)` — clear a rectangle
+- `p:redraw()` — request a redraw from the event loop
+
+**Box model:** `margin_top`, `margin_bottom`, `margin_left`, `margin_right`, `padding_top`, `padding_bottom`, `padding_left`, `padding_right` — parsed via `parseBoxModel()` and applied via `applyBoxModel()`. Supported on `label`, `title`, and `box` widgets.
+
+**Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`, `bold`, `code`, `syntax_comment`, `syntax_string`, `syntax_keyword`, `syntax_number`, `syntax_operator`, `syntax_function`, `syntax_type`, `syntax_builtin`, `syntax_variable`, `syntax_tag`, `syntax_attribute`. These map to `term.Style*` constants via `StyleByName()` in `styles.go`.
+
 ### Testing
 
 The project has three levels of testing:
@@ -108,6 +142,39 @@ Every new feature or bug fix should include tests at multiple levels:
 3. **Functional tests** — when possible. These catch the most bugs because they exercise the real binary end-to-end. Cover the happy path at minimum; add a negative/edge case if there's an obvious one (e.g., no-op on last line for join lines, no-op with no selection for case transforms).
 
 Functional tests with `tui` are the highest-value tests. Use `tui.exec("Command Name")` for command palette, `tui.pressChord("ctrl+k", "x")` for keybindings, and `tui.snapshot()` to verify results.
+
+### Debug harness (`--exec`, `--plugin`, `--size`, `--debug`)
+
+**USE THIS FOR DEBUGGING AND TESTING.** The editor has a built-in scripted interaction system that is faster than TUI tests and gives you direct access to internal state. Before investigating UI bugs manually, use `--exec` to reproduce and inspect them programmatically.
+
+**`--exec "commands"`** — Execute semicolon-separated commands after startup. Run the real binary, interact with it, capture state, and exit — all in one command:
+
+```bash
+bin/ttt --size 120x40 --exec "wait 200; screenshot /tmp/screen.txt; debug /tmp/state.json; quit"
+cat /tmp/screen.txt   # see what's rendered
+cat /tmp/state.json   # see full widget tree, focus, selection, panels
+```
+
+Supported commands:
+- `click X Y` — simulate mouse click at coordinates
+- `hover X Y` — simulate mouse hover (move) at coordinates
+- `key COMBO` — simulate key press (e.g. `key ctrl+p`, `key enter`, `key ctrl+k x`)
+- `type TEXT` — type a string of text
+- `exec "Command Name"` — run a command by title (same as command palette)
+- `screenshot PATH` — save screen text to file
+- `debug PATH` — save debug state JSON (screen, cursor, buffer, focus, panels, tabs, selection, output log, full widget tree with rect/focus/props per node)
+- `wait MS` — wait milliseconds
+- `quit` — exit the editor
+
+**`--size WxH`** — Force screen dimensions for deterministic layout (e.g. `--size 120x40`). Essential for reproducible screenshots and coordinate-based click tests.
+
+**`--plugin FILE`** — Load a Lua plugin file on startup with full permissions. For more complex test scenarios that need callbacks, state, or event handling.
+
+**`--debug`** — Enable debug mode regardless of config setting.
+
+**Lua API equivalents** — Plugins can also call `ttt.screenshot(path)`, `ttt.debug(path)`, `ttt.click(x, y)`, and `ttt.quit()` directly.
+
+**Command palette** — `Debug: Screenshot`, `Debug: Dump State`, `Debug: Simulate Click`, `Debug: Run Current File as Plugin` are available for interactive debugging.
 
 ### Implementation patterns
 

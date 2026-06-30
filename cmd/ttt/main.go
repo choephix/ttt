@@ -8,14 +8,21 @@ import (
 	"runtime/debug"
 	"time"
 
+	"path/filepath"
+
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/lsp"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 var (
@@ -56,14 +63,62 @@ func handlePanic(screen *term.TcellScreen) {
 	os.Exit(1)
 }
 
-func findConfigFlag() string {
+type cliFlags struct {
+	configFile string
+	pluginFile string
+	exec       string
+	sizeW, sizeH int
+	debug      bool
+}
+
+func parseFlags() cliFlags {
+	var f cliFlags
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
-		if args[i] == "--config" && i+1 < len(args) {
-			return args[i+1]
+		switch args[i] {
+		case "--config":
+			if i+1 < len(args) {
+				f.configFile = args[i+1]
+				i++
+			}
+		case "--plugin":
+			if i+1 < len(args) {
+				f.pluginFile = args[i+1]
+				i++
+			}
+		case "--exec":
+			if i+1 < len(args) {
+				f.exec = args[i+1]
+				i++
+			}
+		case "--size":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%dx%d", &f.sizeW, &f.sizeH)
+				i++
+			}
+		case "--debug":
+			f.debug = true
 		}
 	}
-	return ""
+	return f
+}
+
+func initTerminalScreen() *term.TcellScreen {
+	screen, err := term.NewTcellScreen()
+	if err != nil {
+		panic(err)
+	}
+	return screen
+}
+
+func initSimulationScreen(w, h int) *term.TcellScreen {
+	if w <= 0 || h <= 0 {
+		w, h = 80, 25
+	}
+	sim := tcell.NewSimulationScreen("")
+	_ = sim.Init()
+	sim.SetSize(w, h)
+	return term.NewTcellScreenFrom(sim)
 }
 
 func main() {
@@ -85,6 +140,7 @@ Options:
   --version, -v       Show version
   --workspace <file>  Open a saved workspace (.ttt file)
   --config <file>     Use a custom config file
+  --exec "commands"   Execute semicolon-separated commands after startup
 
 Examples:
   ttt                                           Open current directory
@@ -105,8 +161,13 @@ Docs: https://tttedit.dev
 		defer startProfiler()()
 	}
 
-	cfg := config.Load(findConfigFlag())
+	flags := parseFlags()
+	cfg := config.Load(flags.configFile)
 	config.ParseKeyBindings(cfg.Keybindings)
+
+	if flags.debug {
+		cfg.Settings.DebugMode = true
+	}
 
 	logFile := initLogger(cfg.Settings.DebugMode)
 	if logFile != nil {
@@ -114,9 +175,11 @@ Docs: https://tttedit.dev
 	}
 	slog.Info("starting", "debugMode", cfg.Settings.DebugMode)
 
-	screen, err := term.NewTcellScreen()
-	if err != nil {
-		panic(err)
+	var screen *term.TcellScreen
+	if flags.exec != "" {
+		screen = initSimulationScreen(flags.sizeW, flags.sizeH)
+	} else {
+		screen = initTerminalScreen()
 	}
 	defer screen.Fini()
 	defer handlePanic(screen)
@@ -129,7 +192,7 @@ Docs: https://tttedit.dev
 		clipboard.SetOSCWriter(tty)
 	}
 
-	lspManager := lsp.NewManager(cfg.Settings.LSP)
+	lspManager := lsp.NewManager(&cfg.Settings.LSP)
 	defer lspManager.Shutdown()
 
 	renderer := &render.Renderer{}
@@ -148,6 +211,99 @@ Docs: https://tttedit.dev
 	app.RegisterCommands(editor)
 	app.BindKeys(editor.Root, cmdRegistry, cfg.Keybindings)
 
+	registryPath := config.ConfigFilePath("plugins.ttt.json")
+	pluginsDir := filepath.Join(filepath.Dir(registryPath), "plugins")
+	localPluginsDir := filepath.Join(editor.Workspace.Primary(), "plugins")
+	pluginManager := plugin.NewManager(pluginsDir, registryPath, localPluginsDir)
+	editor.PluginManager = pluginManager
+	defer pluginManager.Shutdown()
+
+	if cfg.Settings.Plugins.IsEnabled() {
+		pendingApprovals := pluginManager.LoadAll()
+
+		for _, reg := range pluginManager.SidebarPanels {
+			editor.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+		}
+		for _, reg := range pluginManager.BottomPanels {
+			editor.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
+		}
+		pluginManager.SetEditorAPI(app.NewPluginEditorAPI(editor))
+		pluginManager.SetFilesystemAPI(func(pluginDir string) plugin.FilesystemAPI {
+			roots := editor.Workspace.Paths()
+			if pluginDir != "" {
+				roots = append(roots, pluginDir)
+			}
+			return app.NewPluginFilesystemAPI(roots...)
+		})
+		pluginManager.SetSystemAPI(app.NewPluginSystemAPI())
+		pluginManager.SetNetworkAPI(app.NewPluginNetworkAPI())
+		pluginManager.SetSettingsAPI(app.NewPluginSettingsAPI(editor))
+
+		for _, p := range pluginManager.Plugins() {
+			p.RequestRedraw = func() {
+				screen.PostEvent(tcell.NewEventInterrupt(nil))
+			}
+			p.PostAsync = func(result *plugin.PluginAsyncResult) {
+				screen.PostEvent(tcell.NewEventInterrupt(result))
+			}
+		}
+		pluginManager.SetLogFactory(func(pluginName string) func(string, string) {
+			return func(level, message string) {
+				editor.Output.AddLine(ui.OutputLine{
+					Time:       time.Now().Format("15:04:05"),
+					PluginName: pluginName,
+					Level:      level,
+					Message:    message,
+				})
+				screen.PostEvent(tcell.NewEventInterrupt(nil))
+			}
+		})
+
+		editor.RegisterStartupPluginCommands()
+
+		pluginsPanel := app.NewPluginsPanel(pluginManager)
+		editor.Sidebar.AddPanel("plugins", "Plugins", pluginsPanel.Adapter)
+		editor.PluginsPanel = pluginsPanel
+		pluginsPanel.OnInstall = func(repoURL, repoPath, name string) {
+			editor.PluginInstallFromURL(repoURL, repoPath, name)
+		}
+		pluginsPanel.OnUninstall = func(name string) {
+			editor.PluginUninstallByName(name)
+		}
+		pluginsPanel.OnToggle = func(name string, enabled bool) {
+			if !enabled {
+				editor.Sidebar.RemovePanel("plugin." + name)
+				editor.BottomPanel.RemovePanel("plugin." + name)
+			}
+			p, err := pluginManager.SetEnabled(name, enabled)
+			if err != nil {
+				slog.Error("toggle plugin", "error", err)
+			}
+			if p != nil {
+				editor.WirePlugin(p)
+			}
+			pluginsPanel.Refresh()
+		}
+		pluginsPanel.OnUpdate = func(name string) {
+			editor.PluginUpdateByName(name)
+		}
+		pluginsPanel.OnOpenDetail = func(entry plugin.RemoteRegistryEntry) {
+			editor.OpenPluginDetail(entry)
+		}
+		pluginsPanel.OnDropdownMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
+			editor.ShowPluginDropdownMenu(entries, screenX, screenY)
+		}
+
+		go func() {
+			entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
+			screen.PostEvent(tcell.NewEventInterrupt(&app.RemoteRegistryResult{Entries: entries, Err: err}))
+		}()
+
+		if len(pendingApprovals) > 0 {
+			editor.PendingPluginApprovals = pendingApprovals
+		}
+	}
+
 	if len(prURLs) > 0 {
 		if !github.IsGHInstalled() {
 			editor.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
@@ -161,7 +317,18 @@ Docs: https://tttedit.dev
 	}
 
 	w, h := screen.Size()
+	if flags.sizeW > 0 && flags.sizeH > 0 {
+		w, h = flags.sizeW, flags.sizeH
+	}
 	editor.Root.SetSize(w, h)
+
+	if flags.pluginFile != "" {
+		app.LoadPluginFromFile(editor, flags.pluginFile)
+	}
+
+	if flags.exec != "" {
+		go app.RunExecScript(editor, flags.exec)
+	}
 
 	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)
 }

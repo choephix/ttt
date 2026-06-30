@@ -12,7 +12,7 @@ func testCommands() []command.Command {
 		{ID: "file.save", Title: "File: Save"},
 		{ID: "file.open", Title: "File: Open"},
 		{ID: "editor.split", Title: "Split Editor Right"},
-		{ID: "sidebar.toggle", Title: "Toggle Sidebar"},
+		{ID: "sidebar.toggle", Title: "View: Toggle Sidebar"},
 	}
 }
 
@@ -143,7 +143,7 @@ func TestPaletteFuzzyFilterInitials(t *testing.T) {
 
 func TestPaletteFuzzyScoreOrdering(t *testing.T) {
 	cmds := []command.Command{
-		{ID: "a", Title: "Toggle Sidebar"},
+		{ID: "a", Title: "View: Toggle Sidebar"},
 		{ID: "b", Title: "To Do List"},
 		{ID: "c", Title: "Top Level"},
 	}
@@ -191,7 +191,7 @@ func testCommandsWithKeywords() []command.Command {
 		{ID: "editor.redo", Title: "Redo", Keywords: []string{"editor"}},
 		{ID: "search.find", Title: "Find", Keywords: []string{"search", "find", "locate"}},
 		{ID: "search.replace", Title: "Find and Replace", Keywords: []string{"search", "find", "replace", "substitute"}},
-		{ID: "terminal.toggle", Title: "Toggle Terminal", Keywords: []string{"terminal", "shell", "console", "bash"}},
+		{ID: "terminal.toggle", Title: "Terminal: Toggle Terminal", Keywords: []string{"terminal", "shell", "console", "bash"}},
 		{ID: "settings.open", Title: "Preferences: Open Settings", Keywords: []string{"preferences", "settings", "configuration", "options"}},
 	}
 }

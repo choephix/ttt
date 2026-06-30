@@ -22,6 +22,7 @@ type BorderChars struct {
 type TabStyles struct {
 	Active   StyleDef `json:"active"`
 	Inactive StyleDef `json:"inactive"`
+	Selected StyleDef `json:"selected"`
 }
 
 type SidebarStyles struct {
@@ -41,6 +42,11 @@ type InputStyles struct {
 	Item        StyleDef `json:"item"`
 	Placeholder StyleDef `json:"placeholder"`
 	Action      StyleDef `json:"action"`
+}
+
+type ButtonStyles struct {
+	Item    StyleDef `json:"item"`
+	Focused StyleDef `json:"focused"`
 }
 
 type MenuStyles struct {
@@ -198,8 +204,10 @@ type ThemeConfig struct {
 	Editor    EditorStyles   `json:"editor"`
 	Menu      MenuStyles     `json:"menu"`
 	Input     InputStyles    `json:"input"`
+	Button    ButtonStyles   `json:"button"`
 	Hover     HoverStyles    `json:"hover"`
-	Border    StyleDef       `json:"border"`
+	Border       StyleDef    `json:"border"`
+	BorderActive StyleDef    `json:"borderActive"`
 	Diff      DiffStyles     `json:"diff"`
 	Scrollbar StyleDef       `json:"scrollbar"`
 	Syntax    SyntaxStyles   `json:"syntax"`
@@ -282,6 +290,11 @@ func (t *ThemeConfig) ResolveColors() {
 	fillFg(&t.Input.Item, t.Default.Fg)
 	fillFg(&t.Input.Placeholder, t.Muted.Fg)
 	fillFg(&t.Input.Action, t.Muted.Fg)
+	fillBg(&t.Button.Item, t.Default.Bg)
+	fillFg(&t.Button.Item, t.Default.Fg)
+	fillBg(&t.Button.Focused, t.Sidebar.Selected.Bg)
+	fillFg(&t.Button.Focused, t.Sidebar.Selected.Fg)
+	fillFg(&t.BorderActive, t.Default.Fg)
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")
 	fillBg(&t.Diff.Modified, "#2e2e1e")

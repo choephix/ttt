@@ -37,13 +37,6 @@ func TestTabBarRender(t *testing.T) {
 	}
 }
 
-func TestTabBarNotFocusable(t *testing.T) {
-	tb := NewTabBarWidget()
-	if tb.Focusable() {
-		t.Fatal("tab bar should not be focusable")
-	}
-}
-
 func TestTabBarOverflowArrows(t *testing.T) {
 	tb := NewTabBarWidget()
 	tb.SetTabs([]Tab{

@@ -4,11 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
@@ -30,6 +32,21 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		if args[i] == "--config" && i+1 < len(args) {
 			configFile = args[i+1]
 			i++
+			continue
+		}
+		if args[i] == "--exec" && i+1 < len(args) {
+			i++
+			continue
+		}
+		if args[i] == "--plugin" && i+1 < len(args) {
+			i++
+			continue
+		}
+		if args[i] == "--size" && i+1 < len(args) {
+			i++
+			continue
+		}
+		if args[i] == "--debug" {
 			continue
 		}
 		if isPRURL(args[i]) {
@@ -123,10 +140,12 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	terminalPanel.Borders = borders
 	problems := ui.NewProblemsWidget()
 	references := ui.NewReferencesWidget()
+	output := ui.NewOutputWidget()
 	bottomPanel := ui.NewBottomPanelWidget(borders)
-	bottomPanel.AddPanel("terminal", "TERMINAL", terminalPanel)
-	bottomPanel.AddPanel("problems", "PROBLEMS", problems)
-	bottomPanel.AddPanel("references", "REFERENCES", references)
+	bottomPanel.AddPanel("terminal", "Terminal", terminalPanel)
+	bottomPanel.AddPanel("problems", "Problems", problems)
+	bottomPanel.AddPanel("references", "References", references)
+	bottomPanel.AddPanel("output", "Output", output)
 
 	contentSplit := ui.NewContentSplitWidget()
 	contentSplit.Top = editorGroup
@@ -146,16 +165,17 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		{Name: "Help"},
 	})
 
-	explorer := ui.NewExplorerWidget(cfg.Settings.Explorer, ws.Paths()...)
 	search := ui.NewSearchWidget()
 	search.SetWorkDirs(ws.Paths())
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
-	changes := ui.NewChangesWidget(ws.Paths()...)
+	changes := NewChangesPanel(ws.Paths()...)
+
+	explorer := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
-	sidebar.AddPanel("explorer", "Explore", explorer)
+	sidebar.AddPanel("explorer", "Explore", explorer.Adapter)
 	sidebar.AddPanel("search", "Find", search)
-	sidebar.AddPanel("changes", "Changes", changes)
+	sidebar.AddPanel("changes", "Changes", changes.Adapter)
 	hasFolders := len(ws.Paths()) > 0
 	sidebar.Visible = hasFolders
 	sidebar.Borders = borders
@@ -169,10 +189,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	splitPanel.RightBorderStartY = 2
 	contentSplit.RightBorderStartY = &splitPanel.RightBorderStartY
 
-	rootBox := &ui.VBox{}
-	rootBox.AddChild(menuBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
-	rootBox.AddChild(splitPanel, ui.LayoutConstraint{Type: ui.Flex, Value: 1})
-	rootBox.AddChild(statusBar, ui.LayoutConstraint{Type: ui.Fixed, Value: 1})
+	rootBox := widgets.NewVStackWidget(menuBar, splitPanel, statusBar)
 
 	root := ui.NewRoot(rootBox)
 	root.SetFocus(editorGroup)
@@ -197,8 +214,11 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		TerminalPanel:     terminalPanel,
 		Problems:          problems,
 		References:        references,
-		DocVersions:       make(map[string]int),
-		AllDiagnostics:    make(map[string][]ui.Diagnostic),
-		LspNotified:       make(map[string]bool),
+		Output:            output,
+		DocVersions:         make(map[string]int),
+		AllDiagnostics:      make(map[string][]ui.Diagnostic),
+		LspNotified:         make(map[string]bool),
+		pluginDetailWidgets: make(map[string]*pluginDetailState),
 	}
 }
+

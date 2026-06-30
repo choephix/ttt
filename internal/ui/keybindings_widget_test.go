@@ -13,7 +13,7 @@ func kbTestCommands() []command.Command {
 		{ID: "file.open", Title: "File: Open", Keywords: []string{"open", "browse"}},
 		{ID: "editor.undo", Title: "Undo", Keywords: []string{"undo"}},
 		{ID: "editor.redo", Title: "Redo", Keywords: []string{"redo"}},
-		{ID: "sidebar.toggle", Title: "Toggle Sidebar"},
+		{ID: "sidebar.toggle", Title: "View: Toggle Sidebar"},
 	}
 }
 

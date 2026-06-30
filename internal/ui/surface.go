@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/eugenioenko/ttt/internal/term"
+import (
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
+)
 
 type RenderSurface struct {
 	cells [][]term.Cell
@@ -79,13 +82,12 @@ func (s *RenderSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.
 	s.SetCell(x+w-1, y+h-1, term.Cell{Ch: b.BottomRight, Style: style})
 }
 
-func (s *RenderSurface) Sub(r Rect) *RenderSurface {
+func (s *RenderSurface) Sub(r Rect) widgets.Surface {
 	newX := s.clip.X + r.X
 	newY := s.clip.Y + r.Y
 	newW := r.W
 	newH := r.H
 
-	// Clamp to parent bounds
 	if newX < s.clip.X {
 		newW -= s.clip.X - newX
 		newX = s.clip.X

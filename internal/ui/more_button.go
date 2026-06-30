@@ -17,7 +17,7 @@ func NewMoreButtonWidget() *MoreButtonWidget {
 
 func (m *MoreButtonWidget) Focusable() bool { return false }
 
-func (m *MoreButtonWidget) Render(surface *RenderSurface) {
+func (m *MoreButtonWidget) Render(surface Surface) {
 	surface.SetCell(0, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})
 	surface.SetCell(1, 0, term.Cell{Ch: '⋮', Style: term.StyleInactiveTab})
 	surface.SetCell(2, 0, term.Cell{Ch: ' ', Style: term.StyleInactiveTab})

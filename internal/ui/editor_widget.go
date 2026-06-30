@@ -170,7 +170,7 @@ func (e *EditorPaneWidget) ensureTopLineVisible() {
 }
 
 func (e *EditorPaneWidget) screenToBufferLine(y int) int {
-	if e.cachedVisibleLines == nil {
+	if e.cachedVisibleLines == nil || e.Folds == nil {
 		return e.Viewport.TopLine + y
 	}
 	topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
@@ -187,7 +187,7 @@ func (e *EditorPaneWidget) screenToBufferLine(y int) int {
 	return e.cachedVisibleLines[idx]
 }
 
-func (e *EditorPaneWidget) Render(surface *RenderSurface) {
+func (e *EditorPaneWidget) Render(surface Surface) {
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)
@@ -618,6 +618,29 @@ func (e *EditorPaneWidget) deleteSelection() {
 	e.Selection.Clear()
 }
 
+func (e *EditorPaneWidget) replaceSelection(cmds ...undo.EditCommand) {
+	if e.Selection == nil || !e.Selection.Active {
+		return
+	}
+	start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+	all := make([]undo.EditCommand, 0, 1+len(cmds))
+	all = append(all, &undo.DeleteSelectionCommand{
+		StartLine: start.Line, StartCol: start.Col,
+		EndLine: end.Line, EndCol: end.Col,
+	})
+	all = append(all, cmds...)
+	if e.Undo != nil {
+		e.Undo.BreakGroup()
+	}
+	e.exec(&undo.BatchCommand{Commands: all})
+	if e.Undo != nil {
+		e.Undo.ContinueGroup()
+	}
+	e.Cursor.Line = start.Line
+	e.Cursor.Col = start.Col
+	e.Selection.Clear()
+}
+
 func (e *EditorPaneWidget) startOrExtendSelection(shift bool) {
 	if e.Selection == nil {
 		return
@@ -830,7 +853,12 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	shift := kev.Modifiers()&tcell.ModShift != 0
+	mods := kev.Modifiers()
+	if mods&tcell.ModAlt != 0 || mods&tcell.ModCtrl != 0 {
+		return EventIgnored
+	}
+
+	shift := mods&tcell.ModShift != 0
 	hasSel := e.Selection != nil && e.Selection.Active
 
 	multi := e.isMultiActive()
@@ -1085,9 +1113,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				if multi {
 					e.multiExecRune(r)
 				} else if hasSel {
-					e.deleteSelection()
-					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
-					e.Cursor.Col++
+					start, _ := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
+					e.replaceSelection(&undo.InsertRuneCommand{Line: start.Line, Col: start.Col, Rune: r})
+					e.Cursor.Col = start.Col + 1
 				} else {
 					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 					e.Cursor.Col++
@@ -1954,7 +1982,11 @@ func (e *EditorPaneWidget) lineRange() (int, int) {
 		}
 		return e.Buf.ClampLine(start.Line), e.Buf.ClampLine(endLine)
 	}
-	return 0, len(e.Buf.Lines) - 1
+	end := len(e.Buf.Lines) - 1
+	if end > 0 && e.Buf.Lines[end] == "" {
+		end--
+	}
+	return 0, end
 }
 
 // copyLines returns a copy of the buffer lines in the given range (inclusive).
@@ -2605,33 +2637,38 @@ func (e *EditorPaneWidget) transformSelection(fn func(string) string) {
 		e.Undo.BreakGroup()
 	}
 
-	// Delete the selection
-	delCmd := &undo.DeleteSelectionCommand{
-		StartLine: start.Line, StartCol: start.Col,
-		EndLine: end.Line, EndCol: end.Col,
-	}
-	e.exec(delCmd)
+	oldLines := make([]string, end.Line-start.Line+1)
+	copy(oldLines, e.Buf.Lines[start.Line:end.Line+1])
 
-	// Insert the transformed text
 	tLines := strings.Split(transformed, "\n")
-	if len(tLines) == 1 {
-		e.exec(&undo.InsertStringCommand{Line: start.Line, Col: start.Col, Text: tLines[0]})
-	} else {
-		currentLine := []rune(e.Buf.Lines[start.Line])
-		col := start.Col
-		if col > len(currentLine) {
-			col = len(currentLine)
-		}
-		suffix := string(currentLine[col:])
-		e.exec(&undo.PasteCommand{
-			Line:   start.Line,
-			Col:    col,
-			Text:   transformed,
-			Suffix: suffix,
-		})
+	prefix := string([]rune(oldLines[0])[:start.Col])
+	lastOld := []rune(oldLines[len(oldLines)-1])
+	suffix := ""
+	if end.Col < len(lastOld) {
+		suffix = string(lastOld[end.Col:])
 	}
 
-	// Restore the selection so the user sees the transformed range
+	newLines := make([]string, len(tLines))
+	for i, tl := range tLines {
+		switch {
+		case len(tLines) == 1:
+			newLines[i] = prefix + tl + suffix
+		case i == 0:
+			newLines[i] = prefix + tl
+		case i == len(tLines)-1:
+			newLines[i] = tl + suffix
+		default:
+			newLines[i] = tl
+		}
+	}
+
+	cmd := &undo.ReplaceLinesCommand{
+		Start:    start.Line,
+		OldLines: oldLines,
+		NewLines: newLines,
+	}
+	e.exec(cmd)
+
 	newEndLine := start.Line + len(tLines) - 1
 	var newEndCol int
 	if len(tLines) == 1 {

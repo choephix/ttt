@@ -80,7 +80,8 @@ var editorContextMenu = []ui.ContextMenuItem{
 	{Label: "Find All References", Command: "editor.findReferences"},
 	{Label: "Rename Symbol", Command: "editor.rename"},
 	ui.MenuSep(),
-	{Label: "Format Document", Command: "editor.formatDocument"},
+	{Label: "Format Document (LSP)", Command: "editor.formatDocument"},
+	{Label: "Format Document (External)", Command: "editor.formatExternal"},
 	{Label: "Format Selection", Command: "editor.formatSelection"},
 	ui.MenuSep(),
 	{Label: "Undo", Command: "editor.undo"},
@@ -176,6 +177,25 @@ func openMenuBarDropdown(app *App, index int) {
 		app.Root.PopOverlay()
 		next := (index + dir + len(menuBarMenus)) % len(menuBarMenus)
 		openMenuBarDropdown(app, next)
+	}
+	menu.OnMouseOutside = func(ev tcell.Event) {
+		mev, ok := ev.(*tcell.EventMouse)
+		if !ok {
+			return
+		}
+		mx, my := mev.Position()
+		r := app.MenuBar.GetRect()
+		if my != r.Y {
+			return
+		}
+		localX := mx - r.X
+		for i, span := range app.MenuBar.ItemSpans() {
+			if localX >= span.Start && localX < span.End && i != index {
+				app.Root.PopOverlay()
+				openMenuBarDropdown(app, i)
+				return
+			}
+		}
 	}
 	app.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
 	app.Root.SetFocus(menu)

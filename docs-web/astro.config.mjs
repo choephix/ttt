@@ -33,6 +33,8 @@ export default defineConfig({
             { label: 'Themes', link: '/guides/themes/' },
             { label: 'Extra Themes', link: '/guides/extra-themes/' },
             { label: 'Keybindings', link: '/guides/keybindings/' },
+            { label: 'Plugins', link: '/guides/plugins/' },
+            { label: 'Plugin Authoring', link: '/guides/plugin-authoring/' },
           ],
         },
         {

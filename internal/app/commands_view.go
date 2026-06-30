@@ -4,6 +4,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
 func (a *App) ToggleTerminal() {
@@ -27,6 +28,124 @@ func (a *App) ToggleTerminalFullscreen() {
 	} else {
 		a.ContentSplit.BottomH = fullH
 		a.showTerminalPanel()
+	}
+}
+
+func (a *App) focusedRegion() string {
+	f := a.Root.Focused
+	if f == a.Sidebar || f == a.Sidebar.ActiveWidget() {
+		return "sidebar"
+	}
+	if f == a.BottomPanel || f == a.BottomPanel.ActiveWidget() {
+		return "bottom"
+	}
+	return "editor"
+}
+
+func (a *App) focusNextGroup() {
+	if a.Root.HasModalOverlay() {
+		return
+	}
+	regions := []string{"editor"}
+	if a.Sidebar.Visible {
+		regions = append(regions, "sidebar")
+	}
+	if a.ContentSplit.ShowBottom {
+		regions = append(regions, "bottom")
+	}
+	current := a.focusedRegion()
+	for i, r := range regions {
+		if r == current {
+			next := regions[(i+1)%len(regions)]
+			a.focusRegion(next)
+			return
+		}
+	}
+	a.FocusEditor()
+}
+
+func (a *App) focusPrevGroup() {
+	if a.Root.HasModalOverlay() {
+		return
+	}
+	regions := []string{"editor"}
+	if a.Sidebar.Visible {
+		regions = append(regions, "sidebar")
+	}
+	if a.ContentSplit.ShowBottom {
+		regions = append(regions, "bottom")
+	}
+	current := a.focusedRegion()
+	for i, r := range regions {
+		if r == current {
+			prev := i - 1
+			if prev < 0 {
+				prev = len(regions) - 1
+			}
+			a.focusRegion(regions[prev])
+			return
+		}
+	}
+	a.FocusEditor()
+}
+
+func (a *App) focusRegion(region string) {
+	switch region {
+	case "editor":
+		a.FocusEditor()
+	case "sidebar":
+		a.FocusSidebar()
+	case "bottom":
+		a.FocusPanel()
+	}
+}
+
+func (a *App) contextNextTab() {
+	switch a.focusedRegion() {
+	case "sidebar":
+		a.Sidebar.NextPanel()
+		if w := a.Sidebar.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	case "bottom":
+		a.BottomPanel.NextPanel()
+		if w := a.BottomPanel.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	default:
+		a.EditorGroup.NextTab()
+	}
+}
+
+func (a *App) contextPrevTab() {
+	switch a.focusedRegion() {
+	case "sidebar":
+		a.Sidebar.PrevPanel()
+		if w := a.Sidebar.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	case "bottom":
+		a.BottomPanel.PrevPanel()
+		if w := a.BottomPanel.ActiveWidget(); w != nil {
+			a.Root.SetFocus(w)
+		}
+	default:
+		a.EditorGroup.PrevTab()
+	}
+}
+
+func (a *App) focusTerminal() {
+	if !a.ContentSplit.ShowBottom {
+		r := a.ContentSplit.GetRect()
+		maxH := r.H - 4
+		if a.ContentSplit.BottomH <= 1 || a.ContentSplit.BottomH > maxH {
+			a.ContentSplit.BottomH = min(r.H/2, maxH)
+		}
+		a.showTerminalPanel()
+	}
+	a.BottomPanel.SetActivePanel("terminal")
+	if w := a.BottomPanel.ActiveWidget(); w != nil {
+		a.Root.SetFocus(w)
 	}
 }
 
@@ -107,20 +226,31 @@ func (a *App) ShowKeybindings() {
 		a.RebindKeys()
 	}
 	w.OnHelp = func() {
-		help := ui.NewInfoDialogWidget("Keyboard Shortcuts Help", []ui.InfoEntry{
-			{Key: "Enter", Desc: "Edit selected shortcut"},
-			{Key: "Backspace", Desc: "Reset to default"},
-			{Key: "Delete", Desc: "Clear shortcut"},
-			{Key: "Up/Down", Desc: "Navigate list"},
-			{Key: "Esc", Desc: "Close"},
+		content := widgets.NewKeyValueListWidget([]widgets.KeyValueEntry{
+			{Key: "Enter", Value: "Edit selected shortcut"},
+			{Key: "Backspace", Value: "Reset to default"},
+			{Key: "Delete", Value: "Clear shortcut"},
+			{Key: "Up/Down", Value: "Navigate list"},
+			{Key: "Esc", Value: "Close"},
 		})
-		help.Borders = a.Borders
-		help.OnDismiss = func() {
+		dialog := widgets.NewDialogWidget(50)
+		dialog.Title = "Keyboard Shortcuts Help"
+		dialog.Borders = *a.Borders
+		dialog.SetContent(content)
+		dialog.Buttons = []widgets.DialogButton{
+			{Label: "&Close", Handler: func() {
+				a.Root.PopOverlay()
+				a.Root.SetFocus(w)
+			}},
+		}
+		dialog.OnDismiss = func() {
 			a.Root.PopOverlay()
 			a.Root.SetFocus(w)
 		}
-		a.Root.PushOverlay(ui.Overlay{Widget: help, Modal: true})
-		a.Root.SetFocus(help)
+		dialog.Build()
+		adapter := ui.NewWidgetAdapter(dialog)
+		a.Root.PushOverlay(ui.Overlay{Widget: adapter, Modal: true})
+		a.Root.SetFocus(adapter)
 	}
 	w.OnDismiss = func() {
 		a.DismissDialog()
@@ -142,7 +272,7 @@ func registerViewCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "sidebar.toggle", Title: "Toggle Sidebar",
+		ID: "sidebar.toggle", Title: "View: Toggle Sidebar",
 		Keywords: []string{"view", "panel", "show", "hide"},
 		Handler:  app.ToggleSidebar,
 	})
@@ -152,7 +282,7 @@ func registerViewCommands(app *App) {
 		Keywords: []string{"view", "file", "tree", "browser"},
 		Handler: func() {
 			app.Explorer.Reload()
-			app.ShowPanel("explorer", app.Explorer)
+			app.ShowPanel("explorer", app.Explorer.Adapter)
 		},
 	})
 
@@ -175,12 +305,12 @@ func registerViewCommands(app *App) {
 		Keywords: []string{"view", "git", "diff", "source control"},
 		Handler: func() {
 			app.Changes.Refresh()
-			app.ShowPanel("changes", app.Changes)
+			app.ShowPanel("changes", app.Changes.Adapter)
 		},
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.wider", Title: "Increase Sidebar Width",
+		ID: "sidebar.wider", Title: "View: Increase Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {
 			app.SetSidebarWidth(app.SplitPanel.DividerPos + 1)
@@ -188,7 +318,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.narrower", Title: "Decrease Sidebar Width",
+		ID: "sidebar.narrower", Title: "View: Decrease Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {
 			if app.Sidebar.Visible {
@@ -198,25 +328,44 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "sidebar.focus", Title: "Focus Sidebar",
+		ID: "sidebar.focus", Title: "View: Focus Sidebar",
 		Keywords: []string{"view"},
 		Handler:  app.FocusSidebar,
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.toggle", Title: "Toggle Panel",
+		ID: "panel.toggle", Title: "View: Toggle Panel",
 		Keywords: []string{"view", "bottom", "show", "hide"},
 		Handler:  app.ToggleBottomPanel,
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.focus", Title: "Focus Panel",
+		ID: "panel.focus", Title: "View: Focus Panel",
 		Keywords: []string{"view", "bottom"},
 		Handler:  app.FocusPanel,
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.taller", Title: "Increase Panel Height",
+		ID: "panel.show", Title: "View: Show Panel Tab",
+		Keywords: []string{"view", "bottom", "tab", "switch"},
+		Handler: func() {
+			panels := app.BottomPanel.PanelEntries()
+			if len(panels) == 0 {
+				return
+			}
+			var items []widgets.SelectItem
+			for _, p := range panels {
+				items = append(items, widgets.SelectItem{ID: p.ID, Label: p.Title})
+			}
+			app.ShowSelectDialog("Show Panel", items, func(id string) {
+				app.BottomPanel.SetActivePanel(id)
+				app.FocusPanel()
+			}, nil)
+		},
+	})
+
+	reg.Register(command.Command{
+		ID: "panel.taller", Title: "View: Increase Panel Height",
 		Keywords: []string{"view", "resize", "bottom"},
 		Handler: func() {
 			if !app.ContentSplit.ShowBottom {
@@ -227,7 +376,7 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "panel.shorter", Title: "Decrease Panel Height",
+		ID: "panel.shorter", Title: "View: Decrease Panel Height",
 		Keywords: []string{"view", "resize", "bottom"},
 		Handler: func() {
 			if app.ContentSplit.ShowBottom && app.ContentSplit.BottomH > 1 {
@@ -237,25 +386,43 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.new", Title: "New Terminal",
+		ID: "focus.nextGroup", Title: "View: Focus Next Group",
+		Keywords: []string{"focus", "panel", "sidebar", "editor"},
+		Handler:  app.focusNextGroup,
+	})
+
+	reg.Register(command.Command{
+		ID: "focus.prevGroup", Title: "View: Focus Previous Group",
+		Keywords: []string{"focus", "panel", "sidebar", "editor"},
+		Handler:  app.focusPrevGroup,
+	})
+
+	reg.Register(command.Command{
+		ID: "focus.terminal", Title: "View: Focus Terminal",
+		Keywords: []string{"focus", "terminal", "shell"},
+		Handler:  app.focusTerminal,
+	})
+
+	reg.Register(command.Command{
+		ID: "terminal.new", Title: "Terminal: New Terminal",
 		Keywords: []string{"terminal", "shell", "console", "bash"},
 		Handler:  app.SpawnTerminal,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.toggle", Title: "Toggle Terminal",
+		ID: "terminal.toggle", Title: "Terminal: Toggle Terminal",
 		Keywords: []string{"terminal", "shell", "console", "bash"},
 		Handler:  app.ToggleTerminal,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.fullscreen", Title: "Toggle Terminal Fullscreen",
+		ID: "terminal.fullscreen", Title: "Terminal: Toggle Fullscreen",
 		Keywords: []string{"terminal", "shell", "maximize"},
 		Handler:  app.ToggleTerminalFullscreen,
 	})
 
 	reg.Register(command.Command{
-		ID: "terminal.closeAll", Title: "Close All Terminals",
+		ID: "terminal.closeAll", Title: "Terminal: Close All",
 		Keywords: []string{"terminal", "shell"},
 		Handler:  app.CloseAllTerminals,
 	})
@@ -270,17 +437,12 @@ func registerViewCommands(app *App) {
 		ID: "about", Title: "About TTT Editor",
 		Keywords: []string{"help", "version", "info"},
 		Handler: func() {
-			dialog := ui.NewInfoDialogWidget("About TTT Editor", []ui.InfoEntry{
-				{Key: "Version", Desc: app.Version},
-				{Key: "Website", Desc: "https://tttedit.dev"},
-				{Key: "GitHub", Desc: "https://github.com/eugenioenko/ttt"},
-			})
-			dialog.Borders = app.Borders
-			dialog.InvertStyles = true
-			dialog.OnDismiss = func() {
-				app.DismissDialog()
-			}
-			app.ShowDialog(dialog)
+			app.ShowInfoDialogEx("About TTT Editor", []widgets.KeyValueEntry{
+				{Key: "Version", Value: app.Version},
+				{Key: "Website", Value: "https://tttedit.dev"},
+				{Key: "GitHub", Value: "https://github.com/eugenioenko/ttt"},
+			}, true)
 		},
 	})
+
 }

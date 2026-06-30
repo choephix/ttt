@@ -4,7 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const StyleCount = 55
+const StyleCount = styleCount
 
 type StyleMap [StyleCount]tcell.Style
 
@@ -92,6 +92,9 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	if c.Underline {
 		s = s.Underline(true)
 	}
+	if c.Bold {
+		s = s.Bold(true)
+	}
 	t.scr.SetContent(x, y, c.Ch, nil, s)
 }
 
@@ -136,6 +139,10 @@ func (t *TcellScreen) SetCursorStyle(style CursorStyle) {
 
 func (t *TcellScreen) PostEvent(ev tcell.Event) error {
 	return t.scr.PostEvent(ev)
+}
+
+func (t *TcellScreen) GetContent(x, y int) (rune, []rune, tcell.Style, int) {
+	return t.scr.GetContent(x, y)
 }
 
 func (t *TcellScreen) Tty() (tcell.Tty, bool) {

@@ -34,6 +34,8 @@ var ForceKeyCommands = map[string]bool{
 	"command.palette":     true,
 	"file.quickOpen":      true,
 	"sidebar.toggle":      true,
+	"focus.nextGroup":     true,
+	"focus.prevGroup":     true,
 }
 
 func ParseKeyBindings(bindings []KeyBinding) error {
@@ -286,8 +288,8 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+y", Command: "editor.redo"},
 		{Key: "ctrl+q", Command: "editor.quit"},
 		{Key: "ctrl+0", Command: "sidebar.focus"},
-		{Key: "ctrl+pgdn", Command: "tab.next"},
-		{Key: "ctrl+pgup", Command: "tab.prev"},
+		{Key: "alt+.", Command: "tab.next"},
+		{Key: "alt+,", Command: "tab.prev"},
 		{Key: "ctrl+w", Command: "tab.close"},
 		{Key: "ctrl+a", Command: "editor.selectAll"},
 		{Key: "ctrl+c", Command: "editor.copy"},
@@ -308,6 +310,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "shift+f12", Command: "editor.goToImplementation"},
 		{Key: "ctrl+l i", Command: "editor.goToImplementation"},
 		{Key: "ctrl+l f", Command: "editor.formatDocument"},
+		{Key: "ctrl+k f", Command: "editor.formatExternal"},
 		{Key: "ctrl+l s", Command: "editor.formatSelection"},
 		{Key: "ctrl+l o", Command: "editor.organizeImports"},
 		{Key: "ctrl+l x", Command: "editor.fixAll"},
@@ -342,6 +345,8 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "ctrl+k y", Command: "view.keybindings"},
 		{Key: "ctrl+t", Command: "terminal.toggle"},
 		{Key: "alt+t", Command: "terminal.fullscreen"},
+		{Key: "f6", Command: "focus.nextGroup"},
+		{Key: "shift+f6", Command: "focus.prevGroup"},
 		{Key: "f10", Command: "menu.file"},
 		{Key: "alt+f", Command: "menu.file"},
 		{Key: "alt+e", Command: "menu.edit"},

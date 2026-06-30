@@ -50,6 +50,15 @@ func (r *Registry) ClearAllShortcuts() {
 	}
 }
 
+func (r *Registry) FindByTitle(title string) (Command, bool) {
+	for _, cmd := range r.commands {
+		if cmd.Title == title {
+			return cmd, true
+		}
+	}
+	return Command{}, false
+}
+
 func (r *Registry) List() []Command {
 	cmds := make([]Command, 0, len(r.commands))
 	for _, cmd := range r.commands {

@@ -14,7 +14,9 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"errors"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,6 +44,7 @@ type Diagnostic struct {
 
 type editorTab struct {
 	FilePath    string
+	Title       string
 	Buf         *buffer.Buffer
 	Cur         *cursor.Cursor
 	Vp          *view.Viewport
@@ -82,7 +85,11 @@ type EditorGroupWidget struct {
 	OnFileOpen             func(path, lang, text string)
 	OnFileChange           func(path, lang, text string)
 	OnFileClose            func(path, lang string)
+	OnContentTabClose      func(id string)
 	OnError                func(msg string)
+	OnNotify               func(msg string)
+	pendingNotify          []string
+	focused                bool
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -131,6 +138,15 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 
 func (g *EditorGroupWidget) Focusable() bool { return true }
 
+func (g *EditorGroupWidget) SetFocused(focused bool) {
+	g.focused = focused
+	if t := g.activeTab(); t != nil && t.Content != nil {
+		if setter, ok := t.Content.(interface{ SetFocused(bool) }); ok {
+			setter.SetFocused(focused)
+		}
+	}
+}
+
 func (g *EditorGroupWidget) activeTab() *editorTab {
 	if len(g.tabs) == 0 || g.active < 0 || g.active >= len(g.tabs) {
 		return nil
@@ -144,6 +160,24 @@ func (g *EditorGroupWidget) reportError(msg string) {
 	} else {
 		slog.Error(msg)
 	}
+}
+
+func (g *EditorGroupWidget) notify(msg string) {
+	if g.OnNotify != nil {
+		g.OnNotify(msg)
+	} else {
+		g.pendingNotify = append(g.pendingNotify, msg)
+	}
+}
+
+func (g *EditorGroupWidget) FlushNotifications() {
+	if g.OnNotify == nil {
+		return
+	}
+	for _, msg := range g.pendingNotify {
+		g.OnNotify(msg)
+	}
+	g.pendingNotify = nil
 }
 
 func (g *EditorGroupWidget) PinActiveTab() {
@@ -172,8 +206,11 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		newBuf.TrimTrailingWhitespace = ec.TrimTrailingWS
 	}
 	if err := newBuf.LoadFile(path); err != nil {
-		g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
-		return
+		if !errors.Is(err, os.ErrNotExist) {
+			g.reportError(fmt.Sprintf("Failed to open %s: %v", path, err))
+			return
+		}
+		g.notify(fmt.Sprintf("New file: %s", filepath.Base(path)))
 	}
 	tabSize := g.TabSize
 	useTabs := !g.InsertSpaces
@@ -273,6 +310,52 @@ func (g *EditorGroupWidget) OpenDiff(path string, fd diff.FileDiff, oldLines, ne
 		Content:  widget,
 	})
 	g.SwitchTab(len(g.tabs) - 1)
+}
+
+func (g *EditorGroupWidget) OpenPluginTab(id, title string, content Widget) {
+	for i, t := range g.tabs {
+		if t.FilePath == id {
+			t.Content = content
+			t.Title = title
+			g.tabs[i] = t
+			g.SwitchTab(i)
+			return
+		}
+	}
+	g.tabs = append(g.tabs, editorTab{
+		FilePath: id,
+		Title:    title,
+		Content:  content,
+		Pinned:   true,
+	})
+	g.SwitchTab(len(g.tabs) - 1)
+}
+
+func (g *EditorGroupWidget) ClosePluginTab(id string) {
+	for i, t := range g.tabs {
+		if t.FilePath == id {
+			if t.Content != nil && g.OnContentTabClose != nil {
+				g.OnContentTabClose(t.FilePath)
+			}
+			g.tabs = append(g.tabs[:i], g.tabs[i+1:]...)
+			if len(g.tabs) == 0 {
+				g.tabs = []editorTab{{
+					FilePath: "untitled",
+					Buf:      &buffer.Buffer{Lines: []string{""}},
+					Cur:      &cursor.Cursor{},
+					Vp:       &view.Viewport{},
+					Undo:     &undo.UndoStack{},
+					Sel:      &selection.Selection{},
+					Virtual:  true,
+				}}
+				g.active = 0
+			} else if g.active >= len(g.tabs) {
+				g.active = len(g.tabs) - 1
+			}
+			g.syncTabs()
+			return
+		}
+	}
 }
 
 func (g *EditorGroupWidget) ReloadFile(path string) {
@@ -423,9 +506,21 @@ func (g *EditorGroupWidget) SetUseTabs(useTabs bool) {
 
 func (g *EditorGroupWidget) SwitchTab(idx int) {
 	if idx >= 0 && idx < len(g.tabs) {
+		if t := g.activeTab(); t != nil && t.Content != nil {
+			if setter, ok := t.Content.(interface{ SetFocused(bool) }); ok {
+				setter.SetFocused(false)
+			}
+		}
 		g.saveMultiState()
 		g.active = idx
 		g.syncTabs()
+		if g.focused {
+			if t := g.activeTab(); t != nil && t.Content != nil {
+				if setter, ok := t.Content.(interface{ SetFocused(bool) }); ok {
+					setter.SetFocused(true)
+				}
+			}
+		}
 	}
 }
 
@@ -455,6 +550,9 @@ func (g *EditorGroupWidget) CloseTab() {
 	if g.OnFileClose != nil && closing.Highlighter != nil && !closing.Virtual {
 		g.OnFileClose(closing.FilePath, closing.Highlighter.Language())
 	}
+	if closing.Content != nil && g.OnContentTabClose != nil {
+		g.OnContentTabClose(closing.FilePath)
+	}
 	g.tabs = append(g.tabs[:g.active], g.tabs[g.active+1:]...)
 	if len(g.tabs) == 0 {
 		g.tabs = []editorTab{{
@@ -478,9 +576,51 @@ func (g *EditorGroupWidget) CloseOtherTabs() {
 	if t == nil || len(g.tabs) <= 1 {
 		return
 	}
+	if g.OnContentTabClose != nil {
+		for i, tab := range g.tabs {
+			if i != g.active && tab.Content != nil {
+				g.OnContentTabClose(tab.FilePath)
+			}
+		}
+	}
 	g.tabs = []editorTab{*t}
 	g.active = 0
 	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) CloseOtherSaved() {
+	t := g.activeTab()
+	if t == nil || len(g.tabs) <= 1 {
+		return
+	}
+	kept := []editorTab{*t}
+	for i := range g.tabs {
+		if i == g.active {
+			continue
+		}
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			kept = append(kept, g.tabs[i])
+			continue
+		}
+		if g.tabs[i].Content != nil && g.OnContentTabClose != nil {
+			g.OnContentTabClose(g.tabs[i].FilePath)
+		}
+	}
+	g.tabs = kept
+	g.active = 0
+	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) HasDirtyOtherTabs() bool {
+	for i := range g.tabs {
+		if i == g.active {
+			continue
+		}
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *EditorGroupWidget) CloseAllTabs() {
@@ -497,6 +637,33 @@ func (g *EditorGroupWidget) CloseAllTabs() {
 	g.syncTabs()
 }
 
+func (g *EditorGroupWidget) CloseAllSaved() {
+	var kept []editorTab
+	for i := range g.tabs {
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			kept = append(kept, g.tabs[i])
+		}
+	}
+	if len(kept) == 0 {
+		g.CloseAllTabs()
+		return
+	}
+	g.tabs = kept
+	if g.active >= len(g.tabs) {
+		g.active = len(g.tabs) - 1
+	}
+	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) HasDirtyTabs() bool {
+	for i := range g.tabs {
+		if g.tabs[i].Buf != nil && g.tabs[i].Buf.Dirty {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *EditorGroupWidget) Save() bool {
 	t := g.activeTab()
 	if t == nil || t.Content != nil {
@@ -509,6 +676,9 @@ func (g *EditorGroupWidget) Save() bool {
 		g.reportError(fmt.Sprintf("Failed to save %s: %v", t.FilePath, err))
 		return false
 	}
+	if t.Undo != nil {
+		t.Undo.MarkSaved()
+	}
 	return true
 }
 
@@ -520,6 +690,9 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 	if err := t.Buf.SaveFile(path); err != nil {
 		g.reportError(fmt.Sprintf("Failed to save %s: %v", path, err))
 		return
+	}
+	if t.Undo != nil {
+		t.Undo.MarkSaved()
 	}
 	t.FilePath = path
 	t.Virtual = false
@@ -561,6 +734,32 @@ func (g *EditorGroupWidget) ActiveCursor() (line, col int) {
 		return 0, 0
 	}
 	return t.Cur.Line, t.Cur.Col
+}
+
+func (g *EditorGroupWidget) TabCount() int {
+	return len(g.tabs)
+}
+
+func (g *EditorGroupWidget) ActiveTabIndex() int {
+	return g.active
+}
+
+func (g *EditorGroupWidget) TabInfo(index int) (path string, modified bool) {
+	if index < 0 || index >= len(g.tabs) {
+		return "", false
+	}
+	t := &g.tabs[index]
+	dirty := t.Buf != nil && t.Buf.Dirty
+	return t.FilePath, dirty
+}
+
+func (g *EditorGroupWidget) ActiveSelection() (active bool, sl, sc, el, ec int) {
+	t := g.activeTab()
+	if t == nil || t.Content != nil || t.Sel == nil || !t.Sel.Active {
+		return false, 0, 0, 0, 0
+	}
+	start, end := t.Sel.Range(t.Cur.Line, t.Cur.Col)
+	return true, start.Line, start.Col, end.Line, end.Col
 }
 
 func (g *EditorGroupWidget) ActiveFileName() string {
@@ -610,6 +809,9 @@ func (g *EditorGroupWidget) Undo() {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
 		}
+		if t.Undo.AtSavePoint() {
+			t.Buf.Dirty = false
+		}
 		g.undoRedoPostProcess()
 	}
 }
@@ -623,6 +825,9 @@ func (g *EditorGroupWidget) Redo() {
 		if pos := t.Undo.Redo(t.Buf); pos != nil {
 			g.Editor.Cursor.Line = pos.Line
 			g.Editor.Cursor.Col = pos.Col
+		}
+		if t.Undo.AtSavePoint() {
+			t.Buf.Dirty = false
 		}
 		g.undoRedoPostProcess()
 	}
@@ -670,6 +875,22 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.ExpandFoldContaining(bufLine)
 	g.Editor.Cursor.Line = bufLine
 	g.Editor.Cursor.Col = 0
+	h := g.Editor.Viewport.Height
+	if h <= 0 {
+		r := g.GetRect()
+		h = r.H - 3
+		if h > 0 {
+			g.Editor.Viewport.Height = h
+		}
+	}
+	if h > 0 {
+		margin := h / 3
+		top := bufLine - margin
+		if top < 0 {
+			top = 0
+		}
+		g.Editor.Viewport.TopLine = top
+	}
 	g.Editor.scrollViewport()
 }
 
@@ -1028,8 +1249,12 @@ func (g *EditorGroupWidget) syncTabs() {
 		if len(g.tabs) == 1 && ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
 			closable = false
 		}
+		name := ts.FilePath
+		if ts.Title != "" {
+			name = ts.Title
+		}
 		uiTabs = append(uiTabs, Tab{
-			Name:     ts.FilePath,
+			Name:     name,
 			Active:   i == g.active,
 			Dirty:    dirty,
 			Closable: closable,
@@ -1038,7 +1263,7 @@ func (g *EditorGroupWidget) syncTabs() {
 	g.TabBar.SetTabs(uiTabs)
 }
 
-func (g *EditorGroupWidget) Render(surface *RenderSurface) {
+func (g *EditorGroupWidget) Render(surface Surface) {
 	g.syncTabs()
 	w, h := surface.Size()
 	r := g.GetRect()
@@ -1122,7 +1347,14 @@ func (g *EditorGroupWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventIgnored
 	}
 	if t.Content != nil {
-		return t.Content.HandleEvent(ev)
+		result = t.Content.HandleEvent(ev)
+		if result != EventIgnored {
+			return result
+		}
+		if _, ok := ev.(*tcell.EventMouse); ok {
+			return EventConsumed
+		}
+		return EventIgnored
 	}
 	result = g.Editor.HandleEvent(ev)
 	g.saveMultiState()

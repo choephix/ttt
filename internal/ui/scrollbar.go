@@ -36,7 +36,7 @@ func (s *Scrollbar) ThumbPos() (top, height int) {
 	return
 }
 
-func (s *Scrollbar) Render(surface *RenderSurface, rx, ry int) {
+func (s *Scrollbar) Render(surface Surface, rx, ry int) {
 	if !s.Visible() {
 		return
 	}
@@ -142,7 +142,7 @@ func (s *HScrollbar) ThumbPos() (left, width int) {
 	return
 }
 
-func (s *HScrollbar) Render(surface *RenderSurface, rx, ry int) {
+func (s *HScrollbar) Render(surface Surface, rx, ry int) {
 	if !s.Visible() {
 		return
 	}

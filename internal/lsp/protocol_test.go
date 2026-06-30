@@ -470,6 +470,55 @@ func TestInitializeResultFullResponse(t *testing.T) {
 	}
 }
 
+func TestCompletionTextEditPlainTextEdit(t *testing.T) {
+	raw := `{"label":"slog","textEdit":{"range":{"start":{"line":5,"character":1},"end":{"line":5,"character":4}},"newText":"slog"}}`
+	var item CompletionItem
+	if err := json.Unmarshal([]byte(raw), &item); err != nil {
+		t.Fatal(err)
+	}
+	if item.TextEdit == nil {
+		t.Fatal("expected textEdit")
+	}
+	r := item.TextEdit.EffectiveRange()
+	if r.Start.Character != 1 || r.End.Character != 4 {
+		t.Errorf("expected range 1-4, got %d-%d", r.Start.Character, r.End.Character)
+	}
+	if item.TextEdit.NewText != "slog" {
+		t.Errorf("expected newText 'slog', got %q", item.TextEdit.NewText)
+	}
+}
+
+func TestCompletionTextEditInsertReplaceEdit(t *testing.T) {
+	raw := `{"label":"slog","textEdit":{"insert":{"start":{"line":5,"character":1},"end":{"line":5,"character":4}},"replace":{"start":{"line":5,"character":1},"end":{"line":5,"character":4}},"newText":"slog"}}`
+	var item CompletionItem
+	if err := json.Unmarshal([]byte(raw), &item); err != nil {
+		t.Fatal(err)
+	}
+	if item.TextEdit == nil {
+		t.Fatal("expected textEdit")
+	}
+	r := item.TextEdit.EffectiveRange()
+	if r.Start.Character != 1 || r.End.Character != 4 {
+		t.Errorf("expected range 1-4, got %d-%d", r.Start.Character, r.End.Character)
+	}
+	te := item.TextEdit.ToTextEdit()
+	if te.Range.Start.Character != 1 || te.Range.End.Character != 4 {
+		t.Errorf("ToTextEdit range mismatch: %d-%d", te.Range.Start.Character, te.Range.End.Character)
+	}
+}
+
+func TestCompletionTextEditInsertReplaceEditDifferentRanges(t *testing.T) {
+	raw := `{"label":"Any","textEdit":{"insert":{"start":{"line":5,"character":5},"end":{"line":5,"character":5}},"replace":{"start":{"line":5,"character":5},"end":{"line":5,"character":6}},"newText":"Any"}}`
+	var item CompletionItem
+	if err := json.Unmarshal([]byte(raw), &item); err != nil {
+		t.Fatal(err)
+	}
+	r := item.TextEdit.EffectiveRange()
+	if r.Start.Character != 5 || r.End.Character != 6 {
+		t.Errorf("expected replace range 5-6, got %d-%d", r.Start.Character, r.End.Character)
+	}
+}
+
 func TestInitializeResultMinimalResponse(t *testing.T) {
 	// Some servers return very minimal capabilities
 	raw := `{"capabilities":{"textDocumentSync":1}}`

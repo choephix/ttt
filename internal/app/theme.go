@@ -28,6 +28,11 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleStatusBar, theme.StatusBar)
 	applyStyleDef(&m, term.StyleActiveTab, theme.Tabs.Active)
 	applyStyleDef(&m, term.StyleInactiveTab, theme.Tabs.Inactive)
+	selectedTab := theme.Tabs.Selected
+	if selectedTab.Fg == "" && selectedTab.Bg == "" {
+		selectedTab = theme.Sidebar.Selected
+	}
+	applyStyleDef(&m, term.StyleSelectedTab, selectedTab)
 	applyStyleDef(&m, term.StyleSidebarSelected, theme.Sidebar.Selected)
 	applyStyleDef(&m, term.StylePaletteItem, theme.Dialog.Item)
 	applyStyleDef(&m, term.StylePaletteSelected, theme.Dialog.Selected)
@@ -35,6 +40,7 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleMenuBar, theme.Menu.Item)
 	applyStyleDef(&m, term.StyleMenuBarActive, theme.Menu.Active)
 	applyStyleDef(&m, term.StyleBorder, theme.Border)
+	applyStyleDef(&m, term.StyleBorderActive, theme.BorderActive)
 	applyStyleDef(&m, term.StyleSelection, theme.Editor.Selection)
 	applyStyleDef(&m, term.StyleSearchMatch, theme.Editor.SearchMatch)
 	applyStyleDef(&m, term.StyleSearchActive, theme.Editor.SearchActive)
@@ -63,6 +69,8 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleInput, theme.Input.Item)
 	applyStyleDef(&m, term.StyleInputPlaceholder, theme.Input.Placeholder)
 	applyStyleDef(&m, term.StyleInputAction, theme.Input.Action)
+	applyStyleDef(&m, term.StyleButton, theme.Button.Item)
+	applyStyleDef(&m, term.StyleButtonFocused, theme.Button.Focused)
 	applyStyleDef(&m, term.StyleHoverBold, theme.Hover.Bold)
 	applyStyleDef(&m, term.StyleHoverCode, theme.Hover.Code)
 	applyStyleDef(&m, term.StyleMuted, theme.Muted)

@@ -31,7 +31,7 @@ func NewContentSplitWidget() *ContentSplitWidget {
 
 func (cs *ContentSplitWidget) Focusable() bool { return false }
 
-func (cs *ContentSplitWidget) Render(surface *RenderSurface) {
+func (cs *ContentSplitWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	r := cs.GetRect()
 

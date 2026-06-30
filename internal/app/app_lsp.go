@@ -148,8 +148,8 @@ func (a *App) resolveAndInsert(item ui.CompletionItem) {
 	}
 
 	var textEdit *lsp.TextEdit
-	if lspItem != nil {
-		textEdit = lspItem.TextEdit
+	if lspItem != nil && lspItem.TextEdit != nil {
+		textEdit = lspItem.TextEdit.ToTextEdit()
 	}
 	a.insertCompletion(item, textEdit)
 }
@@ -169,6 +169,13 @@ func (a *App) insertCompletion(item ui.CompletionItem, textEdit *lsp.TextEdit) {
 		startCol = textEdit.Range.Start.Character
 		endLine = textEdit.Range.End.Line
 		endCol = textEdit.Range.End.Character
+		if startLine == endLine && startCol == endCol {
+			_, identCol, cursorCol := a.identStart()
+			if identCol < endCol || endCol <= cursorCol {
+				startCol = identCol
+				endCol = cursorCol
+			}
+		}
 	} else {
 		text = item.InsertText
 		if text == "" {
@@ -833,7 +840,7 @@ func (a *App) NotifyLSPOpen(path, lang, text string) {
 		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
 			if !a.LspNotified[serverKey] && a.Settings.LSP.ShouldNotifyAvailability() {
 				a.LspNotified[serverKey] = true
-				msg := fmt.Sprintf("%s autocomplete support is available. Click Docs for installation instructions.", lang)
+				msg := fmt.Sprintf("LSP Code Assist binary is not installed for %s. Click Docs for installation instructions.", lang)
 				anchor := serverKey
 				a.Status.SetNotificationWithAction(msg, view.NotifyWarning, 10*time.Second, "Docs", func() {
 					OpenURL("https://tttedit.dev/guides/lsp/#" + anchor)

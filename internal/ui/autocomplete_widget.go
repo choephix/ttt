@@ -174,7 +174,7 @@ func (a *AutocompleteWidget) ensureVisible() {
 	}
 }
 
-func (a *AutocompleteWidget) Render(surface *RenderSurface) {
+func (a *AutocompleteWidget) Render(surface Surface) {
 	if len(a.Items) == 0 {
 		return
 	}
@@ -232,7 +232,11 @@ func (a *AutocompleteWidget) Render(surface *RenderSurface) {
 		}
 
 		surface.ClearRect(x+1, row, menuW-2, 1, style)
-		surface.SetCell(x+2, row, term.Cell{Ch: it.Kind.Symbol(), Style: it.Kind.Style()})
+		iconCell := term.Cell{Ch: it.Kind.Symbol(), Style: it.Kind.Style()}
+		if idx == a.Selected {
+			iconCell.BgStyle = term.StylePaletteSelected
+		}
+		surface.SetCell(x+2, row, iconCell)
 		surface.DrawText(x+4, row, it.Label, x+1+contentW, style)
 
 		if it.Detail != "" {

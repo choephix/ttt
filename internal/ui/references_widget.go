@@ -35,7 +35,7 @@ func (r *ReferencesWidget) SetItems(items []ReferenceItem) {
 	r.scrollTop = 0
 }
 
-func (r *ReferencesWidget) Render(surface *RenderSurface) {
+func (r *ReferencesWidget) Render(surface Surface) {
 	w, h := surface.Size()
 
 	if len(r.Items) == 0 {

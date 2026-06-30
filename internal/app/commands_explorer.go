@@ -1,7 +1,6 @@
 package app
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -9,87 +8,24 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 )
 
+func (a *App) explorerReload() {
+	a.Explorer.Reload()
+}
+
 func (a *App) ExplorerNewFile() {
-	node := a.Explorer.SelectedNode()
-	if node == nil {
-		return
-	}
-	parentDir := node.Path
-	if !node.IsDir {
-		parentDir = filepath.Dir(node.Path)
-	}
-	a.ShowInputDialog("New File", "Filename", "", func(name string) {
-		newPath := filepath.Join(parentDir, name)
-		if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
-			a.StatusError("Error: " + err.Error())
-			return
-		}
-		if err := os.WriteFile(newPath, []byte{}, 0644); err != nil {
-			a.StatusError("Error: " + err.Error())
-			return
-		}
-		a.Explorer.Reload()
-		a.EditorGroup.OpenFile(newPath)
-		a.FocusEditor()
-	})
+	a.FileOpNewFile(a.explorerNodePath(), a.explorerReload)
 }
 
 func (a *App) ExplorerNewFolder() {
-	node := a.Explorer.SelectedNode()
-	if node == nil {
-		return
-	}
-	parentDir := node.Path
-	if !node.IsDir {
-		parentDir = filepath.Dir(node.Path)
-	}
-	a.ShowInputDialog("New Folder", "Folder name", "", func(name string) {
-		newPath := filepath.Join(parentDir, name)
-		if err := os.MkdirAll(newPath, 0755); err != nil {
-			a.StatusError("Error: " + err.Error())
-			return
-		}
-		a.Explorer.Reload()
-	})
+	a.FileOpNewFolder(a.explorerNodePath(), a.explorerReload)
 }
 
 func (a *App) ExplorerRename() {
-	node := a.Explorer.SelectedNode()
-	if node == nil {
-		return
-	}
-	a.ShowInputDialog("Rename", "New name", node.Name, func(newName string) {
-		dir := filepath.Dir(node.Path)
-		newPath := filepath.Join(dir, newName)
-		if err := os.Rename(node.Path, newPath); err != nil {
-			a.StatusError("Error: " + err.Error())
-			return
-		}
-		a.Explorer.Reload()
-	})
+	a.FileOpRename(a.explorerNodePath(), a.explorerReload)
 }
 
 func (a *App) ExplorerDelete() {
-	node := a.Explorer.SelectedNode()
-	if node == nil {
-		return
-	}
-	a.ShowConfirmDialog("Delete "+node.Name+"?",
-		[]string{"No", "Yes"},
-		[]func(){
-			func() {
-				a.DismissDialog()
-			},
-			func() {
-				a.DismissDialog()
-				if err := os.RemoveAll(node.Path); err != nil {
-					a.StatusError("Error: " + err.Error())
-					return
-				}
-				a.Explorer.Reload()
-			},
-		},
-	)
+	a.FileOpDelete(a.explorerNodePath(), a.explorerReload)
 }
 
 func (a *App) CopyAbsolutePath() {
@@ -115,39 +51,20 @@ func (a *App) CopyRelativePath() {
 
 func (a *App) ExplorerCopyAbsolutePath() {
 	path := a.explorerNodePath()
-	if path == "" {
-		a.StatusWarn("No file selected")
-		return
-	}
-	clipboard.Set(path)
 	a.ExplorerContextNode = nil
-	a.StatusNotify("Absolute path copied to clipboard")
+	a.FileOpCopyAbsolutePath(path)
 }
 
 func (a *App) ExplorerCopyRelativePath() {
 	path := a.explorerNodePath()
-	if path == "" {
-		a.StatusWarn("No file selected")
-		return
-	}
-	rel := a.relativePath(path)
-	clipboard.Set(rel)
 	a.ExplorerContextNode = nil
-	a.StatusNotify("Relative path copied to clipboard")
+	a.FileOpCopyRelativePath(path)
 }
 
 func (a *App) ExplorerRemoveRoot() {
 	path := a.explorerNodePath()
-	if path == "" {
-		return
-	}
 	a.ExplorerContextNode = nil
-	if len(a.Workspace.Paths()) <= 1 {
-		a.StatusWarn("Cannot remove the last folder")
-		return
-	}
-	a.Workspace.RemoveFolder(path)
-	a.refreshWorkspaceWidgets()
+	a.FileOpRemoveRoot(path)
 }
 
 func (a *App) activeFilePath() string {
@@ -166,10 +83,10 @@ func (a *App) activeFilePath() string {
 
 func (a *App) explorerNodePath() string {
 	if a.ExplorerContextNode != nil {
-		return a.ExplorerContextNode.Path
+		return a.ExplorerContextNode.ID
 	}
-	if node := a.Explorer.SelectedNode(); node != nil {
-		return node.Path
+	if node := a.Explorer.Tree.Selected(); node != nil {
+		return node.ID
 	}
 	return ""
 }
@@ -201,7 +118,7 @@ func registerExplorerCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "explorer.open", Title: "Explorer: Toggle Node",
 		Keywords: []string{"view", "file"},
-		Handler:  func() { app.Explorer.ActivateSelected() },
+		Handler:  func() { app.Explorer.Tree.ActivateSelected() },
 	})
 
 	reg.Register(command.Command{

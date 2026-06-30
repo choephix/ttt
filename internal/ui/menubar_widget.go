@@ -15,7 +15,7 @@ type MenuBarWidget struct {
 	Items    []MenuItem
 	Selected int
 	OnSelect func(index int)
-	itemSpans []struct{ start, end int }
+	itemSpans []MenuItemSpan
 }
 
 func NewMenuBarWidget(items []MenuItem) *MenuBarWidget {
@@ -25,16 +25,23 @@ func NewMenuBarWidget(items []MenuItem) *MenuBarWidget {
 	}
 }
 
+type MenuItemSpan struct {
+	Start, End int
+}
+
+func (m *MenuBarWidget) ItemSpans() []MenuItemSpan { return m.itemSpans }
+
+func (m *MenuBarWidget) Height() int     { return 1 }
 func (m *MenuBarWidget) Focusable() bool { return true }
 
-func (m *MenuBarWidget) Render(surface *RenderSurface) {
+func (m *MenuBarWidget) Render(surface Surface) {
 	w, _ := surface.Size()
 
 	for x := 0; x < w; x++ {
 		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: term.StyleMenuBar})
 	}
 
-	m.itemSpans = make([]struct{ start, end int }, len(m.Items))
+	m.itemSpans = make([]MenuItemSpan, len(m.Items))
 	x := 1
 	for i, item := range m.Items {
 		style := term.StyleMenuBar
@@ -53,14 +60,14 @@ func (m *MenuBarWidget) Render(surface *RenderSurface) {
 		}
 		surface.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 		x++
-		m.itemSpans[i] = struct{ start, end int }{startX, x}
+		m.itemSpans[i] = MenuItemSpan{startX, x}
 		x++
 	}
 }
 
 func (m *MenuBarWidget) ItemAnchorX(index int) int {
 	if index >= 0 && index < len(m.itemSpans) {
-		return m.itemSpans[index].start
+		return m.itemSpans[index].Start
 	}
 	return 0
 }
@@ -74,7 +81,7 @@ func (m *MenuBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			if my == r.Y {
 				localX := mx - r.X
 				for i, span := range m.itemSpans {
-					if localX >= span.start && localX < span.end {
+					if localX >= span.Start && localX < span.End {
 						m.Selected = i
 						if m.OnSelect != nil {
 							m.OnSelect(i)

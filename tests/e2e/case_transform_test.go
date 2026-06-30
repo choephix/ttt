@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func TestUpperCase(t *testing.T) {
@@ -140,5 +142,46 @@ func TestUpperCaseMultiLine(t *testing.T) {
 	}
 	if h.app.EditorGroup.Editor.Buf.Lines[1] != "WORLD" {
 		t.Errorf("expected 'WORLD', got %q", h.app.EditorGroup.Editor.Buf.Lines[1])
+	}
+}
+
+func TestUpperCaseMultiLineUndo(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	f := filepath.Join(h.dir, "undo.txt")
+	os.WriteFile(f, []byte("hello\nworld\nthird\nfourth\n"), 0644)
+	h.app.EditorGroup.OpenFile(f)
+	h.redraw()
+
+	ed := h.app.EditorGroup.Editor
+	// Select lines 0-2 via shift+down x3
+	for range 3 {
+		h.pressKey(tcell.KeyDown, tcell.ModShift)
+	}
+	h.exec("editor.upperCase")
+	h.redraw()
+
+	if ed.Buf.Lines[0] != "HELLO" {
+		t.Errorf("after transform: expected 'HELLO', got %q", ed.Buf.Lines[0])
+	}
+	if ed.Buf.Lines[3] != "fourth" {
+		t.Errorf("after transform: expected 'fourth' untouched, got %q", ed.Buf.Lines[3])
+	}
+
+	h.exec("editor.undo")
+	h.redraw()
+
+	if ed.Buf.Lines[0] != "hello" {
+		t.Errorf("after 1 undo: expected 'hello', got %q", ed.Buf.Lines[0])
+	}
+	if ed.Buf.Lines[1] != "world" {
+		t.Errorf("after 1 undo: expected 'world', got %q", ed.Buf.Lines[1])
+	}
+	if ed.Buf.Lines[2] != "third" {
+		t.Errorf("after 1 undo: expected 'third', got %q", ed.Buf.Lines[2])
+	}
+	if ed.Buf.Lines[3] != "fourth" {
+		t.Errorf("after 1 undo: expected 'fourth', got %q", ed.Buf.Lines[3])
 	}
 }

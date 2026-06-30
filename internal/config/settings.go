@@ -1,13 +1,9 @@
 package config
 
 import (
-	_ "embed"
 	"encoding/json"
 	"os"
 )
-
-//go:embed lsp_servers.json
-var lspServersJSON []byte
 
 type TerminalSettings struct {
 	Shell      string `json:"shell,omitempty"`
@@ -64,11 +60,9 @@ func (l LSPSettings) IsHoverEnabled() bool {
 }
 
 func DefaultLSPSettings() LSPSettings {
-	var servers map[string]LSPServerConfig
-	json.Unmarshal(lspServersJSON, &servers)
 	return LSPSettings{
 		HoverDelay: 500,
-		Servers:    servers,
+		Servers:    make(map[string]LSPServerConfig),
 	}
 }
 
@@ -131,6 +125,14 @@ func DefaultExplorerSettings() ExplorerSettings {
 	}
 }
 
+type PluginSettings struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+func (p PluginSettings) IsEnabled() bool {
+	return p.Enabled == nil || *p.Enabled
+}
+
 type Settings struct {
 	Version      int                  `json:"version"`
 	Theme        string               `json:"theme,omitempty"`
@@ -141,6 +143,8 @@ type Settings struct {
 	Terminal     TerminalSettings     `json:"terminal,omitzero"`
 	LSP          LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
+	Plugins      PluginSettings       `json:"plugins,omitzero"`
+	Formatters   map[string]string    `json:"formatters,omitempty"`
 }
 
 func DefaultSettings() Settings {
@@ -153,6 +157,13 @@ func DefaultSettings() Settings {
 		LSP:          DefaultLSPSettings(),
 		Autocomplete: DefaultAutocompleteSettings(),
 	}
+}
+
+func (s Settings) FormatterForExt(ext string) string {
+	if s.Formatters == nil {
+		return ""
+	}
+	return s.Formatters[ext]
 }
 
 func normalizeSettings(s *Settings) {

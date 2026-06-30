@@ -201,7 +201,10 @@ func TestDefaultLSPSettings(t *testing.T) {
 		t.Errorf("expected HoverDelay 500, got %d", ls.HoverDelay)
 	}
 	if ls.Servers == nil {
-		t.Error("expected Servers to be loaded from embedded JSON")
+		t.Error("expected Servers map to be initialized")
+	}
+	if len(ls.Servers) != 0 {
+		t.Errorf("expected empty Servers map, got %d entries", len(ls.Servers))
 	}
 }
 

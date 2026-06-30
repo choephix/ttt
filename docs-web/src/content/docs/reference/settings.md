@@ -61,14 +61,20 @@ All editor settings are nested under the `editor` key.
 | `lsp.hoverDelay` | int | `500` | Milliseconds to wait before showing hover information |
 | `lsp.saveOnRename` | bool | `false` | Auto-save files affected by a rename operation |
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
-| `lsp.notifyAvailability` | bool | `true` | Show a notification when a language server is available but not installed |
-| `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
+| `lsp.notifyAvailability` | bool | `true` | Show a notification when a language server binary is not installed |
+| `lsp.servers` | object | `{}` | Map of server key to `{ "command": [...], "languages": {...} }`. Configured automatically by LSP plugins (e.g. `lsp-go`, `lsp-typescript`). The optional `languages` field maps file extensions to language IDs for servers handling multiple file types. |
 
 ## Search
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `search.debounce` | int | `350` | Milliseconds to debounce global search input |
+
+## Plugins
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `plugins.enabled` | bool | `true` | Enable the plugin system. When `false`, no plugins are loaded and the Plugins sidebar tab is hidden. |
 
 ## Autocomplete
 
@@ -78,6 +84,31 @@ All editor settings are nested under the `editor` key.
 | `autocomplete.autoSuggest` | bool | `true` | Show completions automatically as you type |
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
 | `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
+
+## Formatters
+
+External code formatters configured per file extension. Each formatter receives the buffer content via stdin and must write the formatted output to stdout. Use `{file}` as a placeholder for the file path (needed by formatters like prettier for filetype detection).
+
+When `editor.formatOnSave` is `true`, external formatters take priority over LSP formatting. If no external formatter is configured for the file type, LSP formatting is used as a fallback.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `formatters.<ext>` | string | — | Formatter command for files with this extension. `<ext>` is the extension without the dot (e.g. `go`, `js`, `py`). |
+
+**Example:**
+
+```json
+{
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}",
+    "py": "black -"
+  }
+}
+```
+
+**Keybinding:** `Ctrl+K F` runs the external formatter. `Ctrl+L F` runs the LSP formatter.
 
 ## Full Example
 
@@ -122,25 +153,22 @@ All editor settings are nested under the `editor` key.
     "codeActionsOnSave": [
       "source.organizeImports",
       "source.fixAll"
-    ],
-    "servers": {
-      "go": { "command": ["gopls"] },
-      "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
-        "languages": {
-          ".ts": "typescript",
-          ".tsx": "typescriptreact",
-          ".js": "javascript",
-          ".jsx": "javascriptreact"
-        }
-      }
-    }
+    ]
   },
   "autocomplete": {
     "enabled": true,
     "autoSuggest": true,
     "debounce": 150,
     "signatureHelp": true
+  },
+  "plugins": {
+    "enabled": true
+  },
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}",
+    "py": "black -"
   }
 }
 ```

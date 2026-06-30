@@ -12,12 +12,14 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/lsp"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/terminal"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/watcher"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 
 	"github.com/gdamore/tcell/v2"
@@ -38,9 +40,7 @@ type App struct {
 	SplitPanel         *ui.SplitPanelWidget
 	ContentSplit       *ui.ContentSplitWidget
 	BottomPanel        *ui.BottomPanelWidget
-	Explorer           *ui.ExplorerWidget
 	Search             *ui.SearchWidget
-	Changes            *ui.ChangesWidget
 	MenuBar            *ui.MenuBarWidget
 	StatusBar          *ui.StatusBarWidget
 	Status             *view.StatusBar
@@ -68,14 +68,21 @@ type App struct {
 	AllDiagnostics     map[string][]ui.Diagnostic
 	Keybindings        []config.KeyBinding
 	LspNotified        map[string]bool
-	ExplorerContextNode *ui.TreeNode
+	Explorer            *NavigationPanel
+	ExplorerContextNode *widgets.TreeNode
+	Changes             *ChangesPanel
 	Reg                *command.Registry
 	Running            *bool
 	quitPending        bool
 	Watcher            *watcher.Watcher
-	GitGutterGen       int
-	GitGutterTimer     *time.Timer
-	Version            string
+	GitGutterGen            int
+	GitGutterTimer          *time.Timer
+	Version                 string
+	PluginManager           *plugin.Manager
+	PendingPluginApprovals  []*plugin.Plugin
+	PluginsPanel            *PluginsPanel
+	Output                  *ui.OutputWidget
+	pluginDetailWidgets     map[string]*pluginDetailState
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -234,14 +241,20 @@ func (a *App) SpawnTerminal() {
 }
 
 func (a *App) CloseTerminal(panelID string) {
+	idx := -1
 	for i, tt := range a.Terminals {
 		if tt.ID == panelID {
-			tt.Term.Close()
-			a.Terminals = append(a.Terminals[:i], a.Terminals[i+1:]...)
-			a.TerminalPanel.RemoveTerminal(i)
+			idx = i
 			break
 		}
 	}
+	if idx < 0 {
+		return
+	}
+	a.Terminals[idx].Term.Close()
+	a.Terminals = append(a.Terminals[:idx], a.Terminals[idx+1:]...)
+	a.TerminalPanel.RemoveTerminal(idx)
+
 	if a.TerminalPanel.Count() == 0 {
 		a.FocusEditor()
 	} else {
@@ -250,34 +263,24 @@ func (a *App) CloseTerminal(panelID string) {
 }
 
 func (a *App) CloseAllTerminals() {
-	for i := len(a.Terminals) - 1; i >= 0; i-- {
-		a.CloseTerminal(a.Terminals[i].ID)
+	terms := a.Terminals
+	a.Terminals = nil
+	for i := len(terms) - 1; i >= 0; i-- {
+		a.TerminalPanel.RemoveTerminal(i)
 	}
+	for _, tt := range terms {
+		tt.Term.Close()
+	}
+	a.FocusEditor()
 }
 
 func (a *App) refreshWorkspaceWidgets() {
 	paths := a.Workspace.Paths()
 
-	existing := make(map[string]bool)
-	for _, r := range a.Explorer.Roots {
-		existing[r.Path] = true
-	}
-	wanted := make(map[string]bool)
-	for _, p := range paths {
-		wanted[p] = true
-		if !existing[p] {
-			a.Explorer.AddRoot(p)
-		}
-	}
-	for _, r := range a.Explorer.Roots {
-		if !wanted[r.Path] {
-			a.Explorer.RemoveRoot(r.Path)
-		}
-	}
+	a.Explorer.SetRoots(paths)
 
 	a.Search.SetWorkDirs(paths)
 	a.Changes.SetDirs(paths)
-	a.Changes.Refresh()
 }
 
 func (a *App) refreshProblems() {
@@ -374,12 +377,25 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.EditorGroup.OnError = func(msg string) {
 		a.StatusError(msg)
 	}
+	a.EditorGroup.OnNotify = func(msg string) {
+		a.StatusNotify(msg)
+	}
+	a.EditorGroup.FlushNotifications()
 	a.EditorGroup.OnFileOpen = func(path, lang, text string) {
 		a.NotifyLSPOpen(path, lang, text)
 		a.RequestGitGutterForActiveFile()
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("file.open", path)
+		}
 	}
 	a.EditorGroup.OnFileClose = func(path, lang string) {
 		a.NotifyLSPClose(path, lang)
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("file.close", path)
+		}
+	}
+	a.EditorGroup.OnContentTabClose = func(id string) {
+		a.cleanupPluginDetailTab(id)
 	}
 	if path := a.EditorGroup.ActiveFilePath(); path != "" {
 		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {
@@ -409,6 +425,9 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		a.ScheduleAutocomplete()
 		a.CheckSignatureHelpTrigger()
 		a.ScheduleGitGutter()
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("editor.change", path)
+		}
 	}
 
 	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {
@@ -507,43 +526,102 @@ func (a *App) ShowFindBar(w ui.Widget) {
 	a.Root.PushOverlay(ui.Overlay{Widget: w, Modal: false})
 }
 
+func (a *App) ShowDrawer(drawer *widgets.DrawerWidget) {
+	adapter := ui.NewWidgetAdapter(drawer)
+	a.Root.PushOverlay(ui.Overlay{Widget: adapter, Modal: true})
+	a.Root.SetFocus(adapter)
+}
+
 func (a *App) DismissDialog() {
 	a.Root.PopOverlay()
 	a.FocusEditor()
 }
 
 func (a *App) ShowInputDialog(title, placeholder, initial string, onSubmit func(string)) {
-	dialog := ui.NewInputDialogWidget(title, placeholder, initial)
-	dialog.Borders = a.Borders
-	dialog.OnSubmit = func(value string) {
-		a.DismissDialog()
-		onSubmit(value)
+	a.ShowInputDialogEx(title, placeholder, initial, "Save", onSubmit)
+}
+
+func (a *App) ShowInputDialogEx(title, placeholder, initial, confirmLabel string, onSubmit func(string)) {
+	submit := func(text string) {
+		if text != "" {
+			a.DismissDialog()
+			onSubmit(text)
+		}
 	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
+	input := widgets.NewInputWidget(widgets.InputConfig{
+		Placeholder: placeholder,
+		OnSubmit:    submit,
+	})
+	input.SetText(initial)
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(input)
+	dialog.Buttons = []widgets.DialogButton{
+		{Label: "&Cancel", Handler: func() { a.DismissDialog() }},
+		{Label: "&" + confirmLabel, Handler: func() {
+			if input.Text() != "" {
+				a.DismissDialog()
+				onSubmit(input.Text())
+			}
+		}},
 	}
-	a.ShowDialog(dialog)
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
+}
+
+func (a *App) ShowInfoDialog(title string, entries []widgets.KeyValueEntry) {
+	a.ShowInfoDialogEx(title, entries, false)
+}
+
+func (a *App) ShowInfoDialogEx(title string, entries []widgets.KeyValueEntry, invertStyles bool) {
+	content := widgets.NewKeyValueListWidget(entries)
+	content.InvertStyles = invertStyles
+
+	dialog := widgets.NewDialogWidget(60)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(content)
+	dialog.Buttons = []widgets.DialogButton{
+		{Label: "&Close", Handler: func() { a.DismissDialog() }},
+	}
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) ShowConfirmDialog(message string, buttons []string, callbacks []func()) {
-	var dialog *ui.ConfirmDialogWidget
-	if len(buttons) == 3 {
-		dialog = ui.NewConfirmDialogWidget3(message, buttons[0], buttons[1], buttons[2])
-	} else if len(buttons) == 2 {
-		dialog = ui.NewConfirmDialogWidget2(message, buttons[0], buttons[1])
-	} else {
-		dialog = ui.NewConfirmDialogWidget(message)
-	}
-	dialog.Borders = a.Borders
-	for i, cb := range callbacks {
-		if i < len(dialog.OnButton) {
-			dialog.OnButton[i] = cb
+	a.ShowConfirmDialogEx("", message, buttons, callbacks)
+}
+
+func (a *App) ShowConfirmDialogEx(title, message string, buttons []string, callbacks []func()) {
+	content := widgets.NewParagraphWidget(message)
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Borders = *a.Borders
+	dialog.SetContent(content)
+
+	dialogButtons := make([]widgets.DialogButton, len(buttons))
+	for i, label := range buttons {
+		handler := callbacks[i]
+		dialogButtons[i] = widgets.DialogButton{
+			Label:   "&" + label,
+			Handler: handler,
 		}
 	}
-	dialog.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(dialog)
+	dialog.Buttons = dialogButtons
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Title = title
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
@@ -569,15 +647,25 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 	a.ShowFindBar(findBar)
 }
 
-func (a *App) ShowPicker(items []command.Command, onSelect func(id string)) {
-	picker := ui.NewSelectDialogWidget(items)
-	picker.Borders = a.Borders
-	picker.OnExecute = func(id string) {
-		a.DismissDialog()
-		onSelect(id)
-	}
-	picker.OnDismiss = func() {
-		a.DismissDialog()
-	}
-	a.ShowDialog(picker)
+func (a *App) ShowSelectDialog(title string, items []widgets.SelectItem, onSelect func(id string), onChange func(id string)) {
+	sel := widgets.NewSelectWidget(widgets.SelectConfig{
+		Items:       items,
+		ShowDivider: true,
+		OnSelect: func(id string) {
+			a.DismissDialog()
+			onSelect(id)
+		},
+		OnChange:  onChange,
+		OnDismiss: func() { a.DismissDialog() },
+	})
+
+	dialog := widgets.NewDialogWidget(50)
+	dialog.Title = title
+	dialog.Borders = *a.Borders
+	dialog.SetContent(sel)
+	dialog.OnDismiss = func() { a.DismissDialog() }
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }

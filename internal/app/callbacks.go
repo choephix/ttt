@@ -11,6 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/widgets"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -51,6 +52,28 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
+	case "plugins":
+		items = []ui.ContextMenuItem{
+			{Label: "Install from URL", Command: "plugin.install"},
+			{Label: "Refresh", Command: "plugin.refresh"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "plugin.help"},
+		}
+	default:
+		if a.PluginManager != nil {
+			for _, p := range a.PluginManager.Plugins() {
+				if a.Sidebar.ActivePanel == "plugin."+p.Name && len(p.SidebarMenuEntries) > 0 {
+					for _, e := range p.SidebarMenuEntries {
+						items = append(items, ui.ContextMenuItem{
+							Label:   e.Label,
+							Command: e.Command,
+							IsSep:   e.Separator,
+						})
+					}
+					break
+				}
+			}
+		}
 	}
 	if len(items) > 0 {
 		openContextMenu(a, items, sx, sy)
@@ -63,7 +86,7 @@ func (a *App) DiffSearchSources() []ui.DiffSearchSource {
 	for _, s := range sources {
 		seen[s.TabName] = true
 	}
-	for _, g := range a.Changes.Groups {
+	for _, g := range a.Changes.Groups() {
 		if !g.IsPR {
 			continue
 		}
@@ -84,7 +107,7 @@ func (a *App) NavigateToSearchMatch(path string, line, col int) {
 	if strings.HasSuffix(path, " (diff)") {
 		if !a.EditorGroup.SwitchToTabByPath(path) {
 			filePath := strings.TrimSuffix(path, " (diff)")
-			for _, g := range a.Changes.Groups {
+			for _, g := range a.Changes.Groups() {
 				if !g.IsPR {
 					continue
 				}
@@ -179,15 +202,20 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 
 func (a *App) openSelectedDiff(extended bool) {
 	g := a.Changes.SelectedGroup()
+	if g != nil {
+	} else {
+	}
 	if g != nil && g.IsPR {
 		_, status, ok := a.Changes.SelectedFile()
 		if ok && a.Changes.OnOpenPRDiff != nil {
 			a.Changes.OnOpenPRDiff(g, status, extended)
+		} else {
 		}
 	} else {
 		dir, status, ok := a.Changes.SelectedFile()
 		if ok && a.Changes.OnOpenDiff != nil {
 			a.Changes.OnOpenDiff(dir, status, extended)
+		} else {
 		}
 	}
 }
@@ -247,10 +275,13 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended
 		a.StatusWarn("Empty diff for " + status.Path)
 		return
 	}
-	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, extended)
+	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, false)
 	if dv := a.EditorGroup.ActiveDiffWidget(); dv != nil {
 		dv.OnFetchExtended = func(dv *ui.DiffViewWidget) {
 			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
+		}
+		if extended {
+			dv.SetExtended(true)
 		}
 	}
 	a.FocusEditorIfEnabled()
@@ -348,18 +379,14 @@ func (a *App) CommitChanges(dir string, message string) {
 	if err := git.Commit(dir, message); err != nil {
 		a.StatusError("Commit failed: " + err.Error())
 	} else {
-		for i := range a.Changes.Groups {
-			if a.Changes.Groups[i].Dir == dir {
-				a.Changes.Groups[i].Input.Clear()
-			}
-		}
 		a.StatusNotify("Committed: " + message)
+		a.Changes.ClearInput(dir)
 		a.Changes.Refresh()
 	}
 }
 
 func (a *App) ConfirmDiscard(message string, onConfirm func()) {
-	a.ShowConfirmDialog(message,
+	a.ShowConfirmDialogEx("Discard Changes?", message,
 		[]string{"Cancel", "Discard"},
 		[]func(){
 			func() { a.DismissDialog() },
@@ -398,20 +425,12 @@ func registerWidgetCallbacks(app *App) {
 	}
 	app.SplitPanel.OnRightClick = func() {}
 
-	app.Sidebar.MoreButton.OnClick = app.ShowSidebarMoreMenu
-
-	app.Sidebar.OnPanelChange = func(id string) {
-		if id == "search" {
-			app.applySearchHighlights()
-		} else {
-			app.EditorGroup.ClearSearch()
-		}
-		if id == "changes" {
-			app.Changes.Refresh()
-		}
+	app.Sidebar.Tabs.Config.Actions = []widgets.TabAction{
+		{Icon: "⋮", OnClick: app.ShowSidebarMoreMenu},
 	}
 
-	app.Sidebar.OnTabOverflow = func(ids []string, titles []string, sx, sy int) {
+	app.Sidebar.Tabs.Config.OnOverflow = func(sx, sy int) {
+		ids, titles := app.Sidebar.HiddenTabs()
 		var items []ui.ContextMenuItem
 		for i, id := range ids {
 			panelID := id
@@ -425,6 +444,17 @@ func registerWidgetCallbacks(app *App) {
 		openContextMenu(app, items, sx, sy)
 	}
 
+	app.Sidebar.OnPanelChange = func(id string) {
+		if id == "search" {
+			app.applySearchHighlights()
+		} else {
+			app.EditorGroup.ClearSearch()
+		}
+		if id == "changes" {
+			app.Changes.Refresh()
+		}
+	}
+
 	app.EditorGroup.TabBar.OnTabClose = func(index int) {
 		app.EditorGroup.SwitchTab(index)
 		reg.Execute("tab.close")
@@ -433,6 +463,7 @@ func registerWidgetCallbacks(app *App) {
 	app.EditorGroup.TabBar.MoreButton.OnClick = func(sx, sy int) {
 		moreMenu := []ui.ContextMenuItem{
 			{Label: "Close All", Command: "tab.closeAll"},
+			{Label: "Close All Saved", Command: "tab.closeAllSaved"},
 		}
 		openContextMenu(app, moreMenu, sx, sy)
 	}
@@ -443,6 +474,7 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Close", Shortcut: app.KeyFor("tab.close"), Command: "tab.close"},
 			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
 			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
+			{Label: "Close All Saved", Shortcut: "", Command: "tab.closeAllSaved"},
 			ui.MenuSep(),
 			{Label: "Copy Absolute Path", Command: "file.copyAbsolutePath"},
 			{Label: "Copy Relative Path", Command: "file.copyRelativePath"},
@@ -466,31 +498,7 @@ func registerWidgetCallbacks(app *App) {
 		app.EditorGroup.OpenFile(path)
 		app.FocusEditorIfEnabled()
 	}
-
-	app.Search.OnClear = func() {
-		app.EditorGroup.ClearSearch()
-	}
-	app.Search.PostBatch = func(batch *ui.SearchBatch) {
-		app.Screen.PostEvent(tcell.NewEventInterrupt(batch))
-	}
-	app.Search.DiffSources = app.DiffSearchSources
-	app.Search.OnOpenMatch = app.NavigateToSearchMatch
-	app.Search.OnPreview = app.PreviewSearchReplace
-	app.Search.OnReplace = app.ApplySearchReplace
-	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
-
-	app.Explorer.OnRootMenu = func(node *ui.TreeNode, sx, sy int) {
-		app.ExplorerContextNode = node
-		items := []ui.ContextMenuItem{
-			{Label: "Refresh", Command: "explorer.refresh"},
-			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
-			ui.MenuSep(),
-			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
-		}
-		openContextMenu(app, items, sx, sy)
-	}
-
-	app.Explorer.OnRightClick = func(node *ui.TreeNode, sx, sy int) {
+	app.Explorer.OnRightClick = func(node *widgets.TreeNode, sx, sy int) {
 		app.ExplorerContextNode = node
 		items := []ui.ContextMenuItem{
 			{Label: "Open", Command: "explorer.open"},
@@ -506,6 +514,28 @@ func registerWidgetCallbacks(app *App) {
 		}
 		openContextMenu(app, items, sx, sy)
 	}
+	app.Explorer.OnRootMenu = func(node *widgets.TreeNode, sx, sy int) {
+		app.ExplorerContextNode = node
+		items := []ui.ContextMenuItem{
+			{Label: "Refresh", Command: "explorer.refresh"},
+			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
+			ui.MenuSep(),
+			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
+		}
+		openContextMenu(app, items, sx, sy)
+	}
+
+	app.Search.OnClear = func() {
+		app.EditorGroup.ClearSearch()
+	}
+	app.Search.PostBatch = func(batch *ui.SearchBatch) {
+		app.Screen.PostEvent(tcell.NewEventInterrupt(batch))
+	}
+	app.Search.DiffSources = app.DiffSearchSources
+	app.Search.OnOpenMatch = app.NavigateToSearchMatch
+	app.Search.OnPreview = app.PreviewSearchReplace
+	app.Search.OnReplace = app.ApplySearchReplace
+	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
 
 	app.Changes.OnRightClick = func(dir string, status git.FileStatus, sx, sy int) {
 		if status.Staged {
@@ -557,7 +587,7 @@ func registerWidgetCallbacks(app *App) {
 		app.SetSidebarWidth(width)
 	}
 
-	app.BottomPanel.TabBar.OnTabClick = func(index int) {
+	app.BottomPanel.Tabs.Config.OnTabClick = func(index int) {
 		panels := app.BottomPanel.PanelIDs()
 		if index >= 0 && index < len(panels) {
 			app.BottomPanel.SetActivePanel(panels[index])
@@ -567,17 +597,17 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
-	app.BottomPanel.TabBar.OnAdd = func() {
-		reg.Execute("terminal.new")
-	}
-
-	app.BottomPanel.TabBar.MoreButton = ui.NewMoreButtonWidget()
-	app.BottomPanel.TabBar.MoreButton.OnClick = func(sx, sy int) {
-		items := []ui.ContextMenuItem{
-			{Label: "New Terminal", Command: "terminal.new"},
-			ui.MenuSep(),
-			{Label: "Close All Terminals", Command: "terminal.closeAll"},
-		}
-		openContextMenu(app, items, sx, sy)
+	app.BottomPanel.Tabs.Config.Actions = []widgets.TabAction{
+		{Icon: "+", OnClick: func(_, _ int) {
+			reg.Execute("terminal.new")
+		}},
+		{Icon: "⋮", OnClick: func(sx, sy int) {
+			items := []ui.ContextMenuItem{
+				{Label: "New Terminal", Command: "terminal.new"},
+				ui.MenuSep(),
+				{Label: "Close All Terminals", Command: "terminal.closeAll"},
+			}
+			openContextMenu(app, items, sx, sy)
+		}},
 	}
 }

@@ -222,38 +222,40 @@ Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
 
 ### LSP (Language Server Protocol)
 
-TTT has built-in LSP support for language-aware editing features. Install a language server and TTT detects it automatically — zero configuration needed. If a server isn't installed, TTT shows a brief notification with a link to install instructions.
+TTT has built-in LSP support for language-aware editing features. Language servers are configured via plugins — install the LSP plugin for your language and the corresponding server binary.
 
-#### Built-in Language Support
+#### LSP Plugins
 
-| Language | Server | Install |
-|----------|--------|---------|
-| Go | gopls | `go install golang.org/x/tools/gopls@latest` |
-| TypeScript / JavaScript | typescript-language-server | `npm i -g typescript typescript-language-server` |
-| Python | pyright | `pip install pyright` |
-| C / C++ | clangd | `sudo apt install clangd` |
-| Rust | rust-analyzer | `rustup component add rust-analyzer` |
-| Vue | vue-language-server | `npm i -g @vue/language-server` |
-| Svelte | svelteserver | `npm i -g svelte-language-server` |
-| CSS / SCSS / Less | vscode-css-language-server | `npm i -g vscode-langservers-extracted` |
-| HTML | vscode-html-language-server | `npm i -g vscode-langservers-extracted` |
-| JSON | vscode-json-language-server | `npm i -g vscode-langservers-extracted` |
-| YAML | yaml-language-server | `npm i -g yaml-language-server` |
-| Bash | bash-language-server | `npm i -g bash-language-server` |
-| Lua | lua-language-server | [LuaLS releases](https://github.com/LuaLS/lua-language-server/releases) |
-| Zig | zls | [ZLS releases](https://github.com/zigtools/zls) |
-| Kotlin | kotlin-language-server | [Releases](https://github.com/fwcd/kotlin-language-server/releases) |
-| Java | jdtls | [Eclipse JDT.LS](https://github.com/eclipse-jdtls/eclipse.jdt.ls) |
-| Ruby | ruby-lsp | `gem install ruby-lsp` |
-| Dart | dart language-server | Included with [Dart SDK](https://dart.dev/get-dart) |
-| Elixir | elixir-ls | [Releases](https://github.com/elixir-lsp/elixir-ls/releases) |
-| PHP | phpactor | `composer global require phpactor/phpactor` |
-| Terraform | terraform-ls | [Releases](https://github.com/hashicorp/terraform-ls) |
-| Markdown | marksman | [Releases](https://github.com/artempyanykh/marksman/releases) |
-| Tailwind CSS | tailwindcss-language-server | `npm i -g @tailwindcss/language-server` |
-| Docker | docker-langserver | `npm i -g dockerfile-language-server-nodejs` |
+Install LSP plugins from the Plugins panel or command palette. Each plugin configures the language server automatically. Available plugins:
 
-You can also add custom servers or override built-in ones in `~/.config/ttt/settings.json`. See the [LSP docs](https://tttedit.dev/guides/lsp/) for details.
+| Plugin | Language | Server |
+|--------|----------|--------|
+| `lsp-go` | Go | gopls |
+| `lsp-typescript` | TypeScript / JavaScript | typescript-language-server |
+| `lsp-python` | Python | pyright |
+| `lsp-c` | C / C++ | clangd |
+| `lsp-rust` | Rust | rust-analyzer |
+| `lsp-lua` | Lua | lua-language-server |
+| `lsp-zig` | Zig | zls |
+| `lsp-vue` | Vue | vue-language-server |
+| `lsp-svelte` | Svelte | svelteserver |
+| `lsp-css` | CSS / SCSS / Less | vscode-css-language-server |
+| `lsp-html` | HTML | vscode-html-language-server |
+| `lsp-json` | JSON | vscode-json-language-server |
+| `lsp-yaml` | YAML | yaml-language-server |
+| `lsp-bash` | Bash | bash-language-server |
+| `lsp-docker` | Docker | docker-langserver |
+| `lsp-tailwindcss` | Tailwind CSS | tailwindcss-language-server |
+| `lsp-kotlin` | Kotlin | kotlin-language-server |
+| `lsp-java` | Java | jdtls |
+| `lsp-ruby` | Ruby | ruby-lsp |
+| `lsp-dart` | Dart | dart language-server |
+| `lsp-elixir` | Elixir | elixir-ls |
+| `lsp-php` | PHP | phpactor |
+| `lsp-terraform` | Terraform | terraform-ls |
+| `lsp-markdown` | Markdown | marksman |
+
+You can also add custom servers manually in `~/.config/ttt/settings.json`. See the [LSP docs](https://tttedit.dev/guides/lsp/) for details.
 
 To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 
@@ -269,8 +271,9 @@ To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 | Find References | *(command palette)* | Find all references to the symbol under the cursor (results in bottom panel REFERENCES tab) |
 | Rename Symbol | F2 | Rename the symbol under the cursor across all files in the workspace |
 | Hover | Ctrl+K I | Show type information and documentation for the symbol under the cursor |
-| Format Document | *(command palette)* | Format the entire document using the language server |
-| Format Selection | *(command palette)* | Format the selected range |
+| Format Document (LSP) | Ctrl+L F | Format the entire document using the language server |
+| Format Document (External) | Ctrl+K F | Format using an external formatter from settings |
+| Format Selection | *(command palette)* | Format the selected range via LSP |
 | Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
 
 #### Auto-Completion
@@ -288,9 +291,25 @@ The LSP server publishes diagnostics (errors, warnings, hints) which are display
 
 #### Formatting
 
-- **Format Document** — formats the entire file via the language server (available from the command palette)
-- **Format Selection** — formats only the selected range (available from the command palette)
-- **Format on Save** — enable `formatOnSave` in `settings.json` to auto-format when saving
+- **Format Document (LSP)** (`Ctrl+L F`) — formats the entire file via the language server
+- **Format Document (External)** (`Ctrl+K F`) — formats the file using an external formatter configured in `settings.json`
+- **Format Selection** — formats only the selected range via LSP (available from the command palette)
+- **Format on Save** — enable `editor.formatOnSave` in `settings.json` to auto-format when saving. External formatters take priority over LSP; if no external formatter is configured for the file type, LSP formatting is used as a fallback.
+
+**External formatters** are configured per file extension in a top-level `formatters` map:
+
+```json
+{
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}",
+    "py": "black -"
+  }
+}
+```
+
+The formatter receives the buffer via stdin and must write formatted output to stdout. Use `{file}` as a placeholder for the file path.
 
 #### References & Rename
 
@@ -420,6 +439,42 @@ Restart TTT (or switch themes) to pick up changes.
 
 To use your terminal's native colors instead of the theme's, set foreground/background to empty strings in your theme file.
 
+### Plugins
+
+TTT supports Lua plugins that add sidebar panels, bottom panel tabs, commands, and keybindings. Plugins run in a sandboxed Lua VM with a permission system — users approve each plugin's capabilities on first load.
+
+#### Installing Plugins
+
+Open the **Plugins** sidebar tab to browse and install from the community registry, or use **Plugins: Install from URL** from the command palette to install from any git repository.
+
+Community plugins are maintained at [ttt-plugins](https://github.com/eugenioenko/ttt-plugins):
+
+| Plugin | Description |
+|--------|-------------|
+| cheat-sheet | Fetch cheat sheets from cheat.sh |
+| color-picker | Color picker with hex/RGB swatches |
+| docker-manager | Docker container management |
+| go-test-runner | Run Go tests and view results |
+| http-client | HTTP request client |
+| json-viewer | Interactive JSON tree viewer |
+| markdown-preview | Markdown preview panel |
+| notepad | Persistent scratchpad |
+| todo-scanner | Scan for TODO/FIXME/HACK/NOTE comments |
+
+#### Managing Plugins
+
+- Click an installed plugin to **enable/disable** it (persists across restarts)
+- **↑** button to update, **×** to uninstall
+- **Plugins: Reload** from the command palette for live reload during development
+
+#### Disabling the Plugin System
+
+To disable plugins entirely: `"plugins": { "enabled": false }` in settings.
+
+#### Creating Plugins
+
+Plugins are Lua scripts with a `plugin.ttt.json` manifest. See the [Plugin Authoring Guide](docs/PLUGINS.md) for the full API. To list your plugin in the built-in browser, submit a PR adding it to `community-plugins.json`.
+
 ### Menu Bar
 
 File, Edit, Selection, View, and Help menus accessible via the menu bar or keyboard shortcuts. Menus display resolved keybindings next to each command. Navigate between menus with left/right arrow keys.
@@ -449,7 +504,8 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
 | `theme` | string | `""` | Theme name (from `~/.config/ttt/themes/`) |
 | `debugMode` | bool | `false` | Enable debug logging to `~/.config/ttt/debug.log` |
-| `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `formatOnSave` | bool | `false` | Auto-format on save (external formatter first, then LSP) |
+| `formatters.<ext>` | string | — | External formatter command for the given file extension (e.g. `formatters.go`, `formatters.js`) |
 | `insertFinalNewline` | bool | `true` | Ensure files end with a newline on save |
 | `search.debounce` | int | `350` | Milliseconds to debounce global search input |
 | `explorer.showHidden` | bool | `true` | Show hidden files (dot-prefixed) in the file explorer |
@@ -457,11 +513,12 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `terminal.shell` | string | `""` | Shell command for the integrated terminal (empty = system default) |
 | `terminal.scrollback` | int | `1000` | Number of scrollback lines to retain in the terminal |
 | `lsp.saveOnRename` | bool | `false` | Auto-save all files affected by a rename operation |
-| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...], "languages": {...} }` for LSP servers |
+| `lsp.servers` | object | `{}` | Map of language ID to `{ "command": [...], "languages": {...} }` for LSP servers. Configured automatically by LSP plugins. |
 | `autocomplete.enabled` | bool | `true` | Enable LSP-powered autocompletion |
 | `autocomplete.autoSuggest` | bool | `true` | Show completions automatically as you type |
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
 | `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
+| `plugins.enabled` | bool | `true` | Enable the plugin system (set `false` to disable all plugins) |
 
 Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`](config/settings.json)):
 
@@ -488,25 +545,21 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
     "scrollback": 1000
   },
   "lsp": {
-    "saveOnRename": false,
-    "servers": {
-      "go": { "command": ["gopls"] },
-      "typescript": {
-        "command": ["typescript-language-server", "--stdio"],
-        "languages": {
-          ".ts": "typescript",
-          ".tsx": "typescriptreact",
-          ".js": "javascript",
-          ".jsx": "javascriptreact"
-        }
-      }
-    }
+    "saveOnRename": false
   },
   "autocomplete": {
     "enabled": true,
     "autoSuggest": true,
     "debounce": 150,
     "signatureHelp": true
+  },
+  "plugins": {
+    "enabled": true
+  },
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}"
   }
 }
 ```
@@ -635,6 +688,38 @@ CHAOS_REPLAY=chaos-output/crash-<seed>-<iter>.json go test ./tests/chaos/ -run T
 ```
 
 Each crash is saved as a JSON report with the random seed and full event log, so any panic can be replayed and debugged deterministically.
+
+## Debug & Testing CLI Flags
+
+TTT includes a built-in scripted interaction system designed for AI agent interactivity and automated debugging. Think of `--exec` as a fast Playwright for the terminal — full click, keyboard, and command simulation with screenshot and state dump capture, all without the overhead of a terminal emulation layer.
+
+| Flag | Description |
+|------|-------------|
+| `--exec "commands"` | Execute semicolon-separated commands after startup |
+| `--plugin FILE` | Load a Lua plugin file on startup with full permissions |
+| `--size WxH` | Force screen dimensions (e.g. `120x40`) for deterministic layout |
+| `--debug` | Enable debug mode regardless of config |
+
+### `--exec` Commands
+
+The `--exec` flag accepts a semicolon-separated string of commands that run sequentially after the editor starts. AI agents (like Claude Code) can use this to interact with the editor, inspect UI state, and verify behavior programmatically — no manual interaction needed:
+
+| Command | Description |
+|---------|-------------|
+| `click X Y` | Simulate a mouse click at screen coordinates |
+| `key COMBO` | Simulate a key press (e.g. `key ctrl+p`, `key enter`) |
+| `type TEXT` | Type a string of text character by character |
+| `exec "Command Name"` | Run a command palette command by title |
+| `screenshot PATH` | Save the current screen text to a file |
+| `debug PATH` | Save the editor's debug state as JSON to a file |
+| `wait MS` | Wait for the given number of milliseconds |
+| `quit` | Exit the editor |
+
+Example — capture a screenshot and debug state, then quit:
+
+```sh
+ttt --size 120x40 --exec "wait 200; screenshot /tmp/screen.txt; debug /tmp/state.json; quit"
+```
 
 ## Architecture
 

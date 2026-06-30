@@ -1,40 +1,23 @@
 package ui
 
-import "github.com/gdamore/tcell/v2"
+import "github.com/eugenioenko/ttt/internal/widgets"
 
-type Rect struct {
-	X, Y, W, H int
-}
+type Rect = widgets.Rect
 
-type EventResult int
+type Surface = widgets.Surface
 
-const (
-	EventIgnored   EventResult = iota
-	EventConsumed
-	EventDismissed
-	EventCaptured
-)
+type BoxModel = widgets.BoxModel
 
-type ConstraintType int
+type EventResult = widgets.EventResult
+
+type Widget = widgets.Widget
 
 const (
-	Fixed  ConstraintType = iota
-	Flex
-	Hidden
+	EventIgnored   = widgets.EventIgnored
+	EventConsumed  = widgets.EventConsumed
+	EventDismissed = widgets.EventDismissed
+	EventCaptured  = widgets.EventCaptured
 )
-
-type LayoutConstraint struct {
-	Type  ConstraintType
-	Value int
-}
-
-type Widget interface {
-	SetRect(r Rect)
-	GetRect() Rect
-	HandleEvent(ev tcell.Event) EventResult
-	Render(surface *RenderSurface)
-	Focusable() bool
-}
 
 type CursorProvider interface {
 	CursorPosition() (x, y int, visible bool)
