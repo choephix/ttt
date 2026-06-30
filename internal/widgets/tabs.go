@@ -113,49 +113,109 @@ func (t *TabsWidget) Render(surface Surface) {
 		tabAreaW -= overflowW
 	}
 
-	t.tabSpans = t.tabSpans[:0]
+	t.tabSpans = make([][2]int, len(t.Config.Items))
 	t.hiddenTabs = t.hiddenTabs[:0]
-	x := 0
-	if !hasOverflow && t.Config.Align == "center" {
-		used := total
-		if used < tabAreaW {
-			x = (tabAreaW - used) / 2
+
+	activeIdx := t.activeIndex()
+
+	if hasOverflow {
+		// Chrome-like: active tab always gets priority.
+		// Fill from left in order, but ensure the active tab is visible.
+		// If a non-active tab would take the space needed for the active tab, skip it.
+		remaining := tabAreaW
+		if activeIdx >= 0 {
+			remaining -= tabWidths[activeIdx]
 		}
-	}
-	for i, item := range t.Config.Items {
-		if x+tabWidths[i] > tabAreaW && hasOverflow {
-			t.hiddenTabs = append(t.hiddenTabs, i)
-			t.tabSpans = append(t.tabSpans, [2]int{0, 0})
-			continue
+		visible := make([]bool, len(t.Config.Items))
+		if activeIdx >= 0 {
+			visible[activeIdx] = true
 		}
-		style := term.StyleInactiveTab
-		if item.Active {
-			style = term.StyleActiveTab
-		}
-		if t.focused && i == t.selected {
-			style = term.StyleSelectedTab
-		}
-		startX := x
-		inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
-		x++
-		if item.Dirty {
-			inner.SetCell(x, 0, term.Cell{Ch: '●', Style: term.StyleWarning})
-			x++
-			inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
-			x++
-		}
-		for _, ch := range item.Label {
-			if x >= tabAreaW {
-				break
+		for i := range t.Config.Items {
+			if i == activeIdx {
+				continue
 			}
-			inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
-			x++
+			if tabWidths[i] <= remaining {
+				visible[i] = true
+				remaining -= tabWidths[i]
+			}
 		}
-		if x < tabAreaW {
+		for i := range t.Config.Items {
+			if !visible[i] {
+				t.hiddenTabs = append(t.hiddenTabs, i)
+			}
+		}
+
+		x := 0
+		for i, item := range t.Config.Items {
+			if !visible[i] {
+				continue
+			}
+			style := term.StyleInactiveTab
+			if item.Active {
+				style = term.StyleActiveTab
+			}
+			if t.focused && i == t.selected {
+				style = term.StyleSelectedTab
+			}
+			startX := x
 			inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
 			x++
+			if item.Dirty {
+				inner.SetCell(x, 0, term.Cell{Ch: '●', Style: term.StyleWarning})
+				x++
+				inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+				x++
+			}
+			for _, ch := range item.Label {
+				if x >= tabAreaW {
+					break
+				}
+				inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
+				x++
+			}
+			if x < tabAreaW {
+				inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+				x++
+			}
+			t.tabSpans[i] = [2]int{startX, x}
 		}
-		t.tabSpans = append(t.tabSpans, [2]int{startX, x})
+	} else {
+		x := 0
+		if t.Config.Align == "center" {
+			if total < tabAreaW {
+				x = (tabAreaW - total) / 2
+			}
+		}
+		for i, item := range t.Config.Items {
+			style := term.StyleInactiveTab
+			if item.Active {
+				style = term.StyleActiveTab
+			}
+			if t.focused && i == t.selected {
+				style = term.StyleSelectedTab
+			}
+			startX := x
+			inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+			x++
+			if item.Dirty {
+				inner.SetCell(x, 0, term.Cell{Ch: '●', Style: term.StyleWarning})
+				x++
+				inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+				x++
+			}
+			for _, ch := range item.Label {
+				if x >= tabAreaW {
+					break
+				}
+				inner.SetCell(x, 0, term.Cell{Ch: ch, Style: style})
+				x++
+			}
+			if x < tabAreaW {
+				inner.SetCell(x, 0, term.Cell{Ch: ' ', Style: style})
+				x++
+			}
+			t.tabSpans[i] = [2]int{startX, x}
+		}
 	}
 
 	t.overSpan = [2]int{0, 0}
