@@ -148,8 +148,8 @@ func (a *App) resolveAndInsert(item ui.CompletionItem) {
 	}
 
 	var textEdit *lsp.TextEdit
-	if lspItem != nil {
-		textEdit = lspItem.TextEdit
+	if lspItem != nil && lspItem.TextEdit != nil {
+		textEdit = lspItem.TextEdit.ToTextEdit()
 	}
 	a.insertCompletion(item, textEdit)
 }
@@ -169,6 +169,13 @@ func (a *App) insertCompletion(item ui.CompletionItem, textEdit *lsp.TextEdit) {
 		startCol = textEdit.Range.Start.Character
 		endLine = textEdit.Range.End.Line
 		endCol = textEdit.Range.End.Character
+		if startLine == endLine && startCol == endCol {
+			_, identCol, cursorCol := a.identStart()
+			if identCol < endCol || endCol <= cursorCol {
+				startCol = identCol
+				endCol = cursorCol
+			}
+		}
 	} else {
 		text = item.InsertText
 		if text == "" {
