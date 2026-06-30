@@ -19,6 +19,7 @@ type TreeNode struct {
 
 	Expanded bool `json:"-"`
 	depth    int
+	parent   *TreeNode
 }
 
 type Action struct {
@@ -162,6 +163,7 @@ func (t *TreeWidget) flattenNode(node *TreeNode, depth int) {
 	t.flatList = append(t.flatList, node)
 	if node.Expanded && len(node.Children) > 0 {
 		for _, child := range node.Children {
+			child.parent = node
 			t.flattenNode(child, depth+1)
 		}
 	}
@@ -548,10 +550,10 @@ func (t *TreeWidget) handleKey(ev *tcell.EventKey) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyLeft:
-		t.collapseSelected()
+		t.collapseOrParent()
 		return EventConsumed
 	case tcell.KeyRight:
-		t.expandSelected()
+		t.expandOrChild()
 		return EventConsumed
 	case tcell.KeyEnter:
 		if ev.Modifiers()&tcell.ModShift != 0 {
@@ -620,7 +622,7 @@ func (t *TreeWidget) ActivateSelected() {
 	}
 }
 
-func (t *TreeWidget) collapseSelected() {
+func (t *TreeWidget) collapseOrParent() {
 	if t.selected < 0 || t.selected >= len(t.flatList) {
 		return
 	}
@@ -628,10 +630,19 @@ func (t *TreeWidget) collapseSelected() {
 	if node.isExpandable() && node.Expanded {
 		node.Expanded = false
 		t.flatten()
+		return
+	}
+	if node.parent != nil {
+		for i, n := range t.flatList {
+			if n == node.parent {
+				t.selected = i
+				return
+			}
+		}
 	}
 }
 
-func (t *TreeWidget) expandSelected() {
+func (t *TreeWidget) expandOrChild() {
 	if t.selected < 0 || t.selected >= len(t.flatList) {
 		return
 	}
@@ -642,5 +653,9 @@ func (t *TreeWidget) expandSelected() {
 			t.Config.OnExpand(node)
 		}
 		t.flatten()
+		return
+	}
+	if node.Expanded && t.selected+1 < len(t.flatList) {
+		t.selected++
 	}
 }
