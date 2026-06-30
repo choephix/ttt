@@ -5,15 +5,15 @@ import (
 )
 
 type mockSettingsAPI struct {
-	store map[string]string
+	store map[string]any
 }
 
-func (m *mockSettingsAPI) Get(key string) (string, bool) {
+func (m *mockSettingsAPI) Get(key string) (any, bool) {
 	v, ok := m.store[key]
 	return v, ok
 }
 
-func (m *mockSettingsAPI) Set(key, value string) error {
+func (m *mockSettingsAPI) Set(key string, value any) error {
 	m.store[key] = value
 	return nil
 }
@@ -25,11 +25,12 @@ func setupTestPluginWithSettings(perms PermissionSet, api SettingsAPI) (*Plugin,
 	}
 	p.State = NewSandbox()
 	setupSettingsModule(p.State, p)
+	setupJSONModule(p.State)
 	return p, func() { p.State.Close() }
 }
 
-func TestSettingsGet(t *testing.T) {
-	api := &mockSettingsAPI{store: map[string]string{"formatters.go": "gofmt"}}
+func TestSettingsGetString(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{"formatters.go": "gofmt"}}
 	p, cleanup := setupTestPluginWithSettings(
 		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.*"}},
 		api,
@@ -50,7 +51,7 @@ func TestSettingsGet(t *testing.T) {
 }
 
 func TestSettingsGetNil(t *testing.T) {
-	api := &mockSettingsAPI{store: map[string]string{}}
+	api := &mockSettingsAPI{store: map[string]any{}}
 	p, cleanup := setupTestPluginWithSettings(
 		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.*"}},
 		api,
@@ -70,8 +71,8 @@ func TestSettingsGetNil(t *testing.T) {
 	}
 }
 
-func TestSettingsSet(t *testing.T) {
-	api := &mockSettingsAPI{store: map[string]string{}}
+func TestSettingsSetString(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{}}
 	p, cleanup := setupTestPluginWithSettings(
 		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.*"}},
 		api,
@@ -86,12 +87,105 @@ func TestSettingsSet(t *testing.T) {
 		t.Fatalf("DoString: %v", err)
 	}
 	if api.store["formatters.js"] != "prettier --stdin-filepath {file}" {
-		t.Errorf("expected prettier command, got %q", api.store["formatters.js"])
+		t.Errorf("expected prettier command, got %v", api.store["formatters.js"])
+	}
+}
+
+func TestSettingsGetTable(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{
+		"lsp.servers.go": map[string]any{
+			"command": []any{"gopls"},
+		},
+	}}
+	p, cleanup := setupTestPluginWithSettings(
+		PermissionSet{Settings: true, SettingsKeys: []string{"lsp.*"}},
+		api,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local settings = require("ttt.settings")
+		local srv = settings.get("lsp.servers.go")
+		result_cmd = srv.command[1]
+	`)
+	if err != nil {
+		t.Fatalf("DoString: %v", err)
+	}
+	val := p.State.GetGlobal("result_cmd").String()
+	if val != "gopls" {
+		t.Errorf("expected 'gopls', got %q", val)
+	}
+}
+
+func TestSettingsSetTable(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{}}
+	p, cleanup := setupTestPluginWithSettings(
+		PermissionSet{Settings: true, SettingsKeys: []string{"lsp.*"}},
+		api,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local settings = require("ttt.settings")
+		settings.set("lsp.servers.go", {command = {"gopls"}})
+	`)
+	if err != nil {
+		t.Fatalf("DoString: %v", err)
+	}
+	srv, ok := api.store["lsp.servers.go"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map, got %T", api.store["lsp.servers.go"])
+	}
+	cmd, ok := srv["command"].([]any)
+	if !ok || len(cmd) != 1 || cmd[0] != "gopls" {
+		t.Errorf("expected [gopls], got %v", srv["command"])
+	}
+}
+
+func TestSettingsGetBool(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{"editor.wordWrap": true}}
+	p, cleanup := setupTestPluginWithSettings(
+		PermissionSet{Settings: true, SettingsKeys: []string{"editor.*"}},
+		api,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local settings = require("ttt.settings")
+		result = settings.get("editor.wordWrap")
+	`)
+	if err != nil {
+		t.Fatalf("DoString: %v", err)
+	}
+	val := p.State.GetGlobal("result").String()
+	if val != "true" {
+		t.Errorf("expected 'true', got %q", val)
+	}
+}
+
+func TestSettingsGetNumber(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{"editor.tabSize": float64(4)}}
+	p, cleanup := setupTestPluginWithSettings(
+		PermissionSet{Settings: true, SettingsKeys: []string{"editor.*"}},
+		api,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local settings = require("ttt.settings")
+		result = settings.get("editor.tabSize")
+	`)
+	if err != nil {
+		t.Fatalf("DoString: %v", err)
+	}
+	val := p.State.GetGlobal("result").String()
+	if val != "4" {
+		t.Errorf("expected '4', got %q", val)
 	}
 }
 
 func TestSettingsPermissionDenied(t *testing.T) {
-	api := &mockSettingsAPI{store: map[string]string{}}
+	api := &mockSettingsAPI{store: map[string]any{}}
 	p, cleanup := setupTestPluginWithSettings(
 		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.*"}},
 		api,
@@ -108,7 +202,7 @@ func TestSettingsPermissionDenied(t *testing.T) {
 }
 
 func TestSettingsNoPermission(t *testing.T) {
-	api := &mockSettingsAPI{store: map[string]string{}}
+	api := &mockSettingsAPI{store: map[string]any{}}
 	p, cleanup := setupTestPluginWithSettings(
 		PermissionSet{},
 		api,
@@ -125,7 +219,7 @@ func TestSettingsNoPermission(t *testing.T) {
 }
 
 func TestSettingsExactKeyMatch(t *testing.T) {
-	api := &mockSettingsAPI{store: map[string]string{"formatters.go": "gofmt"}}
+	api := &mockSettingsAPI{store: map[string]any{"formatters.go": "gofmt"}}
 	p, cleanup := setupTestPluginWithSettings(
 		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.go"}},
 		api,

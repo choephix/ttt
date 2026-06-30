@@ -23,13 +23,13 @@ func setupSettingsModule(L *lua.LState, p *Plugin) {
 				L.Push(lua.LNil)
 				return 1
 			}
-			L.Push(lua.LString(val))
+			L.Push(goToLua(L, val))
 			return 1
 		}))
 
 		L.SetField(mod, "set", L.NewFunction(func(L *lua.LState) int {
 			key := L.CheckString(1)
-			value := L.CheckString(2)
+			value := L.Get(2)
 			if err := p.Granted.CheckSettingsKey(key); err != nil {
 				L.ArgError(1, err.Error())
 				return 0
@@ -38,7 +38,7 @@ func setupSettingsModule(L *lua.LState, p *Plugin) {
 				L.ArgError(1, "settings API not available")
 				return 0
 			}
-			if err := p.Settings.Set(key, value); err != nil {
+			if err := p.Settings.Set(key, luaToGo(value)); err != nil {
 				L.ArgError(2, err.Error())
 				return 0
 			}

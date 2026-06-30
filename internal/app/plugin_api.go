@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -441,34 +442,72 @@ func NewPluginSettingsAPI(app *App) *PluginSettingsAPI {
 	return &PluginSettingsAPI{app: app}
 }
 
-func (s *PluginSettingsAPI) Get(key string) (string, bool) {
-	parts := strings.SplitN(key, ".", 2)
-	if len(parts) != 2 {
-		return "", false
+func (s *PluginSettingsAPI) Get(key string) (any, bool) {
+	m := s.settingsMap()
+	if m == nil {
+		return nil, false
 	}
-	switch parts[0] {
-	case "formatters":
-		if s.app.Settings.Formatters == nil {
-			return "", false
-		}
-		val, ok := s.app.Settings.Formatters[parts[1]]
-		return val, ok
-	}
-	return "", false
+	return getPath(m, strings.Split(key, "."))
 }
 
-func (s *PluginSettingsAPI) Set(key, value string) error {
-	parts := strings.SplitN(key, ".", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid settings key: %s", key)
+func (s *PluginSettingsAPI) Set(key string, value any) error {
+	m := s.settingsMap()
+	if m == nil {
+		m = make(map[string]any)
 	}
-	switch parts[0] {
-	case "formatters":
-		if s.app.Settings.Formatters == nil {
-			s.app.Settings.Formatters = make(map[string]string)
+	setPath(m, strings.Split(key, "."), value)
+
+	data, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, s.app.Settings); err != nil {
+		return err
+	}
+	return config.SaveSettings(*s.app.Settings)
+}
+
+func (s *PluginSettingsAPI) settingsMap() map[string]any {
+	data, err := json.Marshal(s.app.Settings)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
+func getPath(m map[string]any, parts []string) (any, bool) {
+	for i, part := range parts {
+		val, ok := m[part]
+		if !ok {
+			return nil, false
 		}
-		s.app.Settings.Formatters[parts[1]] = value
-		return config.SaveSettings(*s.app.Settings)
+		if i == len(parts)-1 {
+			return val, true
+		}
+		child, ok := val.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		m = child
 	}
-	return fmt.Errorf("unknown settings group: %s", parts[0])
+	return nil, false
+}
+
+func setPath(m map[string]any, parts []string, value any) {
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			m[part] = value
+			return
+		}
+		child, ok := m[part].(map[string]any)
+		if !ok {
+			child = make(map[string]any)
+			m[part] = child
+		}
+		m = child
+	}
 }

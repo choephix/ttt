@@ -41,8 +41,8 @@ type NetworkAPI interface {
 }
 
 type SettingsAPI interface {
-	Get(key string) (string, bool)
-	Set(key, value string) error
+	Get(key string) (any, bool)
+	Set(key string, value any) error
 }
 
 type PluginAsyncResult struct {
