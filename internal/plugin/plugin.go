@@ -54,6 +54,8 @@ type Plugin struct {
 	BottomRenderFunc *lua.LFunction
 	BottomEventFunc  *lua.LFunction
 
+	UninstallFunc *lua.LFunction
+
 	Commands          []PluginCommand
 	PluginKeybindings []PluginKeybinding
 

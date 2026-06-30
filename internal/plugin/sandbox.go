@@ -424,6 +424,12 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "on_uninstall", L.NewFunction(func(L *lua.LState) int {
+			fn := L.CheckFunction(1)
+			p.UninstallFunc = fn
+			return 0
+		}))
+
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
 			if p.RenderMarkdown == nil {
 				L.Push(L.NewTable())

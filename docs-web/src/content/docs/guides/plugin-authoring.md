@@ -330,6 +330,21 @@ ttt.open_file("src/main.go", 42)
 
 No special permission is required — any plugin can open files.
 
+### `ttt.on_uninstall(callback)`
+
+Register a cleanup function that runs when the plugin is uninstalled. Use this to remove settings, files, or other state the plugin created during its lifetime. No permission required.
+
+```lua
+local ttt = require("ttt")
+local settings = require("ttt.settings")
+
+settings.set("formatters.go", "gofmt")
+
+ttt.on_uninstall(function()
+  settings.set("formatters.go", nil)
+end)
+```
+
 ### `ttt.markdown(text)`
 
 Parse a markdown string into styled spans. Returns a table of lines, where each line is a table of spans with `text` and `style` fields. No permission required.
@@ -1589,7 +1604,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `markdown` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `on_uninstall`, `markdown` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |

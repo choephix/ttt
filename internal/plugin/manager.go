@@ -352,6 +352,11 @@ func copyDir(src, dst string) error {
 func (m *Manager) Uninstall(name string) error {
 	for i, p := range m.plugins {
 		if p.Name == name {
+			if p.UninstallFunc != nil {
+				if err := p.CallLuaFunc(p.UninstallFunc); err != nil {
+					slog.Error("plugin on_uninstall", "plugin", name, "error", err)
+				}
+			}
 			p.Destroy()
 			m.plugins = append(m.plugins[:i], m.plugins[i+1:]...)
 			break

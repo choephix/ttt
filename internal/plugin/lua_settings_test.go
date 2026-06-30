@@ -247,6 +247,45 @@ func TestSettingsExactKeyMatch(t *testing.T) {
 	}
 }
 
+func TestOnUninstallCallback(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{"formatters.go": "gofmt"}}
+	p, cleanup := setupTestPluginWithSettings(
+		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.*"}},
+		api,
+	)
+	defer cleanup()
+
+	setupTTTModule(p.State, p)
+
+	err := p.State.DoString(`
+		local ttt = require("ttt")
+		local settings = require("ttt.settings")
+		settings.set("formatters.go", "gofmt")
+		ttt.on_uninstall(function()
+			settings.set("formatters.go", nil)
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("DoString: %v", err)
+	}
+
+	if p.UninstallFunc == nil {
+		t.Fatal("expected UninstallFunc to be set")
+	}
+
+	if api.store["formatters.go"] != "gofmt" {
+		t.Errorf("expected 'gofmt' before uninstall, got %v", api.store["formatters.go"])
+	}
+
+	if err := p.CallLuaFunc(p.UninstallFunc); err != nil {
+		t.Fatalf("uninstall callback: %v", err)
+	}
+
+	if api.store["formatters.go"] != nil {
+		t.Errorf("expected nil after uninstall, got %v", api.store["formatters.go"])
+	}
+}
+
 func TestCheckSettingsKey(t *testing.T) {
 	tests := []struct {
 		name    string
