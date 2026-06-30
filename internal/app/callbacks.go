@@ -63,9 +63,16 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 							IsSep:   e.Separator,
 						})
 					}
+					items = append(items, ui.MenuSep())
 					break
 				}
 			}
+			items = append(items,
+				ui.ContextMenuItem{Label: "Install from URL", Command: "plugin.install"},
+				ui.ContextMenuItem{Label: "Refresh", Command: "plugin.refresh"},
+				ui.MenuSep(),
+				ui.ContextMenuItem{Label: "Help", Command: "plugin.help"},
+			)
 		}
 	}
 	if len(items) > 0 {

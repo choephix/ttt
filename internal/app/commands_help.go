@@ -65,8 +65,20 @@ func (a *App) ShowPanelHelp(title string, entries []widgets.KeyValueEntry, descr
 	a.ShowDialog(adapter)
 }
 
+var pluginHelpEntries = []widgets.KeyValueEntry{}
+
 func registerHelpCommands(app *App) {
 	reg := app.Reg
+
+	reg.Register(command.Command{
+		ID:       "plugin.help",
+		Title:    "Plugins: Help",
+		Keywords: []string{"plugin", "help"},
+		Handler: func() {
+			app.ShowPanelHelp("Plugins", pluginHelpEntries,
+				"Listed plugins are community plugins. They can also be installed from a git repository URL using 'Install from URL'. For more information visit: https://github.com/eugenioenko/ttt/blob/main/docs/PLUGINS.md")
+		},
+	})
 
 	reg.Register(command.Command{
 		ID:       "explorer.help",

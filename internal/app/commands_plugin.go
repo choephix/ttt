@@ -58,6 +58,13 @@ func registerPluginCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID:       "plugin.refresh",
+		Title:    "Plugins: Refresh",
+		Keywords: []string{"plugin", "refresh", "registry", "available"},
+		Handler:  func() { app.PluginRefreshRegistry() },
+	})
+
+	reg.Register(command.Command{
 		ID:       "plugin.reload",
 		Title:    "Plugins: Reload",
 		Keywords: []string{"plugin", "reload", "refresh"},
