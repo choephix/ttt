@@ -52,6 +52,13 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
+	case "plugins":
+		items = []ui.ContextMenuItem{
+			{Label: "Install from URL", Command: "plugin.install"},
+			{Label: "Refresh", Command: "plugin.refresh"},
+			ui.MenuSep(),
+			{Label: "Help", Command: "plugin.help"},
+		}
 	default:
 		if a.PluginManager != nil {
 			for _, p := range a.PluginManager.Plugins() {
@@ -63,16 +70,9 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 							IsSep:   e.Separator,
 						})
 					}
-					items = append(items, ui.MenuSep())
 					break
 				}
 			}
-			items = append(items,
-				ui.ContextMenuItem{Label: "Install from URL", Command: "plugin.install"},
-				ui.ContextMenuItem{Label: "Refresh", Command: "plugin.refresh"},
-				ui.MenuSep(),
-				ui.ContextMenuItem{Label: "Help", Command: "plugin.help"},
-			)
 		}
 	}
 	if len(items) > 0 {
