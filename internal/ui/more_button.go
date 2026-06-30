@@ -8,7 +8,8 @@ import (
 
 type MoreButtonWidget struct {
 	BaseWidget
-	OnClick func(screenX, screenY int)
+	OnClick   func(screenX, screenY int)
+	pressedIn bool
 }
 
 func NewMoreButtonWidget() *MoreButtonWidget {
@@ -28,13 +29,18 @@ func (m *MoreButtonWidget) HandleEvent(ev tcell.Event) EventResult {
 	if !ok {
 		return EventIgnored
 	}
-	if mev.Buttons()&tcell.Button1 == 0 {
-		return EventIgnored
-	}
 	r := m.GetRect()
 	mx, my := mev.Position()
-	if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
-		if m.OnClick != nil {
+	inside := mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H
+
+	btn := mev.Buttons()
+	if btn&tcell.Button1 != 0 && inside && !m.pressedIn {
+		m.pressedIn = true
+		return EventConsumed
+	}
+	if btn == tcell.ButtonNone && m.pressedIn {
+		m.pressedIn = false
+		if inside && m.OnClick != nil {
 			m.OnClick(r.X+1, r.Y+r.H)
 		}
 		return EventConsumed
