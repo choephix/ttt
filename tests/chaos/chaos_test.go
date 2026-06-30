@@ -17,6 +17,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
+	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/workspace"
@@ -80,6 +81,10 @@ func newChaosHarness(seed int64) *chaosHarness {
 	editor := app.BuildAppFromConfig(&cfg, &borders, ws, nil)
 	editor.Screen = screen
 	editor.Renderer = &render.Renderer{}
+
+	pluginsDir := filepath.Join(dir, "plugins")
+	registryPath := filepath.Join(dir, "registry.json")
+	editor.PluginManager = plugin.NewManager(pluginsDir, registryPath)
 
 	reg := command.NewRegistry()
 	editor.Reg = reg

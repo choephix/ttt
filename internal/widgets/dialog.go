@@ -169,12 +169,18 @@ func (d *DialogWidget) Render(surface Surface) {
 
 func (d *DialogWidget) moveFocusButton(forward bool) {
 	children := d.footer.Children
+	if len(children) == 0 {
+		return
+	}
 	cur := -1
 	for i, c := range children {
 		if fw, ok := c.(FocusableWidget); ok && fw.IsFocused() {
 			cur = i
 			break
 		}
+	}
+	if cur < 0 {
+		cur = 0
 	}
 	next := cur
 	if forward && cur < len(children)-1 {
