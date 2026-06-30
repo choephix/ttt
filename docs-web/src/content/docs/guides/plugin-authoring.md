@@ -1492,15 +1492,43 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 
 Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modules are available:
 
-| Module   | Available | Notes                        |
-|----------|-----------|------------------------------|
-| `base`   | yes       | `type`, `tostring`, `tonumber`, `pairs`, `ipairs`, `select`, `unpack`, `error`, `pcall`, `xpcall`, `assert`, `rawequal`, `setmetatable`, `getmetatable` |
-| `string` | yes       | Full string library (`format`, `find`, `gsub`, `match`, `sub`, `rep`, `upper`, `lower`, `byte`, `char`, `len`, `reverse`) |
-| `table`  | yes       | Full table library (`insert`, `remove`, `sort`, `concat`, `maxn`) |
-| `math`   | yes       | Full math library (`floor`, `ceil`, `sqrt`, `sin`, `cos`, `random`, `pi`, etc.) |
-| `os`     | **no**    | Blocked entirely.            |
-| `io`     | **no**    | Blocked entirely.            |
-| `debug`  | **no**    | Not loaded.                  |
+| Module      | Available | Notes                        |
+|-------------|-----------|------------------------------|
+| `base`      | yes       | `type`, `tostring`, `tonumber`, `pairs`, `ipairs`, `select`, `unpack`, `error`, `pcall`, `xpcall`, `assert`, `rawequal`, `setmetatable`, `getmetatable` |
+| `string`    | yes       | Full string library (`format`, `find`, `gsub`, `match`, `sub`, `rep`, `upper`, `lower`, `byte`, `char`, `len`, `reverse`) |
+| `table`     | yes       | Full table library (`insert`, `remove`, `sort`, `concat`, `maxn`) |
+| `math`      | yes       | Full math library (`floor`, `ceil`, `sqrt`, `sin`, `cos`, `random`, `pi`, etc.) |
+| `coroutine` | yes       | Full coroutine library (`create`, `resume`, `yield`, `status`, `wrap`) |
+| `os`        | partial   | Safe subset only: `os.time()`, `os.clock()`, `os.date()`. Dangerous functions (`execute`, `remove`, `rename`, `exit`) are not available. |
+| `crypto`    | yes       | `crypto.random_bytes(n)` returns `n` cryptographically secure random bytes as a hex string (max 1024). `crypto.uuid()` returns a random UUID v4. |
+| `io`        | **no**    | Blocked entirely. Use `ttt.fs` instead. |
+| `debug`     | **no**    | Not loaded.                  |
+
+### `os` Module (safe subset)
+
+| Function     | Returns | Description |
+|--------------|---------|-------------|
+| `os.time()`  | number  | Current Unix timestamp (seconds since epoch). |
+| `os.clock()` | number  | CPU time elapsed since the editor started (seconds, fractional). |
+| `os.date([format])` | string | Format current time. Supports `%Y`, `%m`, `%d`, `%H`, `%M`, `%S`, `%c`, `%A`, `%a`, `%B`, `%b`, `%p`, `%I`, `%Z`, `%%`. Default format is `%c`. |
+
+```lua
+local now = os.time()           -- 1719532800
+local elapsed = os.clock()      -- 12.345
+local date = os.date("%Y-%m-%d") -- "2026-06-28"
+```
+
+### `crypto` Module
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `crypto.random_bytes(n)` | string | `n` cryptographically secure random bytes as a hex string. `n` must be 1–1024. |
+| `crypto.uuid()` | string | Random UUID v4 (e.g. `"550e8400-e29b-41d4-a716-446655440000"`). |
+
+```lua
+local bytes = crypto.random_bytes(16)  -- "a1b2c3d4e5f6..."  (32 hex chars)
+local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
+```
 
 **Removed globals:** `dofile`, `loadfile`, `load`, `loadstring`, `getfenv`, `setfenv`, `rawset`, `rawget`, `print` are removed from the sandbox.
 
@@ -1508,7 +1536,7 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `markdown` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `markdown` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |

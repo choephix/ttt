@@ -1,11 +1,47 @@
 package plugin
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
 )
+
+var processStart = time.Now()
+
+func osTime() int64 {
+	return time.Now().Unix()
+}
+
+func osClock() float64 {
+	return time.Since(processStart).Seconds()
+}
+
+func osDate(format string) string {
+	t := time.Now()
+	r := strings.NewReplacer(
+		"%Y", t.Format("2006"),
+		"%m", t.Format("01"),
+		"%d", t.Format("02"),
+		"%H", t.Format("15"),
+		"%M", t.Format("04"),
+		"%S", t.Format("05"),
+		"%c", t.Format("Mon Jan  2 15:04:05 2006"),
+		"%A", t.Format("Monday"),
+		"%a", t.Format("Mon"),
+		"%B", t.Format("January"),
+		"%b", t.Format("Jan"),
+		"%p", t.Format("PM"),
+		"%I", t.Format("03"),
+		"%Z", t.Format("MST"),
+		"%%", "%",
+	)
+	return r.Replace(format)
+}
 
 
 func NewSandbox() *lua.LState {
@@ -20,6 +56,7 @@ func NewSandbox() *lua.LState {
 		{lua.TabLibName, lua.OpenTable},
 		{lua.StringLibName, lua.OpenString},
 		{lua.MathLibName, lua.OpenMath},
+		{lua.CoroutineLibName, lua.OpenCoroutine},
 	} {
 		L.Push(L.NewFunction(pair.fn))
 		L.Push(lua.LString(pair.name))
@@ -46,6 +83,52 @@ func NewSandbox() *lua.LState {
 			lt.RawSetInt(1, preload)
 		}
 	}
+
+	osMod := L.NewTable()
+	L.SetField(osMod, "time", L.NewFunction(func(L *lua.LState) int {
+		L.Push(lua.LNumber(float64(osTime())))
+		return 1
+	}))
+	L.SetField(osMod, "clock", L.NewFunction(func(L *lua.LState) int {
+		L.Push(lua.LNumber(osClock()))
+		return 1
+	}))
+	L.SetField(osMod, "date", L.NewFunction(func(L *lua.LState) int {
+		format := L.OptString(1, "%c")
+		L.Push(lua.LString(osDate(format)))
+		return 1
+	}))
+	L.SetGlobal("os", osMod)
+
+	cryptoMod := L.NewTable()
+	L.SetField(cryptoMod, "random_bytes", L.NewFunction(func(L *lua.LState) int {
+		n := L.CheckInt(1)
+		if n < 1 || n > 1024 {
+			L.ArgError(1, "byte count must be between 1 and 1024")
+			return 0
+		}
+		buf := make([]byte, n)
+		if _, err := rand.Read(buf); err != nil {
+			L.RaiseError("crypto error: %s", err.Error())
+			return 0
+		}
+		L.Push(lua.LString(hex.EncodeToString(buf)))
+		return 1
+	}))
+	L.SetField(cryptoMod, "uuid", L.NewFunction(func(L *lua.LState) int {
+		var buf [16]byte
+		if _, err := rand.Read(buf[:]); err != nil {
+			L.RaiseError("crypto error: %s", err.Error())
+			return 0
+		}
+		buf[6] = (buf[6] & 0x0f) | 0x40
+		buf[8] = (buf[8] & 0x3f) | 0x80
+		s := hex.EncodeToString(buf[:])
+		uuid := s[:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:]
+		L.Push(lua.LString(uuid))
+		return 1
+	}))
+	L.SetGlobal("crypto", cryptoMod)
 
 	return L
 }
