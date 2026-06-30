@@ -238,6 +238,7 @@ func panelLabelWidget(L *lua.LState) int {
 		if w := L.GetField(v, "width"); w != lua.LNil {
 			desc.FixedWidth = int(lua.LVAsNumber(w))
 		}
+		parseBorders(L, v, &desc)
 		parseBoxModel(L, v, &desc)
 	default:
 		desc.Text = arg.String()
@@ -418,6 +419,25 @@ func panelInputWidget(L *lua.LState) int {
 	return 0
 }
 
+func parseBorders(L *lua.LState, tbl *lua.LTable, desc *WidgetDesc) {
+	if v := L.GetField(tbl, "border"); v != lua.LNil {
+		desc.Border = lua.LVAsBool(v)
+	}
+	for _, field := range []struct {
+		name string
+		dst  *bool
+	}{
+		{"border_top", &desc.BorderTop},
+		{"border_bottom", &desc.BorderBottom},
+		{"border_left", &desc.BorderLeft},
+		{"border_right", &desc.BorderRight},
+	} {
+		if v := L.GetField(tbl, field.name); v != lua.LNil {
+			*field.dst = lua.LVAsBool(v)
+		}
+	}
+}
+
 func parseBoxModel(L *lua.LState, tbl *lua.LTable, desc *WidgetDesc) {
 	for _, field := range []struct {
 		name string
@@ -571,21 +591,7 @@ func panelBoxWidget(L *lua.LState) int {
 	if fn, ok := L.GetField(tbl, "render").(*lua.LFunction); ok {
 		desc.Children = collectChildren(L, proxy, fn)
 	}
-	if v := L.GetField(tbl, "border"); v != lua.LNil {
-		desc.Border = lua.LVAsBool(v)
-	}
-	if v := L.GetField(tbl, "border_top"); v != lua.LNil {
-		desc.BorderTop = lua.LVAsBool(v)
-	}
-	if v := L.GetField(tbl, "border_bottom"); v != lua.LNil {
-		desc.BorderBottom = lua.LVAsBool(v)
-	}
-	if v := L.GetField(tbl, "border_left"); v != lua.LNil {
-		desc.BorderLeft = lua.LVAsBool(v)
-	}
-	if v := L.GetField(tbl, "border_right"); v != lua.LNil {
-		desc.BorderRight = lua.LVAsBool(v)
-	}
+	parseBorders(L, tbl, &desc)
 	if v := L.GetField(tbl, "height"); v != lua.LNil {
 		desc.FixedHeight = int(lua.LVAsNumber(v))
 	}

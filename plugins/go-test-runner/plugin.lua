@@ -412,7 +412,7 @@ ttt.register({
       end
 
       if loading then
-        panel:label({ text = "Discovering tests...", style = "muted" })
+        panel:label({ text = "Discovering tests...", style = "muted", padding_left = 1, padding_right = 1 })
         return
       end
 
@@ -426,7 +426,7 @@ ttt.register({
       if running > 0 then table.insert(parts, tostring(running) .. " running") end
 
       local summary = "Tests: " .. (#parts > 0 and table.concat(parts, ", ") or "none found")
-      panel:label({ text = summary, style = "muted", badge = tostring(total), padding_left = 1, padding_right = 1 })
+      panel:label({ text = summary, style = "muted", badge = tostring(total), padding_left = 1, padding_right = 1, border_bottom = true})
 
       if #packages == 0 then
         panel:label({ text = "No test packages found", style = "muted", padding_left = 1 })

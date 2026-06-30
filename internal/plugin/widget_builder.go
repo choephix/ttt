@@ -44,7 +44,7 @@ func (ws *WidgetState) Reconcile(descs []WidgetDesc, p *Plugin) *widgets.VStackW
 func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 	switch desc.Kind {
 	case WidgetLabel:
-		return createLabelWidget(desc)
+		return createLabelWidget(desc, p)
 	case WidgetTitle:
 		return createTitleWidget(desc)
 	case WidgetKeyValue:
@@ -86,14 +86,18 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 			if desc.TextStyle != "" {
 				lw.Config.Style = resolveStyleName(desc.TextStyle)
 			}
+			applyBoxModel(&lw.Box, desc)
+			applyBoxBorders(&lw.Box, desc, p)
 		}
 	case WidgetTitle:
 		if tw, ok := w.(*widgets.TitleWidget); ok {
 			tw.Config.Title = desc.Text
+			applyBoxModel(&tw.Box, desc)
 		}
 	case WidgetKeyValue:
 		if kv, ok := w.(*widgets.KeyValueListWidget); ok {
 			kv.Entries = desc.KeyValueEntries
+			applyBoxModel(&kv.Box, desc)
 		}
 	case WidgetTree, WidgetList:
 		if tw, ok := w.(*widgets.TreeWidget); ok {
@@ -145,6 +149,11 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 		}
 	case WidgetBox:
 		if bw, ok := w.(*widgets.BoxWidget); ok {
+			applyBoxModel(&bw.Box, desc)
+			applyBoxBorders(&bw.Box, desc, p)
+			if desc.FixedHeight > 0 {
+				bw.FixedHeight = desc.FixedHeight
+			}
 			if len(desc.Children) > 0 {
 				if vs, ok := bw.Child.(*widgets.VStackWidget); ok {
 					vs.Children = reconcileChildren(vs.Children, desc.Children, p)
@@ -245,7 +254,29 @@ func applyBoxModel(box *widgets.BoxModel, desc WidgetDesc) {
 	box.PaddingRight = desc.PaddingRight
 }
 
-func createLabelWidget(desc WidgetDesc) *widgets.LabelWidget {
+func applyBoxBorders(box *widgets.BoxModel, desc WidgetDesc, p *Plugin) {
+	hasSideBorders := desc.BorderTop || desc.BorderBottom || desc.BorderLeft || desc.BorderRight
+	if desc.Border {
+		box.BorderTop = true
+		box.BorderBottom = true
+		box.BorderLeft = true
+		box.BorderRight = true
+	} else {
+		box.BorderTop = desc.BorderTop
+		box.BorderBottom = desc.BorderBottom
+		box.BorderLeft = desc.BorderLeft
+		box.BorderRight = desc.BorderRight
+	}
+	if desc.Border || hasSideBorders {
+		borders := term.SingleBorderSet()
+		if p.Borders != nil {
+			borders = *p.Borders
+		}
+		box.Borders = borders
+	}
+}
+
+func createLabelWidget(desc WidgetDesc, p *Plugin) *widgets.LabelWidget {
 	style := term.StyleDefault
 	if desc.TextStyle != "" {
 		style = resolveStyleName(desc.TextStyle)
@@ -257,6 +288,7 @@ func createLabelWidget(desc WidgetDesc) *widgets.LabelWidget {
 	})
 	lw.FixedWidth = desc.FixedWidth
 	applyBoxModel(&lw.Box, desc)
+	applyBoxBorders(&lw.Box, desc, p)
 	return lw
 }
 
@@ -328,28 +360,9 @@ func createScrollViewWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidge
 }
 
 func createBoxWidget(desc WidgetDesc, p *Plugin) *widgets.BoxWidget {
-	var box *widgets.BoxWidget
-	hasSideBorders := desc.BorderTop || desc.BorderBottom || desc.BorderLeft || desc.BorderRight
-	if desc.Border || hasSideBorders {
-		borders := term.SingleBorderSet()
-		if p.Borders != nil {
-			borders = *p.Borders
-		}
-		if desc.Border {
-			box = widgets.NewBoxWithBorder(borders)
-		} else {
-			box = widgets.NewBoxWidget(widgets.BoxModel{
-				BorderTop:    desc.BorderTop,
-				BorderBottom: desc.BorderBottom,
-				BorderLeft:   desc.BorderLeft,
-				BorderRight:  desc.BorderRight,
-				Borders:      borders,
-			})
-		}
-	} else {
-		box = widgets.NewBoxWidget(widgets.BoxModel{})
-	}
+	box := widgets.NewBoxWidget(widgets.BoxModel{})
 	applyBoxModel(&box.Box, desc)
+	applyBoxBorders(&box.Box, desc, p)
 	if desc.FixedHeight > 0 {
 		box.FixedHeight = desc.FixedHeight
 	}
