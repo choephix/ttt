@@ -85,6 +85,31 @@ All editor settings are nested under the `editor` key.
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
 | `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
 
+## Formatters
+
+External code formatters configured per file extension. Each formatter receives the buffer content via stdin and must write the formatted output to stdout. Use `{file}` as a placeholder for the file path (needed by formatters like prettier for filetype detection).
+
+When `editor.formatOnSave` is `true`, external formatters take priority over LSP formatting. If no external formatter is configured for the file type, LSP formatting is used as a fallback.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `formatters.<ext>` | string | — | Formatter command for files with this extension. `<ext>` is the extension without the dot (e.g. `go`, `js`, `py`). |
+
+**Example:**
+
+```json
+{
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}",
+    "py": "black -"
+  }
+}
+```
+
+**Keybinding:** `Ctrl+K F` runs the external formatter. `Ctrl+L F` runs the LSP formatter.
+
 ## Full Example
 
 ```json
@@ -150,6 +175,12 @@ All editor settings are nested under the `editor` key.
   },
   "plugins": {
     "enabled": true
+  },
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}",
+    "py": "black -"
   }
 }
 ```

@@ -150,6 +150,7 @@ type Settings struct {
 	LSP          LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
 	Plugins      PluginSettings       `json:"plugins,omitzero"`
+	Formatters   map[string]string    `json:"formatters,omitempty"`
 }
 
 func DefaultSettings() Settings {
@@ -162,6 +163,13 @@ func DefaultSettings() Settings {
 		LSP:          DefaultLSPSettings(),
 		Autocomplete: DefaultAutocompleteSettings(),
 	}
+}
+
+func (s Settings) FormatterForExt(ext string) string {
+	if s.Formatters == nil {
+		return ""
+	}
+	return s.Formatters[ext]
 }
 
 func normalizeSettings(s *Settings) {

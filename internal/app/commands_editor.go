@@ -177,7 +177,9 @@ func (a *App) doSaveFile() {
 	if lang != "" {
 		a.RunCodeActionsOnSave(path, lang)
 		if a.Settings.Editor.FormatOnSave {
-			a.FormatOnSave(path, lang)
+			if !a.FormatExternalOnSave(path) {
+				a.FormatOnSave(path, lang)
+			}
 		}
 	}
 	if !a.EditorGroup.Save() {
@@ -301,6 +303,12 @@ func registerEditorCommands(app *App) {
 		ID: "editor.formatSelection", Title: "Source Action: Format Selection",
 		Keywords: []string{"editor", "source", "prettier", "beautify"},
 		Handler:  app.FormatSelection,
+	})
+
+	reg.Register(command.Command{
+		ID: "editor.formatExternal", Title: "Format Document (External Formatter)",
+		Keywords: []string{"editor", "format", "formatter", "external"},
+		Handler:  app.RunExternalFormatter,
 	})
 
 	reg.Register(command.Command{

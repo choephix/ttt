@@ -251,8 +251,9 @@ To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 | Find References | *(command palette)* | Find all references to the symbol under the cursor (results in bottom panel REFERENCES tab) |
 | Rename Symbol | F2 | Rename the symbol under the cursor across all files in the workspace |
 | Hover | Ctrl+K I | Show type information and documentation for the symbol under the cursor |
-| Format Document | *(command palette)* | Format the entire document using the language server |
-| Format Selection | *(command palette)* | Format the selected range |
+| Format Document (LSP) | Ctrl+L F | Format the entire document using the language server |
+| Format Document (External) | Ctrl+K F | Format using an external formatter from settings |
+| Format Selection | *(command palette)* | Format the selected range via LSP |
 | Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
 
 #### Auto-Completion
@@ -270,9 +271,25 @@ The LSP server publishes diagnostics (errors, warnings, hints) which are display
 
 #### Formatting
 
-- **Format Document** — formats the entire file via the language server (available from the command palette)
-- **Format Selection** — formats only the selected range (available from the command palette)
-- **Format on Save** — enable `formatOnSave` in `settings.json` to auto-format when saving
+- **Format Document (LSP)** (`Ctrl+L F`) — formats the entire file via the language server
+- **Format Document (External)** (`Ctrl+K F`) — formats the file using an external formatter configured in `settings.json`
+- **Format Selection** — formats only the selected range via LSP (available from the command palette)
+- **Format on Save** — enable `editor.formatOnSave` in `settings.json` to auto-format when saving. External formatters take priority over LSP; if no external formatter is configured for the file type, LSP formatting is used as a fallback.
+
+**External formatters** are configured per file extension in a top-level `formatters` map:
+
+```json
+{
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}",
+    "py": "black -"
+  }
+}
+```
+
+The formatter receives the buffer via stdin and must write formatted output to stdout. Use `{file}` as a placeholder for the file path.
 
 #### References & Rename
 
@@ -467,7 +484,8 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
 | `theme` | string | `""` | Theme name (from `~/.config/ttt/themes/`) |
 | `debugMode` | bool | `false` | Enable debug logging to `~/.config/ttt/debug.log` |
-| `formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
+| `formatOnSave` | bool | `false` | Auto-format on save (external formatter first, then LSP) |
+| `formatters.<ext>` | string | — | External formatter command for the given file extension (e.g. `formatters.go`, `formatters.js`) |
 | `insertFinalNewline` | bool | `true` | Ensure files end with a newline on save |
 | `search.debounce` | int | `350` | Milliseconds to debounce global search input |
 | `explorer.showHidden` | bool | `true` | Show hidden files (dot-prefixed) in the file explorer |
@@ -529,6 +547,11 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
   },
   "plugins": {
     "enabled": true
+  },
+  "formatters": {
+    "go": "gofmt",
+    "lua": "stylua -",
+    "js": "prettier --stdin-filepath {file}"
   }
 }
 ```
