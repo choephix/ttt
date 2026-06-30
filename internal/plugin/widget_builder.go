@@ -104,6 +104,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 					expanded[item.ID] = true
 				}
 			}
+			savedIdx := tw.SelectedIndex()
 			tw.SetItems(desc.Items)
 			for _, item := range tw.Config.Items {
 				if expanded[item.ID] && item.Expandable {
@@ -111,6 +112,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 				}
 			}
 			tw.RestoreExpanded(expanded)
+			tw.SetSelectedIndex(savedIdx)
 			wireTreeCallbacks(tw, desc, p)
 		}
 	case WidgetButton:
