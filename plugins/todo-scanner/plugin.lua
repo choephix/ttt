@@ -26,10 +26,10 @@ end
 
 -- Icons for comment types
 local icons = {
-	TODO = "\xe2\x98\x90", -- ☐
-	FIXME = "\xe2\x9a\xa0", -- ⚠
-	HACK = "\xe2\x9a\xa1", -- ⚡
-	NOTE = "\xe2\x84\xb9", -- ℹ
+	TODO = "●",
+	FIXME = "▲",
+	HACK = "◆",
+	NOTE = "■",
 }
 
 -- Detect which comment type a matched line contains
@@ -157,8 +157,14 @@ local function scan_workspace(panel)
 		"--no-heading",
 		"--line-number",
 		"--column",
+		"-g",
+		"!.git",
+		"-g",
+		"!node_modules",
+		"-g",
+		"!vendor",
 		"-e",
-		"TODO|FIXME|HACK|NOTE",
+		"(TODO|FIXME|HACK|NOTE)[:\\s]",
 		".",
 	}, function(result)
 		scanning = false
@@ -193,8 +199,7 @@ end
 local function navigate_to(node_id)
 	local file, line = node_id:match("^(.+):(%d+)$")
 	if file and line then
-		-- TODO: use editor.open_file(file, line) once the API supports it
-		ttt.log("Navigate to " .. file .. " line " .. line)
+		ttt.open_file(file, tonumber(line))
 	end
 end
 
@@ -233,11 +238,6 @@ ttt.register({
 				panel:label({ text = "On macOS: brew install ripgrep", style = "muted", padding_left = 1 })
 				panel:label({ text = "On Arch: sudo pacman -S ripgrep", style = "muted", padding_left = 1 })
 				return
-			end
-
-			-- Header with count
-			if total_count > 0 then
-				panel:label({ text = "Results", badge = tostring(total_count), style = "muted", padding_left = 1 })
 			end
 
 			-- No results

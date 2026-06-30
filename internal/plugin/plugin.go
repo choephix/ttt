@@ -74,6 +74,7 @@ type Plugin struct {
 	ScreenshotToFile  func(path string) error
 	DebugDumpToFile   func(path string) error
 	QuitApp           func()
+	OpenFile          func(path string, line int)
 
 	Editor     EditorAPI
 	Filesystem FilesystemAPI

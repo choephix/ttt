@@ -332,6 +332,15 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "open_file", L.NewFunction(func(L *lua.LState) int {
+			path := L.CheckString(1)
+			line := L.OptInt(2, 0)
+			if p.OpenFile != nil {
+				p.OpenFile(path, line)
+			}
+			return 0
+		}))
+
 		L.SetField(mod, "markdown", L.NewFunction(func(L *lua.LState) int {
 			if p.RenderMarkdown == nil {
 				L.Push(L.NewTable())

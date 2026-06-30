@@ -2,6 +2,8 @@ package app
 
 import (
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/eugenioenko/ttt/internal/command"
@@ -338,6 +340,18 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 			*a.Running = false
 		}
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
+	p.OpenFile = func(path string, line int) {
+		absPath := path
+		if !filepath.IsAbs(path) {
+			if cwd, err := os.Getwd(); err == nil {
+				absPath = filepath.Join(cwd, path)
+			}
+		}
+		a.EditorGroup.OpenFile(absPath)
+		if line > 0 {
+			a.EditorGroup.GoToLine(line)
+		}
 	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
