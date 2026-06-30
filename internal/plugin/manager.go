@@ -32,6 +32,13 @@ type Manager struct {
 
 	SidebarPanels []SidebarRegistration
 	BottomPanels  []BottomRegistration
+
+	editorAPI    EditorAPI
+	settingsAPI  SettingsAPI
+	networkAPI   NetworkAPI
+	systemAPI    SystemAPI
+	fsFactory    func(pluginDir string) FilesystemAPI
+	logFactory   func(pluginName string) func(level, message string)
 }
 
 func NewManager(pluginsDir, registryPath string, extraDirs ...string) *Manager {
@@ -163,9 +170,13 @@ func (m *Manager) ApproveAndLoad(p *Plugin) error {
 		slog.Error("save plugin registry", "error", err)
 	}
 
+	m.wireAPIs(p)
+
 	if err := p.Init(); err != nil {
 		return err
 	}
+
+	p.CallOnInstall()
 
 	m.plugins = append(m.plugins, p)
 	m.collectRegistrations(p)
@@ -186,38 +197,65 @@ func (m *Manager) RegisterDebugPlugin(p *Plugin) {
 }
 
 func (m *Manager) SetEditorAPI(api EditorAPI) {
+	m.editorAPI = api
 	for _, p := range m.plugins {
 		p.Editor = api
 	}
 }
 
 func (m *Manager) SetFilesystemAPI(factory func(pluginDir string) FilesystemAPI) {
+	m.fsFactory = factory
 	for _, p := range m.plugins {
 		p.Filesystem = factory(p.Dir)
 	}
 }
 
 func (m *Manager) SetSystemAPI(api SystemAPI) {
+	m.systemAPI = api
 	for _, p := range m.plugins {
 		p.System = api
 	}
 }
 
 func (m *Manager) SetNetworkAPI(api NetworkAPI) {
+	m.networkAPI = api
 	for _, p := range m.plugins {
 		p.Network = api
 	}
 }
 
 func (m *Manager) SetSettingsAPI(api SettingsAPI) {
+	m.settingsAPI = api
 	for _, p := range m.plugins {
 		p.Settings = api
 	}
 }
 
 func (m *Manager) SetLogFactory(factory func(pluginName string) func(level, message string)) {
+	m.logFactory = factory
 	for _, p := range m.plugins {
 		p.Log = factory(p.Name)
+	}
+}
+
+func (m *Manager) wireAPIs(p *Plugin) {
+	if m.editorAPI != nil {
+		p.Editor = m.editorAPI
+	}
+	if m.settingsAPI != nil {
+		p.Settings = m.settingsAPI
+	}
+	if m.networkAPI != nil {
+		p.Network = m.networkAPI
+	}
+	if m.systemAPI != nil {
+		p.System = m.systemAPI
+	}
+	if m.fsFactory != nil {
+		p.Filesystem = m.fsFactory(p.Dir)
+	}
+	if m.logFactory != nil {
+		p.Log = m.logFactory(p.Name)
 	}
 }
 
