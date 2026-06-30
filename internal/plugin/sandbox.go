@@ -367,6 +367,7 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		"ttt.system": true,
 		"ttt.net":    true,
 		"ttt.events": true,
+		"ttt.json":   true,
 	}
 
 	origRequire := L.GetGlobal("require")

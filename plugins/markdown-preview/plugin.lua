@@ -55,7 +55,7 @@ ttt.register({
 	commands = {
 		{
 			id = "markdown.preview",
-			title = "Markdown: Preview",
+			title = "Preview: Markdown",
 			handler = show_preview,
 		},
 	},

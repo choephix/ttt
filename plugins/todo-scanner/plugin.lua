@@ -9,6 +9,21 @@ local initialized = false
 local rg_missing = false
 local last_panel = nil
 
+-- Sanitize a string from ripgrep output for safe display.
+-- Removes control characters, replaces tabs, strips carriage returns.
+local function sanitize_text(s)
+	if not s then
+		return ""
+	end
+	-- Replace tabs with spaces
+	s = s:gsub("\t", "  ")
+	-- Remove carriage returns (from CRLF line endings)
+	s = s:gsub("\r", "")
+	-- Remove null bytes and other control characters (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F, 0x7F)
+	s = s:gsub("[%z\1-\8\11-\12\14-\31\127]", "")
+	return s
+end
+
 -- Icons for comment types
 local icons = {
 	TODO = "\xe2\x98\x90", -- ☐
@@ -53,6 +68,8 @@ local function parse_results(stdout)
 		-- ripgrep format: file:line:column:matched text
 		local file, line_num, col, text = line:match("^(.-):(%-?%d+):(%-?%d+):(.*)$")
 		if file and line_num and text then
+			-- Sanitize raw text from ripgrep to remove control characters
+			text = sanitize_text(text)
 			local comment_type = detect_type(text)
 			local display_text = extract_text(text, comment_type)
 
@@ -62,7 +79,8 @@ local function parse_results(stdout)
 				display_text = comment_type
 			end
 
-			-- Strip leading ./ from file paths
+			-- Sanitize file path and strip leading ./
+			file = sanitize_text(file)
 			if file:sub(1, 2) == "./" then
 				file = file:sub(3)
 			end
