@@ -6,6 +6,55 @@ import (
 	"testing"
 )
 
+func TestSetPathNilDeletesKey(t *testing.T) {
+	m := map[string]any{
+		"lsp": map[string]any{
+			"servers": map[string]any{
+				"go":   map[string]any{"command": []any{"gopls"}},
+				"rust": map[string]any{"command": []any{"rust-analyzer"}},
+			},
+		},
+	}
+
+	setPath(m, []string{"lsp", "servers", "go"}, nil)
+
+	servers := m["lsp"].(map[string]any)["servers"].(map[string]any)
+	if _, exists := servers["go"]; exists {
+		t.Error("expected 'go' key to be deleted")
+	}
+	if _, exists := servers["rust"]; !exists {
+		t.Error("expected 'rust' key to remain")
+	}
+}
+
+func TestGetPathNestedValue(t *testing.T) {
+	m := map[string]any{
+		"lsp": map[string]any{
+			"servers": map[string]any{
+				"go": map[string]any{"command": []any{"gopls"}},
+			},
+		},
+	}
+
+	val, ok := getPath(m, []string{"lsp", "servers", "go"})
+	if !ok {
+		t.Fatal("expected to find lsp.servers.go")
+	}
+	srv, ok := val.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map, got %T", val)
+	}
+	cmd := srv["command"].([]any)
+	if len(cmd) != 1 || cmd[0] != "gopls" {
+		t.Errorf("expected [gopls], got %v", cmd)
+	}
+
+	_, ok = getPath(m, []string{"lsp", "servers", "nonexistent"})
+	if ok {
+		t.Error("expected false for nonexistent key")
+	}
+}
+
 func TestPluginFilesystemAPI_PathRestriction(t *testing.T) {
 	tmpDir := t.TempDir()
 	allowed := filepath.Join(tmpDir, "workspace")

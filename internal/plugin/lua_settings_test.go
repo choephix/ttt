@@ -14,7 +14,11 @@ func (m *mockSettingsAPI) Get(key string) (any, bool) {
 }
 
 func (m *mockSettingsAPI) Set(key string, value any) error {
-	m.store[key] = value
+	if value == nil {
+		delete(m.store, key)
+	} else {
+		m.store[key] = value
+	}
 	return nil
 }
 
@@ -139,6 +143,26 @@ func TestSettingsSetTable(t *testing.T) {
 	cmd, ok := srv["command"].([]any)
 	if !ok || len(cmd) != 1 || cmd[0] != "gopls" {
 		t.Errorf("expected [gopls], got %v", srv["command"])
+	}
+}
+
+func TestSettingsSetNilDeletesKey(t *testing.T) {
+	api := &mockSettingsAPI{store: map[string]any{"formatters.go": "gofmt"}}
+	p, cleanup := setupTestPluginWithSettings(
+		PermissionSet{Settings: true, SettingsKeys: []string{"formatters.*"}},
+		api,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local settings = require("ttt.settings")
+		settings.set("formatters.go", nil)
+	`)
+	if err != nil {
+		t.Fatalf("DoString: %v", err)
+	}
+	if _, exists := api.store["formatters.go"]; exists {
+		t.Errorf("expected key to be deleted, but it still exists with value %v", api.store["formatters.go"])
 	}
 }
 

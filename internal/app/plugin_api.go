@@ -500,7 +500,11 @@ func getPath(m map[string]any, parts []string) (any, bool) {
 func setPath(m map[string]any, parts []string, value any) {
 	for i, part := range parts {
 		if i == len(parts)-1 {
-			m[part] = value
+			if value == nil {
+				delete(m, part)
+			} else {
+				m[part] = value
+			}
 			return
 		}
 		child, ok := m[part].(map[string]any)
