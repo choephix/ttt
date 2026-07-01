@@ -364,7 +364,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
 	p.RenderMarkdown = func(text string) []plugin.MarkdownLine {
-		rendered := markdown.RenderWithWidth(text, a.Settings.Markdown.WrapWidth)
+		rendered := markdown.Render(text)
 		lines := make([]plugin.MarkdownLine, len(rendered))
 		for i, line := range rendered {
 			spans := make([]plugin.MarkdownSpan, len(line.Spans))
@@ -384,6 +384,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
+	p.Markdown = a.Settings.Markdown
 	p.Borders = a.Borders
 	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
 		a.ShowInfoDialog(title, entries)

@@ -30,6 +30,7 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 	tabID := "plugin-detail:" + entry.Name
 
 	md := widgets.NewMarkdownWidget()
+	md.MaxWidth = a.Settings.Markdown.WrapWidth
 	md.SetContent("Loading README...")
 
 	installed := a.isPluginInstalled(entry.Name)

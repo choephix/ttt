@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	lua "github.com/yuin/gopher-lua"
@@ -71,6 +72,7 @@ type Plugin struct {
 	OpenTab           func(id string, panel *PluginPanelWidget)
 	CloseTab          func(id string)
 	RenderMarkdown    func(text string) []MarkdownLine
+	Markdown          config.MarkdownSettings
 	Borders           *term.BorderSet
 	SimulateClick     func(x, y int)
 	SimulateDrag      func(x1, y1, x2, y2 int)

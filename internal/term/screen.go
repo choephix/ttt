@@ -49,6 +49,7 @@ const (
 	StyleInputPlaceholder
 	StyleInputAction
 	StyleHoverBold
+	StyleHoverItalic
 	StyleHoverCode
 	StyleBracketColor1
 	StyleBracketColor2

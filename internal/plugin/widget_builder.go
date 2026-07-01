@@ -495,8 +495,11 @@ func createProgressWidget(desc WidgetDesc) *widgets.ProgressWidget {
 	return pw
 }
 
-func createMarkdownWidget(desc WidgetDesc, _ *Plugin) *widgets.ScrollViewWidget {
+func createMarkdownWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget {
 	md := widgets.NewMarkdownWidget()
+	if p != nil && p.Markdown.WrapWidth > 0 {
+		md.MaxWidth = p.Markdown.WrapWidth
+	}
 	md.SetContent(desc.MarkdownContent)
 	applyBoxModel(&md.Box, desc)
 	sv := widgets.NewScrollViewWidget(md)

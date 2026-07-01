@@ -24,8 +24,8 @@ type HoverWidget struct {
 	hscrollbar HScrollbar
 }
 
-func NewHoverWidget(text string, x, y, wrapWidth int) *HoverWidget {
-	lines := markdown.RenderWithWidth(text, wrapWidth)
+func NewHoverWidget(text string, x, y int) *HoverWidget {
+	lines := markdown.Render(text)
 	maxW := 0
 	for _, line := range lines {
 		if w := len([]rune(line.Text())); w > maxW {
@@ -135,7 +135,7 @@ func (h *HoverWidget) Render(surface Surface) {
 		for bx := x + 1; bx < x+1+innerW; bx++ {
 			surface.SetCell(bx, row, term.Cell{Ch: ' ', Style: st})
 		}
-		styles := buildStyleRuns(h.Lines[lineIdx])
+		styles := markdown.FlattenStyles(h.Lines[lineIdx])
 		runes := []rune(lineText)
 		for j := 0; j < contentW && h.scrollLeft+j < len(runes); j++ {
 			idx := h.scrollLeft + j
@@ -254,12 +254,3 @@ func (h *HoverWidget) contentWidth() int {
 	return w
 }
 
-func buildStyleRuns(line markdown.Line) []term.Style {
-	var styles []term.Style
-	for _, span := range line.Spans {
-		for range []rune(span.Text) {
-			styles = append(styles, span.Style)
-		}
-	}
-	return styles
-}

@@ -19,6 +19,7 @@ var pluginStyles = []styleEntry{
 	{"line", term.StyleLineNumber},
 	{"input", term.StyleInput},
 	{"bold", term.StyleHoverBold},
+	{"italic", term.StyleHoverItalic},
 	{"code", term.StyleHoverCode},
 	{"syntax_comment", term.StyleSyntaxComment},
 	{"syntax_string", term.StyleSyntaxString},

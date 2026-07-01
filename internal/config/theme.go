@@ -1,9 +1,10 @@
 package config
 
 type StyleDef struct {
-	Fg   string `json:"fg,omitempty"`
-	Bg   string `json:"bg,omitempty"`
-	Bold bool   `json:"bold,omitempty"`
+	Fg     string `json:"fg,omitempty"`
+	Bg     string `json:"bg,omitempty"`
+	Bold   bool   `json:"bold,omitempty"`
+	Italic bool   `json:"italic,omitempty"`
 }
 
 type BorderChars struct {
@@ -187,8 +188,9 @@ func (tc TerminalColors) ColorByName(name string) string {
 }
 
 type HoverStyles struct {
-	Bold StyleDef `json:"bold"`
-	Code StyleDef `json:"code"`
+	Bold   StyleDef `json:"bold"`
+	Italic StyleDef `json:"italic"`
+	Code   StyleDef `json:"code"`
 }
 
 type ThemeConfig struct {
@@ -311,7 +313,11 @@ func (t *ThemeConfig) ResolveColors() {
 	if !t.Hover.Bold.Bold {
 		t.Hover.Bold.Bold = true
 	}
+	if !t.Hover.Italic.Italic {
+		t.Hover.Italic.Italic = true
+	}
 	fillFg(&t.Hover.Bold, t.Default.Fg)
+	fillFg(&t.Hover.Italic, t.Default.Fg)
 	fillFg(&t.Hover.Code, t.Syntax.String.Fg)
 }
 

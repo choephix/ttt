@@ -1,8 +1,6 @@
 package widgets
 
 import (
-	"strings"
-
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/core/selection"
 	"github.com/eugenioenko/ttt/internal/markdown"
@@ -12,6 +10,7 @@ import (
 
 type MarkdownWidget struct {
 	BaseWidget
+	MaxWidth  int
 	rawText   string
 	lines     []markdown.Line
 	wrapWidth int
@@ -25,7 +24,7 @@ type MarkdownWidget struct {
 }
 
 func NewMarkdownWidget() *MarkdownWidget {
-	return &MarkdownWidget{}
+	return &MarkdownWidget{MaxWidth: 80}
 }
 
 func (m *MarkdownWidget) SetScrollParent(sv *ScrollViewWidget) {
@@ -63,79 +62,21 @@ func (m *MarkdownWidget) ScrollSize() (int, int) {
 }
 
 func (m *MarkdownWidget) rewrap(width int) {
+	if m.MaxWidth > 0 && width > m.MaxWidth {
+		width = m.MaxWidth
+	}
 	if width == m.wrapWidth && m.wrapped != nil {
 		return
 	}
 	m.wrapWidth = width
 	m.wrapped = nil
 	for _, line := range m.lines {
-		text := line.Text()
-		if text == "" {
-			m.wrapped = append(m.wrapped, markdown.Line{
-				Spans: []markdown.Span{{Text: "", Style: term.StyleDefault}},
-			})
-			continue
-		}
-		if strings.HasPrefix(text, "---") {
+		if !line.Kind.Wrappable() || len([]rune(line.Text())) <= width {
 			m.wrapped = append(m.wrapped, line)
 			continue
 		}
-		if len([]rune(text)) <= width {
-			m.wrapped = append(m.wrapped, line)
-			continue
-		}
-		m.wrapped = append(m.wrapped, wrapMarkdownLine(line, width)...)
+		m.wrapped = append(m.wrapped, markdown.WrapLine(line, width)...)
 	}
-}
-
-func wrapMarkdownLine(line markdown.Line, width int) []markdown.Line {
-	styles := flattenMarkdownStyles(line)
-	runes := []rune(line.Text())
-	var result []markdown.Line
-	for len(runes) > 0 {
-		end := width
-		if end > len(runes) {
-			end = len(runes)
-		}
-		if end < len(runes) {
-			bp := -1
-			for j := end - 1; j > 0; j-- {
-				if runes[j] == ' ' {
-					bp = j
-					break
-				}
-			}
-			if bp > 0 {
-				end = bp + 1
-			}
-		}
-		var spans []markdown.Span
-		pos := 0
-		chunk := runes[:end]
-		chunkStyles := styles[:end]
-		for pos < len(chunk) {
-			st := chunkStyles[pos]
-			start := pos
-			for pos < len(chunk) && chunkStyles[pos] == st {
-				pos++
-			}
-			spans = append(spans, markdown.Span{Text: string(chunk[start:pos]), Style: st})
-		}
-		result = append(result, markdown.Line{Spans: spans})
-		runes = runes[end:]
-		styles = styles[end:]
-	}
-	return result
-}
-
-func flattenMarkdownStyles(line markdown.Line) []term.Style {
-	var styles []term.Style
-	for _, span := range line.Spans {
-		for range []rune(span.Text) {
-			styles = append(styles, span.Style)
-		}
-	}
-	return styles
 }
 
 func (m *MarkdownWidget) wrappedTextLines() []string {

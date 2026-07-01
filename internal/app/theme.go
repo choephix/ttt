@@ -72,6 +72,7 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleButton, theme.Button.Item)
 	applyStyleDef(&m, term.StyleButtonFocused, theme.Button.Focused)
 	applyStyleDef(&m, term.StyleHoverBold, theme.Hover.Bold)
+	applyStyleDef(&m, term.StyleHoverItalic, theme.Hover.Italic)
 	applyStyleDef(&m, term.StyleHoverCode, theme.Hover.Code)
 	applyStyleDef(&m, term.StyleMuted, theme.Muted)
 	applyStyleDef(&m, term.StyleSuccess, theme.Success)
@@ -146,7 +147,7 @@ func BuildBorderSet(bc config.BorderChars) term.BorderSet {
 }
 
 func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
-	if def.Fg == "" && def.Bg == "" && !def.Bold {
+	if def.Fg == "" && def.Bg == "" && !def.Bold && !def.Italic {
 		return
 	}
 	s := m[idx]
@@ -158,6 +159,9 @@ func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 	}
 	if def.Bold {
 		s = s.Bold(true)
+	}
+	if def.Italic {
+		s = s.Italic(true)
 	}
 	m[idx] = s
 }

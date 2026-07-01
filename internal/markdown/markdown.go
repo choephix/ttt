@@ -1,16 +1,39 @@
 package markdown
 
 import (
-	"regexp"
+	"fmt"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/core/highlight"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	east "github.com/yuin/goldmark/extension/ast"
+	gmtext "github.com/yuin/goldmark/text"
 )
 
-// Strip blank lines adjacent to --- dividers (LSP hover content often has extra newlines around them)
-var reDividerBlanks = regexp.MustCompile(`\n+---`)
-var reDividerBlanksAfter = regexp.MustCompile(`---\n+`)
+type LineKind int
+
+const (
+	KindParagraph LineKind = iota
+	KindHeading
+	KindCode
+	KindTable
+	KindDivider
+	KindListItem
+	KindBlockquote
+	KindBlank
+)
+
+func (k LineKind) Wrappable() bool {
+	switch k {
+	case KindParagraph, KindHeading, KindListItem, KindBlockquote:
+		return true
+	default:
+		return false
+	}
+}
 
 type Span struct {
 	Text  string
@@ -19,6 +42,7 @@ type Span struct {
 
 type Line struct {
 	Spans []Span
+	Kind  LineKind
 }
 
 func (l Line) Text() string {
@@ -29,53 +53,12 @@ func (l Line) Text() string {
 	return b.String()
 }
 
-const DefaultWrapWidth = 80
-
-func Render(text string) []Line {
-	return RenderWithWidth(text, DefaultWrapWidth)
-}
-
-func RenderWithWidth(text string, wrapWidth int) []Line {
-	text = strings.TrimRight(text, "\n")
-	text = reDividerBlanks.ReplaceAllString(text, "\n---")
-	text = reDividerBlanksAfter.ReplaceAllString(text, "---\n")
-	raw := strings.Split(text, "\n")
-	var lines []Line
-	i := 0
-	for i < len(raw) {
-		line := raw[i]
-		if lang, ok := strings.CutPrefix(line, "```"); ok {
-			lang = strings.TrimSpace(lang)
-			var block []string
-			i++
-			for i < len(raw) && !strings.HasPrefix(raw[i], "```") {
-				block = append(block, raw[i])
-				i++
-			}
-			if i < len(raw) {
-				i++
-			}
-			lines = append(lines, renderCodeBlock(block, lang)...)
-			continue
-		}
-		if line == "---" {
-			lines = append(lines, Line{Spans: []Span{{Text: "---", Style: term.StyleBorder}}})
-			i++
-			continue
-		}
-		parsed := renderInline(line)
-		lines = append(lines, wrapLine(parsed, wrapWidth)...)
-		i++
-	}
-	return lines
-}
-
-func wrapLine(line Line, width int) []Line {
+func WrapLine(line Line, width int) []Line {
 	text := line.Text()
 	if len([]rune(text)) <= width {
 		return []Line{line}
 	}
-	styles := flattenStyles(line)
+	styles := FlattenStyles(line)
 	runes := []rune(text)
 	var result []Line
 	for len(runes) > 0 {
@@ -84,7 +67,6 @@ func wrapLine(line Line, width int) []Line {
 			end = len(runes)
 		}
 		if end < len(runes) {
-			// break at last space within width
 			bp := -1
 			for j := end - 1; j > 0; j-- {
 				if runes[j] == ' ' {
@@ -108,14 +90,14 @@ func wrapLine(line Line, width int) []Line {
 			}
 			spans = append(spans, Span{Text: string(chunk[start:pos]), Style: st})
 		}
-		result = append(result, Line{Spans: spans})
+		result = append(result, Line{Kind: line.Kind, Spans: spans})
 		runes = runes[end:]
 		styles = styles[end:]
 	}
 	return result
 }
 
-func flattenStyles(line Line) []term.Style {
+func FlattenStyles(line Line) []term.Style {
 	var styles []term.Style
 	for _, span := range line.Spans {
 		for range []rune(span.Text) {
@@ -123,6 +105,289 @@ func flattenStyles(line Line) []term.Style {
 		}
 	}
 	return styles
+}
+
+var md = goldmark.New(goldmark.WithExtensions(extension.Table))
+
+func Render(text string) []Line {
+	src := []byte(text)
+	doc := md.Parser().Parse(gmtext.NewReader(src))
+	r := &renderer{src: src}
+	r.renderNode(doc)
+	if len(r.lines) == 0 {
+		r.lines = []Line{{Spans: []Span{{Text: "", Style: term.StyleDefault}}}}
+	}
+	return r.lines
+}
+
+type renderer struct {
+	src   []byte
+	lines []Line
+}
+
+func (r *renderer) emit(line Line) {
+	r.lines = append(r.lines, line)
+}
+
+func (r *renderer) emitBlank() {
+	r.lines = append(r.lines, Line{Kind: KindBlank, Spans: []Span{{Text: "", Style: term.StyleDefault}}})
+}
+
+func (r *renderer) renderNode(n ast.Node) {
+	for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+		r.renderBlock(child)
+	}
+}
+
+func (r *renderer) renderBlock(n ast.Node) {
+	switch n := n.(type) {
+	case *ast.Heading:
+		spans := r.collectInlineSpans(n, term.StyleHoverBold)
+		prefix := strings.Repeat("#", n.Level) + " "
+		spans = append([]Span{{Text: prefix, Style: term.StyleHoverBold}}, spans...)
+		r.emit(Line{Kind: KindHeading, Spans: spans})
+		r.emitBlank()
+
+	case *ast.Paragraph:
+		spans := r.collectInlineSpans(n, term.StylePaletteItem)
+		r.emit(Line{Kind: KindParagraph, Spans: spans})
+		r.emitBlank()
+
+	case *ast.TextBlock:
+		spans := r.collectInlineSpans(n, term.StylePaletteItem)
+		r.emit(Line{Kind: KindParagraph, Spans: spans})
+
+	case *ast.FencedCodeBlock:
+		lang := ""
+		if n.Info != nil {
+			lang = strings.TrimSpace(string(n.Info.Text(r.src)))
+		}
+		r.emitCodeBlock(r.collectBlockLines(n), lang)
+		r.emitBlank()
+
+	case *ast.CodeBlock:
+		r.emitCodeBlock(r.collectBlockLines(n), "")
+		r.emitBlank()
+
+	case *ast.ThematicBreak:
+		r.emit(Line{Kind: KindDivider, Spans: []Span{{Text: "---", Style: term.StyleBorder}}})
+		r.emitBlank()
+
+	case *ast.List:
+		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+			if li, ok := child.(*ast.ListItem); ok {
+				r.renderListItem(li, n.IsOrdered())
+			}
+		}
+		r.emitBlank()
+
+	case *east.Table:
+		r.renderTable(n)
+		r.emitBlank()
+
+	case *ast.Blockquote:
+		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+			if p, ok := child.(*ast.Paragraph); ok {
+				spans := r.collectInlineSpans(p, term.StylePaletteItem)
+				spans = append([]Span{{Text: "│ ", Style: term.StyleBorder}}, spans...)
+				r.emit(Line{Kind: KindBlockquote, Spans: spans})
+			} else {
+				r.renderBlock(child)
+			}
+		}
+		r.emitBlank()
+
+	case *ast.HTMLBlock:
+		for i := 0; i < n.Lines().Len(); i++ {
+			seg := n.Lines().At(i)
+			line := strings.TrimRight(string(seg.Value(r.src)), "\n")
+			r.emit(Line{Kind: KindCode, Spans: []Span{{Text: line, Style: term.StylePaletteItem}}})
+		}
+		r.emitBlank()
+
+	default:
+		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+			r.renderBlock(child)
+		}
+	}
+}
+
+func (r *renderer) collectBlockLines(n ast.Node) []string {
+	var block []string
+	for i := 0; i < n.Lines().Len(); i++ {
+		seg := n.Lines().At(i)
+		block = append(block, strings.TrimRight(string(seg.Value(r.src)), "\n"))
+	}
+	return block
+}
+
+func (r *renderer) emitCodeBlock(block []string, lang string) {
+	for _, cl := range renderCodeBlock(block, lang) {
+		cl.Kind = KindCode
+		r.lines = append(r.lines, cl)
+	}
+}
+
+func (r *renderer) renderListItem(li *ast.ListItem, ordered bool) {
+	marker := "• "
+	if ordered {
+		idx := 0
+		parent := li.Parent()
+		for c := parent.FirstChild(); c != nil; c = c.NextSibling() {
+			idx++
+			if c == li {
+				break
+			}
+		}
+		marker = fmt.Sprintf("%d. ", idx)
+	}
+
+	first := true
+	for child := li.FirstChild(); child != nil; child = child.NextSibling() {
+		switch child.Kind() {
+		case ast.KindTextBlock, ast.KindParagraph:
+			spans := r.collectInlineSpans(child, term.StylePaletteItem)
+			if first {
+				spans = append([]Span{{Text: marker, Style: term.StylePaletteItem}}, spans...)
+				first = false
+			} else {
+				indent := strings.Repeat(" ", len([]rune(marker)))
+				spans = append([]Span{{Text: indent, Style: term.StylePaletteItem}}, spans...)
+			}
+			r.emit(Line{Kind: KindListItem, Spans: spans})
+		default:
+			r.renderBlock(child)
+		}
+	}
+}
+
+func (r *renderer) renderTable(t *east.Table) {
+	var headers [][]Span
+	var rows [][][]Span
+	var colWidths []int
+
+	if header := t.FirstChild(); header != nil {
+		if th, ok := header.(*east.TableHeader); ok {
+			for cell := th.FirstChild(); cell != nil; cell = cell.NextSibling() {
+				if tc, ok := cell.(*east.TableCell); ok {
+					spans := r.collectInlineSpans(tc, term.StyleHoverBold)
+					headers = append(headers, spans)
+					w := spanWidth(spans)
+					colWidths = append(colWidths, w)
+				}
+			}
+		}
+	}
+
+	for child := t.FirstChild(); child != nil; child = child.NextSibling() {
+		row, ok := child.(*east.TableRow)
+		if !ok {
+			continue
+		}
+		var cells [][]Span
+		col := 0
+		for cell := row.FirstChild(); cell != nil; cell = cell.NextSibling() {
+			if tc, ok := cell.(*east.TableCell); ok {
+				spans := r.collectInlineSpans(tc, term.StylePaletteItem)
+				cells = append(cells, spans)
+				w := spanWidth(spans)
+				if col < len(colWidths) {
+					if w > colWidths[col] {
+						colWidths[col] = w
+					}
+				} else {
+					colWidths = append(colWidths, w)
+				}
+				col++
+			}
+		}
+		rows = append(rows, cells)
+	}
+
+	r.emitTableRow(headers, colWidths, term.StyleHoverBold)
+	var sep []Span
+	for i, w := range colWidths {
+		if i > 0 {
+			sep = append(sep, Span{Text: "─┼─", Style: term.StyleBorder})
+		}
+		sep = append(sep, Span{Text: strings.Repeat("─", w), Style: term.StyleBorder})
+	}
+	r.emit(Line{Kind: KindTable, Spans: sep})
+	for _, row := range rows {
+		r.emitTableRow(row, colWidths, term.StylePaletteItem)
+	}
+}
+
+func (r *renderer) emitTableRow(cells [][]Span, colWidths []int, defaultStyle term.Style) {
+	var spans []Span
+	for i, cell := range cells {
+		if i > 0 {
+			spans = append(spans, Span{Text: " │ ", Style: term.StyleBorder})
+		}
+		spans = append(spans, cell...)
+		w := spanWidth(cell)
+		pad := 0
+		if i < len(colWidths) {
+			pad = colWidths[i] - w
+		}
+		if pad > 0 {
+			spans = append(spans, Span{Text: strings.Repeat(" ", pad), Style: defaultStyle})
+		}
+	}
+	r.emit(Line{Kind: KindTable, Spans: spans})
+}
+
+func spanWidth(spans []Span) int {
+	n := 0
+	for _, s := range spans {
+		n += len([]rune(s.Text))
+	}
+	return n
+}
+
+func (r *renderer) collectInlineSpans(n ast.Node, defaultStyle term.Style) []Span {
+	var spans []Span
+	r.walkInline(n, defaultStyle, &spans)
+	if len(spans) == 0 {
+		spans = []Span{{Text: "", Style: defaultStyle}}
+	}
+	return spans
+}
+
+func (r *renderer) walkInline(n ast.Node, style term.Style, spans *[]Span) {
+	for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+		switch c := child.(type) {
+		case *ast.Text:
+			txt := string(c.Text(r.src))
+			if txt != "" {
+				*spans = append(*spans, Span{Text: txt, Style: style})
+			}
+			if c.SoftLineBreak() && child.NextSibling() != nil {
+				*spans = append(*spans, Span{Text: " ", Style: style})
+			}
+		case *ast.String:
+			txt := string(c.Value)
+			if txt != "" {
+				*spans = append(*spans, Span{Text: txt, Style: style})
+			}
+		case *ast.CodeSpan:
+			txt := string(c.Text(r.src))
+			*spans = append(*spans, Span{Text: txt, Style: term.StyleHoverCode})
+		case *ast.Emphasis:
+			emphStyle := term.StyleHoverBold
+			if c.Level == 1 {
+				emphStyle = term.StyleHoverItalic
+			}
+			r.walkInline(c, emphStyle, spans)
+		case *ast.Link:
+			r.walkInline(c, style, spans)
+		case *ast.AutoLink:
+			txt := string(c.URL(r.src))
+			*spans = append(*spans, Span{Text: txt, Style: style})
+		default:
+			r.walkInline(child, style, spans)
+		}
+	}
 }
 
 func renderCodeBlock(block []string, lang string) []Line {
@@ -160,101 +425,4 @@ func highlightToLine(text string, spans []highlight.Span) Line {
 		result = append(result, Span{Text: string(runes[pos:]), Style: term.StyleHoverCode})
 	}
 	return Line{Spans: result}
-}
-
-func renderInline(text string) Line {
-	if text == "" {
-		return Line{Spans: []Span{{Text: "", Style: term.StylePaletteItem}}}
-	}
-	var spans []Span
-	runes := []rune(text)
-	i := 0
-	var buf []rune
-	flush := func(style term.Style) {
-		if len(buf) > 0 {
-			spans = append(spans, Span{Text: string(buf), Style: style})
-			buf = nil
-		}
-	}
-	for i < len(runes) {
-		ch := runes[i]
-		if ch == '`' {
-			flush(term.StylePaletteItem)
-			end := indexOf(runes, '`', i+1)
-			if end == -1 {
-				buf = append(buf, ch)
-				i++
-				continue
-			}
-			spans = append(spans, Span{Text: string(runes[i+1 : end]), Style: term.StyleHoverCode})
-			i = end + 1
-			continue
-		}
-		if ch == '*' && i+1 < len(runes) && runes[i+1] == '*' {
-			flush(term.StylePaletteItem)
-			end := indexOfDouble(runes, '*', i+2)
-			if end == -1 {
-				buf = append(buf, ch)
-				i++
-				continue
-			}
-			spans = append(spans, Span{Text: string(runes[i+2 : end]), Style: term.StyleHoverBold})
-			i = end + 2
-			continue
-		}
-		if ch == '*' || ch == '_' {
-			flush(term.StylePaletteItem)
-			end := indexOf(runes, ch, i+1)
-			if end == -1 || end == i+1 {
-				buf = append(buf, ch)
-				i++
-				continue
-			}
-			spans = append(spans, Span{Text: string(runes[i+1 : end]), Style: term.StyleHoverBold})
-			i = end + 1
-			continue
-		}
-		if ch == '[' {
-			flush(term.StylePaletteItem)
-			closeBracket := indexOf(runes, ']', i+1)
-			if closeBracket != -1 && closeBracket+1 < len(runes) && runes[closeBracket+1] == '(' {
-				closeParen := indexOf(runes, ')', closeBracket+2)
-				if closeParen != -1 {
-					linkText := string(runes[i+1 : closeBracket])
-					inner := renderInline(linkText)
-					spans = append(spans, inner.Spans...)
-					i = closeParen + 1
-					continue
-				}
-			}
-			buf = append(buf, ch)
-			i++
-			continue
-		}
-		buf = append(buf, ch)
-		i++
-	}
-	flush(term.StylePaletteItem)
-	if len(spans) == 0 {
-		spans = []Span{{Text: "", Style: term.StylePaletteItem}}
-	}
-	return Line{Spans: spans}
-}
-
-func indexOf(runes []rune, ch rune, from int) int {
-	for i := from; i < len(runes); i++ {
-		if runes[i] == ch {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfDouble(runes []rune, ch rune, from int) int {
-	for i := from; i+1 < len(runes); i++ {
-		if runes[i] == ch && runes[i+1] == ch {
-			return i
-		}
-	}
-	return -1
 }

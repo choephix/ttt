@@ -350,7 +350,7 @@ func (a *App) ShowHover(text string, anchorX, anchorY int) {
 	if text == "" {
 		return
 	}
-	a.EditorGroup.Hover = ui.NewHoverWidget(text, anchorX, anchorY, a.Settings.Markdown.WrapWidth)
+	a.EditorGroup.Hover = ui.NewHoverWidget(text, anchorX, anchorY)
 }
 
 func (a *App) isMouseOverHover(mx, my int) bool {
