@@ -335,8 +335,15 @@ func (a *App) checkMouseHover(mx, my int) {
 	if a.EditorGroup.Editor.Highlighter != nil {
 		lang = a.EditorGroup.Editor.Highlighter.Language()
 	}
+	diagText := ""
+	if a.EditorGroup.Editor != nil {
+		if d := a.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
+			diagText = d.Message
+		}
+	}
+	gen := a.HoverGen
 	a.HoverTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
-		a.RequestHover(path, lang, line, col, mx, my)
+		a.RequestHover(path, lang, line, col, mx, my, diagText, gen)
 	})
 }
 

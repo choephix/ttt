@@ -238,7 +238,14 @@ func registerEditorCommands(app *App) {
 			path, lang := app.editorPathLang()
 			line, col := app.EditorGroup.ActiveCursor()
 			ax, ay, _ := app.EditorGroup.CursorPosition()
-			app.RequestHover(path, lang, line, col, ax, ay)
+			diagText := ""
+			if app.EditorGroup.Editor != nil {
+				if d := app.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
+					diagText = d.Message
+				}
+			}
+			gen := app.HoverGen
+			app.RequestHover(path, lang, line, col, ax, ay, diagText, gen)
 		},
 	})
 

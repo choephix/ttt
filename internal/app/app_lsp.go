@@ -718,15 +718,7 @@ func (a *App) RequestCompletions(path, lang string, line, col int, triggerChar s
 	}()
 }
 
-func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
-	diagText := ""
-	if a.EditorGroup.Editor != nil {
-		if d := a.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
-			diagText = d.Message
-		}
-	}
-
-	gen := a.HoverGen
+func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int, diagText string, gen uint64) {
 	post := func(text string) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(&HoverResult{Text: text, AnchorX: anchorX, AnchorY: anchorY, Gen: gen}))
 	}
