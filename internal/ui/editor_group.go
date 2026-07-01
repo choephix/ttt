@@ -363,6 +363,7 @@ func (g *EditorGroupWidget) ReloadFile(path string) {
 		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
 			g.tabs[i].Buf.LoadFile(path)
 			g.tabs[i].Buf.Dirty = false
+			g.tabs[i].Undo = &undo.UndoStack{}
 			if g.tabs[i].Folds != nil {
 				g.tabs[i].Folds.SetRanges(fold.ComputeIndentRanges(g.tabs[i].Buf.Lines))
 			}
