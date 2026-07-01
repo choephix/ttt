@@ -48,8 +48,14 @@ func (m *MarkdownWidget) Height() int { return 0 }
 func (m *MarkdownWidget) Width() int  { return 0 }
 
 func (m *MarkdownWidget) ScrollSize() (int, int) {
-	r := m.GetRect()
-	w := r.W
+	var w int
+	if m.scrollParent != nil {
+		w = m.scrollParent.GetRect().W
+	}
+	if w <= 0 {
+		r := m.GetRect()
+		w = r.W
+	}
 	if w <= 0 {
 		w = 80
 	}
