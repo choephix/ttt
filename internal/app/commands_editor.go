@@ -89,7 +89,9 @@ func (a *App) CloseTab() {
 			func() {
 				a.DismissDialog()
 				a.Reg.Execute("file.save")
-				a.EditorGroup.CloseTab()
+				if !a.EditorGroup.IsDirty() {
+					a.EditorGroup.CloseTab()
+				}
 			},
 		},
 	)
