@@ -449,15 +449,15 @@ func (a *App) RequestCodeAction(path, lang, kind string) {
 		return
 	}
 	workDir := a.lspWorkDir(path)
+	lineCount := 0
+	if a.EditorGroup.Editor != nil {
+		lineCount = len(a.EditorGroup.Editor.Buf.Lines)
+	}
 	go func() {
 		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
-		}
-		lineCount := 0
-		if a.EditorGroup.Editor != nil {
-			lineCount = len(a.EditorGroup.Editor.Buf.Lines)
 		}
 		fullRange := lsp.Range{
 			Start: lsp.Position{Line: 0, Character: 0},
