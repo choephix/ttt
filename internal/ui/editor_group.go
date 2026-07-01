@@ -792,7 +792,6 @@ func (g *EditorGroupWidget) AnyDirty() bool {
 }
 
 func (g *EditorGroupWidget) undoRedoPostProcess() {
-	g.Editor.InvalidateMaxLineWidth()
 	if g.Editor.Folds != nil {
 		g.Editor.Folds.SetRanges(fold.ComputeIndentRanges(g.Editor.Buf.Lines))
 		g.Editor.ExpandFoldContaining(g.Editor.Cursor.Line)
@@ -1233,7 +1232,6 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Folds = t.Folds
 		g.Editor.LineChanges = t.LineChanges
 		g.Editor.buildDiagIndex()
-		g.Editor.InvalidateMaxLineWidth()
 		g.Editor.InvalidateBracketColors()
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
