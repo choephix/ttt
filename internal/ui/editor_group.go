@@ -1307,7 +1307,7 @@ func (g *EditorGroupWidget) Render(surface Surface) {
 		g.Autocomplete.Render(surface)
 	}
 
-	if g.Hover != nil && len(g.Hover.Lines) > 0 {
+	if g.Hover != nil && g.Hover.HasContent() {
 		g.Hover.OffsetX = r.X
 		g.Hover.OffsetY = r.Y
 		g.Hover.Borders = g.Borders

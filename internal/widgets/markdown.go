@@ -11,6 +11,7 @@ import (
 type MarkdownWidget struct {
 	BaseWidget
 	MaxWidth  int
+	FillStyle term.Style
 	rawText   string
 	lines     []markdown.Line
 	wrapWidth int
@@ -57,8 +58,18 @@ func (m *MarkdownWidget) ScrollSize() (int, int) {
 		wrapW = 1
 	}
 	m.rewrap(wrapW)
+	effectiveW := wrapW
+	if m.MaxWidth > 0 && effectiveW > m.MaxWidth {
+		effectiveW = m.MaxWidth
+	}
+	contentW := effectiveW
+	for _, line := range m.wrapped {
+		if lw := len([]rune(line.Text())); lw > contentW {
+			contentW = lw
+		}
+	}
 	h := len(m.wrapped) + m.Box.PaddingTop + m.Box.PaddingBottom
-	return w, h
+	return contentW, h
 }
 
 func (m *MarkdownWidget) rewrap(width int) {
@@ -87,17 +98,36 @@ func (m *MarkdownWidget) wrappedTextLines() []string {
 	return lines
 }
 
+func (m *MarkdownWidget) ContentSize(width int) (maxLineW, lineCount int) {
+	m.rewrap(width)
+	for _, line := range m.wrapped {
+		if w := len([]rune(line.Text())); w > maxLineW {
+			maxLineW = w
+		}
+	}
+	return maxLineW, len(m.wrapped)
+}
+
 func (m *MarkdownWidget) Render(surface Surface) {
 	surface = m.RenderBox(surface)
 	w, h := surface.Size()
 	if w <= 0 || h <= 0 {
 		return
 	}
+	if m.FillStyle != 0 {
+		surface.Fill(term.Cell{Ch: ' ', Style: m.FillStyle})
+	}
 
 	m.rewrap(w)
 
 	for y := 0; y < h && y < len(m.wrapped); y++ {
 		line := m.wrapped[y]
+		if line.Kind == markdown.KindDivider {
+			for x := 0; x < w; x++ {
+				surface.SetCell(x, y, term.Cell{Ch: '─', Style: term.StyleBorder})
+			}
+			continue
+		}
 		x := 0
 		for _, span := range line.Spans {
 			for _, ch := range span.Text {
