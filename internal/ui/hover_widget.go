@@ -27,6 +27,8 @@ func NewHoverWidget(text string, x, y int) *HoverWidget {
 	md := widgets.NewMarkdownWidget()
 	md.MaxWidth = hoverMaxWidth
 	md.FillStyle = term.StylePaletteItem
+	md.Box.PaddingLeft = 1
+	md.Box.PaddingRight = 1
 	md.SetContent(text)
 
 	scroll := widgets.NewScrollViewWidget(md)
@@ -67,7 +69,7 @@ func (h *HoverWidget) Render(surface Surface) {
 	visLines := h.visibleLines()
 	hasVScroll := h.numLines > visLines
 
-	contentW := h.maxLineW
+	contentW := h.maxLineW + h.md.Box.PaddingLeft + h.md.Box.PaddingRight
 	maxContentW := sw - 6
 	if maxContentW < 20 {
 		maxContentW = 20

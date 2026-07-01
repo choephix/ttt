@@ -67,6 +67,7 @@ func (m *MarkdownWidget) ScrollSize() (int, int) {
 			contentW = lw
 		}
 	}
+	contentW += m.Box.PaddingLeft + m.Box.PaddingRight
 	h := len(m.wrapped) + m.Box.PaddingTop + m.Box.PaddingBottom
 	return contentW, h
 }
