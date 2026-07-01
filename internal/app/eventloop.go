@@ -167,7 +167,7 @@ func RunEventLoop(
 			}
 
 		case *tcell.EventKey:
-			app.DismissHover()
+			app.cancelHoverTimer()
 			if app.EditorGroup.SignatureHelp != nil {
 				switch tev.Key() {
 				case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,

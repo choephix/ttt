@@ -18,9 +18,9 @@ func newScrollTestChild(w, h int) *scrollTestChild {
 	return &scrollTestChild{contentW: w, contentH: h}
 }
 
-func (c *scrollTestChild) Height() int                          { return 0 }
-func (c *scrollTestChild) Width() int                           { return 0 }
-func (c *scrollTestChild) ScrollSize() (int, int)               { return c.contentW, c.contentH }
+func (c *scrollTestChild) Height() int                            { return 0 }
+func (c *scrollTestChild) Width() int                             { return 0 }
+func (c *scrollTestChild) ScrollSize() (int, int)                 { return c.contentW, c.contentH }
 func (c *scrollTestChild) HandleEvent(ev tcell.Event) EventResult { return EventIgnored }
 
 func (c *scrollTestChild) Render(surface Surface) {

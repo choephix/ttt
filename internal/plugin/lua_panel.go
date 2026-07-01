@@ -10,7 +10,6 @@ import (
 
 const panelTypeName = "panel"
 
-
 type PanelProxy struct {
 	surface     widgets.Surface
 	plugin      *Plugin
@@ -80,26 +79,27 @@ func (pp *PanelProxy) appendDesc(kind WidgetKind, desc WidgetDesc) {
 func RegisterPanelType(L *lua.LState) {
 	mt := L.NewTypeMetatable(panelTypeName)
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"size":     panelSize,
-		"cell":     panelCell,
-		"text":     panelText,
-		"clear":    panelClear,
-		"label":    panelLabelWidget,
-		"tree":     panelTreeWidget,
-		"list":     panelListWidget,
-		"button":   panelButtonWidget,
-		"input":    panelInputWidget,
-		"vstack":   panelVStackWidget,
-		"box":      panelBoxWidget,
-		"dropdown": panelDropdownWidget,
-		"title":    panelTitleWidget,
+		"size":       panelSize,
+		"cell":       panelCell,
+		"text":       panelText,
+		"clear":      panelClear,
+		"label":      panelLabelWidget,
+		"tree":       panelTreeWidget,
+		"list":       panelListWidget,
+		"button":     panelButtonWidget,
+		"input":      panelInputWidget,
+		"vstack":     panelVStackWidget,
+		"box":        panelBoxWidget,
+		"dropdown":   panelDropdownWidget,
+		"title":      panelTitleWidget,
 		"keyvalue":   panelKeyValueWidget,
 		"scrollview": panelScrollViewWidget,
-		"hstack":    panelHStackWidget,
-		"divider":   panelDividerWidget,
-		"progress":  panelProgressWidget,
-		"table":     panelTableWidget,
-		"redraw":    panelRedraw,
+		"hstack":     panelHStackWidget,
+		"divider":    panelDividerWidget,
+		"progress":   panelProgressWidget,
+		"table":      panelTableWidget,
+		"redraw":     panelRedraw,
+		"markdown":   panelMarkdownWidget,
 	}))
 }
 
@@ -721,6 +721,27 @@ func panelTableWidget(L *lua.LState) int {
 
 	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetTable, desc)
+	return 0
+}
+
+func panelMarkdownWidget(L *lua.LState) int {
+	proxy := checkPanelProxy(L)
+	if proxy == nil {
+		return 0
+	}
+
+	desc := WidgetDesc{}
+	arg := L.Get(2)
+	switch v := arg.(type) {
+	case lua.LString:
+		desc.MarkdownContent = string(v)
+	case *lua.LTable:
+		if t := L.GetField(v, "text"); t != lua.LNil {
+			desc.MarkdownContent = t.String()
+		}
+		parseBoxModel(L, v, &desc)
+	}
+	proxy.appendDesc(WidgetMarkdown, desc)
 	return 0
 }
 

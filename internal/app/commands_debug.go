@@ -93,7 +93,7 @@ func (a *App) debugSimulateClick() {
 }
 
 func (a *App) debugRunPlugin() {
-	if a.EditorGroup.Editor == nil {
+	if a.PluginManager == nil || a.EditorGroup.Editor == nil {
 		a.Status.SetNotification("No active editor", view.NotifyWarning, 3*time.Second)
 		return
 	}

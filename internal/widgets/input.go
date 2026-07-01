@@ -11,9 +11,9 @@ import (
 )
 
 type InputConfig struct {
-	Prefix      string `json:"prefix,omitempty"`
-	Placeholder string `json:"placeholder,omitempty"`
-	Bordered    bool   `json:"bordered"`
+	Prefix      string     `json:"prefix,omitempty"`
+	Placeholder string     `json:"placeholder,omitempty"`
+	Bordered    bool       `json:"bordered"`
 	Style       term.Style `json:"-"`
 
 	OnChange func(text string)
@@ -52,11 +52,11 @@ func (inp *InputWidget) Height() int {
 	return h
 }
 
-func (inp *InputWidget) Width() int  { return 0 }
+func (inp *InputWidget) Width() int { return 0 }
 
-func (inp *InputWidget) Focusable() bool    { return true }
-func (inp *InputWidget) SetFocused(f bool)  { inp.focused = f }
-func (inp *InputWidget) IsFocused() bool    { return inp.focused }
+func (inp *InputWidget) Focusable() bool   { return true }
+func (inp *InputWidget) SetFocused(f bool) { inp.focused = f }
+func (inp *InputWidget) IsFocused() bool   { return inp.focused }
 
 func (inp *InputWidget) CursorPosition() (int, int, bool) {
 	if !inp.focused {
@@ -74,7 +74,7 @@ func (inp *InputWidget) CursorPosition() (int, int, bool) {
 	return textX + inp.cursorPos - inp.scrollOffset, textY, true
 }
 
-func (inp *InputWidget) Text() string     { return inp.text }
+func (inp *InputWidget) Text() string { return inp.text }
 func (inp *InputWidget) SetText(t string) {
 	inp.text = t
 	inp.cursorPos = len([]rune(t))

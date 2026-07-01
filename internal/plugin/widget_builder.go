@@ -7,10 +7,10 @@ import (
 )
 
 type WidgetState struct {
-	keys    []string
-	items   []widgets.Widget
-	root    *widgets.VStackWidget
-	focus   *widgets.FocusManager
+	keys  []string
+	items []widgets.Widget
+	root  *widgets.VStackWidget
+	focus *widgets.FocusManager
 }
 
 func NewWidgetState() *WidgetState {
@@ -73,6 +73,8 @@ func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 		return createProgressWidget(desc)
 	case WidgetTable:
 		return createTableWidget(desc)
+	case WidgetMarkdown:
+		return createMarkdownWidget(desc, p)
 	}
 	return widgets.NewLabelWidget(widgets.LabelConfig{Text: "unknown widget"})
 }
@@ -179,6 +181,12 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 			tw.Config.OnSelect = desc.OnSelectIndex
 			tw.Config.OnCommand = desc.OnCommandStr
 		}
+	case WidgetMarkdown:
+		if sv, ok := w.(*widgets.ScrollViewWidget); ok {
+			if md, ok := sv.Child.(*widgets.MarkdownWidget); ok {
+				md.SetContent(desc.MarkdownContent)
+			}
+		}
 	}
 }
 
@@ -225,6 +233,9 @@ func widgetMatchesKind(w widgets.Widget, kind WidgetKind) bool {
 		return ok
 	case WidgetTable:
 		_, ok := w.(*widgets.TableWidget)
+		return ok
+	case WidgetMarkdown:
+		_, ok := w.(*widgets.ScrollViewWidget)
 		return ok
 	}
 	return false
@@ -482,6 +493,18 @@ func createProgressWidget(desc WidgetDesc) *widgets.ProgressWidget {
 	})
 	applyBoxModel(&pw.Box, desc)
 	return pw
+}
+
+func createMarkdownWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget {
+	md := widgets.NewMarkdownWidget()
+	if p != nil && p.Markdown.WrapWidth > 0 {
+		md.MaxWidth = p.Markdown.WrapWidth
+	}
+	md.SetContent(desc.MarkdownContent)
+	applyBoxModel(&md.Box, desc)
+	sv := widgets.NewScrollViewWidget(md)
+	md.SetScrollParent(sv)
+	return sv
 }
 
 func createTableWidget(desc WidgetDesc) *widgets.TableWidget {

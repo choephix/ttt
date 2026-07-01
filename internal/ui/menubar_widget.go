@@ -12,10 +12,11 @@ type MenuItem struct {
 
 type MenuBarWidget struct {
 	BaseWidget
-	Items    []MenuItem
-	Selected int
-	OnSelect func(index int)
-	itemSpans []MenuItemSpan
+	Items      []MenuItem
+	Selected   int
+	OnSelect   func(index int)
+	itemSpans  []MenuItemSpan
+	wasPressed bool
 }
 
 func NewMenuBarWidget(items []MenuItem) *MenuBarWidget {
@@ -75,7 +76,13 @@ func (m *MenuBarWidget) ItemAnchorX(index int) int {
 func (m *MenuBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
-		if tev.Buttons()&tcell.Button1 != 0 {
+		btn := tev.Buttons()
+		if btn == tcell.ButtonNone {
+			m.wasPressed = false
+			return EventIgnored
+		}
+		if btn&tcell.Button1 != 0 && !m.wasPressed {
+			m.wasPressed = true
 			r := m.GetRect()
 			mx, my := tev.Position()
 			if my == r.Y {

@@ -748,16 +748,16 @@ func (cp *ChangesPanel) SelectedGroup() *ui.ChangesGroup {
 
 func (cp *ChangesPanel) toUIChangesGroup(pg *prGroup) *ui.ChangesGroup {
 	return &ui.ChangesGroup{
-		Dir:             pg.Dir,
-		Name:            pg.Name,
-		Unstaged:        pg.Files,
-		IsPR:            true,
-		PRURL:           pg.PRURL,
-		PRDiffs:         pg.PRDiffs,
-		PROwner:         pg.PROwner,
-		PRRepo:          pg.PRRepo,
-		PRBaseSHA:       pg.PRBaseSHA,
-		PRHeadSHA:       pg.PRHeadSHA,
+		Dir:       pg.Dir,
+		Name:      pg.Name,
+		Unstaged:  pg.Files,
+		IsPR:      true,
+		PRURL:     pg.PRURL,
+		PRDiffs:   pg.PRDiffs,
+		PROwner:   pg.PROwner,
+		PRRepo:    pg.PRRepo,
+		PRBaseSHA: pg.PRBaseSHA,
+		PRHeadSHA: pg.PRHeadSHA,
 	}
 }
 

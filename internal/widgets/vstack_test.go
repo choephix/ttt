@@ -268,9 +268,9 @@ func TestVStackBoxModelApplied(t *testing.T) {
 	label := NewLabelWidget(LabelConfig{Text: "Hello"})
 	vs := NewVStackWidget(label)
 	vs.Box = BoxModel{
-		MarginTop:  1,
-		MarginLeft: 2,
-		PaddingTop: 1,
+		MarginTop:   1,
+		MarginLeft:  2,
+		PaddingTop:  1,
 		PaddingLeft: 1,
 	}
 
@@ -292,9 +292,9 @@ func TestVStackBoxModelInHeight(t *testing.T) {
 	b := &fixedWidget{h: 5, w: 10}
 	vs := NewVStackWidget(a, b)
 	vs.Box = BoxModel{
-		MarginTop:    1,
-		MarginBottom: 1,
-		PaddingTop:   2,
+		MarginTop:     1,
+		MarginBottom:  1,
+		PaddingTop:    2,
 		PaddingBottom: 2,
 	}
 

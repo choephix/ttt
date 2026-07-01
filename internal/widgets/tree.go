@@ -75,11 +75,11 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 	return t
 }
 
-func (t *TreeWidget) Height() int { return 0 }
-func (t *TreeWidget) Width() int  { return 0 }
-func (t *TreeWidget) Focusable() bool    { return true }
-func (t *TreeWidget) SetFocused(f bool)  { t.focused = f }
-func (t *TreeWidget) IsFocused() bool    { return t.focused }
+func (t *TreeWidget) Height() int       { return 0 }
+func (t *TreeWidget) Width() int        { return 0 }
+func (t *TreeWidget) Focusable() bool   { return true }
+func (t *TreeWidget) SetFocused(f bool) { t.focused = f }
+func (t *TreeWidget) IsFocused() bool   { return t.focused }
 
 func (t *TreeWidget) Selected() *TreeNode {
 	if t.selected >= 0 && t.selected < len(t.flatList) {
@@ -600,11 +600,11 @@ func (n *TreeNode) isExpandable() bool {
 	return len(n.Children) > 0 || n.Expandable
 }
 
-func (t *TreeWidget) FlatList() []*TreeNode       { return t.flatList }
-func (t *TreeWidget) SelectedIndex() int           { return t.selected }
-func (t *TreeWidget) SetSelectedIndex(i int)       { t.selected = i; t.clampSelected() }
-func (t *TreeWidget) ScrollTop() int               { return t.scrollTop }
-func (t *TreeWidget) ItemCount() int               { return len(t.flatList) }
+func (t *TreeWidget) FlatList() []*TreeNode  { return t.flatList }
+func (t *TreeWidget) SelectedIndex() int     { return t.selected }
+func (t *TreeWidget) SetSelectedIndex(i int) { t.selected = i; t.clampSelected() }
+func (t *TreeWidget) ScrollTop() int         { return t.scrollTop }
+func (t *TreeWidget) ItemCount() int         { return len(t.flatList) }
 
 func (t *TreeWidget) ActivateSelected() {
 	if t.selected < 0 || t.selected >= len(t.flatList) {

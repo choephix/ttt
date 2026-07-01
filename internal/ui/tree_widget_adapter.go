@@ -7,7 +7,7 @@ import (
 
 type WidgetAdapter struct {
 	BaseWidget
-	W    widgets.Widget
+	W     widgets.Widget
 	focus *widgets.FocusManager
 }
 

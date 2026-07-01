@@ -20,12 +20,12 @@ type ButtonConfig struct {
 
 type ButtonWidget struct {
 	BaseWidget
-	Config      ButtonConfig
-	Disabled    bool
-	label       string
-	accelIndex  int
-	accelRune   rune
-	focused     bool
+	Config     ButtonConfig
+	Disabled   bool
+	label      string
+	accelIndex int
+	accelRune  rune
+	focused    bool
 }
 
 func NewButtonWidget(config ButtonConfig) *ButtonWidget {
@@ -61,9 +61,9 @@ func (b *ButtonWidget) Width() int {
 	return w
 }
 
-func (b *ButtonWidget) Focusable() bool    { return true }
-func (b *ButtonWidget) SetFocused(f bool)  { b.focused = f }
-func (b *ButtonWidget) IsFocused() bool    { return b.focused }
+func (b *ButtonWidget) Focusable() bool   { return true }
+func (b *ButtonWidget) SetFocused(f bool) { b.focused = f }
+func (b *ButtonWidget) IsFocused() bool   { return b.focused }
 
 func (b *ButtonWidget) Render(surface Surface) {
 	style := b.Config.Style

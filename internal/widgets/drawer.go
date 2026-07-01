@@ -15,10 +15,10 @@ type DrawerConfig struct {
 
 type DrawerWidget struct {
 	BaseWidget
-	Config  DrawerConfig
-	Content Widget
-	width   int
-	dragging bool
+	Config     DrawerConfig
+	Content    Widget
+	width      int
+	dragging   bool
 	wasPressed bool
 }
 

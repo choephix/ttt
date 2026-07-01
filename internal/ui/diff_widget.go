@@ -15,8 +15,8 @@ import (
 )
 
 type diffMergedRef struct {
-	isRight  bool
-	sideIdx  int
+	isRight bool
+	sideIdx int
 }
 
 type diffSelPos struct {
@@ -34,38 +34,38 @@ type DiffViewWidget struct {
 	maxLineW    int
 	viewH       int
 	contentW    int
-	scrollbar    Scrollbar
-	hscrollbar   HScrollbar
-	rhscrollbar  HScrollbar
+	scrollbar   Scrollbar
+	hscrollbar  HScrollbar
+	rhscrollbar HScrollbar
 
 	// layout cache for mouse hit-testing
-	layoutDividerX  int
-	layoutLeftStart int
-	layoutLeftW     int
+	layoutDividerX   int
+	layoutLeftStart  int
+	layoutLeftW      int
 	layoutRightStart int
-	layoutRightW    int
-	layoutGutterW   int
+	layoutRightW     int
+	layoutGutterW    int
 
 	// selection state
-	selecting    bool
-	hasSelection bool
-	selRight     bool
-	selAnchor    diffSelPos
-	selCurrent   diffSelPos
+	selecting     bool
+	hasSelection  bool
+	selRight      bool
+	selAnchor     diffSelPos
+	selCurrent    diffSelPos
 	lastClickTime time.Time
 	lastClickPos  diffSelPos
 
-	SearchMatchesLeft  []FindMatch
-	SearchMatchesRight []FindMatch
-	searchMergedRefs   []diffMergedRef
-	searchActiveRight  bool
+	SearchMatchesLeft   []FindMatch
+	SearchMatchesRight  []FindMatch
+	searchMergedRefs    []diffMergedRef
+	searchActiveRight   bool
 	searchActiveSideIdx int
 
 	// extended diff mode
-	extended  bool
-	fileDiff  diff.FileDiff
-	oldLines  []string
-	newLines  []string
+	extended bool
+	fileDiff diff.FileDiff
+	oldLines []string
+	newLines []string
 
 	OnFetchExtended func(dv *DiffViewWidget)
 	Loading         bool
@@ -286,7 +286,7 @@ func (d *DiffViewWidget) Render(surface Surface) {
 	gutterW := d.gutterWidth()
 
 	showVScroll := len(d.Lines) > h
-	contentW := (w - 1) / 2 - gutterW
+	contentW := (w-1)/2 - gutterW
 	showHScroll := d.maxLineW > contentW
 
 	if showHScroll {

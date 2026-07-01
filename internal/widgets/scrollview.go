@@ -100,8 +100,8 @@ func (sv *ScrollViewWidget) Render(surface Surface) {
 	}
 
 	if hasVBar {
-		sv.vbar.X = sv.rect.X + w - 1
-		sv.vbar.Y = sv.rect.Y
+		sv.vbar.X = sv.rect.X + sv.Box.MarginLeft + sv.Box.PaddingLeft + w - 1
+		sv.vbar.Y = sv.rect.Y + sv.Box.MarginTop + sv.Box.PaddingTop
 		sv.vbar.Height = viewH
 		sv.vbar.TotalItems = contentH
 		sv.vbar.TopItem = sv.scrollY
@@ -229,9 +229,9 @@ func (sv *ScrollViewWidget) scrollHToClick(clickX, barW, totalW int) {
 	}
 }
 
-func (sv *ScrollViewWidget) Focusable() bool           { return true }
-func (sv *ScrollViewWidget) SetFocused(focused bool)    { sv.focused = focused }
-func (sv *ScrollViewWidget) IsFocused() bool            { return sv.focused }
+func (sv *ScrollViewWidget) Focusable() bool         { return true }
+func (sv *ScrollViewWidget) SetFocused(focused bool) { sv.focused = focused }
+func (sv *ScrollViewWidget) IsFocused() bool         { return sv.focused }
 
 func (sv *ScrollViewWidget) clamp(contentW, contentH, viewW, viewH int) {
 	maxY := contentH - viewH

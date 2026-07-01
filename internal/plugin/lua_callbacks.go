@@ -21,6 +21,12 @@ func (p *Plugin) CallLuaFunc(fn *lua.LFunction, args ...lua.LValue) error {
 	return err
 }
 
+func (p *Plugin) CallOnInstall() {
+	if p.InstallFunc != nil {
+		p.CallLuaFunc(p.InstallFunc)
+	}
+}
+
 func TreeNodeToLua(L *lua.LState, node *widgets.TreeNode) *lua.LTable {
 	tbl := L.NewTable()
 	L.SetField(tbl, "id", lua.LString(node.ID))

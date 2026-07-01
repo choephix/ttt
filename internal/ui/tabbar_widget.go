@@ -1,9 +1,9 @@
 package ui
 
 import (
+	"github.com/eugenioenko/ttt/internal/term"
 	"log/slog"
 	"path/filepath"
-	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -23,21 +23,22 @@ type Tab struct {
 
 type TabBarWidget struct {
 	BaseWidget
-	Tabs         []Tab
-	Borders      *term.BorderSet
-	ScrollOffset int
-	MoreButton      *MoreButtonWidget
-	OnTabClick      func(index int)
-	OnTabClose      func(index int)
-	OnTabRightClick func(index, screenX, screenY int)
-	OnPrevTab       func()
-	OnNextTab       func()
+	Tabs             []Tab
+	Borders          *term.BorderSet
+	ScrollOffset     int
+	MoreButton       *MoreButtonWidget
+	OnTabClick       func(index int)
+	OnTabClose       func(index int)
+	OnTabRightClick  func(index, screenX, screenY int)
+	OnPrevTab        func()
+	OnNextTab        func()
 	tabSpans         []tabSpan
 	hasOverflowLeft  bool
 	hasOverflowRight bool
 	totalTabWidth    int
 	closeDownX       int // screen X where mouse-down hit a close button, -1 if none
 	closeDownY       int
+	wasPressed       bool
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -271,6 +272,7 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	// Mouse release: only close if released at the exact same screen position as mouse-down
 	if btn == tcell.ButtonNone {
+		t.wasPressed = false
 		if t.closeDownX >= 0 && mx == t.closeDownX && my == t.closeDownY {
 			t.closeDownX = -1
 			localX := mx - r.X - arrowW + t.ScrollOffset
@@ -287,6 +289,12 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 
 	if btn&tcell.Button1 == 0 {
 		return EventIgnored
+	}
+
+	freshClick := !t.wasPressed
+	t.wasPressed = true
+	if !freshClick {
+		return EventConsumed
 	}
 
 	// Handle overflow arrow clicks — switch to prev/next tab

@@ -23,13 +23,13 @@ func newMockSurface(w, h int) *mockSurface {
 	return &mockSurface{w: w, h: h, cells: make(map[[2]int]term.Cell)}
 }
 
-func (s *mockSurface) Size() (int, int)                            { return s.w, s.h }
-func (s *mockSurface) Origin() (int, int)                          { return 0, 0 }
-func (s *mockSurface) SetCell(x, y int, c term.Cell)               { s.cells[[2]int{x, y}] = c }
+func (s *mockSurface) Size() (int, int)                                              { return s.w, s.h }
+func (s *mockSurface) Origin() (int, int)                                            { return 0, 0 }
+func (s *mockSurface) SetCell(x, y int, c term.Cell)                                 { s.cells[[2]int{x, y}] = c }
 func (s *mockSurface) DrawBorder(x, y, w, h int, b term.BorderSet, style term.Style) {}
-func (s *mockSurface) ClearRect(x, y, w, h int, style term.Style)  {}
-func (s *mockSurface) Fill(c term.Cell)                             {}
-func (s *mockSurface) Sub(r widgets.Rect) widgets.Surface           { return s }
+func (s *mockSurface) ClearRect(x, y, w, h int, style term.Style)                    {}
+func (s *mockSurface) Fill(c term.Cell)                                              {}
+func (s *mockSurface) Sub(r widgets.Rect) widgets.Surface                            { return s }
 
 func (s *mockSurface) DrawText(x, y int, text string, maxW int, style term.Style) int {
 	s.texts = append(s.texts, mockText{x, y, text, style})

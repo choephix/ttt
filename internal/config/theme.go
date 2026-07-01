@@ -1,9 +1,10 @@
 package config
 
 type StyleDef struct {
-	Fg   string `json:"fg,omitempty"`
-	Bg   string `json:"bg,omitempty"`
-	Bold bool   `json:"bold,omitempty"`
+	Fg     string `json:"fg,omitempty"`
+	Bg     string `json:"bg,omitempty"`
+	Bold   bool   `json:"bold,omitempty"`
+	Italic bool   `json:"italic,omitempty"`
 }
 
 type BorderChars struct {
@@ -187,32 +188,33 @@ func (tc TerminalColors) ColorByName(name string) string {
 }
 
 type HoverStyles struct {
-	Bold StyleDef `json:"bold"`
-	Code StyleDef `json:"code"`
+	Bold   StyleDef `json:"bold"`
+	Italic StyleDef `json:"italic"`
+	Code   StyleDef `json:"code"`
 }
 
 type ThemeConfig struct {
-	Default   StyleDef       `json:"default"`
-	Muted     StyleDef       `json:"muted"`
-	Success   StyleDef       `json:"success"`
-	Danger    StyleDef       `json:"danger"`
-	Warning   StyleDef       `json:"warning"`
-	StatusBar StyleDef       `json:"statusBar"`
-	Tabs      TabStyles      `json:"tabs"`
-	Sidebar   SidebarStyles  `json:"sidebar"`
-	Dialog    DialogStyles   `json:"dialog"`
-	Editor    EditorStyles   `json:"editor"`
-	Menu      MenuStyles     `json:"menu"`
-	Input     InputStyles    `json:"input"`
-	Button    ButtonStyles   `json:"button"`
-	Hover     HoverStyles    `json:"hover"`
-	Border       StyleDef    `json:"border"`
-	BorderActive StyleDef    `json:"borderActive"`
-	Diff      DiffStyles     `json:"diff"`
-	Scrollbar StyleDef       `json:"scrollbar"`
-	Syntax    SyntaxStyles   `json:"syntax"`
-	Borders   BorderChars    `json:"borders"`
-	Terminal  TerminalColors `json:"terminal,omitempty"`
+	Default      StyleDef       `json:"default"`
+	Muted        StyleDef       `json:"muted"`
+	Success      StyleDef       `json:"success"`
+	Danger       StyleDef       `json:"danger"`
+	Warning      StyleDef       `json:"warning"`
+	StatusBar    StyleDef       `json:"statusBar"`
+	Tabs         TabStyles      `json:"tabs"`
+	Sidebar      SidebarStyles  `json:"sidebar"`
+	Dialog       DialogStyles   `json:"dialog"`
+	Editor       EditorStyles   `json:"editor"`
+	Menu         MenuStyles     `json:"menu"`
+	Input        InputStyles    `json:"input"`
+	Button       ButtonStyles   `json:"button"`
+	Hover        HoverStyles    `json:"hover"`
+	Border       StyleDef       `json:"border"`
+	BorderActive StyleDef       `json:"borderActive"`
+	Diff         DiffStyles     `json:"diff"`
+	Scrollbar    StyleDef       `json:"scrollbar"`
+	Syntax       SyntaxStyles   `json:"syntax"`
+	Borders      BorderChars    `json:"borders"`
+	Terminal     TerminalColors `json:"terminal,omitempty"`
 }
 
 func DefaultTheme() ThemeConfig {
@@ -243,11 +245,11 @@ func DefaultTheme() ThemeConfig {
 		Border: StyleDef{Fg: "#555555"},
 
 		Editor: EditorStyles{
-			ActiveLine:   StyleDef{Bg: "#282828"},
-			Selection:    StyleDef{Bg: "#282828"},
-			LineNumber:   StyleDef{Fg: "#999999"},
-			SearchMatch:  StyleDef{Bg: "#623800"},
-			SearchActive: StyleDef{Bg: "#9e6a03"},
+			ActiveLine:    StyleDef{Bg: "#282828"},
+			Selection:     StyleDef{Bg: "#282828"},
+			LineNumber:    StyleDef{Fg: "#999999"},
+			SearchMatch:   StyleDef{Bg: "#623800"},
+			SearchActive:  StyleDef{Bg: "#9e6a03"},
 			BracketMatch:  StyleDef{Bg: "#3a3a3a"},
 			BracketColors: []string{"yellow", "magenta", "blue"},
 		},
@@ -311,7 +313,11 @@ func (t *ThemeConfig) ResolveColors() {
 	if !t.Hover.Bold.Bold {
 		t.Hover.Bold.Bold = true
 	}
+	if !t.Hover.Italic.Italic {
+		t.Hover.Italic.Italic = true
+	}
 	fillFg(&t.Hover.Bold, t.Default.Fg)
+	fillFg(&t.Hover.Italic, t.Default.Fg)
 	fillFg(&t.Hover.Code, t.Syntax.String.Fg)
 }
 

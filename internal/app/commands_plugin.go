@@ -384,6 +384,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	p.System = NewPluginSystemAPI()
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
+	p.Markdown = a.Settings.Markdown
 	p.Borders = a.Borders
 	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
 		a.ShowInfoDialog(title, entries)

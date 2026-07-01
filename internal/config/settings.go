@@ -67,15 +67,15 @@ func DefaultLSPSettings() LSPSettings {
 }
 
 type EditorSettings struct {
-	TabSize                int    `json:"tabSize"`
-	InsertSpaces           bool   `json:"insertSpaces"`
-	WordWrap               bool   `json:"wordWrap"`
-	LineNumbers            bool   `json:"lineNumbers"`
-	CursorStyle            string `json:"cursorStyle,omitempty"`
-	FormatOnSave           bool   `json:"formatOnSave"`
-	InsertFinalNewline     bool   `json:"insertFinalNewline"`
-	TrimTrailingWhitespace bool `json:"trimTrailingWhitespace"`
-	FocusOnOpen            bool `json:"focusOnOpen"`
+	TabSize                 int    `json:"tabSize"`
+	InsertSpaces            bool   `json:"insertSpaces"`
+	WordWrap                bool   `json:"wordWrap"`
+	LineNumbers             bool   `json:"lineNumbers"`
+	CursorStyle             string `json:"cursorStyle,omitempty"`
+	FormatOnSave            bool   `json:"formatOnSave"`
+	InsertFinalNewline      bool   `json:"insertFinalNewline"`
+	TrimTrailingWhitespace  bool   `json:"trimTrailingWhitespace"`
+	FocusOnOpen             bool   `json:"focusOnOpen"`
 	SyntaxHighlight         *bool  `json:"syntaxHighlight,omitempty"`
 	GitGutter               *bool  `json:"gitGutter,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
@@ -93,10 +93,10 @@ func (e EditorSettings) IsGitGutterEnabled() bool {
 
 func DefaultEditorSettings() EditorSettings {
 	return EditorSettings{
-		TabSize:            4,
-		InsertSpaces:       true,
-		LineNumbers:        true,
-		InsertFinalNewline: true,
+		TabSize:                 4,
+		InsertSpaces:            true,
+		LineNumbers:             true,
+		InsertFinalNewline:      true,
 		GutterStyle:             "compact",
 		BorderStyle:             "default",
 		BracketPairColorization: false,
@@ -133,6 +133,16 @@ func (p PluginSettings) IsEnabled() bool {
 	return p.Enabled == nil || *p.Enabled
 }
 
+type MarkdownSettings struct {
+	WrapWidth int `json:"wrapWidth,omitempty"`
+}
+
+func DefaultMarkdownSettings() MarkdownSettings {
+	return MarkdownSettings{
+		WrapWidth: 80,
+	}
+}
+
 type Settings struct {
 	Version      int                  `json:"version"`
 	Theme        string               `json:"theme,omitempty"`
@@ -144,6 +154,7 @@ type Settings struct {
 	LSP          LSPSettings          `json:"lsp,omitzero"`
 	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
 	Plugins      PluginSettings       `json:"plugins,omitzero"`
+	Markdown     MarkdownSettings     `json:"markdown,omitzero"`
 	Formatters   map[string]string    `json:"formatters,omitempty"`
 }
 
@@ -156,6 +167,7 @@ func DefaultSettings() Settings {
 		Terminal:     DefaultTerminalSettings(),
 		LSP:          DefaultLSPSettings(),
 		Autocomplete: DefaultAutocompleteSettings(),
+		Markdown:     DefaultMarkdownSettings(),
 	}
 }
 
@@ -188,7 +200,6 @@ func LoadSettings() Settings {
 	normalizeSettings(&s)
 	return s
 }
-
 
 func SaveSettings(s Settings) error {
 	path := ConfigFilePath("settings.json")

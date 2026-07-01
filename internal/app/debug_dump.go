@@ -58,9 +58,9 @@ type DebugOverlay struct {
 }
 
 type DebugSelection struct {
-	Active bool       `json:"active"`
-	Start  *DebugPos  `json:"start,omitempty"`
-	End    *DebugPos  `json:"end,omitempty"`
+	Active bool      `json:"active"`
+	Start  *DebugPos `json:"start,omitempty"`
+	End    *DebugPos `json:"end,omitempty"`
 }
 
 type DebugPos struct {
@@ -69,11 +69,11 @@ type DebugPos struct {
 }
 
 type DebugWidgetNode struct {
-	Type     string            `json:"type"`
-	Rect     DebugRect         `json:"rect"`
-	Focused  bool              `json:"focused,omitempty"`
-	Visible  bool              `json:"visible"`
-	Props    map[string]any    `json:"props,omitempty"`
+	Type     string             `json:"type"`
+	Rect     DebugRect          `json:"rect"`
+	Focused  bool               `json:"focused,omitempty"`
+	Visible  bool               `json:"visible"`
+	Props    map[string]any     `json:"props,omitempty"`
 	Children []*DebugWidgetNode `json:"children,omitempty"`
 }
 
@@ -265,8 +265,8 @@ func walkWidget(w widgets.Widget) *DebugWidgetNode {
 	// UI-level widgets
 	case *ui.SplitPanelWidget:
 		node.Props = map[string]any{
-			"show_left":    v.ShowLeft,
-			"divider_pos":  v.DividerPos,
+			"show_left":   v.ShowLeft,
+			"divider_pos": v.DividerPos,
 		}
 		if v.Left != nil {
 			node.Children = append(node.Children, walkWidget(v.Left))

@@ -26,6 +26,7 @@ import (
 )
 
 const terminalStripWidth = ui.VerticalTabBarWidth
+const hoverGraceMargin = 3
 
 type TerminalTab struct {
 	ID     string
@@ -34,55 +35,55 @@ type TerminalTab struct {
 }
 
 type App struct {
-	Root               *ui.Root
-	EditorGroup        *ui.EditorGroupWidget
-	Sidebar            *ui.SidebarWidget
-	SplitPanel         *ui.SplitPanelWidget
-	ContentSplit       *ui.ContentSplitWidget
-	BottomPanel        *ui.BottomPanelWidget
-	Search             *ui.SearchWidget
-	MenuBar            *ui.MenuBarWidget
-	StatusBar          *ui.StatusBarWidget
-	Status             *view.StatusBar
-	Borders            *term.BorderSet
-	Screen             *term.TcellScreen
-	Renderer           *render.Renderer
-	Settings           *config.Settings
-	Workspace          *workspace.Workspace
-	Palette            *ui.TerminalColorPalette
-	TerminalPanel      *ui.TerminalPanelWidget
-	Terminals          []TerminalTab
-	LspManager         *lsp.Manager
-	DocVersionsMu      sync.Mutex
-	DocVersions        map[string]int
-	CompletionItems    []ui.CompletionItem
-	LspCompletionItems []lsp.CompletionItem
-	CompletionTriggers []string
-	AutocompleteTimer  *time.Timer
-	HoverTimer         *time.Timer
-	HoverGen           uint64
-	LastHoverLine      int
-	LastHoverCol       int
-	Problems           *ui.ProblemsWidget
-	References         *ui.ReferencesWidget
-	AllDiagnostics     map[string][]ui.Diagnostic
-	Keybindings        []config.KeyBinding
-	LspNotified        map[string]bool
-	Explorer            *NavigationPanel
-	ExplorerContextNode *widgets.TreeNode
-	Changes             *ChangesPanel
-	Reg                *command.Registry
-	Running            *bool
-	quitPending        bool
-	Watcher            *watcher.Watcher
-	GitGutterGen            int
-	GitGutterTimer          *time.Timer
-	Version                 string
-	PluginManager           *plugin.Manager
-	PendingPluginApprovals  []*plugin.Plugin
-	PluginsPanel            *PluginsPanel
-	Output                  *ui.OutputWidget
-	pluginDetailWidgets     map[string]*pluginDetailState
+	Root                   *ui.Root
+	EditorGroup            *ui.EditorGroupWidget
+	Sidebar                *ui.SidebarWidget
+	SplitPanel             *ui.SplitPanelWidget
+	ContentSplit           *ui.ContentSplitWidget
+	BottomPanel            *ui.BottomPanelWidget
+	Search                 *ui.SearchWidget
+	MenuBar                *ui.MenuBarWidget
+	StatusBar              *ui.StatusBarWidget
+	Status                 *view.StatusBar
+	Borders                *term.BorderSet
+	Screen                 *term.TcellScreen
+	Renderer               *render.Renderer
+	Settings               *config.Settings
+	Workspace              *workspace.Workspace
+	Palette                *ui.TerminalColorPalette
+	TerminalPanel          *ui.TerminalPanelWidget
+	Terminals              []TerminalTab
+	LspManager             *lsp.Manager
+	DocVersionsMu          sync.Mutex
+	DocVersions            map[string]int
+	CompletionItems        []ui.CompletionItem
+	LspCompletionItems     []lsp.CompletionItem
+	CompletionTriggers     []string
+	AutocompleteTimer      *time.Timer
+	HoverTimer             *time.Timer
+	HoverGen               uint64
+	LastHoverLine          int
+	LastHoverCol           int
+	Problems               *ui.ProblemsWidget
+	References             *ui.ReferencesWidget
+	AllDiagnostics         map[string][]ui.Diagnostic
+	Keybindings            []config.KeyBinding
+	LspNotified            map[string]bool
+	Explorer               *NavigationPanel
+	ExplorerContextNode    *widgets.TreeNode
+	Changes                *ChangesPanel
+	Reg                    *command.Registry
+	Running                *bool
+	quitPending            bool
+	Watcher                *watcher.Watcher
+	GitGutterGen           int
+	GitGutterTimer         *time.Timer
+	Version                string
+	PluginManager          *plugin.Manager
+	PendingPluginApprovals []*plugin.Plugin
+	PluginsPanel           *PluginsPanel
+	Output                 *ui.OutputWidget
+	pluginDetailWidgets    map[string]*pluginDetailState
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -359,7 +360,8 @@ func (a *App) isMouseOverHover(mx, my int) bool {
 		return false
 	}
 	r := h.GetRect()
-	return mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H
+	m := hoverGraceMargin
+	return mx >= r.X-m && mx < r.X+r.W+m && my >= r.Y-m && my < r.Y+r.H+m
 }
 
 func (a *App) DismissHover() {

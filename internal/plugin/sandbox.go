@@ -43,7 +43,6 @@ func osDate(format string) string {
 	return r.Replace(format)
 }
 
-
 func NewSandbox() *lua.LState {
 	L := lua.NewState(lua.Options{SkipOpenLibs: true})
 
@@ -424,6 +423,12 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "on_install", L.NewFunction(func(L *lua.LState) int {
+			fn := L.CheckFunction(1)
+			p.InstallFunc = fn
+			return 0
+		}))
+
 		L.SetField(mod, "on_uninstall", L.NewFunction(func(L *lua.LState) int {
 			fn := L.CheckFunction(1)
 			p.UninstallFunc = fn
@@ -459,14 +464,14 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 	L.PreloadModule("ttt", loader)
 
 	allowedModules := map[string]bool{
-		"ttt":        true,
-		"ttt.editor": true,
-		"ttt.fs":     true,
-		"ttt.system": true,
-		"ttt.net":    true,
-		"ttt.events":    true,
-		"ttt.json":      true,
-		"ttt.settings":  true,
+		"ttt":          true,
+		"ttt.editor":   true,
+		"ttt.fs":       true,
+		"ttt.system":   true,
+		"ttt.net":      true,
+		"ttt.events":   true,
+		"ttt.json":     true,
+		"ttt.settings": true,
 	}
 
 	origRequire := L.GetGlobal("require")

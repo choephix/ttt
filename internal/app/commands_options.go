@@ -101,7 +101,7 @@ func (a *App) ApplyBorderStyle() {
 		*a.Borders = term.BoldBorderSet()
 	case "ascii":
 		*a.Borders = term.AsciiBorderSet()
-case "none":
+	case "none":
 		*a.Borders = term.NoneBorderSet()
 	}
 }

@@ -32,15 +32,15 @@ func NewOutputWidget() *OutputWidget {
 	return o
 }
 
-func (o *OutputWidget) Focusable() bool                       { return true }
-func (o *OutputWidget) SetFocused(f bool)                      { o.tree.SetFocused(f) }
-func (o *OutputWidget) IsFocused() bool                        { return o.tree.IsFocused() }
-func (o *OutputWidget) GetRect() Rect                          { return Rect(o.tree.GetRect()) }
-func (o *OutputWidget) SetRect(r Rect)                         { o.tree.SetRect(widgets.Rect(r)) }
-func (o *OutputWidget) Height() int                            { return 0 }
-func (o *OutputWidget) Width() int                             { return 0 }
-func (o *OutputWidget) SetBoxModel(bm widgets.BoxModel)        { o.tree.SetBoxModel(bm) }
-func (o *OutputWidget) Render(surface Surface)                 { o.tree.Render(surface) }
+func (o *OutputWidget) Focusable() bool                 { return true }
+func (o *OutputWidget) SetFocused(f bool)               { o.tree.SetFocused(f) }
+func (o *OutputWidget) IsFocused() bool                 { return o.tree.IsFocused() }
+func (o *OutputWidget) GetRect() Rect                   { return Rect(o.tree.GetRect()) }
+func (o *OutputWidget) SetRect(r Rect)                  { o.tree.SetRect(widgets.Rect(r)) }
+func (o *OutputWidget) Height() int                     { return 0 }
+func (o *OutputWidget) Width() int                      { return 0 }
+func (o *OutputWidget) SetBoxModel(bm widgets.BoxModel) { o.tree.SetBoxModel(bm) }
+func (o *OutputWidget) Render(surface Surface)          { o.tree.Render(surface) }
 
 func (o *OutputWidget) HandleEvent(ev tcell.Event) EventResult {
 	prevSel := o.tree.SelectedIndex()

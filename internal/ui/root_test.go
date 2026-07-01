@@ -42,7 +42,7 @@ func (m *passThroughWidget) HandleEvent(ev tcell.Event) EventResult {
 }
 
 func (m *passThroughWidget) Render(surface Surface) {}
-func (m *passThroughWidget) Focusable() bool               { return true }
+func (m *passThroughWidget) Focusable() bool        { return true }
 
 func makeKeyEvent(key tcell.Key, mod tcell.ModMask) *tcell.EventKey {
 	return tcell.NewEventKey(key, 0, mod)
