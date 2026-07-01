@@ -8,6 +8,7 @@ import (
 )
 
 const hoverMaxVisibleLines = 12
+const hoverMaxWidth = 68
 
 type HoverWidget struct {
 	BaseWidget
@@ -25,7 +26,15 @@ type HoverWidget struct {
 }
 
 func NewHoverWidget(text string, x, y int) *HoverWidget {
-	lines := markdown.Render(text)
+	raw := markdown.Render(text)
+	var lines []markdown.Line
+	for _, line := range raw {
+		if line.Kind.Wrappable() && len([]rune(line.Text())) > hoverMaxWidth {
+			lines = append(lines, markdown.WrapLine(line, hoverMaxWidth)...)
+		} else {
+			lines = append(lines, line)
+		}
+	}
 	maxW := 0
 	for _, line := range lines {
 		if w := len([]rune(line.Text())); w > maxW {
