@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,10 +19,13 @@ func (b *Buffer) LoadFile(filename string) error {
 	defer f.Close()
 
 	b.LineEnding = detectLineEnding(f)
-	f.Seek(0, io.SeekStart)
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
 
 	var lines []string
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), math.MaxInt)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}
