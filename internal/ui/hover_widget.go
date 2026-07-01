@@ -67,7 +67,7 @@ func (h *HoverWidget) Render(surface Surface) {
 	visLines := h.visibleLines()
 	hasVScroll := h.numLines > visLines
 
-	contentW := h.maxLineW + 2
+	contentW := h.maxLineW
 	maxContentW := sw - 6
 	if maxContentW < 20 {
 		maxContentW = 20

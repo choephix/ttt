@@ -58,12 +58,11 @@ func (m *MarkdownWidget) ScrollSize() (int, int) {
 		wrapW = 1
 	}
 	m.rewrap(wrapW)
-	effectiveW := wrapW
-	if m.MaxWidth > 0 && effectiveW > m.MaxWidth {
-		effectiveW = m.MaxWidth
-	}
-	contentW := effectiveW
+	contentW := 0
 	for _, line := range m.wrapped {
+		if line.Kind == markdown.KindDivider {
+			continue
+		}
 		if lw := len([]rune(line.Text())); lw > contentW {
 			contentW = lw
 		}
