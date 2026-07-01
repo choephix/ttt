@@ -26,6 +26,7 @@ import (
 )
 
 const terminalStripWidth = ui.VerticalTabBarWidth
+const hoverGraceMargin = 3
 
 type TerminalTab struct {
 	ID     string
@@ -359,7 +360,8 @@ func (a *App) isMouseOverHover(mx, my int) bool {
 		return false
 	}
 	r := h.GetRect()
-	return mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H
+	m := hoverGraceMargin
+	return mx >= r.X-m && mx < r.X+r.W+m && my >= r.Y-m && my < r.Y+r.H+m
 }
 
 func (a *App) DismissHover() {
