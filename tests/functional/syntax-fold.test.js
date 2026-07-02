@@ -29,9 +29,7 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.waitFor("hello");
 
     // Verify initial content is visible
-    let snap = tui.snapshot();
-    expect(snap).toContain("hello");
-    expect(snap).toContain("Println");
+    const s0 = tui.snapshot();
 
     // Go to the func main() line and fold it
     tui.press("ctrl+g");
@@ -44,19 +42,25 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.waitStable();
 
     // Content inside the fold should be hidden
-    snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
+    const s1 = tui.snapshot();
 
     // Unfold using toggle
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
     // Content should be restored exactly
-    snap = tui.snapshot();
-    expect(snap).toContain("hello");
-    expect(snap).toContain("Println");
-    expect(snap).toContain("package main");
-    expect(snap).toContain('import "fmt"');
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("hello");
+    expect(snapshots[s0]).toContain("Println");
+
+    expect(snapshots[s1]).not.toContain("hello");
+
+    expect(snapshots[s2]).toContain("hello");
+    expect(snapshots[s2]).toContain("Println");
+    expect(snapshots[s2]).toContain("package main");
+    expect(snapshots[s2]).toContain('import "fmt"');
   });
 
   it("should survive multiple fold/unfold cycles without content corruption", () => {
@@ -67,27 +71,35 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.waitFor("hello");
 
     // Perform 3 fold-all / unfold-all cycles
+    const foldedSnaps = [];
+    const unfoldedSnaps = [];
     for (let i = 0; i < 3; i++) {
       tui.pressChord("ctrl+k", "0");
       tui.waitStable();
-
-      let snap = tui.snapshot();
-      expect(snap).not.toContain("hello");
+      foldedSnaps.push(tui.snapshot());
 
       tui.pressChord("ctrl+k", "9");
       tui.waitStable();
+      unfoldedSnaps.push(tui.snapshot());
+    }
 
-      snap = tui.snapshot();
-      expect(snap).toContain("hello");
+    // Final verification snapshot
+    const sFinal = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    for (const idx of foldedSnaps) {
+      expect(snapshots[idx]).not.toContain("hello");
+    }
+    for (const idx of unfoldedSnaps) {
+      expect(snapshots[idx]).toContain("hello");
     }
 
     // Final verification that all content is intact
-    const snap = tui.snapshot();
-    expect(snap).toContain("package main");
-    expect(snap).toContain('import "fmt"');
-    expect(snap).toContain("func main()");
-    expect(snap).toContain("hello");
-    expect(snap).toContain("Println");
+    expect(snapshots[sFinal]).toContain("package main");
+    expect(snapshots[sFinal]).toContain('import "fmt"');
+    expect(snapshots[sFinal]).toContain("func main()");
+    expect(snapshots[sFinal]).toContain("hello");
+    expect(snapshots[sFinal]).toContain("Println");
   });
 
   it("should preserve edits made after unfolding", () => {
@@ -107,15 +119,13 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
+    const s0 = tui.snapshot();
 
     // Unfold to edit inside
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("hello");
+    const s1 = tui.snapshot();
 
     // Navigate to the "hello" line and add text
     tui.press("ctrl+g");
@@ -130,8 +140,7 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.type(" // edited");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("edited");
+    const s2 = tui.snapshot();
 
     // Fold again
     tui.press("ctrl+g");
@@ -143,17 +152,26 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
-    expect(snap).not.toContain("edited");
+    const s3 = tui.snapshot();
 
     // Unfold and verify the edit persisted
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("hello");
-    expect(snap).toContain("edited");
+    const s4 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("hello");
+
+    expect(snapshots[s1]).toContain("hello");
+
+    expect(snapshots[s2]).toContain("edited");
+
+    expect(snapshots[s3]).not.toContain("hello");
+    expect(snapshots[s3]).not.toContain("edited");
+
+    expect(snapshots[s4]).toContain("hello");
+    expect(snapshots[s4]).toContain("edited");
   });
 
   it("should show fold indicator when folded and hide it when unfolded", () => {
@@ -164,8 +182,7 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.waitFor("hello");
 
     // Initially no fold indicator
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("⋯");
+    const s0 = tui.snapshot();
 
     // Go to func main() line and fold
     tui.press("ctrl+g");
@@ -178,15 +195,18 @@ describe("syntax highlighting consistency after fold/unfold", () => {
     tui.waitStable();
 
     // Fold indicator should appear
-    snap = tui.snapshot();
-    expect(snap).toContain("⋯");
+    const s1 = tui.snapshot();
 
     // Unfold
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
     // Fold indicator should disappear
-    snap = tui.snapshot();
-    expect(snap).not.toContain("⋯");
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("⋯");
+    expect(snapshots[s1]).toContain("⋯");
+    expect(snapshots[s2]).not.toContain("⋯");
   });
 });

@@ -69,18 +69,15 @@ jobs:
           cache: pnpm
           cache-dependency-path: tests/functional/pnpm-lock.yaml
 
-      - name: Install tui-use
-        run: npm install -g tui-use
-
       - name: Install test dependencies
         working-directory: tests/functional
         run: pnpm install
 
       - name: Run functional tests
         working-directory: tests/functional
-        run: pnpm exec vitest run --reporter=verbose --exclude='**/lsp*.test.js'
+        run: pnpm exec vitest run --reporter=verbose
 
-  blackbox-tests:
+  integration-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -102,15 +99,18 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: tests/blackbox/pnpm-lock.yaml
+          cache-dependency-path: tests/integration/pnpm-lock.yaml
+
+      - name: Install tui-use
+        run: npm install -g tui-use
 
       - name: Install test dependencies
-        working-directory: tests/blackbox
+        working-directory: tests/integration
         run: pnpm install
 
-      - name: Run blackbox tests
-        working-directory: tests/blackbox
-        run: pnpm exec vitest run --reporter=verbose
+      - name: Run integration tests
+        working-directory: tests/integration
+        run: pnpm exec vitest run --reporter=verbose --exclude='**/lsp*.test.js'
 
   lsp-tests:
     runs-on: ubuntu-latest
@@ -135,7 +135,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: tests/functional/pnpm-lock.yaml
+          cache-dependency-path: tests/integration/pnpm-lock.yaml
 
       - name: Install tui-use
         run: npm install -g tui-use
@@ -151,9 +151,9 @@ jobs:
           sudo apt-get install -y clangd
 
       - name: Install test dependencies
-        working-directory: tests/functional
+        working-directory: tests/integration
         run: pnpm install
 
       - name: Run LSP tests
-        working-directory: tests/functional
+        working-directory: tests/integration
         run: pnpm exec vitest run --reporter=verbose lsp

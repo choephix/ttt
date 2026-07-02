@@ -18,8 +18,9 @@ describe("open, edit, save", () => {
     tui.waitFor("test.txt");
     tui.waitFor("Hello from existing file");
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Hello from existing file");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Hello from existing file");
   });
 
   it("should edit an existing file and save changes", () => {
@@ -31,11 +32,16 @@ describe("open, edit, save", () => {
 
     tui.press("escape");
     tui.press("end");
-    tui.type(" Modified");
-    tui.waitFor("Original content Modified");
+    tui.press("space");
+    tui.type("Modified");
+    tui.waitStable();
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Original content Modified");
 
     const content = readFile(file);
     expect(content).toBe("Original content Modified\n");
@@ -51,7 +57,8 @@ describe("open, edit, save", () => {
     tui.type("x");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("●");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("●");
   });
 });

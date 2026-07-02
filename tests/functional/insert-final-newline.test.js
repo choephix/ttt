@@ -22,6 +22,8 @@ describe("insertFinalNewline", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe("no newline at end\n");
   });
@@ -42,6 +44,8 @@ describe("insertFinalNewline", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe("no trailing newline!");
   });
@@ -58,6 +62,8 @@ describe("insertFinalNewline", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe("AAA\nBBB\nCCC");
   });
@@ -71,6 +77,8 @@ describe("insertFinalNewline", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toBe("line one\nline two\nline three\n");

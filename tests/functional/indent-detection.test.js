@@ -33,8 +33,9 @@ describe("indent detection", () => {
     tui.waitFor("astro.config.mjs");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Spaces: 2");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Spaces: 2");
   });
 
   it("should detect tab indentation in go file", () => {
@@ -58,8 +59,9 @@ describe("indent detection", () => {
     tui.waitFor("main.go");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Tab Size:");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Tab Size:");
   });
 
   it("should respect editorconfig over detection", () => {
@@ -80,8 +82,9 @@ describe("indent detection", () => {
     tui.waitFor("config.mjs");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Tab Size: 4");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Tab Size: 4");
   });
 
   it("should detect 4-space indentation in python file", () => {
@@ -101,7 +104,8 @@ describe("indent detection", () => {
     tui.waitFor("app.py");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Spaces: 4");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Spaces: 4");
   });
 });

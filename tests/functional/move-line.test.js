@@ -23,6 +23,8 @@ describe("move line", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("BBB\nAAA\nCCC\n");
   });
@@ -44,6 +46,8 @@ describe("move line", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("AAA\nCCC\nBBB\n");
   });
@@ -60,6 +64,8 @@ describe("move line", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     expect(content).toBe("First\nSecond\n");
@@ -80,6 +86,8 @@ describe("move line", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     expect(content).toBe("One\nTwo\nThree\n");

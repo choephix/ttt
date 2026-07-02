@@ -19,9 +19,10 @@ describe("tab management", () => {
     tui.waitStable();
     tui.waitFor("second.txt");
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("first.txt");
-    expect(snap).toContain("second.txt");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("first.txt");
+    expect(snapshots[s0]).toContain("second.txt");
   });
 
   it("should close active tab with ctrl+w", () => {
@@ -34,9 +35,10 @@ describe("tab management", () => {
     tui.press("ctrl+w");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("untitled");
-    expect(snap).not.toContain("Close this content");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("untitled");
+    expect(snapshots[s0]).not.toContain("Close this content");
   });
 
   it("should show unsaved changes dialog when closing dirty tab", () => {
@@ -52,15 +54,17 @@ describe("tab management", () => {
     tui.press("ctrl+w");
     tui.waitFor("Save changes");
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Save changes");
+    const s0 = tui.snapshot();
 
     // Cancel the dialog
     tui.press("escape");
     tui.waitStable();
 
-    const snap2 = tui.snapshot();
-    expect(snap2).toContain("unsaved.txt");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("Save changes");
+    expect(snapshots[s1]).toContain("unsaved.txt");
   });
 
   it("should discard unsaved changes from dialog", () => {
@@ -79,9 +83,11 @@ describe("tab management", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snap = tui.snapshot();
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
     // Tab closed, editor shows untitled, original file unchanged
-    expect(snap).toContain("untitled");
+    expect(snapshots[s0]).toContain("untitled");
     expect(readFile(file)).toBe("Original content");
   });
 });

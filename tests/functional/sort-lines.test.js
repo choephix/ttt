@@ -26,6 +26,8 @@ describe("sort lines", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     const lines = content.split("\n").filter((l) => l !== "");
     expect(lines).toEqual(["apple", "banana", "cherry"]);
@@ -47,6 +49,8 @@ describe("sort lines", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     const lines = content.split("\n").filter((l) => l !== "");
     expect(lines).toEqual(["cherry", "banana", "apple"]);
@@ -67,6 +71,8 @@ describe("sort lines", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     const lines = content.split("\n").filter((l) => l !== "");
@@ -93,6 +99,8 @@ describe("sort lines", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     const lines = content.split("\n").filter((l) => l !== "");
     expect(lines).toEqual(["apple", "banana", "cherry"]);
@@ -113,6 +121,8 @@ describe("sort lines", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     const lines = content.split("\n").filter((l) => l !== "");
@@ -138,6 +148,8 @@ describe("sort lines", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     const lines = content.split("\n").filter((l) => l !== "");

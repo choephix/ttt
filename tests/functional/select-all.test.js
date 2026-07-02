@@ -26,6 +26,9 @@ describe("select all and overwrite", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe("replaced\n");
   });
@@ -43,15 +46,17 @@ describe("select all and overwrite", () => {
     tui.type("x");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("preserve");
+    const s0 = tui.snapshot();
 
     // undo the typed char, then undo the deletion
     tui.press("ctrl+z");
     tui.press("ctrl+z");
     tui.waitStable();
 
-    const snap2 = tui.snapshot();
-    expect(snap2).toContain("preserve");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("preserve");
+    expect(snapshots[s1]).toContain("preserve");
   });
 });

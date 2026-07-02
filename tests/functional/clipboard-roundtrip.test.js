@@ -34,6 +34,8 @@ describe("clipboard roundtrip", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toContain("hello worldhello");
   });
@@ -55,9 +57,7 @@ describe("clipboard roundtrip", () => {
     tui.waitStable();
 
     // Verify "REMOVE" is gone from the visible text
-    const snapAfterCut = tui.snapshot();
-    expect(snapAfterCut).toContain("keep");
-    expect(snapAfterCut).not.toContain("REMOVE");
+    const s0 = tui.snapshot();
 
     // Move to end and paste
     tui.press("end");
@@ -66,6 +66,11 @@ describe("clipboard roundtrip", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("keep");
+    expect(snapshots[s0]).not.toContain("REMOVE");
 
     const content = readFile(file);
     expect(content).toContain("keepREMOVE");
@@ -94,6 +99,8 @@ describe("clipboard roundtrip", () => {
     // Save and check — documents behavior regardless of whether full line was copied
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toContain("first line");
@@ -129,6 +136,8 @@ describe("clipboard roundtrip", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toContain("abcabcabcabc");

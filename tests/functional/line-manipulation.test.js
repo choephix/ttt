@@ -25,13 +25,16 @@ describe("line manipulation", () => {
     tui.pressChord("ctrl+k", "k");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Line 1");
-    expect(snap).toContain("Line 3");
-    expect(snap).not.toContain("Line 2");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("Line 1");
+    expect(snapshots[s0]).toContain("Line 3");
+    expect(snapshots[s0]).not.toContain("Line 2");
 
     const content = readFile(file);
     expect(content).not.toContain("Line 2");
@@ -52,11 +55,16 @@ describe("line manipulation", () => {
     tui.pressChord("ctrl+k", "k");
     tui.waitStable();
 
-    expect(tui.snapshot()).not.toContain("Beta");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+z");
     tui.waitStable();
 
-    expect(tui.snapshot()).toContain("Beta");
+    const s1 = tui.snapshot();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("Beta");
+    expect(snapshots[s1]).toContain("Beta");
   });
 });

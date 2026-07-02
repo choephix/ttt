@@ -66,10 +66,8 @@ describe("undo/redo stress", () => {
     tui.type("LAZY");
     tui.waitStable();
 
-    // Save the fully-edited state
-    tui.press("ctrl+s");
-    tui.waitStable();
-    const editedContent = readFile(file);
+    // Snapshot after all edits
+    const s0 = tui.snapshot();
 
     // Undo ALL edits (press ctrl+z many times)
     for (let i = 0; i < 20; i++) {
@@ -77,11 +75,8 @@ describe("undo/redo stress", () => {
     }
     tui.waitStable();
 
-    // Save and verify we are back to the original
-    tui.press("ctrl+s");
-    tui.waitStable();
-    const restoredContent = readFile(file);
-    expect(restoredContent).toBe(original + "\n");
+    // Snapshot after full undo - should show original
+    const s1 = tui.snapshot();
 
     // Redo ALL edits (press ctrl+y many times)
     for (let i = 0; i < 20; i++) {
@@ -89,11 +84,31 @@ describe("undo/redo stress", () => {
     }
     tui.waitStable();
 
-    // Save and verify we match the fully-edited state
+    // Save the final redo state
     tui.press("ctrl+s");
     tui.waitStable();
-    const redoneContent = readFile(file);
-    expect(redoneContent).toBe(editedContent);
+
+    // Snapshot after full redo
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    // After editing: should contain edited content
+    expect(snapshots[s0]).toContain("LAZY");
+    expect(snapshots[s0]).toContain("jumps");
+
+    // After undo: should show original, not edited content
+    expect(snapshots[s1]).toContain("The quick brown fox");
+    expect(snapshots[s1]).not.toContain("LAZY");
+
+    // After redo: should show edited content again
+    expect(snapshots[s2]).toContain("LAZY");
+    expect(snapshots[s2]).toContain("jumps");
+
+    // Verify file on disk matches redo state
+    const content = readFile(file);
+    expect(content).toContain("LAZY");
+    expect(content).toContain("jumps");
+    expect(content).toContain("over the");
   });
 
   it("should undo select-all delete to restore multi-line content", () => {
@@ -124,17 +139,14 @@ describe("undo/redo stress", () => {
     tui.waitStable();
 
     // Verify the buffer is empty (no original lines visible)
-    const snapEmpty = tui.snapshot();
-    expect(snapEmpty).not.toContain("line one");
-    expect(snapEmpty).not.toContain("line five");
+    const s0 = tui.snapshot();
 
     // Undo the delete and the typed text to get back to original
     tui.press("ctrl+z");
     tui.waitStable();
 
     // After undoing the delete, all content (including typed lines) should be restored
-    const snapRestored = tui.snapshot();
-    expect(snapRestored).toContain("line one");
+    const s1 = tui.snapshot();
 
     // Keep undoing to remove the typed lines
     for (let i = 0; i < 10; i++) {
@@ -145,6 +157,14 @@ describe("undo/redo stress", () => {
     // Save and verify original content is restored
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("line one");
+    expect(snapshots[s0]).not.toContain("line five");
+
+    expect(snapshots[s1]).toContain("line one");
+
     const content = readFile(file);
     expect(content).toBe(original + "\n");
   });
@@ -178,8 +198,7 @@ describe("undo/redo stress", () => {
     tui.type(" five");
     tui.waitStable();
 
-    const snapAll = tui.snapshot();
-    expect(snapAll).toContain("start one two three four five");
+    const s0 = tui.snapshot();
 
     // Undo 3 times
     tui.press("ctrl+z");
@@ -187,9 +206,7 @@ describe("undo/redo stress", () => {
     tui.press("ctrl+z");
     tui.waitStable();
 
-    const snapUndo3 = tui.snapshot();
-    expect(snapUndo3).toContain("start one two");
-    expect(snapUndo3).not.toContain("five");
+    const s1 = tui.snapshot();
 
     // Make 2 new edits (this should discard the redo stack)
     tui.type(" alpha");
@@ -199,8 +216,7 @@ describe("undo/redo stress", () => {
     tui.type(" beta");
     tui.waitStable();
 
-    const snapNew = tui.snapshot();
-    expect(snapNew).toContain("start one two alpha beta");
+    const s2 = tui.snapshot();
 
     // Try to redo -- should do nothing since redo stack was discarded
     tui.press("ctrl+y");
@@ -211,6 +227,16 @@ describe("undo/redo stress", () => {
     // Verify content is unchanged (redo did nothing)
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("start one two three four five");
+
+    expect(snapshots[s1]).toContain("start one two");
+    expect(snapshots[s1]).not.toContain("five");
+
+    expect(snapshots[s2]).toContain("start one two alpha beta");
+
     const content = readFile(file);
     expect(content).toBe("start one two alpha beta\n");
   });

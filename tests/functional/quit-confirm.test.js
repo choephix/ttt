@@ -20,8 +20,10 @@ describe("quit confirmation dialog", () => {
     tui.press("ctrl+q");
     tui.waitStable(500);
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("clean.txt");
+    // Editor should have quit; screenshot won't execute on exited process
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("clean.txt");
   });
 
   it("should show confirm dialog when quitting with unsaved changes", () => {
@@ -37,10 +39,11 @@ describe("quit confirmation dialog", () => {
     tui.press("ctrl+q");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Unsaved changes");
-    expect(snap).toContain("Cancel");
-    expect(snap).toContain("Quit");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Unsaved changes");
+    expect(snapshots[s0]).toContain("Cancel");
+    expect(snapshots[s0]).toContain("Quit");
   });
 
   it("should dismiss dialog with Cancel", () => {
@@ -59,9 +62,10 @@ describe("quit confirmation dialog", () => {
     tui.type("c");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("Unsaved changes");
-    expect(snap).toContain("cancel.txt");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Unsaved changes");
+    expect(snapshots[s0]).toContain("cancel.txt");
   });
 
   it("should quit when pressing Q in the dialog", () => {
@@ -80,8 +84,10 @@ describe("quit confirmation dialog", () => {
     tui.type("q");
     tui.waitStable(500);
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("quit-q.txt");
+    // Editor should have quit; screenshot won't execute on exited process
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("quit-q.txt");
   });
 
   it("should force quit with second Ctrl+Q", () => {
@@ -100,7 +106,9 @@ describe("quit confirmation dialog", () => {
     tui.press("ctrl+q");
     tui.waitStable(500);
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("force.txt");
+    // Editor should have quit; screenshot won't execute on exited process
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("force.txt");
   });
 });

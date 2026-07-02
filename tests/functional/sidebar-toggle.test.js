@@ -20,14 +20,15 @@ describe("sidebar toggle", () => {
     tui.press("ctrl+b");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("Explore");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+b");
     tui.waitFor("Explore");
 
-    const snap2 = tui.snapshot();
-    expect(snap2).toContain("Explore");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Explore");
+    expect(snapshots[s1]).toContain("Explore");
   });
 
   it("should reset sidebar width after being narrowed below minimum", () => {
@@ -46,15 +47,16 @@ describe("sidebar toggle", () => {
     // Toggle sidebar off
     tui.press("ctrl+b");
     tui.waitStable();
-    const hidden = tui.snapshot();
-    expect(hidden).not.toContain("Explore");
+    const s0 = tui.snapshot();
 
     // Toggle sidebar back on — should reset to usable default width
     tui.press("ctrl+b");
     tui.waitFor("Explore");
 
-    const restored = tui.snapshot();
-    expect(restored).toContain("Explore");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Explore");
+    expect(snapshots[s1]).toContain("Explore");
   });
 
   it("should switch sidebar panels with chord keys", () => {
@@ -67,13 +69,14 @@ describe("sidebar toggle", () => {
     tui.pressChord("ctrl+k", "f");
     tui.waitFor("Find");
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Find");
+    const s0 = tui.snapshot();
 
     tui.pressChord("ctrl+k", "e");
     tui.waitFor("Explore");
 
-    const snap2 = tui.snapshot();
-    expect(snap2).toContain("Explore");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Find");
+    expect(snapshots[s1]).toContain("Explore");
   });
 });

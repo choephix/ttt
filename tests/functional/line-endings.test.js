@@ -21,9 +21,11 @@ describe("line ending detection and preservation", () => {
     tui.waitFor("line1");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("LF");
-    expect(snap).not.toContain("CRLF");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("LF");
+    expect(snapshots[s0]).not.toContain("CRLF");
   });
 
   it("shows CRLF in status bar for CRLF files", () => {
@@ -35,8 +37,10 @@ describe("line ending detection and preservation", () => {
     tui.waitFor("line1");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("CRLF");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("CRLF");
   });
 
   it("preserves LF endings on save", () => {
@@ -51,6 +55,8 @@ describe("line ending detection and preservation", () => {
     tui.waitFor("hello edited");
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const raw = readFileSync(file);
     expect(raw.includes(Buffer.from("\r\n"))).toBe(false);
@@ -68,8 +74,7 @@ describe("line ending detection and preservation", () => {
     tui.waitFor("aaa");
     tui.waitStable();
 
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("CRLF");
+    const s0 = tui.snapshot();
 
     tui.exec("Change Line Ending");
     tui.waitStable();
@@ -78,11 +83,15 @@ describe("line ending detection and preservation", () => {
     tui.press("enter");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("CRLF");
+    const s1 = tui.snapshot();
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("CRLF");
+    expect(snapshots[s1]).toContain("CRLF");
 
     const raw = readFileSync(file);
     expect(raw.toString()).toContain("aaa\r\nbbb");
@@ -104,12 +113,15 @@ describe("line ending detection and preservation", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("LF");
-    expect(snap).not.toContain("CRLF");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("LF");
+    expect(snapshots[s0]).not.toContain("CRLF");
 
     const raw = readFileSync(file);
     const content = raw.toString();
@@ -129,6 +141,8 @@ describe("line ending detection and preservation", () => {
     tui.waitFor("hello edited");
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const raw = readFileSync(file);
     const content = raw.toString();

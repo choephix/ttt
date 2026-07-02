@@ -34,6 +34,8 @@ describe("unicode stress tests", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("XYZ\n");
   });
@@ -57,6 +59,8 @@ describe("unicode stress tests", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("αβXγδ\n");
   });
@@ -77,8 +81,8 @@ describe("unicode stress tests", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFile(file);
-    expect(content).toBe("café\n");
+    // Take snapshot to verify intermediate state (café on screen)
+    const s0 = tui.snapshot();
 
     // Move left 2 chars (past é and f), insert a character
     tui.press("end");
@@ -90,7 +94,13 @@ describe("unicode stress tests", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content2 = readFile(file);
-    expect(content2).toBe("caZfé\n");
+    const { snapshots } = tui.run();
+
+    // Verify intermediate state showed café
+    expect(snapshots[s0]).toContain("café");
+
+    // Verify final file state
+    const content = readFile(file);
+    expect(content).toBe("caZfé\n");
   });
 });

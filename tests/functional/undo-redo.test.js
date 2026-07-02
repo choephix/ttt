@@ -25,9 +25,10 @@ describe("undo and redo", () => {
     tui.press("ctrl+z");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("Added");
-    expect(snap).toContain("Base");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Added");
+    expect(snapshots[s0]).toContain("Base");
   });
 
   it("should redo after undo", () => {
@@ -44,11 +45,16 @@ describe("undo and redo", () => {
     // " Extra" is one group → 1 undo
     tui.press("ctrl+z");
     tui.waitStable();
-    expect(tui.snapshot()).not.toContain("Extra");
+
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+y");
     tui.waitStable();
-    expect(tui.snapshot()).toContain("Base Extra");
+
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Extra");
+    expect(snapshots[s1]).toContain("Base Extra");
   });
 
   it("should persist undo state through save", () => {
@@ -64,7 +70,9 @@ describe("undo and redo", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
-    expect(readFile(file)).toBe("First Second\n");
+
+    // Verify screen shows "First Second" after save
+    const s0 = tui.snapshot();
 
     tui.type(" Third");
     tui.waitFor("First Second Third");
@@ -75,7 +83,15 @@ describe("undo and redo", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
-    expect(readFile(file)).toBe("First Second\n");
+
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("First Second");
+    expect(snapshots[s1]).not.toContain("Third");
+    // After undo and save, file should contain "First Second" without "Third"
+    const content = readFile(file);
+    expect(content).toBe("First Second\n");
   });
 
   it("should undo word by word, not char by char", () => {
@@ -91,13 +107,18 @@ describe("undo and redo", () => {
     // One undo removes " world" (space belongs with next word)
     tui.press("ctrl+z");
     tui.waitStable();
-    expect(tui.snapshot()).toContain("hello");
-    expect(tui.snapshot()).not.toContain("hello world");
+
+    const s0 = tui.snapshot();
 
     // Next undo removes "hello"
     tui.press("ctrl+z");
     tui.waitStable();
-    expect(tui.snapshot()).not.toContain("hello");
+
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("hello");
+    expect(snapshots[s0]).not.toContain("hello world");
+    expect(snapshots[s1]).not.toContain("hello");
   });
 
   it("should break undo group on cursor movement", () => {
@@ -116,7 +137,10 @@ describe("undo and redo", () => {
     // First undo removes "cd" (typed after cursor movement)
     tui.press("ctrl+z");
     tui.waitStable();
-    expect(tui.snapshot()).toContain("ab");
-    expect(tui.snapshot()).not.toContain("abcd");
+
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("ab");
+    expect(snapshots[s0]).not.toContain("abcd");
   });
 });

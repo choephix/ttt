@@ -15,11 +15,11 @@ afterEach(() => {
 });
 
 function switchToNextTab() {
-  tui.exec("View: Next Tab");
+  tui.press("alt+.");
 }
 
 function switchToPrevTab() {
-  tui.exec("View: Previous Tab");
+  tui.press("alt+,");
 }
 
 describe("multi-tab state isolation", () => {
@@ -32,24 +32,28 @@ describe("multi-tab state isolation", () => {
     tui.waitFor("content-beta");
 
     // File B is the active tab (last opened)
-    const snapB = tui.snapshot();
-    expect(snapB).toContain("content-beta");
+    const s0 = tui.snapshot();
 
     // Switch to file A via command palette
     switchToPrevTab();
     tui.waitFor("content-alpha");
 
-    const snapA = tui.snapshot();
-    expect(snapA).toContain("content-alpha");
-    expect(snapA).not.toContain("content-beta");
+    const s1 = tui.snapshot();
 
     // Switch back to file B
     switchToNextTab();
     tui.waitFor("content-beta");
 
-    const snapB2 = tui.snapshot();
-    expect(snapB2).toContain("content-beta");
-    expect(snapB2).not.toContain("content-alpha");
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("content-beta");
+
+    expect(snapshots[s1]).toContain("content-alpha");
+    expect(snapshots[s1]).not.toContain("content-beta");
+
+    expect(snapshots[s2]).toContain("content-beta");
+    expect(snapshots[s2]).not.toContain("content-alpha");
   });
 
   it("should preserve cursor position when switching tabs", () => {
@@ -71,8 +75,7 @@ describe("multi-tab state isolation", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snapA1 = tui.snapshot();
-    expect(snapA1).toContain("Ln 5");
+    const s0 = tui.snapshot();
 
     // Switch to file B and move cursor to line 3
     switchToNextTab();
@@ -84,15 +87,19 @@ describe("multi-tab state isolation", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snapB = tui.snapshot();
-    expect(snapB).toContain("Ln 3");
+    const s1 = tui.snapshot();
 
     // Switch back to file A - cursor should still be on line 5
     switchToPrevTab();
     tui.waitFor("cursa.txt");
+    tui.waitStable();
 
-    const snapA2 = tui.snapshot();
-    expect(snapA2).toContain("Ln 5");
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("Ln 5");
+    expect(snapshots[s1]).toContain("Ln 3");
+    expect(snapshots[s2]).toContain("Ln 5");
   });
 
   it("should isolate edits between tabs", () => {
@@ -116,8 +123,7 @@ describe("multi-tab state isolation", () => {
     switchToNextTab();
     tui.waitFor("original-b");
 
-    const snapB1 = tui.snapshot();
-    expect(snapB1).not.toContain("EDIT-A");
+    const s0 = tui.snapshot();
 
     // Edit file B
     tui.press("end");
@@ -128,9 +134,13 @@ describe("multi-tab state isolation", () => {
     switchToPrevTab();
     tui.waitFor("EDIT-A");
 
-    const snapA2 = tui.snapshot();
-    expect(snapA2).toContain("EDIT-A");
-    expect(snapA2).not.toContain("EDIT-B");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("EDIT-A");
+
+    expect(snapshots[s1]).toContain("EDIT-A");
+    expect(snapshots[s1]).not.toContain("EDIT-B");
   });
 
   it("should track dirty indicator per tab independently", () => {
@@ -146,29 +156,31 @@ describe("multi-tab state isolation", () => {
     tui.waitFor("clean-a");
 
     // Neither file is dirty yet
-    const snapClean = tui.snapshot();
-    expect(snapClean).not.toContain("●");
+    const s0 = tui.snapshot();
 
     // Edit file A to make it dirty
     tui.type("x");
     tui.waitStable();
 
-    const snapDirtyA = tui.snapshot();
-    expect(snapDirtyA).toContain("●");
+    const s1 = tui.snapshot();
 
     // Switch to file B
     switchToNextTab();
     tui.waitFor("clean-b");
 
-    // File B content is clean. Dirty dot may appear in tab bar for file A.
-    const snapB = tui.snapshot();
-    expect(snapB).toContain("clean-b");
+    // File B content is clean
+    const s2 = tui.snapshot();
 
     // Switch back to file A - should still show dirty indicator
     switchToPrevTab();
     tui.waitFor("clean-a");
 
-    const snapBackToA = tui.snapshot();
-    expect(snapBackToA).toContain("●");
+    const s3 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("●");
+    expect(snapshots[s1]).toContain("●");
+    expect(snapshots[s2]).toContain("clean-b");
+    expect(snapshots[s3]).toContain("●");
   });
 });

@@ -24,8 +24,9 @@ describe("find and replace", () => {
     tui.type("foo");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("1/3");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("1/3");
   });
 
   it("should navigate between find matches", () => {
@@ -41,14 +42,15 @@ describe("find and replace", () => {
     tui.type("apple");
     tui.waitStable();
 
-    const snap1 = tui.snapshot();
-    expect(snap1).toContain("1/3");
+    const s0 = tui.snapshot();
 
     tui.press("enter");
     tui.waitStable();
 
-    const snap2 = tui.snapshot();
-    expect(snap2).toContain("2/3");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("1/3");
+    expect(snapshots[s1]).toContain("2/3");
   });
 
   it("should open find and replace dialog", () => {
@@ -61,8 +63,9 @@ describe("find and replace", () => {
     tui.press("ctrl+r");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Replace");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Replace");
   });
 
   it("should replace single occurrence", () => {
@@ -93,6 +96,8 @@ describe("find and replace", () => {
     tui.press("ctrl+s");
     tui.waitStable(500);
 
+    tui.run();
+
     const content = readFile(file);
     // First occurrence replaced, second still present
     expect(content).toContain("new");
@@ -112,8 +117,7 @@ describe("find and replace", () => {
     tui.type("cat");
     tui.waitStable();
 
-    const snapBefore = tui.snapshot();
-    expect(snapBefore).toContain("1/3");
+    const s0 = tui.snapshot();
 
     // Tab to replace input
     tui.press("tab");
@@ -133,6 +137,9 @@ describe("find and replace", () => {
     tui.waitStable();
     tui.press("ctrl+s");
     tui.waitStable(500);
+
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("1/3");
 
     const content = readFile(file);
     expect(content).not.toContain("cat");
@@ -174,6 +181,8 @@ describe("find and replace", () => {
     tui.press("ctrl+s");
     tui.waitStable(500);
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).not.toContain("ZZ");
     expect(content).toContain("keep");
@@ -195,8 +204,7 @@ describe("find and replace", () => {
     tui.type("zzzznotfound");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("0/0");
+    const s0 = tui.snapshot();
 
     // Tab to replace, type replacement, try to replace
     tui.press("tab");
@@ -210,6 +218,9 @@ describe("find and replace", () => {
     tui.waitStable();
     tui.press("ctrl+s");
     tui.waitStable(500);
+
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("0/0");
 
     const content = readFile(file).trimEnd();
     expect(content).toBe(original);
@@ -234,8 +245,7 @@ describe("find and replace", () => {
     tui.type("foo");
     tui.waitStable();
 
-    const snapBefore = tui.snapshot();
-    expect(snapBefore).toContain("1/3");
+    const s0 = tui.snapshot();
 
     // Tab to replace input
     tui.press("tab");
@@ -255,6 +265,9 @@ describe("find and replace", () => {
     tui.waitStable();
     tui.press("ctrl+s");
     tui.waitStable(500);
+
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("1/3");
 
     const content = readFile(file);
     expect(content).not.toContain("foo");
@@ -277,8 +290,7 @@ describe("find and replace", () => {
     tui.type("aaa");
     tui.waitStable();
 
-    const snapBefore = tui.snapshot();
-    expect(snapBefore).toContain("1/3");
+    const s0 = tui.snapshot();
 
     // Tab to replace input
     tui.press("tab");
@@ -298,7 +310,9 @@ describe("find and replace", () => {
     tui.press("tab");
     tui.waitStable();
 
-    const snapAfter = tui.snapshot();
-    expect(snapAfter).toContain("0/0");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("1/3");
+    expect(snapshots[s1]).toContain("0/0");
   });
 });

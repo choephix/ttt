@@ -36,9 +36,7 @@ describe("search interaction with code folding", () => {
     tui.waitStable();
 
     // Verify both folds are collapsed
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("secretAlpha");
-    expect(snap).not.toContain("secretBeta");
+    const s0 = tui.snapshot();
 
     // Search for text in the second fold
     tui.press("ctrl+f");
@@ -51,8 +49,11 @@ describe("search interaction with code folding", () => {
     tui.waitStable();
 
     // The second fold should have expanded to reveal the match
-    snap = tui.snapshot();
-    expect(snap).toContain("secretBeta");
-  });
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
 
+    expect(snapshots[s0]).not.toContain("secretAlpha");
+    expect(snapshots[s0]).not.toContain("secretBeta");
+    expect(snapshots[s1]).toContain("secretBeta");
+  });
 });

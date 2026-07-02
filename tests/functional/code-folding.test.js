@@ -38,15 +38,17 @@ describe("code folding", () => {
     tui.exec("Toggle Fold");
     tui.waitStable();
 
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
-    expect(snap).toContain("⋯");
+    const s0 = tui.snapshot();
 
     tui.exec("Toggle Fold");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("hello");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("hello");
+    expect(snapshots[s0]).toContain("⋯");
+    expect(snapshots[s1]).toContain("hello");
   });
 
   it("should fold all and unfold all", () => {
@@ -59,16 +61,18 @@ describe("code folding", () => {
     tui.pressChord("ctrl+k", "0");
     tui.waitStable();
 
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
-    expect(snap).not.toContain("return");
+    const s0 = tui.snapshot();
 
     tui.pressChord("ctrl+k", "9");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("hello");
-    expect(snap).toContain("return");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("hello");
+    expect(snapshots[s0]).not.toContain("return");
+    expect(snapshots[s1]).toContain("hello");
+    expect(snapshots[s1]).toContain("return");
   });
 
   it("should show collapsed chevron on folded line", () => {
@@ -87,8 +91,9 @@ describe("code folding", () => {
     tui.exec("Toggle Fold");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("⋯");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("⋯");
   });
 
   it("should expand fold when search finds match inside collapsed section", () => {
@@ -102,9 +107,7 @@ describe("code folding", () => {
     tui.pressChord("ctrl+k", "0");
     tui.waitStable();
 
-    let snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
-    expect(snap).not.toContain("return");
+    const s0 = tui.snapshot();
 
     // Search for text inside collapsed fold
     tui.press("ctrl+f");
@@ -116,8 +119,12 @@ describe("code folding", () => {
     tui.press("escape");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("hello");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).not.toContain("hello");
+    expect(snapshots[s0]).not.toContain("return");
+    expect(snapshots[s1]).toContain("hello");
   });
 
   it("should use keybinding ctrl+k [ to toggle fold", () => {
@@ -136,7 +143,8 @@ describe("code folding", () => {
     tui.pressChord("ctrl+k", "[");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("hello");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("hello");
   });
 });

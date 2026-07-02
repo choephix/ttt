@@ -21,8 +21,9 @@ describe("join lines", () => {
     tui.pressChord("ctrl+k", "j");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("hello world");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("hello world");
   });
 
   it("should do nothing on the last line", () => {
@@ -35,8 +36,9 @@ describe("join lines", () => {
     tui.pressChord("ctrl+k", "j");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("only line");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("only line");
   });
 
   it("should undo join with ctrl+z", () => {
@@ -48,14 +50,16 @@ describe("join lines", () => {
 
     tui.pressChord("ctrl+k", "j");
     tui.waitStable();
-    expect(tui.snapshot()).toContain("AAA BBB");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+z");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("AAA");
-    expect(snap).toContain("BBB");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("AAA BBB");
+    expect(snapshots[s1]).toContain("AAA");
+    expect(snapshots[s1]).toContain("BBB");
   });
 
   it("should save the joined result", () => {
@@ -70,6 +74,10 @@ describe("join lines", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Line1 Line2");
 
     const content = readFile(file);
     expect(content).toContain("Line1 Line2");

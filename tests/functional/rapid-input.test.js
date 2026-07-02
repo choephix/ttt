@@ -31,6 +31,8 @@ describe("rapid input", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe(longString + "\n");
   });
@@ -52,12 +54,14 @@ describe("rapid input", () => {
     tui.waitStable();
 
     // The status bar should show we are on line 20
-    const snap = tui.snapshot();
-    expect(snap).toContain("Ln 20");
+    const s0 = tui.snapshot();
 
     // Save and verify all lines are present
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Ln 20");
 
     const content = readFile(file);
     for (let i = 1; i <= 20; i++) {
@@ -80,6 +84,8 @@ describe("rapid input", () => {
     tui.type(paragraph);
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     expect(content).toBe(paragraph + "\n");
