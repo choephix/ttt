@@ -199,13 +199,29 @@ func (h *chaosHarness) randomEvent() {
 		h.record("chord-follow", string(r))
 		h.dispatch(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
 
-	case n >= 65 && n < 80:
-		// 15%: mouse click
+	case n >= 65 && n < 75:
+		// 10%: mouse click
 		mx := h.rng.Intn(w)
 		my := h.rng.Intn(hh)
 		h.record("click", fmt.Sprintf("x=%d,y=%d", mx, my))
 		h.dispatch(tcell.NewEventMouse(mx, my, tcell.Button1, tcell.ModNone))
 		h.dispatch(tcell.NewEventMouse(mx, my, tcell.ButtonNone, tcell.ModNone))
+
+	case n >= 75 && n < 80:
+		// 5%: mouse drag
+		x1 := h.rng.Intn(w)
+		y1 := h.rng.Intn(hh)
+		x2 := h.rng.Intn(w)
+		y2 := h.rng.Intn(hh)
+		steps := 3 + h.rng.Intn(4)
+		h.record("drag", fmt.Sprintf("(%d,%d)->(%d,%d) steps=%d", x1, y1, x2, y2, steps))
+		h.dispatch(tcell.NewEventMouse(x1, y1, tcell.Button1, tcell.ModNone))
+		for s := 1; s <= steps; s++ {
+			ix := x1 + (x2-x1)*s/steps
+			iy := y1 + (y2-y1)*s/steps
+			h.dispatch(tcell.NewEventMouse(ix, iy, tcell.Button1, tcell.ModNone))
+		}
+		h.dispatch(tcell.NewEventMouse(x2, y2, tcell.ButtonNone, tcell.ModNone))
 
 	case n >= 80 && n < 85:
 		// 5%: mouse scroll
