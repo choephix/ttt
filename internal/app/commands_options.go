@@ -147,9 +147,15 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		gitGutterChecked = ui.MenuChecked
 	}
 
+	syntaxChecked := ui.MenuUnchecked
+	if a.Settings.Editor.IsSyntaxHighlightEnabled() {
+		syntaxChecked = ui.MenuChecked
+	}
+
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
+		{Label: "Syntax Highlight", Command: "options.toggleSyntaxHighlight", Checked: syntaxChecked},
 		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
 		{Label: "LSP Code Assist", Command: "options.toggleLSP", Checked: lspChecked},
 		{Label: "Git Gutter", Command: "options.toggleGitGutter", Checked: gitGutterChecked},
