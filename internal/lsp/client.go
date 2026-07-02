@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 )
 
 type Client struct {
@@ -114,7 +115,16 @@ func (c *Client) call(method string, params any) (json.RawMessage, error) {
 		return nil, err
 	}
 
-	resp, ok := <-ch
+	var resp Response
+	var ok bool
+	select {
+	case resp, ok = <-ch:
+	case <-time.After(10 * time.Second):
+		c.mu.Lock()
+		delete(c.pending, id)
+		c.mu.Unlock()
+		return nil, fmt.Errorf("LSP request %s timed out", method)
+	}
 	if !ok {
 		return nil, fmt.Errorf("connection closed")
 	}
