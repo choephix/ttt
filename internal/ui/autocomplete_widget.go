@@ -109,6 +109,7 @@ type AutocompleteWidget struct {
 	OnSelect   func(item CompletionItem)
 	OnDismiss  func()
 	firstEvent bool
+	scrollbar  Scrollbar
 }
 
 const defaultMaxVisible = 10
@@ -261,18 +262,16 @@ func (a *AutocompleteWidget) Render(surface Surface) {
 		}
 	}
 
+	ox, oy := surface.Origin()
 	if hasScroll {
-		sb := Scrollbar{
-			X:          x + menuW - 2,
-			Y:          y + 1,
-			Height:     vis,
-			TotalItems: len(a.Items),
-			TopItem:    a.scrollTop,
-		}
-		sb.Render(surface, x+menuW-2, y+1)
+		a.scrollbar.Height = vis
+		a.scrollbar.TotalItems = len(a.Items)
+		a.scrollbar.TopItem = a.scrollTop
+		a.scrollbar.X = ox + x + menuW - 2
+		a.scrollbar.Y = oy + y + 1
+		a.scrollbar.Render(surface, x+menuW-2, y+1)
 	}
 
-	ox, oy := surface.Origin()
 	a.SetRect(Rect{X: ox + x, Y: oy + y, W: menuW, H: menuH})
 }
 
@@ -322,6 +321,11 @@ func (a *AutocompleteWidget) HandleEvent(ev tcell.Event) EventResult {
 			if a.scrollTop < max {
 				a.scrollTop++
 			}
+			return EventConsumed
+		}
+
+		if newTop, consumed := a.scrollbar.HandleEvent(ev); consumed {
+			a.scrollTop = newTop
 			return EventConsumed
 		}
 
