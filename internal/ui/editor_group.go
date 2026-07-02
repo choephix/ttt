@@ -1221,6 +1221,9 @@ func (g *EditorGroupWidget) syncTabs() {
 		return
 	}
 	if t.Content == nil {
+		if g.Editor.Buf != t.Buf {
+			g.Editor.maxWidthSeen = 0
+		}
 		g.Editor.Buf = t.Buf
 		g.Editor.Cursor = t.Cur
 		g.Editor.Viewport = t.Vp
@@ -1244,10 +1247,9 @@ func (g *EditorGroupWidget) syncTabs() {
 		if ts.Buf != nil {
 			dirty = ts.Buf.Dirty
 		}
-		closable := true
-		if len(g.tabs) == 1 && ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
-			closable = false
-		}
+		isEmptyUntitledTab := ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty &&
+			len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "")
+		closable := !(len(g.tabs) == 1 && isEmptyUntitledTab)
 		name := ts.FilePath
 		if ts.Title != "" {
 			name = ts.Title

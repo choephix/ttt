@@ -56,6 +56,7 @@ type EditorPaneWidget struct {
 	gutterHover             bool
 	gutterHoverLine         int
 	mouseDownX, mouseDownY  int
+	maxWidthSeen            int
 	cachedVisibleLines      []int
 	searchByLine            map[int][]int
 	diagByLine              map[int][]int
@@ -116,9 +117,11 @@ func (e *EditorPaneWidget) computeMaxLineWidth() int {
 			maxW = lw
 		}
 	}
-	return maxW
+	if maxW > e.maxWidthSeen {
+		e.maxWidthSeen = maxW
+	}
+	return e.maxWidthSeen
 }
-
 
 func (e *EditorPaneWidget) clampLeftCol() {
 	editorW := e.Viewport.Width
@@ -584,6 +587,7 @@ func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
 func (e *EditorPaneWidget) FlushOnChange() {
 	if e.bufferDirty {
 		e.bufferDirty = false
+		e.maxWidthSeen = 0
 		e.bracketColorDirty = true
 		if e.Highlighter != nil {
 			e.Highlighter.ClearCache()
