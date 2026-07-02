@@ -246,7 +246,18 @@ func (a *AutocompleteWidget) Render(surface Surface) {
 			if detailX < labelEnd {
 				detailX = labelEnd
 			}
-			surface.DrawText(detailX, row, it.Detail, x+1+contentW, term.StyleSyntaxComment)
+			cell := term.Cell{Style: term.StyleSyntaxComment}
+			if idx == a.Selected {
+				cell.BgStyle = term.StylePaletteSelected
+			}
+			for _, ch := range it.Detail {
+				if detailX >= x+1+contentW {
+					break
+				}
+				cell.Ch = ch
+				surface.SetCell(detailX, row, cell)
+				detailX++
+			}
 		}
 	}
 
