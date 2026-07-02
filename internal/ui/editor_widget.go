@@ -20,6 +20,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const maxBracketColorLines = 10_000
+
 type EditorPaneWidget struct {
 	BaseWidget
 	Buf                     *buffer.Buffer
@@ -263,7 +265,7 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 	}
 
 	var bracketColors bracketColorMap
-	if e.BracketPairColorization {
+	if e.BracketPairColorization && len(e.Buf.Lines) <= maxBracketColorLines {
 		if e.bracketColorDirty {
 			e.bracketColorCache = e.computeBracketColors()
 			e.bracketColorDirty = false
