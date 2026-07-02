@@ -139,6 +139,9 @@ func (sv *ScrollViewWidget) renderHBar(surface Surface, barW, y, totalW int) {
 func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := sv.vbar.HandleEvent(ev); consumed {
 		sv.scrollY = newTop
+		if sv.vbar.isDragging() {
+			return EventCaptured
+		}
 		return EventConsumed
 	}
 

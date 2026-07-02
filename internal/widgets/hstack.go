@@ -108,8 +108,8 @@ func (s *HStackWidget) Render(surface Surface) {
 
 func (s *HStackWidget) HandleEvent(ev tcell.Event) EventResult {
 	for _, child := range s.Children {
-		if child.HandleEvent(ev) == EventConsumed {
-			return EventConsumed
+		if result := child.HandleEvent(ev); result != EventIgnored {
+			return result
 		}
 	}
 	return EventIgnored

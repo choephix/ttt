@@ -85,6 +85,8 @@ func (s *scrollbar) HandleEvent(ev tcell.Event) (newTopItem int, consumed bool) 
 	return s.TopItem, false
 }
 
+func (s *scrollbar) isDragging() bool { return s.dragging }
+
 func (s *scrollbar) posToTopItem(thumbTop int) int {
 	_, thumbH := s.thumbPos()
 	maxThumbTop := s.Height - thumbH

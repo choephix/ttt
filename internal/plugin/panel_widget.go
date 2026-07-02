@@ -53,8 +53,8 @@ func (pw *PluginPanelWidget) Render(surface widgets.Surface) {
 
 func (pw *PluginPanelWidget) HandleEvent(ev tcell.Event) widgets.EventResult {
 	if pw.state != nil && pw.state.focus != nil {
-		if pw.state.focus.HandleEvent(ev) == widgets.EventConsumed {
-			return widgets.EventConsumed
+		if result := pw.state.focus.HandleEvent(ev); result != widgets.EventIgnored {
+			return result
 		}
 	}
 

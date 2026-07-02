@@ -442,6 +442,9 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 func (t *TreeWidget) HandleEvent(ev tcell.Event) EventResult {
 	if newTop, consumed := t.scrollbar.HandleEvent(ev); consumed {
 		t.scrollTop = newTop
+		if t.scrollbar.isDragging() {
+			return EventCaptured
+		}
 		return EventConsumed
 	}
 

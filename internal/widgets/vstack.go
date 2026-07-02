@@ -154,8 +154,8 @@ func (v *VStackWidget) Render(surface Surface) {
 
 func (v *VStackWidget) HandleEvent(ev tcell.Event) EventResult {
 	for _, child := range v.Children {
-		if child.HandleEvent(ev) == EventConsumed {
-			return EventConsumed
+		if result := child.HandleEvent(ev); result != EventIgnored {
+			return result
 		}
 	}
 	return EventIgnored
