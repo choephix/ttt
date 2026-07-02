@@ -724,7 +724,7 @@ func (d *DiffViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			if ok {
 				if !d.selecting {
 					now := time.Now()
-					isDoubleClick := now.Sub(d.lastClickTime) < 400*time.Millisecond &&
+					isDoubleClick := now.Sub(d.lastClickTime) < DoubleClickMs*time.Millisecond &&
 						pos.Line == d.lastClickPos.Line && pos.Col == d.lastClickPos.Col
 					d.lastClickTime = now
 					d.lastClickPos = pos

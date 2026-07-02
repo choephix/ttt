@@ -17,6 +17,8 @@ const (
 	EventConsumed  = widgets.EventConsumed
 	EventDismissed = widgets.EventDismissed
 	EventCaptured  = widgets.EventCaptured
+
+	DoubleClickMs = 500
 )
 
 type CursorProvider interface {

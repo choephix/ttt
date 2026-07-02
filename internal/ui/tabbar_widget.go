@@ -1,10 +1,11 @@
 package ui
 
 import (
-	"github.com/eugenioenko/ttt/internal/term"
 	"log/slog"
 	"path/filepath"
+	"time"
 
+	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -32,6 +33,7 @@ type TabBarWidget struct {
 	OnTabRightClick  func(index, screenX, screenY int)
 	OnPrevTab        func()
 	OnNextTab        func()
+	OnDoubleClick    func()
 	tabSpans         []tabSpan
 	hasOverflowLeft  bool
 	hasOverflowRight bool
@@ -39,6 +41,7 @@ type TabBarWidget struct {
 	closeDownX       int // screen X where mouse-down hit a close button, -1 if none
 	closeDownY       int
 	wasPressed       bool
+	lastClickTime    int64
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -331,6 +334,14 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventConsumed
 		}
+	}
+
+	now := time.Now().UnixMilli()
+	if now-t.lastClickTime < DoubleClickMs && t.OnDoubleClick != nil {
+		t.OnDoubleClick()
+		t.lastClickTime = 0
+	} else {
+		t.lastClickTime = now
 	}
 	return EventConsumed
 }

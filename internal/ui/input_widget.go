@@ -438,7 +438,7 @@ func (inp *InputWidget) HandleClick(screenX, screenY int) bool {
 	}
 
 	now := time.Now().UnixMilli()
-	if now-inp.lastClickTime < 400 && pos == inp.lastClickPos {
+	if now-inp.lastClickTime < DoubleClickMs && pos == inp.lastClickPos {
 		inp.clickCount++
 	} else {
 		inp.clickCount = 1

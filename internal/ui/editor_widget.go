@@ -790,7 +790,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				}
 
 				now := time.Now().UnixMilli()
-				if now-e.lastClickTime < 400 && line == e.lastClickLine && col == e.lastClickCol {
+				if now-e.lastClickTime < DoubleClickMs && line == e.lastClickLine && col == e.lastClickCol {
 					e.clickCount++
 				} else {
 					e.clickCount = 1
