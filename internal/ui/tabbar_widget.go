@@ -332,5 +332,5 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 	}
-	return EventIgnored
+	return EventConsumed
 }
