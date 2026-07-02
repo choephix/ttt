@@ -239,6 +239,7 @@ func (a *App) SpawnTerminal() {
 	t.OnExit = func() {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(panelID))
 	}
+	t.Run()
 }
 
 func (a *App) CloseTerminal(panelID string) {
