@@ -606,6 +606,8 @@ func registerWidgetCallbacks(app *App) {
 				{Label: "New Terminal", Command: "terminal.new"},
 				ui.MenuSep(),
 				{Label: "Close All Terminals", Command: "terminal.closeAll"},
+				ui.MenuSep(),
+				{Label: "Close Panel", Command: "panel.toggle"},
 			}
 			openContextMenu(app, items, sx, sy)
 		}},
