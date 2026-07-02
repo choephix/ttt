@@ -485,6 +485,8 @@ func keyToVT(ev *tcell.EventKey) string {
 		return "\x7f"
 	case tcell.KeyTab:
 		return "\t"
+	case tcell.KeyBacktab:
+		return "\x1b[Z"
 	case tcell.KeyEscape:
 		return "\x1b"
 	case tcell.KeyUp:
