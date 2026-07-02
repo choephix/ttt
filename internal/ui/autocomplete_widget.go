@@ -335,11 +335,13 @@ func (a *AutocompleteWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 
 		if btn == tcell.ButtonNone {
-			itemIdx := my - r.Y - 1 + a.scrollTop
-			if itemIdx >= 0 && itemIdx < len(a.Items) {
-				a.Selected = itemIdx
+			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+				itemIdx := my - r.Y - 1 + a.scrollTop
+				if itemIdx >= 0 && itemIdx < len(a.Items) {
+					a.Selected = itemIdx
+				}
+				return EventConsumed
 			}
-			return EventConsumed
 		}
 	}
 	return EventIgnored
