@@ -109,6 +109,7 @@ type AutocompleteWidget struct {
 	OnSelect   func(item CompletionItem)
 	OnDismiss  func()
 	firstEvent bool
+	scrollbar  Scrollbar
 }
 
 const defaultMaxVisible = 10
@@ -246,26 +247,32 @@ func (a *AutocompleteWidget) Render(surface Surface) {
 			if detailX < labelEnd {
 				detailX = labelEnd
 			}
-			surface.DrawText(detailX, row, it.Detail, x+1+contentW, term.StyleSyntaxComment)
+			cell := term.Cell{Style: term.StyleSyntaxComment}
+			if idx == a.Selected {
+				cell.BgStyle = term.StylePaletteSelected
+			}
+			for _, ch := range it.Detail {
+				if detailX >= x+1+contentW {
+					break
+				}
+				cell.Ch = ch
+				surface.SetCell(detailX, row, cell)
+				detailX++
+			}
 		}
 	}
 
+	ox, oy := surface.Origin()
 	if hasScroll {
-		sb := Scrollbar{
-			X:          x + menuW - 2,
-			Y:          y + 1,
-			Height:     vis,
-			TotalItems: len(a.Items),
-			TopItem:    a.scrollTop,
-		}
-		sb.Render(surface, x+menuW-2, y+1)
+		a.scrollbar.Height = vis
+		a.scrollbar.TotalItems = len(a.Items)
+		a.scrollbar.TopItem = a.scrollTop
+		a.scrollbar.X = ox + x + menuW - 2
+		a.scrollbar.Y = oy + y + 1
+		a.scrollbar.Render(surface, x+menuW-2, y+1)
 	}
 
-	a.storeRect(x, y, menuW, menuH)
-}
-
-func (a *AutocompleteWidget) storeRect(x, y, w, h int) {
-	a.SetRect(Rect{X: x, Y: y, W: w, H: h})
+	a.SetRect(Rect{X: ox + x, Y: oy + y, W: menuW, H: menuH})
 }
 
 func (a *AutocompleteWidget) HandleEvent(ev tcell.Event) EventResult {
@@ -317,6 +324,11 @@ func (a *AutocompleteWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 
+		if newTop, consumed := a.scrollbar.HandleEvent(ev); consumed {
+			a.scrollTop = newTop
+			return EventConsumed
+		}
+
 		if btn&tcell.Button1 != 0 {
 			if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
 				if a.OnDismiss != nil {
@@ -335,11 +347,13 @@ func (a *AutocompleteWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 
 		if btn == tcell.ButtonNone {
-			itemIdx := my - r.Y - 1 + a.scrollTop
-			if itemIdx >= 0 && itemIdx < len(a.Items) {
-				a.Selected = itemIdx
+			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+				itemIdx := my - r.Y - 1 + a.scrollTop
+				if itemIdx >= 0 && itemIdx < len(a.Items) {
+					a.Selected = itemIdx
+				}
+				return EventConsumed
 			}
-			return EventConsumed
 		}
 	}
 	return EventIgnored

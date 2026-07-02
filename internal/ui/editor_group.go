@@ -363,6 +363,7 @@ func (g *EditorGroupWidget) ReloadFile(path string) {
 		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
 			g.tabs[i].Buf.LoadFile(path)
 			g.tabs[i].Buf.Dirty = false
+			g.tabs[i].Undo = &undo.UndoStack{}
 			if g.tabs[i].Folds != nil {
 				g.tabs[i].Folds.SetRanges(fold.ComputeIndentRanges(g.tabs[i].Buf.Lines))
 			}
@@ -791,7 +792,6 @@ func (g *EditorGroupWidget) AnyDirty() bool {
 }
 
 func (g *EditorGroupWidget) undoRedoPostProcess() {
-	g.Editor.InvalidateMaxLineWidth()
 	if g.Editor.Folds != nil {
 		g.Editor.Folds.SetRanges(fold.ComputeIndentRanges(g.Editor.Buf.Lines))
 		g.Editor.ExpandFoldContaining(g.Editor.Cursor.Line)
@@ -1221,6 +1221,12 @@ func (g *EditorGroupWidget) syncTabs() {
 		return
 	}
 	if t.Content == nil {
+		if g.Editor.Buf != t.Buf {
+			g.Editor.maxWidthSeen = 0
+			if g.Editor.BracketPairColorization && len(t.Buf.Lines) > maxBracketColorLines {
+				g.notify("Bracket pair colorization disabled for large file")
+			}
+		}
 		g.Editor.Buf = t.Buf
 		g.Editor.Cursor = t.Cur
 		g.Editor.Viewport = t.Vp
@@ -1232,7 +1238,6 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.Folds = t.Folds
 		g.Editor.LineChanges = t.LineChanges
 		g.Editor.buildDiagIndex()
-		g.Editor.InvalidateMaxLineWidth()
 		g.Editor.InvalidateBracketColors()
 		if t.TabSize > 0 {
 			g.Editor.TabSize = t.TabSize
@@ -1245,10 +1250,9 @@ func (g *EditorGroupWidget) syncTabs() {
 		if ts.Buf != nil {
 			dirty = ts.Buf.Dirty
 		}
-		closable := true
-		if len(g.tabs) == 1 && ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty && len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "") {
-			closable = false
-		}
+		isEmptyUntitledTab := ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty &&
+			len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "")
+		closable := !(len(g.tabs) == 1 && isEmptyUntitledTab)
 		name := ts.FilePath
 		if ts.Title != "" {
 			name = ts.Title

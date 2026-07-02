@@ -73,9 +73,11 @@ func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) 
 		Rows: uint16(rows),
 	})
 
-	go t.readLoop()
-
 	return t, nil
+}
+
+func (t *Terminal) Run() {
+	go t.readLoop()
 }
 
 func (t *Terminal) readLoop() {

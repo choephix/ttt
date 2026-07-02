@@ -449,15 +449,15 @@ func (a *App) RequestCodeAction(path, lang, kind string) {
 		return
 	}
 	workDir := a.lspWorkDir(path)
+	lineCount := 0
+	if a.EditorGroup.Editor != nil {
+		lineCount = len(a.EditorGroup.Editor.Buf.Lines)
+	}
 	go func() {
 		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
 		if err != nil {
 			slog.Error("lsp client", "err", err)
 			return
-		}
-		lineCount := 0
-		if a.EditorGroup.Editor != nil {
-			lineCount = len(a.EditorGroup.Editor.Buf.Lines)
 		}
 		fullRange := lsp.Range{
 			Start: lsp.Position{Line: 0, Character: 0},
@@ -718,15 +718,7 @@ func (a *App) RequestCompletions(path, lang string, line, col int, triggerChar s
 	}()
 }
 
-func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int) {
-	diagText := ""
-	if a.EditorGroup.Editor != nil {
-		if d := a.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
-			diagText = d.Message
-		}
-	}
-
-	gen := a.HoverGen
+func (a *App) RequestHover(path, lang string, line, col, anchorX, anchorY int, diagText string, gen uint64) {
 	post := func(text string) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(&HoverResult{Text: text, AnchorX: anchorX, AnchorY: anchorY, Gen: gen}))
 	}

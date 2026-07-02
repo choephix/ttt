@@ -91,6 +91,7 @@ type Plugin struct {
 
 	pendingDrawer *pendingDrawerCall
 	LastError     error
+	errorCount    int
 }
 
 type pendingDrawerCall struct {
@@ -169,10 +170,19 @@ func (p *Plugin) InitFromSource(source string) error {
 	return nil
 }
 
+const maxPluginErrors = 10
+
 func (p *Plugin) logError(context string, err error) {
+	p.errorCount++
 	slog.Error("plugin error", "plugin", p.Name, "context", context, "error", err)
 	if p.Log != nil {
 		p.Log("error", context+": "+err.Error())
+	}
+	if p.errorCount >= maxPluginErrors {
+		p.Enabled = false
+		if p.Log != nil {
+			p.Log("error", fmt.Sprintf("plugin %q disabled after %d errors", p.Name, p.errorCount))
+		}
 	}
 }
 

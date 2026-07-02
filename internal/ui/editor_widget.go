@@ -20,6 +20,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const maxBracketColorLines = 10_000
+
 type EditorPaneWidget struct {
 	BaseWidget
 	Buf                     *buffer.Buffer
@@ -53,11 +55,10 @@ type EditorPaneWidget struct {
 	bufferDirty             bool
 	Multi                   *multicursor.MultiCursor
 	multiSearchWord         string
-	maxLineWidth            int
-	maxLineWidthDirty       bool
 	gutterHover             bool
 	gutterHoverLine         int
 	mouseDownX, mouseDownY  int
+	maxWidthSeen            int
 	cachedVisibleLines      []int
 	searchByLine            map[int][]int
 	diagByLine              map[int][]int
@@ -105,24 +106,23 @@ func (e *EditorPaneWidget) GutterWidth() int {
 }
 
 func (e *EditorPaneWidget) computeMaxLineWidth() int {
-	if !e.maxLineWidthDirty && e.maxLineWidth > 0 {
-		return e.maxLineWidth
-	}
 	tabW := e.resolveTabSize()
 	maxW := 0
-	for _, line := range e.Buf.Lines {
-		lw := bufColToVisualCol(line, len([]rune(line)), tabW)
+	topLine := e.Viewport.TopLine
+	botLine := topLine + e.Viewport.Height
+	if botLine > len(e.Buf.Lines) {
+		botLine = len(e.Buf.Lines)
+	}
+	for i := topLine; i < botLine; i++ {
+		lw := bufColToVisualCol(e.Buf.Lines[i], len([]rune(e.Buf.Lines[i])), tabW)
 		if lw > maxW {
 			maxW = lw
 		}
 	}
-	e.maxLineWidth = maxW
-	e.maxLineWidthDirty = false
-	return maxW
-}
-
-func (e *EditorPaneWidget) InvalidateMaxLineWidth() {
-	e.maxLineWidthDirty = true
+	if maxW > e.maxWidthSeen {
+		e.maxWidthSeen = maxW
+	}
+	return e.maxWidthSeen
 }
 
 func (e *EditorPaneWidget) clampLeftCol() {
@@ -265,7 +265,7 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 	}
 
 	var bracketColors bracketColorMap
-	if e.BracketPairColorization {
+	if e.BracketPairColorization && len(e.Buf.Lines) <= maxBracketColorLines {
 		if e.bracketColorDirty {
 			e.bracketColorCache = e.computeBracketColors()
 			e.bracketColorDirty = false
@@ -589,7 +589,7 @@ func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
 func (e *EditorPaneWidget) FlushOnChange() {
 	if e.bufferDirty {
 		e.bufferDirty = false
-		e.maxLineWidthDirty = true
+		e.maxWidthSeen = 0
 		e.bracketColorDirty = true
 		if e.Highlighter != nil {
 			e.Highlighter.ClearCache()
