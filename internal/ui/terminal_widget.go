@@ -575,12 +575,10 @@ func hexByte(s string) byte {
 func Build256Palette() [256]term.DirectColor {
 	var p [256]term.DirectColor
 	// 16-231: 6x6x6 color cube
+	cube := [6]byte{0, 95, 135, 175, 215, 255}
 	for i := 16; i < 232; i++ {
 		idx := i - 16
-		r := byte((idx / 36) * 51)
-		g := byte(((idx / 6) % 6) * 51)
-		b := byte((idx % 6) * 51)
-		p[i] = term.DirectColor{R: r, G: g, B: b, Set: true}
+		p[i] = term.DirectColor{R: cube[idx/36], G: cube[(idx/6)%6], B: cube[idx%6], Set: true}
 	}
 	// 232-255: grayscale
 	for i := 232; i < 256; i++ {
