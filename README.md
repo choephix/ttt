@@ -632,7 +632,7 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 
 ## Testing
 
-TTT is tested at two levels to catch bugs across the entire stack — from core data structures to end-to-end user workflows.
+TTT is tested at three levels to catch bugs across the entire stack — from core data structures to end-to-end user workflows.
 
 ### Unit Tests (Go)
 
@@ -643,29 +643,37 @@ make test                            # run all unit tests
 go test ./internal/core/buffer/      # test a single package
 ```
 
-### Functional Tests (vitest + tui-use)
+### Functional Tests (vitest + --exec)
 
-Black-box tests that launch the real `ttt` binary in a real terminal, type keys, and assert on screen output and file contents. These catch integration issues that unit tests can't — keybinding wiring, rendering, file I/O round-trips, and cross-component interactions.
-
-Built with [vitest](https://vitest.dev/) and [tui-use](https://github.com/onesuper/tui-use) (terminal automation for TUI apps). 44 tests across 16 files covering:
+The primary test suite. These launch the real `ttt` binary via the built-in `--exec` debug harness, run scripted commands in batch, and assert on screenshots and file contents. No external dependencies beyond [vitest](https://vitest.dev/). 142 tests across 39 files covering:
 
 - **File operations** — open, edit, save, Save As, new file, dirty indicator
-- **Editing** — undo/redo, select all + overwrite, line delete/move/duplicate, word delete
-- **Unicode** — accented characters, CJK, emoji
-- **Find & Replace** — search, match navigation, replace, save verification
-- **Navigation** — go to line, tab switching
-- **UI panels** — sidebar toggle, panel switching, terminal toggle, command palette
-- **Tab management** — multi-tab, close, unsaved changes dialog
+- **Editing** — undo/redo, select all + overwrite, line delete/move/duplicate, word delete, sort, case transform
+- **Unicode** — accented characters, CJK, emoji, stress tests
+- **Find & Replace** — search, match navigation, single/all replace, save verification
+- **Navigation** — go to line, tab switching, code folding, matching brackets
+- **UI panels** — sidebar toggle, terminal toggle, command palette, word wrap
+- **Tab management** — multi-tab state isolation, close, unsaved changes dialog
+- **Multi-cursor** — add cursor, select occurrences, type with multiple cursors
 
 ```sh
 cd tests/functional
 pnpm install
 pnpm test              # run all functional tests
-pnpm test:watch        # watch mode
-pnpm test:stress       # run 10 times to catch flaky tests
 ```
 
-Functional tests run in CI on every push and pull request.
+### Integration Tests (vitest + tui-use)
+
+Tests that require live PTY interaction — scenarios where something external happens while the editor is running. Built with [vitest](https://vitest.dev/) and [tui-use](https://github.com/onesuper/tui-use). 7 tests covering LSP completions, external file changes, settings roundtrip, and bracketed paste.
+
+```sh
+cd tests/integration
+pnpm install
+npm install -g tui-use
+pnpm test
+```
+
+All test levels run in CI on every push and pull request.
 
 ### Chaos Monkey (Fuzz Testing)
 
