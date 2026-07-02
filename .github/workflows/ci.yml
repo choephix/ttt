@@ -80,6 +80,38 @@ jobs:
         working-directory: tests/functional
         run: pnpm exec vitest run --reporter=verbose --exclude='**/lsp*.test.js'
 
+  blackbox-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Build binary
+        run: make build
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: tests/blackbox/pnpm-lock.yaml
+
+      - name: Install test dependencies
+        working-directory: tests/blackbox
+        run: pnpm install
+
+      - name: Run blackbox tests
+        working-directory: tests/blackbox
+        run: pnpm exec vitest run --reporter=verbose
+
   lsp-tests:
     runs-on: ubuntu-latest
     continue-on-error: true
