@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import * as tui from "./tui.js";
-import { createTempDir, cleanupDir } from "./helpers.js";
-import { writeFileSync, readFileSync } from "node:fs";
+import { createTempDir, cleanupDir, readFile } from "./helpers.js";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 let dir;
@@ -28,7 +28,9 @@ describe("trim trailing whitespace on save", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     expect(content).toBe("hello\nworld\nclean\n");
   });
 
@@ -44,7 +46,9 @@ describe("trim trailing whitespace on save", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     expect(content).toBe("foo\nbar\nclean\n");
   });
 
@@ -58,7 +62,9 @@ describe("trim trailing whitespace on save", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     expect(content).toBe("hello   \nworld\t\t\n");
   });
 });

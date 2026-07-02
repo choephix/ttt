@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import * as tui from "./tui.js";
-import { createTempDir, cleanupDir } from "./helpers.js";
-import { writeFileSync, readFileSync } from "node:fs";
+import { createTempDir, cleanupDir, readFile } from "./helpers.js";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 let dir;
@@ -26,7 +26,9 @@ describe("toggle line comment", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     expect(content).toContain("// package main");
   });
 
@@ -44,7 +46,9 @@ describe("toggle line comment", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     const firstLine = content.split("\n")[0];
     expect(firstLine).toBe("package main");
   });
@@ -66,7 +70,9 @@ describe("toggle line comment", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     expect(content).toContain("// line1");
     expect(content).toContain("// line2");
     expect(content).toContain("// line3");
@@ -89,7 +95,9 @@ describe("toggle line comment", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     const lines = content.split("\n");
     expect(lines[0]).toBe("line1");
     expect(lines[1]).toBe("line2");
@@ -110,7 +118,9 @@ describe("toggle line comment", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
-    const content = readFileSync(file, "utf8");
+    tui.run();
+
+    const content = readFile(file);
     expect(content).toContain('# print("hello")');
   });
 });

@@ -24,6 +24,8 @@ describe("unicode editing", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toContain("café résumé naïve über");
   });
@@ -41,6 +43,8 @@ describe("unicode editing", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toContain("hello world 你好世界");
@@ -60,6 +64,8 @@ describe("unicode editing", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toContain("start end 🎉🚀");
   });
@@ -77,6 +83,8 @@ describe("unicode editing", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toBe("→ línea número één\n");

@@ -26,6 +26,8 @@ describe("duplicate line", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("AAA\nBBB\nBBB\nCCC\n");
   });
@@ -46,6 +48,8 @@ describe("duplicate line", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("First\nLast\nLast\n");
   });
@@ -65,6 +69,8 @@ describe("duplicate line", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     expect(content).toBe("Only\nTwo\n");

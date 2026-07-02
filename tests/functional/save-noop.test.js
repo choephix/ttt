@@ -23,6 +23,8 @@ describe("save behavior edge cases", () => {
     tui.press("ctrl+s");
     tui.waitStable(500);
 
+    const { snapshots } = tui.run();
+
     // Content must remain identical
     const content = readFile(file);
     expect(content).toBe("original content\n");
@@ -44,6 +46,8 @@ describe("save behavior edge cases", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe("no newline here!\n");
   });
@@ -59,40 +63,41 @@ describe("save behavior edge cases", () => {
     tui.type("x");
     tui.waitStable();
 
-    const dirtySnap = tui.snapshot();
-    expect(dirtySnap).toContain("●"); // dirty dot
+    const s0 = tui.snapshot();
 
     // Save the file
     tui.press("ctrl+s");
     tui.waitStable(500);
 
-    const savedSnap = tui.snapshot();
-    expect(savedSnap).not.toContain("●"); // dirty dot should be gone
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("●"); // dirty dot
+    expect(snapshots[s1]).not.toContain("●"); // dirty dot should be gone
   });
 
   it("save on new buffer shows Save As dialog", () => {
     dir = createTempDir();
     const newFilePath = join(dir, "created.txt");
 
-    // Start ttt with a non-existent file path to get an untitled buffer
-    tui.start(newFilePath);
-    tui.waitFor("untitled");
+    tui.start();
+    tui.waitStable();
 
     tui.type("new content here");
-    tui.waitFor("new content here");
+    tui.waitStable();
 
-    // Ctrl+S on an untitled buffer should show Save As
     tui.press("ctrl+s");
-    tui.waitFor("Save As");
+    tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Save As");
+    const s0 = tui.snapshot();
 
-    // Complete the save to verify it works
     tui.type(newFilePath);
     tui.press("enter");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("Save As");
     expect(fileExists(newFilePath)).toBe(true);
     expect(readFile(newFilePath)).toContain("new content here");
   });

@@ -31,6 +31,8 @@ describe("multi-cursor", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe("qux bar qux baz qux\n");
   });
@@ -54,6 +56,8 @@ describe("multi-cursor", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toBe("pet dog pet bird pet\n");
@@ -83,6 +87,8 @@ describe("multi-cursor", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toContain("aa");
     expect(content).not.toContain("cc");
@@ -110,6 +116,8 @@ describe("multi-cursor", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     // Only one Z should be inserted (single cursor after escape)
     const zCount = (content.match(/Z/g) || []).length;
@@ -136,6 +144,8 @@ describe("multi-cursor", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toBe(" DEF \n");
   });
@@ -160,6 +170,8 @@ describe("multi-cursor", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toBe("let x = 1;\nlet y = 2;\nlet z = 3;\n");
@@ -191,6 +203,8 @@ describe("multi-cursor", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     expect(content).toBe("test one!\ntest two!\ntest three!\n");

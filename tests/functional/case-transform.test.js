@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import * as tui from "./tui.js";
-import { createTempDir, createTempFile, cleanupDir, readFile } from "./helpers.js";
+import { createTempDir, createTempFile, cleanupDir } from "./helpers.js";
 
 let dir;
 
@@ -23,8 +23,9 @@ describe("case transforms", () => {
     tui.exec("Transform to Uppercase");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("HELLO WORLD");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("HELLO WORLD");
   });
 
   it("should transform to lower case", () => {
@@ -40,8 +41,9 @@ describe("case transforms", () => {
     tui.exec("Transform to Lowercase");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("hello world");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("hello world");
   });
 
   it("should transform to title case", () => {
@@ -57,8 +59,9 @@ describe("case transforms", () => {
     tui.exec("Transform to Titlecase");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Hello World");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Hello World");
   });
 
   it("should undo upper case transform", () => {
@@ -74,13 +77,14 @@ describe("case transforms", () => {
     tui.exec("Transform to Uppercase");
     tui.waitStable();
 
-    let snap = tui.snapshot();
-    expect(snap).toContain("HELLO WORLD");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+z");
     tui.waitStable();
 
-    snap = tui.snapshot();
-    expect(snap).toContain("hello world");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("HELLO WORLD");
+    expect(snapshots[s1]).toContain("hello world");
   });
 });

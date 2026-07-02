@@ -24,8 +24,9 @@ describe("go to line", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Ln 25");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Ln 25");
   });
 
   it("should dismiss go to line with escape", () => {
@@ -41,7 +42,8 @@ describe("go to line", () => {
     tui.press("escape");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Ln 1");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Ln 1");
   });
 });

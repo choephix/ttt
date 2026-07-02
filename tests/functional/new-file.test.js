@@ -21,8 +21,10 @@ describe("new file", () => {
     tui.press("ctrl+n");
     tui.waitFor("untitled");
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("untitled");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("untitled");
   });
 
   it("should create a distinct tab when current untitled has content", () => {
@@ -40,8 +42,10 @@ describe("new file", () => {
     tui.press("ctrl+n");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("untitled-");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("untitled-");
   });
 
   it("should save a new file via Save As", () => {
@@ -64,6 +68,8 @@ describe("new file", () => {
     tui.type(newFile);
     tui.press("enter");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     expect(fileExists(newFile)).toBe(true);
     expect(readFile(newFile)).toBe("Brand new content");

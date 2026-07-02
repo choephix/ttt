@@ -131,7 +131,18 @@ The project has three levels of testing:
 
 **E2E tests** (`tests/e2e/`) — Go tests that wire up the full `App` with a `tcell.SimulationScreen`. The `testHarness` (`harness_test.go`) creates a temp directory with sample files, builds the complete app (config, commands, keybindings, renderer), and provides helpers: `pressKey()`, `pressRune()`, `click()`, `exec()`, `screenText()`, `assertContains()`. The watcher-aware `waitForFileChange()` helper blocks on `PollEvent` to receive real fsnotify events and dispatches them through the reconciliation path. These tests run single-threaded (no event loop goroutine) — the test drives events and redraws manually.
 
-**Functional blackbox tests** (`tests/functional/`) — JavaScript tests using vitest + `tui-use` CLI that drive the real compiled `bin/ttt` binary in a real terminal. The `tui.js` wrapper provides: `start()` (launches the binary), `snapshot()` (captures screen), `type()` / `press()` / `pressChord()` (input), `waitFor()` (poll until text appears), `waitStable()` (wait for screen to settle), `exec()` (open command palette and run a command). These tests catch integration issues that the Go-level tests miss (e.g., launch-time watcher sync was caught here). Run with `cd tests/functional && pnpm test`. The binary must be built first (`make build`). Tests run sequentially (`fileParallelism: false`) and each test kills any leftover tui-use sessions in `beforeEach`.
+**Functional tests** (`tests/functional/`) — JavaScript tests using vitest that drive the real compiled `bin/ttt` binary via the `--exec` debug harness. The `tui.js` wrapper accumulates commands (type, press, exec, snapshot) and runs them in a single batch via `execFileSync`. No external dependencies beyond vitest. Run with `cd tests/functional && pnpm test`. The binary must be built first (`make build`).
+
+The batch pattern: `tui.start(file)` resets state, commands accumulate, `tui.snapshot()` returns an index, `tui.run()` executes all commands and returns `{ snapshots: string[] }`. Assertions happen after `run()`:
+```js
+tui.start(file);
+tui.type("hello");
+const s0 = tui.snapshot();
+const { snapshots } = tui.run();
+expect(snapshots[s0]).toContain("hello");
+```
+
+**Integration tests** (`tests/integration/`) — JavaScript tests using vitest + `tui-use` CLI that drive the binary via a real PTY. Used for tests that need live PTY interaction: LSP, external file changes, settings roundtrip, bracketed paste. Run with `cd tests/integration && pnpm test`. Requires `npm install -g tui-use`.
 
 ### Test expectations for new features
 
@@ -140,8 +151,9 @@ Every new feature or bug fix should include tests at multiple levels:
 1. **Unit tests** — for core logic that lives in `internal/core/` or has non-trivial algorithms.
 2. **E2E tests** — when the feature involves editor state (cursor, buffer, selection, commands). Use the `testHarness` to wire up the app and verify behavior programmatically.
 3. **Functional tests** — when possible. These catch the most bugs because they exercise the real binary end-to-end. Cover the happy path at minimum; add a negative/edge case if there's an obvious one (e.g., no-op on last line for join lines, no-op with no selection for case transforms).
+4. **Integration tests** — only when the feature requires live PTY interaction (LSP, external file watchers, bracketed paste).
 
-Functional tests with `tui` are the highest-value tests. Use `tui.exec("Command Name")` for command palette, `tui.pressChord("ctrl+k", "x")` for keybindings, and `tui.snapshot()` to verify results.
+Functional tests are the highest-value tests. Use `tui.exec("Command Name")` for command palette, `tui.pressChord("ctrl+k", "x")` for keybindings, and `tui.snapshot()` to verify results.
 
 ### Debug harness (`--exec`, `--plugin`, `--size`, `--debug`)
 

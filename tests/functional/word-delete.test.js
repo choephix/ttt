@@ -26,6 +26,8 @@ describe("word delete", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    tui.run();
+
     const content = readFile(file);
     expect(content).toBe("hello \n");
   });
@@ -45,6 +47,8 @@ describe("word delete", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     expect(content).toBe(" world today\n");
@@ -68,6 +72,8 @@ describe("word delete", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    tui.run();
 
     const content = readFile(file);
     expect(content).toBe("keep these words\n");

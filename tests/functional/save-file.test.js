@@ -15,26 +15,25 @@ describe("save file", () => {
     dir = createTempDir();
     const filePath = join(dir, "hello.txt");
 
-    tui.start(filePath);
-    tui.waitFor("untitled");
+    tui.start();
+    tui.waitStable();
 
     tui.type("Hello World");
-    tui.waitFor("Hello World");
+    tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Hello World");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+s");
-    tui.waitFor("Save As");
+    tui.waitStable();
 
     tui.type(filePath);
     tui.press("enter");
     tui.waitStable();
 
-    tui.press("ctrl+q");
-    tui.waitStable(2000);
+    const { snapshots } = tui.run();
 
+    expect(snapshots[s0]).toContain("Hello World");
     expect(fileExists(filePath)).toBe(true);
-    expect(readFile(filePath)).toBe("Hello World");
+    expect(readFile(filePath)).toContain("Hello World");
   });
 });

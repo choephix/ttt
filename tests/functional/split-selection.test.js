@@ -31,6 +31,8 @@ describe("split selection into lines", () => {
     tui.press("ctrl+s");
     tui.waitStable();
 
+    const { snapshots } = tui.run();
+
     const content = readFile(file);
     expect(content).toContain("aaaX");
     expect(content).toContain("bbbX");
@@ -53,6 +55,8 @@ describe("split selection into lines", () => {
 
     tui.press("ctrl+s");
     tui.waitStable();
+
+    const { snapshots } = tui.run();
 
     const content = readFile(file);
     const zCount = (content.match(/Z/g) || []).length;

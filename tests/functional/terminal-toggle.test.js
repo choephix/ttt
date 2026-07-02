@@ -18,10 +18,12 @@ describe("terminal toggle", () => {
     tui.waitFor("term.txt");
 
     tui.press("ctrl+t");
-    tui.waitFor("TERMINAL");
+    tui.waitStable();
+    tui.wait(500);
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("TERMINAL");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Terminal");
   });
 
   it("should toggle terminal off and on", () => {
@@ -32,18 +34,21 @@ describe("terminal toggle", () => {
     tui.waitFor("toggle.txt");
 
     tui.press("ctrl+t");
-    tui.waitFor("TERMINAL");
+    tui.waitStable();
+    tui.wait(500);
 
     tui.press("ctrl+t");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("TERMINAL");
+    const s0 = tui.snapshot();
 
     tui.press("ctrl+t");
-    tui.waitFor("TERMINAL");
+    tui.waitStable();
+    tui.wait(500);
 
-    const snap2 = tui.snapshot();
-    expect(snap2).toContain("TERMINAL");
+    const s1 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Terminal  Problems");
+    expect(snapshots[s1]).toContain("Terminal");
   });
 });

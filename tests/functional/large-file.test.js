@@ -24,10 +24,11 @@ describe("large file scroll stability", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Line 500");
-    expect(snap).toContain("500");
-    expect(snap).toContain("Ln 500");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Line 500");
+    expect(snapshots[s0]).toContain("500");
+    expect(snapshots[s0]).toContain("Ln 500");
   });
 
   it("should scroll to top with ctrl+g to line 1", () => {
@@ -52,9 +53,10 @@ describe("large file scroll stability", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Line 1");
-    expect(snap).toContain("Ln 1");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Line 1");
+    expect(snapshots[s0]).toContain("Ln 1");
   });
 
   it("should go to a middle line with ctrl+g", () => {
@@ -70,9 +72,10 @@ describe("large file scroll stability", () => {
     tui.press("enter");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Line 250");
-    expect(snap).toContain("Ln 250");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Line 250");
+    expect(snapshots[s0]).toContain("Ln 250");
   });
 
   it("should page down and page up through a large file", () => {
@@ -83,8 +86,7 @@ describe("large file scroll stability", () => {
     tui.waitFor("big4.txt");
 
     // Verify we start at the top
-    const snapBefore = tui.snapshot();
-    expect(snapBefore).toContain("Ln 1");
+    const s0 = tui.snapshot();
 
     // Press page down to scroll away from the top
     tui.press("page_down");
@@ -95,8 +97,7 @@ describe("large file scroll stability", () => {
     tui.waitStable(200);
 
     // Cursor should have moved past line 1
-    const snapMiddle = tui.snapshot();
-    expect(snapMiddle).not.toContain("Ln 1");
+    const s1 = tui.snapshot();
 
     // Press page up the same number of times to return near the top
     tui.press("page_up");
@@ -107,7 +108,11 @@ describe("large file scroll stability", () => {
     tui.waitStable(200);
 
     // Should be back at line 1
-    const snapAfter = tui.snapshot();
-    expect(snapAfter).toContain("Ln 1");
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toMatch(/Ln 1\b/);
+    expect(snapshots[s1]).not.toMatch(/Ln 1\b/);
+    expect(snapshots[s2]).toMatch(/Ln 1\b/);
   });
 });

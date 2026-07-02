@@ -33,7 +33,8 @@ describe("go to matching bracket", () => {
     tui.waitStable();
 
     // The status bar should show we're on line 3 (the } line)
-    const snap = tui.snapshot();
-    expect(snap).toContain("Ln 3");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Ln 3");
   });
 });

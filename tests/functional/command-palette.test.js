@@ -20,8 +20,9 @@ describe("command palette", () => {
     tui.press("ctrl+p");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain(">");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain(">");
   });
 
   it("should execute a command from the palette", () => {
@@ -34,8 +35,9 @@ describe("command palette", () => {
     tui.exec("View: Toggle Sidebar");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).not.toContain("Explore");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).not.toContain("Explore");
   });
 
   it("should dismiss palette with escape", () => {
@@ -51,7 +53,8 @@ describe("command palette", () => {
     tui.press("escape");
     tui.waitStable();
 
-    const snap = tui.snapshot();
-    expect(snap).toContain("Dismiss test");
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+    expect(snapshots[s0]).toContain("Dismiss test");
   });
 });
