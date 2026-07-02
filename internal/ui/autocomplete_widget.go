@@ -261,11 +261,8 @@ func (a *AutocompleteWidget) Render(surface Surface) {
 		sb.Render(surface, x+menuW-2, y+1)
 	}
 
-	a.storeRect(x, y, menuW, menuH)
-}
-
-func (a *AutocompleteWidget) storeRect(x, y, w, h int) {
-	a.SetRect(Rect{X: x, Y: y, W: w, H: h})
+	ox, oy := surface.Origin()
+	a.SetRect(Rect{X: ox + x, Y: oy + y, W: menuW, H: menuH})
 }
 
 func (a *AutocompleteWidget) HandleEvent(ev tcell.Event) EventResult {
