@@ -310,7 +310,7 @@ func DefaultKeybindings() []KeyBinding {
 		{Key: "shift+f12", Command: "editor.goToImplementation"},
 		{Key: "ctrl+l i", Command: "editor.goToImplementation"},
 		{Key: "ctrl+l f", Command: "editor.formatDocument"},
-		{Key: "ctrl+k f", Command: "editor.formatExternal"},
+		{Key: "ctrl+l e", Command: "editor.formatExternal"},
 		{Key: "ctrl+l s", Command: "editor.formatSelection"},
 		{Key: "ctrl+l o", Command: "editor.organizeImports"},
 		{Key: "ctrl+l x", Command: "editor.fixAll"},
