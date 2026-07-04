@@ -118,3 +118,31 @@ func TestLoadManifestAPIVersionInvalid(t *testing.T) {
 		t.Fatal("expected error for invalid api version")
 	}
 }
+
+func TestLoadManifestNetworkHosts(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name": "t", "entry": "init.lua", "permissions": {"network.http": ["api.github.com"]}}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	m, err := LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.Permissions.NetworkHTTP.All {
+		t.Error("array form must not be all-hosts")
+	}
+	if !m.Permissions.NetworkHTTP.AllowsHost("api.github.com") {
+		t.Error("declared host should be allowed")
+	}
+}
+
+func TestLoadManifestNetworkInvalid(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name": "t", "entry": "init.lua", "permissions": {"network.http": 42}}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	_, err := LoadManifest(dir)
+	if err == nil {
+		t.Fatal("expected error for non-bool/non-array network.http")
+	}
+}

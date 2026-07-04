@@ -1,6 +1,9 @@
 package plugin
 
 import (
+	"fmt"
+	neturl "net/url"
+
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -20,6 +23,16 @@ func setupNetModule(L *lua.LState, p *Plugin) {
 	}
 
 	L.PreloadModule("ttt.net", loader)
+}
+
+// checkURLHost enforces the plugin's network.http host allowlist. Returns
+// an error if the URL is malformed or its host is not permitted.
+func (p *Plugin) checkURLHost(rawURL string) error {
+	u, err := neturl.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	return p.Granted.CheckHost(u.Hostname())
 }
 
 func extractHeaders(L *lua.LState, tbl *lua.LTable) map[string]string {
@@ -63,6 +76,10 @@ func netGet(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		url := L.CheckString(1)
+		if err := p.checkURLHost(url); err != nil {
+			L.Push(httpResultToLua(L, 0, "", nil, err))
+			return 1
+		}
 		var headers map[string]string
 		if opts, ok := L.Get(2).(*lua.LTable); ok {
 			headers = extractHeaders(L, opts)
@@ -81,6 +98,10 @@ func netPost(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		url := L.CheckString(1)
+		if err := p.checkURLHost(url); err != nil {
+			L.Push(httpResultToLua(L, 0, "", nil, err))
+			return 1
+		}
 		opts, _ := L.Get(2).(*lua.LTable)
 		var headers map[string]string
 		var body string
@@ -111,6 +132,16 @@ func netGetAsync(p *Plugin) lua.LGFunction {
 			callbackIdx = 3
 		}
 		callback := L.CheckFunction(callbackIdx)
+
+		if err := p.checkURLHost(url); err != nil {
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: func() {
+				if p.State == nil {
+					return
+				}
+				p.CallLuaFunc(callback, httpResultToLua(p.State, 0, "", nil, err))
+			}})
+			return 0
+		}
 
 		go func() {
 			status, body, respHeaders, err := p.Network.Get(url, headers)
@@ -148,6 +179,16 @@ func netPostAsync(p *Plugin) lua.LGFunction {
 			}
 		}
 		callback := L.CheckFunction(3)
+
+		if err := p.checkURLHost(url); err != nil {
+			p.SafePostAsync(&PluginAsyncResult{Plugin: p, Callback: func() {
+				if p.State == nil {
+					return
+				}
+				p.CallLuaFunc(callback, httpResultToLua(p.State, 0, "", nil, err))
+			}})
+			return 0
+		}
 
 		go func() {
 			status, respBody, respHeaders, err := p.Network.Post(url, headers, body)

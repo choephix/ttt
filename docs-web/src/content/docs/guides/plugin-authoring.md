@@ -1419,6 +1419,19 @@ Requests are restricted for safety: only `http` and `https` URLs are allowed; re
 local net = require("ttt.net")
 ```
 
+### Network host scoping
+
+The `network.http` permission can be a boolean or an array of hostnames:
+
+```json
+"network.http": true                          // any host
+"network.http": ["api.github.com", "cheat.sh"] // only these hosts
+```
+
+When an array is declared, `ttt.net` requests to any other host fail with a permission error in the response table (`status = 0`, `error` set) — the request never leaves the editor. Host matching is exact and case-insensitive (`api.github.com` does not cover `codeload.github.com`; list each host you need). The approval dialog shows the exact hosts, so users can see what a plugin talks to. Prefer an explicit list over `true` whenever your plugin knows its endpoints.
+
+> This scopes the `ttt.net` client only. A plugin that also has `system.exec` for a network-capable binary (`curl`, `git`, `gh`, …) can still reach the network through that binary — `system.exec` is the permission that governs it.
+
 ### HTTP Response Table
 
 All HTTP functions return (or pass to callbacks) a response table:
@@ -1711,7 +1724,7 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 | `fs.write`       | boolean  | Write files to the file system (`ttt.fs.write`).  |
 | `system.exec`    | string[] | Execute specific system commands. List each allowed binary name. |
 | `system.env`     | boolean  | Read environment variables (`ttt.system.env`).    |
-| `network.http`   | boolean  | Make outbound HTTP requests (`ttt.net`).          |
+| `network.http`   | boolean \| string[] | Make outbound HTTP requests (`ttt.net`). `true` allows any host; an array (`["api.github.com"]`) restricts requests to those hostnames. See [Network host scoping](#network-host-scoping). |
 | `events.file`    | boolean  | Listen for file events: `file.open`, `file.close`, `file.save`. |
 | `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`. |
 | `settings`       | boolean  | Read/write editor settings (`ttt.settings`).      |
