@@ -106,14 +106,16 @@ func (a *App) debugRunPlugin() {
 
 	path := a.EditorGroup.ActiveFilePath()
 	name := "debug-plugin"
+	dir := "."
 	if path != "" {
 		parts := strings.Split(path, "/")
 		name = strings.TrimSuffix(parts[len(parts)-1], ".lua")
+		dir = filepath.Dir(path)
 	}
 
 	p := &plugin.Plugin{
 		Name:    name,
-		Dir:     ".",
+		Dir:     dir,
 		Enabled: true,
 		Manifest: plugin.Manifest{
 			Name:  name,
