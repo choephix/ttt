@@ -35,6 +35,7 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
   "version": "1.0.0",
   "author": "Your Name",
   "entry": "init.lua",
+  "api": 1,
   "permissions": {
     "panel.sidebar": true
   }
@@ -48,6 +49,7 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
 | `version`     | string | no       | Semver version string.                              |
 | `author`      | string | no       | Plugin author name.                                 |
 | `entry`       | string | yes      | Path to the Lua entry point, relative to the plugin directory. |
+| `api`         | number | no       | Plugin API version the plugin targets. Defaults to `1` when omitted. The editor refuses to load plugins that target a newer API than it supports. |
 | `permissions` | object | no       | Object declaring required permissions (see [Permissions Reference](#permissions-reference)). |
 
 ### Minimal Example

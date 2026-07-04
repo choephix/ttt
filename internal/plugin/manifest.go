@@ -7,12 +7,17 @@ import (
 	"path/filepath"
 )
 
+// SupportedAPIVersion is the plugin API version this editor implements.
+// Manifests without an "api" field are assumed to target version 1.
+const SupportedAPIVersion = 1
+
 type Manifest struct {
 	Name        string        `json:"name"`
 	Description string        `json:"description"`
 	Version     string        `json:"version"`
 	Author      string        `json:"author"`
 	Entry       string        `json:"entry"`
+	API         int           `json:"api,omitempty"`
 	Permissions PermissionSet `json:"permissions"`
 }
 
@@ -33,6 +38,13 @@ func LoadManifest(dir string) (Manifest, error) {
 	}
 	if m.Entry == "" {
 		return Manifest{}, fmt.Errorf("manifest missing required field: entry")
+	}
+	if m.API == 0 {
+		m.API = 1
+	}
+	if m.API < 1 || m.API > SupportedAPIVersion {
+		return Manifest{}, fmt.Errorf("plugin %q requires plugin API v%d; this version of ttt supports v%d",
+			m.Name, m.API, SupportedAPIVersion)
 	}
 
 	return m, nil
