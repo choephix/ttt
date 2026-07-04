@@ -310,6 +310,14 @@ func registerViewCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "sidebar.outline", Title: "Show Outline",
+		Keywords: []string{"view", "symbols", "structure", "functions", "browser", "headings"},
+		Handler: func() {
+			app.ShowPanel("outline", app.Symbols.Adapter)
+		},
+	})
+
+	reg.Register(command.Command{
 		ID: "sidebar.wider", Title: "View: Increase Sidebar Width",
 		Keywords: []string{"view", "resize"},
 		Handler: func() {

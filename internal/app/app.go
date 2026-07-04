@@ -72,6 +72,7 @@ type App struct {
 	Explorer               *NavigationPanel
 	ExplorerContextNode    *widgets.TreeNode
 	Changes                *ChangesPanel
+	Symbols                *SymbolsPanel
 	Reg                    *command.Registry
 	Running                *bool
 	quitPending            bool

@@ -169,6 +169,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search.SetWorkDirs(ws.Paths())
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := NewChangesPanel(ws.Paths()...)
+	symbols := NewSymbolsPanel()
 
 	explorer := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
 
@@ -176,6 +177,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	sidebar.AddPanel("explorer", "Explore", explorer.Adapter)
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes.Adapter)
+	sidebar.AddPanel("outline", "Outline", symbols.Adapter)
 	hasFolders := len(ws.Paths()) > 0
 	sidebar.Visible = hasFolders
 	sidebar.Borders = borders
@@ -204,6 +206,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		Explorer:            explorer,
 		Search:              search,
 		Changes:             changes,
+		Symbols:             symbols,
 		MenuBar:             menuBar,
 		StatusBar:           statusBar,
 		Status:              status,

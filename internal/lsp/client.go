@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"sort"
 	"sync"
 	"time"
 )
@@ -161,6 +162,9 @@ func (c *Client) Initialize(rootURI string) error {
 					},
 				},
 				PublishDiagnostics: &PublishDiagnosticsClientCapabilities{},
+				DocumentSymbol: &DocumentSymbolClientCapabilities{
+					HierarchicalDocumentSymbolSupport: true,
+				},
 			},
 		},
 	})
@@ -386,6 +390,62 @@ func (c *Client) References(uri string, line, col int, includeDeclaration bool) 
 		return nil, fmt.Errorf("parse references result: %w", err)
 	}
 	return locs, nil
+}
+
+// DocumentSymbols returns the symbol tree for a document. Servers reply with
+// either hierarchical DocumentSymbol[] or flat SymbolInformation[]; flat
+// results are converted so callers always get the hierarchical form.
+func (c *Client) DocumentSymbols(uri string) ([]DocumentSymbol, error) {
+	result, err := c.call("textDocument/documentSymbol", DocumentSymbolParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if isNullResult(result) {
+		return nil, nil
+	}
+	return parseDocumentSymbols(result)
+}
+
+func parseDocumentSymbols(result json.RawMessage) ([]DocumentSymbol, error) {
+	var probe []struct {
+		Location *Location `json:"location"`
+	}
+	if err := json.Unmarshal(result, &probe); err != nil {
+		return nil, fmt.Errorf("parse documentSymbol result: %w", err)
+	}
+	if len(probe) == 0 {
+		return nil, nil
+	}
+	if probe[0].Location == nil {
+		var symbols []DocumentSymbol
+		if err := json.Unmarshal(result, &symbols); err != nil {
+			return nil, fmt.Errorf("parse documentSymbol result: %w", err)
+		}
+		return symbols, nil
+	}
+	var infos []SymbolInformation
+	if err := json.Unmarshal(result, &infos); err != nil {
+		return nil, fmt.Errorf("parse documentSymbol result: %w", err)
+	}
+	sort.SliceStable(infos, func(i, j int) bool {
+		a, b := infos[i].Location.Range.Start, infos[j].Location.Range.Start
+		if a.Line != b.Line {
+			return a.Line < b.Line
+		}
+		return a.Character < b.Character
+	})
+	symbols := make([]DocumentSymbol, len(infos))
+	for i, si := range infos {
+		symbols[i] = DocumentSymbol{
+			Name:           si.Name,
+			Kind:           si.Kind,
+			Range:          si.Location.Range,
+			SelectionRange: si.Location.Range,
+		}
+	}
+	return symbols, nil
 }
 
 func (c *Client) Formatting(uri string, tabSize int, insertSpaces bool) ([]TextEdit, error) {

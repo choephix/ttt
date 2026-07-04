@@ -68,4 +68,5 @@ func (a *App) HandleFileChanged(path string) {
 	// be noise. Only the cases needing attention (conflict, deletion) warn.
 	a.EditorGroup.ReloadFile(path)
 	a.RequestGitGutterForActiveFile()
+	a.RefreshSymbols()
 }
