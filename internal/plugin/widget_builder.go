@@ -101,6 +101,10 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 		if tw, ok := w.(*widgets.TitleWidget); ok {
 			tw.Config.Title = desc.Text
 			tw.Config.Badge = desc.Badge
+			tw.Config.Menu = desc.Entries
+			tw.Config.Icon = desc.Icon
+			tw.Config.Padded = desc.Padded
+			wireTitleMenu(&tw.Config, desc, p)
 			applyBoxModel(&tw.Box, desc)
 		}
 	case WidgetKeyValue:
@@ -138,6 +142,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 	case WidgetInput:
 		if iw, ok := w.(*widgets.InputWidget); ok {
 			iw.Config.Placeholder = desc.Placeholder
+			iw.Config.Prefix = desc.Prefix
 			wireInputCallbacks(iw, desc, p)
 		}
 	case WidgetVStack:
@@ -325,6 +330,14 @@ func createTitleWidget(desc WidgetDesc, p *Plugin) *widgets.TitleWidget {
 		Icon:   desc.Icon,
 		Padded: desc.Padded,
 	}
+	wireTitleMenu(&config, desc, p)
+	tw := widgets.NewTitleWidget(config)
+	applyBoxModel(&tw.Box, desc)
+	return tw
+}
+
+func wireTitleMenu(config *widgets.TitleConfig, desc WidgetDesc, p *Plugin) {
+	config.OnMenu = nil
 	if p.ShowContextMenu != nil && len(desc.Entries) > 0 {
 		config.OnMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
 			p.ShowContextMenu(entries, screenX, screenY, func(cmd string) {
@@ -334,9 +347,6 @@ func createTitleWidget(desc WidgetDesc, p *Plugin) *widgets.TitleWidget {
 			})
 		}
 	}
-	tw := widgets.NewTitleWidget(config)
-	applyBoxModel(&tw.Box, desc)
-	return tw
 }
 
 func createKeyValueWidget(desc WidgetDesc) *widgets.KeyValueListWidget {
