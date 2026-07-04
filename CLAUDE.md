@@ -72,9 +72,11 @@ Keybindings are defined in `internal/config/keybindings.go` (`DefaultKeybindings
 
 **Critical: tcell control key behavior.** For control keys (`r < ' '`), tcell posts events with **both** the `KeyCtrl*` constant **and** `ModCtrl` set (see `vendor/.../tcell/v2/input.go:452`). When registering control key bindings in `comboToTcell`, do NOT strip `ModCtrl` — the registered modifier must match what tcell delivers, otherwise `matchKey()` will fail silently.
 
-**Ctrl+Backtick (`` ctrl+` ``):** Maps to `KeyCtrlSpace` (value 64) in tcell because Ctrl+` sends NUL (0x00), same as Ctrl+Space. This is a terminal-level constraint, not a bug. Both `ctrl+backtick` and `ctrl+space` produce the same tcell event — they cannot be bound to different commands. Currently `ctrl+backtick` is bound to `terminal.toggle`.
+**Ctrl+Backtick (`` ctrl+` ``):** Maps to `KeyCtrlSpace` (value 64) in tcell because Ctrl+` sends NUL (0x00), same as Ctrl+Space. This is a terminal-level constraint, not a bug. Both `ctrl+backtick` and `ctrl+space` produce the same tcell event — they cannot be bound to different commands. `terminal.toggle` is bound to `ctrl+t` by default (with `alt+t` for `terminal.fullscreen`); `ctrl+backtick` is currently unbound.
 
-**Force keys:** Bindings in the `forceKeyCommands` map (`internal/app/commands.go`) are registered via `root.AddForceKey()` and are checked even when a `RawKeyConsumer` (like the integrated terminal) has focus. `terminal.toggle` must remain a force key.
+**Force keys:** Bindings for commands in the `config.ForceKeyCommands` map (`internal/config/keybindings.go`, registered via `root.AddForceKey()` in `internal/app/commands.go`) are checked even when a `RawKeyConsumer` (like the integrated terminal) has focus. `terminal.toggle` must remain a force key.
+
+**Keymap source of truth:** `DefaultKeybindings()` in `internal/config/keybindings.go` is canonical. `config/keybindings.json` is a generated mirror of it (for docs and as a user reference) — when changing defaults, update both, plus the README and docs-web keybinding tables.
 
 ### LSP Integration
 
@@ -91,27 +93,30 @@ Async completions and signature help use the same `PostEvent(EventInterrupt)` pa
 
 ### Plugin Widget API
 
-Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to their `on_render` callback. Implementation lives in `internal/plugin/lua_panel.go` (Lua bindings), `internal/plugin/widget_desc.go` (descriptor struct), and `internal/plugin/widget_builder.go` (Go widget construction). Underlying widget types are in `internal/widgets/`.
+Lua plugins render UI in sidebar panels, bottom-panel tabs, drawers, and editor tabs via a `PanelProxy` (`p`) passed to their `render` callback. Implementation lives in `internal/plugin/lua_panel.go` (Lua bindings), `internal/plugin/widget_desc.go` (descriptor struct), and `internal/plugin/widget_builder.go` (Go widget construction). Underlying widget types are in `internal/widgets/`.
 
 **Widget methods** (called as `p:method(args)`):
 
 | Method | Lua fields | Description |
 |---|---|---|
-| `p:label(text)` or `p:label({...})` | `text`, `style` | Static text line. `style` is a named style (see below). Supports box model. |
-| `p:title(text)` or `p:title({...})` | `text` | Bold section heading. Supports box model. |
-| `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands` | Expandable tree view. Items are `{id, label, expandable, children}` tables. `key_commands` maps single chars to commands via `on_command`. |
+| `p:label(text)` or `p:label({...})` | `text`, `style`, `badge`, `width`, borders | Static text line. `style` is a named style (see below). `border`/`border_top`/`border_bottom`/`border_left`/`border_right` draw borders. Supports box model. |
+| `p:title(text)` or `p:title({...})` | `text`, `badge`, `menu`, `on_menu(command)`, `icon`, `padded` | Bold section heading with optional right-aligned badge and dropdown menu. `menu` is `{label, command, separator}` tables; `icon` overrides the dropdown button (default `⋮`). Supports box model. |
+| `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands` | Expandable tree view. Items are `{id, label, icon, badge, muted, expandable, expanded, children}` tables. `key_commands` maps single chars to commands via `on_command`. |
 | `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu`, `key_commands` | Flat list (backed by TreeWidget, no indentation). |
-| `p:button({...})` | `label`, `on_click` | Clickable button. |
+| `p:button({...})` | `label`, `on_click` | Clickable button. Label is immutable after creation (accelerator parsing). |
 | `p:input({...})` | `placeholder`, `prefix`, `clear_on_submit`, `on_change(text)`, `on_submit(text)` | Text input field. `clear_on_submit` (bool) clears text after submit. |
 | `p:vstack({...})` | `render(child_panel)`, `gap` | Vertical stack container. The `render` function receives a child panel proxy to emit nested widgets. |
-| `p:keyvalue({...})` | `entries` | Key-value list. `entries` are `{key, value}` tables. |
+| `p:keyvalue({{key,value}, ...})` | array of `{key, value}` tables | Key-value list. The argument table IS the entries array (not an `entries` field); box model fields go on the same table. |
 | `p:hstack({...})` | `render(child_panel)`, `gap`, `height` | Horizontal stack container. First child grows to fill available space, remaining children get fixed width. |
 | `p:scrollview({...})` | `render(child_panel)` | Scrollable container. Wraps children with mouse wheel scrolling and scrollbar when content overflows. |
-| `p:box({...})` | `render(child_panel)`, `border`, `height` | Container with optional border and fixed height. Children via `render` callback. |
+| `p:box({...})` | `render(child_panel)`, `border` (+ per-side), `height` | Container with optional border and fixed height. Children via `render` callback. |
 | `p:divider()` | (none) | Horizontal divider line. Single-line separator, no configuration. |
 | `p:dropdown({...})` | `label`, `entries`, `on_menu(command)` | Dropdown menu button. `entries` are `{label, command, separator}` tables. |
+| `p:progress({...})` | `value` (0–1), `style`, `char` (default `▄`) | Horizontal progress bar. |
+| `p:table({...})` | `columns` (`{label, width, align}`), `rows` (arrays of strings), `on_select(row_idx)`, `on_command(cmd, row_idx)`, `node_menu`, `key_commands` | Data table with headers and row selection. Row indices are 1-based. |
+| `p:markdown(text)` or `p:markdown({...})` | `text` | Rendered markdown with selection/copy, auto-wrapped in a scrollview. Wraps at `markdown.wrapWidth` (default 80). |
 
-**Raw cell API** (low-level drawing, mutually exclusive with widget methods per render):
+**Raw cell API** (low-level drawing; can be mixed with widgets — raw cells draw directly on the surface, widgets stack from the top over it):
 
 - `p:size()` — returns `width, height`
 - `p:cell(x, y, char, style)` — set a single cell
@@ -119,9 +124,9 @@ Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to th
 - `p:clear(x, y, w, h)` — clear a rectangle
 - `p:redraw()` — request a redraw from the event loop
 
-**Box model:** `margin_top`, `margin_bottom`, `margin_left`, `margin_right`, `padding_top`, `padding_bottom`, `padding_left`, `padding_right` — parsed via `parseBoxModel()` and applied via `applyBoxModel()`. Supported on `label`, `title`, and `box` widgets.
+**Box model:** `margin_top`, `margin_bottom`, `margin_left`, `margin_right`, `padding_top`, `padding_bottom`, `padding_left`, `padding_right` — parsed via `parseBoxModel()` and applied via `applyBoxModel()`. Supported on all widgets except `divider`.
 
-**Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`, `bold`, `code`, `syntax_comment`, `syntax_string`, `syntax_keyword`, `syntax_number`, `syntax_operator`, `syntax_function`, `syntax_type`, `syntax_builtin`, `syntax_variable`, `syntax_tag`, `syntax_attribute`. These map to `term.Style*` constants via `StyleByName()` in `styles.go`.
+**Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`, `bold`, `italic`, `code`, `syntax_comment`, `syntax_string`, `syntax_keyword`, `syntax_number`, `syntax_operator`, `syntax_function`, `syntax_type`, `syntax_builtin`, `syntax_variable`, `syntax_tag`, `syntax_attribute`. These map to `term.Style*` constants via `StyleByName()` in `styles.go`.
 
 ### Testing
 
@@ -183,6 +188,8 @@ Supported commands:
 **`--plugin FILE`** — Load a Lua plugin file on startup with full permissions. For more complex test scenarios that need callbacks, state, or event handling.
 
 **`--debug`** — Enable debug mode regardless of config setting.
+
+**`TTT_CONFIG_DIR` env var** — overrides the config directory entirely (settings, keybindings, themes, plugins, plugin registry). Always set this when running scripted `--exec` sessions that touch settings or plugins, so the developer's real `~/.config/ttt` is not read or mutated. The functional test harness (`tests/functional/tui.js`) sets it automatically.
 
 **Lua API equivalents** — Plugins can also call `ttt.screenshot(path)`, `ttt.debug(path)`, `ttt.click(x, y)`, and `ttt.quit()` directly.
 
