@@ -271,3 +271,19 @@ func TestHorizontalScrollAllowedWhenOverflow(t *testing.T) {
 
 // ensure term import is used
 var _ = term.Cell{}
+
+func TestTransformSelectionStaleAnchorBeyondLine(t *testing.T) {
+	// Regression: chaos crash-1783175956353591268-1581 — a selection anchor
+	// column beyond the line's rune count must not panic UpperCase.
+	e := newTestEditor()
+	e.Selection = &selection.Selection{}
+	e.Selection.Start(0, 34) // anchor past end of "Hello" (5 runes)
+	e.Cursor.Line = 1
+	e.Cursor.Col = 2
+
+	e.UpperCase() // must not panic
+
+	if e.Buf.Lines[1][:2] != "WO" {
+		t.Errorf("expected transformed text, got %q", e.Buf.Lines[1])
+	}
+}
