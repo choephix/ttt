@@ -263,3 +263,22 @@ func TestSandboxRegisterBottomWithoutPermission(t *testing.T) {
 		t.Error("bottom title should not be set without permission")
 	}
 }
+
+func TestPluginDirExposed(t *testing.T) {
+	p := &Plugin{Name: "test", Dir: "/some/plugin/dir"}
+	p.State = NewSandbox()
+	defer p.State.Close()
+	setupTTTModule(p.State, p)
+
+	err := p.State.DoString(`
+		local ttt = require("ttt")
+		result = ttt.plugin_dir()
+	`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := p.State.GetGlobal("result").String()
+	if got != "/some/plugin/dir" {
+		t.Errorf("expected /some/plugin/dir, got %q", got)
+	}
+}
