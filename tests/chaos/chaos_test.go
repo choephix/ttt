@@ -54,6 +54,11 @@ func newChaosHarness(seed int64) *chaosHarness {
 	clipboard.DisableSystem()
 	dir, _ := os.MkdirTemp("", "chaos-*")
 
+	// Isolate config writes: random commands can persist settings and
+	// keybindings (SaveSettings/SaveKeybindings) and would otherwise
+	// destroy the developer's real ~/.config/ttt.
+	config.OverrideConfigDir = filepath.Join(dir, "config")
+
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("# Test\n\nSome content here.\n\n- item 1\n- item 2\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "data.txt"), []byte(strings.Repeat("The quick brown fox jumps over the lazy dog.\n", 20)), 0644)

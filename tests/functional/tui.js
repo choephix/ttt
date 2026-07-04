@@ -94,6 +94,10 @@ export function run(timeout = 15000) {
       encoding: "utf8",
       timeout,
       stdio: "pipe",
+      // Isolate each test run from the developer's real ~/.config/ttt:
+      // settings toggles persist via SaveSettings and would otherwise race
+      // across parallel test files and mutate the user's actual config.
+      env: { ...process.env, TTT_CONFIG_DIR: join(tmpDir, "config") },
     });
   } catch (err) {
     if (err.status !== null && err.status !== 0 && err.status !== undefined) {
