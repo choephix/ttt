@@ -334,6 +334,20 @@ ttt.open_file("src/main.go", 42)
 
 No special permission is required — any plugin can open files.
 
+### `ttt.plugin_dir()`
+
+Returns the absolute path of the plugin's install directory. Use it to read and write plugin-local files (cached data, state) with the `ttt.fs` API — the plugin directory is always a writable filesystem root for the plugin, alongside the workspace folders. No permission required to call it; reading or writing files there still requires `fs.read` / `fs.write`.
+
+```lua
+local ttt = require("ttt")
+local fs = require("ttt.fs")
+
+local state_file = ttt.plugin_dir() .. "/state.json"
+local ok, err = fs.write(state_file, json.encode(state))
+```
+
+Note: the plugin directory is a git clone that `Plugins: Update` pulls into, and it is deleted on uninstall — keep only regenerable state there.
+
 ### `ttt.on_install(callback)`
 
 Register a function that runs once when the plugin is installed (from the Plugins panel or **Plugins: Install from URL**). Use this for one-time setup like writing default settings. No permission required to register the hook; whatever the callback does is still permission-checked.
@@ -1738,7 +1752,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `on_install`, `on_uninstall`, `markdown` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `on_install`, `on_uninstall`, `markdown` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |

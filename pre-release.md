@@ -20,6 +20,9 @@ later; these can't be *changed* compatibly later.
   Today plugins have nowhere to put state: notepad wrote `.ttt-notepad.json` into the
   workspace (it ended up committed to this repo), and `ttt.settings` writes into the
   user's settings.json. Consider a workspace-scoped variant (`storage.workspace`).
+  Partial: `ttt.plugin_dir()` landed (fd6f87b) — solves path discovery. Still open:
+  state via `fs.write` requires the broad fs.write permission, and the plugin dir is
+  a git clone (update conflicts) that's deleted on uninstall.
 
 - [ ] **3. Timers (`ttt.set_interval` / `ttt.set_timeout`)**
   No way to run periodic work today — docker-manager needs a manual Refresh button
