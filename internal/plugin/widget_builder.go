@@ -46,7 +46,7 @@ func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 	case WidgetLabel:
 		return createLabelWidget(desc, p)
 	case WidgetTitle:
-		return createTitleWidget(desc)
+		return createTitleWidget(desc, p)
 	case WidgetKeyValue:
 		return createKeyValueWidget(desc)
 	case WidgetTree:
@@ -94,6 +94,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 	case WidgetTitle:
 		if tw, ok := w.(*widgets.TitleWidget); ok {
 			tw.Config.Title = desc.Text
+			tw.Config.Badge = desc.Badge
 			applyBoxModel(&tw.Box, desc)
 		}
 	case WidgetKeyValue:
@@ -303,10 +304,24 @@ func createLabelWidget(desc WidgetDesc, p *Plugin) *widgets.LabelWidget {
 	return lw
 }
 
-func createTitleWidget(desc WidgetDesc) *widgets.TitleWidget {
-	tw := widgets.NewTitleWidget(widgets.TitleConfig{
-		Title: desc.Text,
-	})
+func createTitleWidget(desc WidgetDesc, p *Plugin) *widgets.TitleWidget {
+	config := widgets.TitleConfig{
+		Title:  desc.Text,
+		Badge:  desc.Badge,
+		Menu:   desc.Entries,
+		Icon:   desc.Icon,
+		Padded: desc.Padded,
+	}
+	if p.ShowContextMenu != nil && len(desc.Entries) > 0 {
+		config.OnMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
+			p.ShowContextMenu(entries, screenX, screenY, func(cmd string) {
+				if desc.OnMenu != nil {
+					desc.OnMenu(cmd)
+				}
+			})
+		}
+	}
+	tw := widgets.NewTitleWidget(config)
 	applyBoxModel(&tw.Box, desc)
 	return tw
 }
@@ -324,6 +339,7 @@ func createTreeWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 		NodeMenu: desc.NodeMenu,
 	})
 	wireTreeCallbacks(tw, desc, p)
+	applyBoxModel(&tw.Box, desc)
 	return tw
 }
 
@@ -333,6 +349,7 @@ func createListWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 		NodeMenu: desc.NodeMenu,
 	})
 	wireTreeCallbacks(tw, desc, p)
+	applyBoxModel(&tw.Box, desc)
 	return tw
 }
 
@@ -390,6 +407,7 @@ func createDropdownWidget(desc WidgetDesc, p *Plugin) *widgets.DropdownWidget {
 		Box:     &widgets.BoxModel{PaddingLeft: 1, PaddingRight: 1},
 	})
 	wireDropdownCallback(dd, desc, p)
+	applyBoxModel(&dd.Box, desc)
 	return dd
 }
 
@@ -446,6 +464,7 @@ func createButtonWidget(desc WidgetDesc, p *Plugin) *widgets.ButtonWidget {
 		Label: desc.Label,
 	})
 	wireButtonCallback(bw, desc, p)
+	applyBoxModel(&bw.Box, desc)
 	return bw
 }
 
@@ -461,6 +480,7 @@ func createInputWidget(desc WidgetDesc, p *Plugin) *widgets.InputWidget {
 		Prefix:      desc.Prefix,
 	})
 	wireInputCallbacks(iw, desc, p)
+	applyBoxModel(&iw.Box, desc)
 	return iw
 }
 

@@ -7,6 +7,7 @@ import (
 
 type TitleConfig struct {
 	Title  string      `json:"title"`
+	Badge  string      `json:"badge,omitempty"`
 	Menu   []MenuEntry `json:"menu,omitempty"`
 	Icon   string      `json:"icon,omitempty"`
 	Padded bool        `json:"padded,omitempty"`
@@ -61,10 +62,27 @@ func (t *TitleWidget) Render(surface Surface) {
 		dw := t.dropdown.Width()
 		maxTextW = w - dw
 		r := t.GetRect()
-		t.dropdown.SetRect(Rect{X: r.X + w - dw, Y: r.Y, W: dw, H: 1})
+		ox := t.Box.MarginLeft + t.Box.PaddingLeft
+		oy := t.Box.MarginTop + t.Box.PaddingTop
+		if t.Box.BorderLeft {
+			ox++
+		}
+		if t.Box.BorderTop {
+			oy++
+		}
+		t.dropdown.SetRect(Rect{X: r.X + ox + w - dw, Y: r.Y + oy, W: dw, H: 1})
 		ddSurface := inner.Sub(Rect{X: w - dw, Y: 0, W: dw, H: 1})
 		t.dropdown.Render(ddSurface)
 	}
+	if t.Config.Badge != "" {
+		badgeRunes := []rune(t.Config.Badge)
+		bx := maxTextW - len(badgeRunes)
+		if bx > 0 {
+			inner.DrawText(bx, 0, t.Config.Badge, maxTextW, term.StyleMuted)
+			maxTextW = bx - 1
+		}
+	}
+
 	x := 0
 	for _, ch := range t.Config.Title {
 		if x >= maxTextW {
