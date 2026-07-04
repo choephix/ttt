@@ -423,6 +423,11 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "plugin_dir", L.NewFunction(func(L *lua.LState) int {
+			L.Push(lua.LString(p.Dir))
+			return 1
+		}))
+
 		L.SetField(mod, "on_install", L.NewFunction(func(L *lua.LState) int {
 			fn := L.CheckFunction(1)
 			p.InstallFunc = fn
