@@ -399,9 +399,7 @@ func createDividerWidget(_ WidgetDesc) *widgets.DividerWidget {
 
 func createScrollViewWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget {
 	child := createVStackFromDescs(desc.Children, p)
-	// Inside a scroll view, grow widgets (tree, list, table, markdown)
-	// measure by their natural content height so the stack is scrollable
-	// instead of collapsing to zero.
+	// Measure grow widgets by content height so the stack doesn't collapse to zero.
 	child.MeasureGrow = true
 	sv := widgets.NewScrollViewWidget(child)
 	applyBoxModel(&sv.Box, desc)

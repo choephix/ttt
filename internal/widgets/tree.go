@@ -80,8 +80,7 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 func (t *TreeWidget) Height() int { return 0 }
 func (t *TreeWidget) Width() int  { return 0 }
 
-// ContentHeight reports the number of visible rows so scroll views can
-// measure the tree instead of treating it as an unmeasurable grow widget.
+// ContentHeight reports visible rows so scroll views can measure the tree.
 func (t *TreeWidget) ContentHeight() int { return len(t.flatList) + t.BoxOverheadH() }
 
 func (t *TreeWidget) Focusable() bool   { return true }
@@ -137,10 +136,7 @@ func (t *TreeWidget) RestoreExpanded(expanded map[string]bool) {
 	t.flatten()
 }
 
-// RestoreExpandedSilent restores expansion state without firing OnExpand.
-// Used when restoring state during reconciliation, where expansion is not
-// a user action — notifying would re-trigger plugin callbacks every render
-// and can loop forever if the callback requests a redraw.
+// RestoreExpandedSilent restores expansion without firing OnExpand — reconcile would loop otherwise.
 func (t *TreeWidget) RestoreExpandedSilent(expanded map[string]bool) {
 	for _, root := range t.Config.Items {
 		t.restoreExpanded(root, expanded, false)

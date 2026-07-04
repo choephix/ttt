@@ -308,9 +308,7 @@ func (r *Root) PopOverlay() {
 	}
 }
 
-// RemoveOverlay removes the overlay holding the given widget, wherever it
-// sits in the stack. Used to close a specific overlay (e.g. a plugin
-// drawer) without disturbing overlays stacked above it.
+// RemoveOverlay removes the overlay holding the given widget without disturbing overlays above it.
 func (r *Root) RemoveOverlay(w Widget) {
 	for i, o := range r.Overlays {
 		if o.Widget == w {

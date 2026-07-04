@@ -544,8 +544,7 @@ func (a *App) ShowDrawer(drawer *widgets.DrawerWidget) *ui.WidgetAdapter {
 	return adapter
 }
 
-// ClosePluginDrawer closes the plugin drawer overlay if one is open,
-// without disturbing other overlays stacked above it.
+// ClosePluginDrawer closes the plugin drawer without disturbing overlays stacked above it.
 func (a *App) ClosePluginDrawer() {
 	if a.pluginDrawer == nil {
 		return

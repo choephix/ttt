@@ -31,8 +31,7 @@ func NewScrollViewWidget(child ScrollableWidget) *ScrollViewWidget {
 func (sv *ScrollViewWidget) Height() int { return 0 }
 func (sv *ScrollViewWidget) Width() int  { return 0 }
 
-// ContentHeight lets an outer scroll view measure a nested scroll view
-// (e.g. the markdown widget) by its child's content height.
+// ContentHeight lets an outer scroll view measure a nested one (e.g. the markdown widget).
 func (sv *ScrollViewWidget) ContentHeight() int {
 	if sv.Child == nil {
 		return 0
@@ -80,8 +79,7 @@ func (sv *ScrollViewWidget) viewportSize(w, h, contentW, contentH int) (int, int
 	return vw, vh
 }
 
-// viewportOrigin returns the screen position of the scroll view's inner
-// content area (rect adjusted for margin, border, and padding).
+// viewportOrigin returns the screen position of the inner content area.
 func (sv *ScrollViewWidget) viewportOrigin() (int, int) {
 	ox := sv.rect.X + sv.Box.MarginLeft + sv.Box.PaddingLeft
 	oy := sv.rect.Y + sv.Box.MarginTop + sv.Box.PaddingTop
@@ -111,11 +109,7 @@ func (sv *ScrollViewWidget) Render(surface Surface) {
 	sv.clamp(contentW, contentH, viewW, viewH)
 
 	virt := newVirtualSurface(contentW, contentH)
-	// Child rects stay in screen coordinates (like everywhere else in the
-	// widget tree) so hit tests and popup positioning work unchanged: the
-	// content origin is the viewport origin shifted up/left by the scroll
-	// offset. Rendering is unaffected — it draws through relative Sub
-	// surfaces onto the virtual surface.
+	// Children keep screen-space rects: content origin = viewport origin minus scroll offset.
 	ox, oy := sv.viewportOrigin()
 	sv.Child.SetRect(Rect{X: ox - sv.scrollX, Y: oy - sv.scrollY, W: contentW, H: contentH})
 	sv.Child.Render(virt)
@@ -225,9 +219,7 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			_ = viewH
 		}
 
-		// Button events outside the viewport must not reach children:
-		// scrolled-out widgets keep screen-space rects that extend beyond
-		// the visible area and would otherwise catch stray clicks.
+		// Scrolled-out widgets keep offscreen rects — don't let them catch stray clicks.
 		if btn != tcell.ButtonNone && btn&(tcell.WheelUp|tcell.WheelDown|tcell.WheelLeft|tcell.WheelRight) == 0 {
 			if !sv.viewportContains(mx, my) {
 				return EventIgnored

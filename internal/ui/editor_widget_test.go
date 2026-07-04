@@ -273,8 +273,7 @@ func TestHorizontalScrollAllowedWhenOverflow(t *testing.T) {
 var _ = term.Cell{}
 
 func TestTransformSelectionStaleAnchorBeyondLine(t *testing.T) {
-	// Regression: chaos crash-1783175956353591268-1581 — a selection anchor
-	// column beyond the line's rune count must not panic UpperCase.
+	// Regression (chaos crash): anchor column beyond the line length must not panic.
 	e := newTestEditor()
 	e.Selection = &selection.Selection{}
 	e.Selection.Start(0, 34) // anchor past end of "Hello" (5 runes)

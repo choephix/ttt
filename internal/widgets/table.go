@@ -41,8 +41,7 @@ func NewTableWidget(cfg TableConfig) *TableWidget {
 func (t *TableWidget) Height() int { return 0 }
 func (t *TableWidget) Width() int  { return 0 }
 
-// ContentHeight reports header + rows so scroll views can measure the
-// table instead of treating it as an unmeasurable grow widget.
+// ContentHeight reports header + rows so scroll views can measure the table.
 func (t *TableWidget) ContentHeight() int {
 	h := len(t.Config.Rows) + t.BoxOverheadH()
 	if len(t.Config.Columns) > 0 {
@@ -132,9 +131,7 @@ func (t *TableWidget) Render(surface Surface) {
 	t.scrollbar.Render(surface, w-1, headerH)
 }
 
-// effectiveWidths resolves column widths for the given content width:
-// fixed widths are kept, auto columns (Width <= 0) share the remaining
-// space equally (minimum 1 cell each).
+// effectiveWidths keeps fixed widths; auto columns split the remaining space (min 1 cell).
 func (t *TableWidget) effectiveWidths(w int) []int {
 	n := len(t.Config.Columns)
 	widths := make([]int, n)

@@ -9,8 +9,7 @@ type FocusManager struct {
 	focused int
 	active  bool
 	root    Widget
-	// OnFocusChange is called after focus moves to a new widget
-	// (e.g. to scroll it into view inside enclosing scroll views).
+	// OnFocusChange is called after focus moves (e.g. to scroll the widget into view).
 	OnFocusChange func(w FocusableWidget)
 }
 
@@ -105,10 +104,7 @@ func (fm *FocusManager) setFocus(idx int) {
 	}
 }
 
-// ScrollIntoView scrolls every scroll view between root and target so the
-// target widget's rect becomes visible. Widget rects are screen-space, so
-// each scroll view converts the rect into its own content coordinates via
-// its viewport origin and scroll offset.
+// ScrollIntoView scrolls every scroll view between root and target to make the target visible.
 func ScrollIntoView(root, target Widget) {
 	var svs []*ScrollViewWidget
 	if !collectScrollPath(root, target, &svs) {
@@ -125,9 +121,7 @@ func ScrollIntoView(root, target Widget) {
 	}
 }
 
-// VisibleRect returns the target's screen rect clipped by every enclosing
-// scroll view's viewport. A zero-size rect means the widget is scrolled
-// out of view.
+// VisibleRect returns the target's screen rect clipped by enclosing scroll view viewports.
 func VisibleRect(root, target Widget) Rect {
 	r := target.GetRect()
 	if root == nil {

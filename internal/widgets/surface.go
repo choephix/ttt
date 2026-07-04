@@ -67,9 +67,7 @@ type HeightForWidther interface {
 	HeightForWidth(w int) int
 }
 
-// ContentHeighter reports the natural content height of a widget that
-// normally grows to fill available space (Height() == 0). Used when such
-// widgets are measured inside a scroll view.
+// ContentHeighter reports the natural content height of a grow widget inside a scroll view.
 type ContentHeighter interface {
 	ContentHeight() int
 }

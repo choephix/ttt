@@ -9,9 +9,7 @@ type VStackWidget struct {
 	Children []Widget
 	Align    string `json:"align,omitempty"`
 	Gap      int    `json:"gap,omitempty"`
-	// MeasureGrow makes grow children (Height()==0) measure by their
-	// natural content height (ContentHeighter) instead of collapsing the
-	// stack's measured height to 0. Set on stacks inside scroll views.
+	// MeasureGrow measures grow children by content height instead of collapsing to 0 (scroll views).
 	MeasureGrow bool `json:"measureGrow,omitempty"`
 }
 
@@ -37,8 +35,7 @@ func (v *VStackWidget) Height() int {
 }
 func (v *VStackWidget) Width() int { return 0 }
 
-// measureChild returns a child's height for layout: fixed height, then
-// HeightForWidth, then (in MeasureGrow mode) natural content height.
+// measureChild: fixed height, then HeightForWidth, then (MeasureGrow) content height.
 func (v *VStackWidget) measureChild(child Widget, w int) int {
 	ch := child.Height()
 	if ch == 0 {
@@ -62,8 +59,7 @@ func (v *VStackWidget) HeightForWidth(w int) int {
 			if !v.MeasureGrow {
 				return 0
 			}
-			// MeasureGrow: skip unmeasurable children instead of
-			// collapsing the whole stack to zero.
+			// Skip unmeasurable children instead of collapsing the whole stack.
 			continue
 		}
 		total += ch
