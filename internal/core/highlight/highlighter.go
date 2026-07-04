@@ -97,6 +97,16 @@ func mapTokenType(t chroma.TokenType) term.Style {
 		return term.StyleSyntaxAttribute
 	case t == chroma.NameVariable || t.InSubCategory(chroma.NameVariable):
 		return term.StyleSyntaxVariable
+	case t == chroma.GenericHeading || t == chroma.GenericSubheading:
+		return term.StyleSyntaxKeyword
+	case t == chroma.GenericStrong:
+		return term.StyleSyntaxType
+	case t == chroma.GenericEmph:
+		return term.StyleSyntaxString
+	case t == chroma.GenericInserted:
+		return term.StyleSuccess
+	case t == chroma.GenericDeleted:
+		return term.StyleDanger
 	case t == chroma.Punctuation:
 		return term.StyleSyntaxPunctuation
 	default:
