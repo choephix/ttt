@@ -84,6 +84,7 @@ type App struct {
 	PluginsPanel           *PluginsPanel
 	Output                 *ui.OutputWidget
 	pluginDetailWidgets    map[string]*pluginDetailState
+	pluginDrawer           ui.Widget
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -536,10 +537,22 @@ func (a *App) ShowFindBar(w ui.Widget) {
 	a.Root.PushOverlay(ui.Overlay{Widget: w, Modal: false})
 }
 
-func (a *App) ShowDrawer(drawer *widgets.DrawerWidget) {
+func (a *App) ShowDrawer(drawer *widgets.DrawerWidget) *ui.WidgetAdapter {
 	adapter := ui.NewWidgetAdapter(drawer)
 	a.Root.PushOverlay(ui.Overlay{Widget: adapter, Modal: true})
 	a.Root.SetFocus(adapter)
+	return adapter
+}
+
+// ClosePluginDrawer closes the plugin drawer overlay if one is open,
+// without disturbing other overlays stacked above it.
+func (a *App) ClosePluginDrawer() {
+	if a.pluginDrawer == nil {
+		return
+	}
+	a.Root.RemoveOverlay(a.pluginDrawer)
+	a.pluginDrawer = nil
+	a.FocusEditor()
 }
 
 func (a *App) DismissDialog() {

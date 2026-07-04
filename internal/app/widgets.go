@@ -83,6 +83,9 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		}
 	}
 
+	// Opening files without a folder argument intentionally does NOT
+	// create a workspace — a folder must be passed explicitly (or nothing
+	// at all, which opens the cwd).
 	if len(folders) == 0 && len(prURLs) == 0 && len(openFiles) == 0 {
 		cwd, _ := os.Getwd()
 		folders = append(folders, cwd)

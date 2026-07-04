@@ -9,6 +9,10 @@ type VStackWidget struct {
 	Children []Widget
 	Align    string `json:"align,omitempty"`
 	Gap      int    `json:"gap,omitempty"`
+	// MeasureGrow makes grow children (Height()==0) measure by their
+	// natural content height (ContentHeighter) instead of collapsing the
+	// stack's measured height to 0. Set on stacks inside scroll views.
+	MeasureGrow bool `json:"measureGrow,omitempty"`
 }
 
 func (v *VStackWidget) WidgetChildren() []Widget { return v.Children }
@@ -33,17 +37,34 @@ func (v *VStackWidget) Height() int {
 }
 func (v *VStackWidget) Width() int { return 0 }
 
+// measureChild returns a child's height for layout: fixed height, then
+// HeightForWidth, then (in MeasureGrow mode) natural content height.
+func (v *VStackWidget) measureChild(child Widget, w int) int {
+	ch := child.Height()
+	if ch == 0 {
+		if hfw, ok := child.(HeightForWidther); ok {
+			ch = hfw.HeightForWidth(w)
+		}
+	}
+	if ch == 0 && v.MeasureGrow {
+		if cs, ok := child.(ContentHeighter); ok {
+			ch = cs.ContentHeight()
+		}
+	}
+	return ch
+}
+
 func (v *VStackWidget) HeightForWidth(w int) int {
 	total := 0
 	for _, child := range v.Children {
-		ch := child.Height()
+		ch := v.measureChild(child, w)
 		if ch == 0 {
-			if hfw, ok := child.(HeightForWidther); ok {
-				ch = hfw.HeightForWidth(w)
+			if !v.MeasureGrow {
+				return 0
 			}
-		}
-		if ch == 0 {
-			return 0
+			// MeasureGrow: skip unmeasurable children instead of
+			// collapsing the whole stack to zero.
+			continue
 		}
 		total += ch
 	}
@@ -77,12 +98,7 @@ func (v *VStackWidget) Render(surface Surface) {
 	fixedTotal := 0
 	growCount := 0
 	for _, child := range v.Children {
-		ch := child.Height()
-		if ch == 0 {
-			if hfw, ok := child.(HeightForWidther); ok {
-				ch = hfw.HeightForWidth(w)
-			}
-		}
+		ch := v.measureChild(child, w)
 		if ch > 0 {
 			fixedTotal += ch
 		} else {
@@ -123,12 +139,7 @@ func (v *VStackWidget) Render(surface Surface) {
 
 	growIndex := 0
 	for i, child := range v.Children {
-		ch := child.Height()
-		if ch == 0 {
-			if hfw, ok := child.(HeightForWidther); ok {
-				ch = hfw.HeightForWidth(w)
-			}
-		}
+		ch := v.measureChild(child, w)
 		if ch == 0 {
 			ch = growH
 			if growIndex < growRemainder {

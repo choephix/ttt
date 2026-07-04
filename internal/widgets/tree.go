@@ -77,8 +77,13 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 	return t
 }
 
-func (t *TreeWidget) Height() int       { return 0 }
-func (t *TreeWidget) Width() int        { return 0 }
+func (t *TreeWidget) Height() int { return 0 }
+func (t *TreeWidget) Width() int  { return 0 }
+
+// ContentHeight reports the number of visible rows so scroll views can
+// measure the tree instead of treating it as an unmeasurable grow widget.
+func (t *TreeWidget) ContentHeight() int { return len(t.flatList) + t.BoxOverheadH() }
+
 func (t *TreeWidget) Focusable() bool   { return true }
 func (t *TreeWidget) SetFocused(f bool) { t.focused = f }
 func (t *TreeWidget) IsFocused() bool   { return t.focused }
@@ -127,7 +132,18 @@ func (t *TreeWidget) CollectExpanded(out map[string]bool) {
 
 func (t *TreeWidget) RestoreExpanded(expanded map[string]bool) {
 	for _, root := range t.Config.Items {
-		t.restoreExpanded(root, expanded)
+		t.restoreExpanded(root, expanded, true)
+	}
+	t.flatten()
+}
+
+// RestoreExpandedSilent restores expansion state without firing OnExpand.
+// Used when restoring state during reconciliation, where expansion is not
+// a user action — notifying would re-trigger plugin callbacks every render
+// and can loop forever if the callback requests a redraw.
+func (t *TreeWidget) RestoreExpandedSilent(expanded map[string]bool) {
+	for _, root := range t.Config.Items {
+		t.restoreExpanded(root, expanded, false)
 	}
 	t.flatten()
 }
@@ -141,14 +157,14 @@ func (t *TreeWidget) collectExpanded(nodes []*TreeNode, out map[string]bool) {
 	}
 }
 
-func (t *TreeWidget) restoreExpanded(node *TreeNode, expanded map[string]bool) {
+func (t *TreeWidget) restoreExpanded(node *TreeNode, expanded map[string]bool, notify bool) {
 	for _, child := range node.Children {
 		if expanded[child.ID] && child.isExpandable() {
 			child.Expanded = true
-			if t.Config.OnExpand != nil {
+			if notify && t.Config.OnExpand != nil {
 				t.Config.OnExpand(child)
 			}
-			t.restoreExpanded(child, expanded)
+			t.restoreExpanded(child, expanded, notify)
 		}
 	}
 }

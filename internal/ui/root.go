@@ -308,6 +308,19 @@ func (r *Root) PopOverlay() {
 	}
 }
 
+// RemoveOverlay removes the overlay holding the given widget, wherever it
+// sits in the stack. Used to close a specific overlay (e.g. a plugin
+// drawer) without disturbing overlays stacked above it.
+func (r *Root) RemoveOverlay(w Widget) {
+	for i, o := range r.Overlays {
+		if o.Widget == w {
+			r.Overlays = append(r.Overlays[:i], r.Overlays[i+1:]...)
+			slog.Debug("root", "action", "removeOverlay", "count", len(r.Overlays))
+			return
+		}
+	}
+}
+
 func (r *Root) SetFocus(w Widget) {
 	if r.Focused != nil {
 		if setter, ok := r.Focused.(interface{ SetFocused(bool) }); ok {

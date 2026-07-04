@@ -52,8 +52,12 @@ func registerPluginCommands(app *App) {
 		Title:    "Plugins: Show Panel",
 		Keywords: []string{"plugin", "extension", "panel"},
 		Handler: func() {
-			app.Sidebar.SetActivePanel("plugins")
-			app.SplitPanel.ShowLeft = true
+			if app.PluginsPanel != nil {
+				app.ShowPanel("plugins", app.PluginsPanel.Adapter)
+			} else {
+				app.Sidebar.SetActivePanel("plugins")
+				app.SplitPanel.ShowLeft = true
+			}
 		},
 	})
 
@@ -421,20 +425,27 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	}
 
 	p.OpenDrawer = func(panel *plugin.PluginPanelWidget, width, minWidth int, side string) {
+		a.ClosePluginDrawer()
+		var adapter *ui.WidgetAdapter
 		drawer := widgets.NewDrawerWidget(widgets.DrawerConfig{
 			Width:    width,
 			MinWidth: minWidth,
 			Side:     side,
 			Borders:  *a.Borders,
 			OnDismiss: func() {
-				a.DismissDialog()
+				a.Root.RemoveOverlay(adapter)
+				if a.pluginDrawer == adapter {
+					a.pluginDrawer = nil
+				}
+				a.FocusEditor()
 			},
 		})
 		drawer.SetContent(panel)
-		a.ShowDrawer(drawer)
+		adapter = a.ShowDrawer(drawer)
+		a.pluginDrawer = adapter
 	}
 	p.CloseDrawer = func() {
-		a.DismissDialog()
+		a.ClosePluginDrawer()
 	}
 	p.OpenTab = func(id string, panel *plugin.PluginPanelWidget) {
 		a.EditorGroup.OpenPluginTab(id, id, panel)

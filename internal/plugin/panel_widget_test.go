@@ -154,3 +154,69 @@ func TestPluginPanelWidgetCellAPI(t *testing.T) {
 		t.Errorf("expected success style, got %d", c2.Style)
 	}
 }
+
+func TestTitleWidgetLuaFields(t *testing.T) {
+	p := &Plugin{
+		Name:    "title-test",
+		Granted: PermissionSet{PanelSidebar: true},
+	}
+	p.State = NewSandbox()
+	defer p.State.Close()
+	setupTTTModule(p.State, p)
+
+	err := p.State.DoString(`
+		local ttt = require("ttt")
+		ttt.register({
+			sidebar = {
+				title = "Titles",
+				render = function(panel)
+					panel:title({
+						text = "Section",
+						badge = "3",
+						icon = "+",
+						padded = true,
+						menu = {
+							{ label = "Refresh", command = "refresh" },
+						},
+						on_menu = function(cmd) end,
+					})
+				end,
+			},
+		})
+	`)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	proxy := NewPanelProxy(newMockSurface(40, 10), p)
+	if err := p.CallRenderWith(p.RenderFunc, proxy); err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+
+	descs := proxy.Descriptors()
+	if len(descs) != 1 {
+		t.Fatalf("expected 1 descriptor, got %d", len(descs))
+	}
+	desc := descs[0]
+	if desc.Kind != WidgetTitle {
+		t.Fatalf("expected title widget, got %s", desc.Kind)
+	}
+	if desc.Text != "Section" {
+		t.Errorf("expected text 'Section', got %q", desc.Text)
+	}
+	if desc.Badge != "3" {
+		t.Errorf("expected badge '3', got %q", desc.Badge)
+	}
+	if desc.Icon != "+" {
+		t.Errorf("expected icon '+', got %q", desc.Icon)
+	}
+	if !desc.Padded {
+		t.Error("expected padded to be true")
+	}
+	if len(desc.Entries) != 1 || desc.Entries[0].Label != "Refresh" || desc.Entries[0].Command != "refresh" {
+		t.Errorf("expected menu entry Refresh/refresh, got %+v", desc.Entries)
+	}
+	if desc.OnMenu == nil {
+		t.Error("expected on_menu callback to be wired")
+	}
+}
