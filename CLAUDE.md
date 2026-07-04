@@ -98,7 +98,7 @@ Lua plugins render UI in bottom-panel tabs via a `PanelProxy` (`p`) passed to th
 | Method | Lua fields | Description |
 |---|---|---|
 | `p:label(text)` or `p:label({...})` | `text`, `style` | Static text line. `style` is a named style (see below). Supports box model. |
-| `p:title(text)` or `p:title({...})` | `text` | Bold section heading. Supports box model. |
+| `p:title(text)` or `p:title({...})` | `text`, `badge`, `menu`, `icon`, `padded` | Bold section heading with optional right-aligned badge and dropdown menu. `menu` is `{label, command, separator}` tables; `icon` overrides the dropdown button (default `⋮`). Supports box model. |
 | `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands` | Expandable tree view. Items are `{id, label, expandable, children}` tables. `key_commands` maps single chars to commands via `on_command`. |
 | `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu`, `key_commands` | Flat list (backed by TreeWidget, no indentation). |
 | `p:button({...})` | `label`, `on_click` | Clickable button. |

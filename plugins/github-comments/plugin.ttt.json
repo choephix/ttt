@@ -1,0 +1,13 @@
+{
+  "name": "github-comments",
+  "description": "View and reply to GitHub PR review comments",
+  "version": "0.1.0",
+  "author": "eugenioenko",
+  "entry": "init.lua",
+  "permissions": {
+    "panel.drawer": true,
+    "commands": true,
+    "keybindings": true,
+    "system.exec": ["gh", "git"]
+  }
+}
