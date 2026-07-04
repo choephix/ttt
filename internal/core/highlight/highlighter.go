@@ -104,9 +104,9 @@ func mapTokenType(t chroma.TokenType) term.Style {
 	case t == chroma.GenericEmph:
 		return term.StyleSyntaxString
 	case t == chroma.GenericInserted:
-		return term.StyleSuccess
+		return term.StyleDiffAdded
 	case t == chroma.GenericDeleted:
-		return term.StyleDanger
+		return term.StyleDiffDeleted
 	case t == chroma.Punctuation:
 		return term.StyleSyntaxPunctuation
 	default:

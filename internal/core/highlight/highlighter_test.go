@@ -98,8 +98,8 @@ func TestHighlightDiff(t *testing.T) {
 	if h == nil {
 		t.Fatal("expected highlighter for .diff files")
 	}
-	assertSpanStyle(t, h, "+added line", term.StyleSuccess)
-	assertSpanStyle(t, h, "-removed line", term.StyleDanger)
+	assertSpanStyle(t, h, "+added line", term.StyleDiffAdded)
+	assertSpanStyle(t, h, "-removed line", term.StyleDiffDeleted)
 }
 
 func TestHighlightJSON(t *testing.T) {
