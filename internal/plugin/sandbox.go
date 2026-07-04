@@ -428,6 +428,29 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 1
 		}))
 
+		L.SetField(mod, "set_timeout", L.NewFunction(func(L *lua.LState) int {
+			ms := L.CheckInt(1)
+			fn := L.CheckFunction(2)
+			id := p.SetTimeout(ms, func() { p.CallLuaFunc(fn) })
+			L.Push(lua.LNumber(id))
+			return 1
+		}))
+
+		L.SetField(mod, "set_interval", L.NewFunction(func(L *lua.LState) int {
+			ms := L.CheckInt(1)
+			fn := L.CheckFunction(2)
+			id := p.SetInterval(ms, func() { p.CallLuaFunc(fn) })
+			L.Push(lua.LNumber(id))
+			return 1
+		}))
+
+		clearTimer := L.NewFunction(func(L *lua.LState) int {
+			p.ClearTimer(L.CheckInt(1))
+			return 0
+		})
+		L.SetField(mod, "clear_timeout", clearTimer)
+		L.SetField(mod, "clear_interval", clearTimer)
+
 		L.SetField(mod, "on_install", L.NewFunction(func(L *lua.LState) int {
 			fn := L.CheckFunction(1)
 			p.InstallFunc = fn
