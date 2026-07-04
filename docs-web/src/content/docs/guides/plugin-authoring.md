@@ -257,18 +257,20 @@ ttt.show_info("Shortcuts", {
 
 ### `ttt.open_drawer(config)`
 
-Open a drawer panel on the right side of the editor. Requires `panel.drawer` permission.
+Open a drawer panel anchored to the left or right side of the editor. Requires `panel.drawer` permission.
 
 | Parameter   | Type     | Required | Description                                      |
 |-------------|----------|----------|--------------------------------------------------|
-| `width`     | number   | no       | Initial drawer width in columns.                 |
-| `min_width` | number   | no       | Minimum resize width in columns.                 |
+| `width`     | number   | no       | Initial drawer width in columns. Default: `40`.  |
+| `min_width` | number   | no       | Minimum resize width in columns. Default: `20`.  |
+| `side`      | string   | no       | `"left"` or `"right"`. Default: `"right"`.       |
 | `render`    | function | yes      | Render function. Receives a panel proxy object.  |
 
 ```lua
 ttt.open_drawer({
   width = 50,
   min_width = 30,
+  side = "right",
   render = function(panel)
     panel:label("Drawer content")
   end,
@@ -329,6 +331,19 @@ ttt.open_file("src/main.go", 42)
 ```
 
 No special permission is required — any plugin can open files.
+
+### `ttt.on_install(callback)`
+
+Register a function that runs once when the plugin is installed (from the Plugins panel or **Plugins: Install from URL**). Use this for one-time setup like writing default settings. No permission required to register the hook; whatever the callback does is still permission-checked.
+
+```lua
+local ttt = require("ttt")
+local settings = require("ttt.settings")
+
+ttt.on_install(function()
+  settings.set("formatters.go", "gofmt")
+end)
+```
 
 ### `ttt.on_uninstall(callback)`
 
@@ -415,13 +430,14 @@ panel:label({ text = "Hint: press Enter", style = "muted", padding_left = 1 })
 | `style` | string | no       | Named style (see [Styles](#styles)). Default: `"default"`. |
 | `badge` | string | no       | Badge text displayed after the label.             |
 | `width` | number | no       | Fixed width in columns. Text is truncated or padded to fit. |
+| `border` / `border_top` / `border_bottom` / `border_left` / `border_right` | boolean | no | Draw a border around the label (same semantics as [Box](#box)). |
 | + [box model fields](#box-model) | | | Margin and padding. |
 
 Labels are not focusable — they display text only and don't receive keyboard events.
 
 ### Title
 
-Bold heading text. Renders in a prominent style.
+Bold heading text with an optional right-aligned badge and dropdown menu.
 
 **Simple string form:**
 
@@ -433,14 +449,32 @@ panel:title("Section Header")
 
 ```lua
 panel:title({ text = "CONTAINERS", margin_top = 1, margin_bottom = 1 })
+
+panel:title({
+  text = "CONTAINERS",
+  badge = "3",
+  menu = {
+    { label = "Refresh", command = "refresh" },
+    { separator = true },
+    { label = "Prune", command = "prune" },
+  },
+  on_menu = function(command)
+    if command == "refresh" then refresh() end
+  end,
+})
 ```
 
-| Field  | Type   | Required | Description            |
-|--------|--------|----------|------------------------|
-| `text` | string | yes      | Title text to display. |
+| Field     | Type     | Required | Description            |
+|-----------|----------|----------|------------------------|
+| `text`    | string   | yes      | Title text to display. |
+| `badge`   | string   | no       | Right-aligned badge text, rendered muted. |
+| `menu`    | table    | no       | Array of [menu entries](#menu-entry-format). Adds a dropdown button on the right edge. |
+| `on_menu` | function | no       | Callback when a menu item is selected. Receives the command string. |
+| `icon`    | string   | no       | Overrides the dropdown button icon (default `⋮`). |
+| `padded`  | boolean  | no       | Adds horizontal padding around the dropdown button. |
 | + [box model fields](#box-model) | | | Margin and padding. |
 
-Titles are not focusable.
+Titles are not keyboard-focusable; the dropdown menu button is operated with the mouse.
 
 ### Key-Value List
 
@@ -490,7 +524,7 @@ panel:tree({
     -- called when a node is activated (Enter key or double-click)
   end,
   on_expand = function(node)
-    -- called when a node is expanded/collapsed
+    -- called when a node is expanded (use it to lazy-load children)
   end,
   on_command = function(command, node)
     -- called when a context menu command or inline action is triggered
@@ -509,7 +543,7 @@ panel:tree({
 | `items`      | table    | `{}`    | Array of [tree node tables](#tree-node-format). |
 | `indent`     | number   | `2`     | Number of spaces per nesting level.            |
 | `on_select`  | function | nil     | Callback when a node is activated (Enter or double-click). Receives the node table. |
-| `on_expand`  | function | nil     | Callback when a node is expanded or collapsed. Receives the node table. |
+| `on_expand`  | function | nil     | Callback when a node is expanded (not fired on collapse — intended for lazy-loading children). Receives the node table. |
 | `on_command`   | function | nil     | Callback when a context menu command or key command is selected. Receives `(command, node)`. |
 | `node_menu`    | table    | nil     | Array of [menu entries](#menu-entry-format) for right-click context menu on nodes. |
 | `key_commands` | table    | nil     | Map of single-char keys to command strings. When pressed, triggers `on_command(command, selected_node)`. |
@@ -755,6 +789,89 @@ panel:dropdown({
 | `entries` | table    | yes      | Array of [menu entries](#menu-entry-format) for the popup. |
 | `on_menu` | function | no       | Callback when a menu item is selected. Receives the command string. |
 
+### Progress
+
+Horizontal progress bar filling the panel width.
+
+```lua
+panel:progress({ value = 0.65 })
+panel:progress({ value = 0.9, style = "success", char = "█" })
+```
+
+**Progress config fields:**
+
+| Field   | Type   | Required | Description                                       |
+|---------|--------|----------|---------------------------------------------------|
+| `value` | number | yes      | Fill ratio between `0.0` and `1.0`.               |
+| `style` | string | no       | Named style for the filled portion. Default: `"default"`. |
+| `char`  | string | no       | Fill character (first rune used). Default: `▄`.   |
+| + [box model fields](#box-model) | | | Margin and padding. |
+
+Progress bars are not focusable.
+
+### Table
+
+Tabular data with column headers, row selection, keyboard navigation, and context menu support.
+
+```lua
+panel:table({
+  columns = {
+    { label = "Name" },
+    { label = "Status", width = 10 },
+    { label = "Port", width = 6, align = "right" },
+  },
+  rows = {
+    { "web-app", "running", "8080" },
+    { "database", "stopped", "5432" },
+  },
+  on_select = function(row_index)
+    -- 1-based index into rows
+  end,
+  on_command = function(command, row_index)
+    -- context menu command or key command on a row
+  end,
+  node_menu = {
+    { label = "Restart", command = "restart" },
+  },
+  key_commands = { r = "restart" },
+})
+```
+
+**Table config fields:**
+
+| Field          | Type     | Required | Description                                                 |
+|----------------|----------|----------|-------------------------------------------------------------|
+| `columns`      | table    | yes      | Array of column tables: `{label, width, align}`. `width` is fixed columns (omit to auto-size); `align` is `"right"` or default left. |
+| `rows`         | table    | yes      | Array of rows; each row is an array of cell strings.        |
+| `on_select`    | function | no       | Callback when the selected row changes (arrow keys, click) or Enter is pressed. Receives the 1-based row index. |
+| `on_command`   | function | no       | Callback for context menu or key commands. Receives `(command, row_index)`. |
+| `node_menu`    | table    | no       | Array of [menu entries](#menu-entry-format) for the right-click context menu on rows. |
+| `key_commands` | table    | no       | Map of single-char keys to command strings. Triggers `on_command(command, selected_row_index)`. |
+| + [box model fields](#box-model) | | | Margin and padding. |
+
+### Markdown
+
+Render a markdown string as rich text with text selection and copy support. The content is wrapped in a scroll view automatically.
+
+**Simple string form:**
+
+```lua
+panel:markdown("# Title\n\nSome **bold** and `code` text.")
+```
+
+**Table form:**
+
+```lua
+panel:markdown({ text = readme_content, margin_top = 1 })
+```
+
+| Field  | Type   | Required | Description               |
+|--------|--------|----------|---------------------------|
+| `text` | string | yes      | Markdown source to render. |
+| + [box model fields](#box-model) | | | Margin and padding. |
+
+Prose lines wrap at the `markdown.wrapWidth` setting (default 80). Headings, bold, italic, code spans, fenced code blocks, lists, and links are styled using the theme's styles. Text inside the widget can be selected with the mouse and copied.
+
 ### Tree Node Format
 
 Used in `items` arrays for both `tree` and `list` widgets.
@@ -806,11 +923,12 @@ Many widgets support margin and padding fields for spacing control. These fields
 | `padding_left`   | number | `0`     | Internal left padding.    |
 | `padding_right`  | number | `0`     | Internal right padding.   |
 
-**Widgets that support box model:** `label`, `title`, `keyvalue`.
+All widgets support box model fields except `divider` (which takes no configuration).
 
 ```lua
 panel:label({ text = "Indented label", padding_left = 2, margin_top = 1 })
 panel:title({ text = "SECTION", margin_bottom = 1 })
+panel:tree({ items = items, margin_top = 1 })
 ```
 
 ### Requesting Redraws
@@ -982,7 +1100,7 @@ The widget system uses a **reconciliation** algorithm to preserve interactive st
 
 The plugin panel manages its own focus system. When the plugin panel is focused:
 
-- **Tab** / **Shift+Tab** cycles focus between focusable widgets (trees, lists, inputs, buttons, dropdowns).
+- **Tab** / **Shift+Tab** cycles focus between focusable widgets (trees, lists, tables, inputs, buttons, dropdowns).
 - **Arrow keys** navigate within the focused widget (e.g., up/down in a tree).
 - **Enter** / **Space** activate the focused widget (select tree node, press button, submit input).
 - **Shift+Enter** opens the context menu on the selected tree/list node (if `node_menu` is defined).
@@ -1009,6 +1127,9 @@ Widget-specific events are routed automatically to the callbacks you provide:
 | Input    | text changed       | `on_change`  | Current text (string)               |
 | Input    | Enter pressed      | `on_submit`  | Current text (string)               |
 | Dropdown | menu item selected | `on_menu`    | Command string                      |
+| Table    | row selected       | `on_select`  | Row index (number, 1-based)         |
+| Table    | context menu cmd   | `on_command` | `(command_string, row_index)`       |
+| Title    | menu item selected | `on_menu`    | Command string                      |
 
 ### Fallback Event Handler (`on_event`)
 
@@ -1023,7 +1144,8 @@ For key and mouse events not consumed by widgets, the `on_event` function receiv
                      -- "Backspace", "Delete", "Home", "End", "PgUp", "PgDn",
                      -- or the character itself ("a", "A", "1", "/", etc.)
   rune = "a",        -- only set for printable character keys
-  mod = "ctrl",      -- modifier: "ctrl", "alt", "shift", or "" for no modifier
+  mod = "ctrl",      -- "ctrl", "alt", "shift", joined with "+" when combined
+                     -- (e.g. "ctrl+shift"); nil when no modifier is held
 }
 ```
 
@@ -1043,7 +1165,7 @@ For key and mouse events not consumed by widgets, the `on_event` function receiv
 ```lua
 on_event = function(event)
   if event.type == "key" then
-    if event.key == "r" and event.mod == "" then
+    if event.key == "r" and not event.mod then
       -- refresh data
       reload_data()
       panel:redraw()
@@ -1105,7 +1227,7 @@ editor.insert(pos.line, pos.col, "// TODO: ")
 
 ## Filesystem API
 
-The `ttt.fs` module provides file system access.
+The `ttt.fs` module provides file system access. Access is restricted to the workspace folders and the plugin's own directory — paths outside these roots (including via symlinks) return an "access denied" error.
 
 ```lua
 local fs = require("ttt.fs")
@@ -1130,11 +1252,11 @@ end
 
 Write content to a file. Requires `fs.write` permission.
 
-**Returns:** nothing on success, or `error_string` on failure.
+**Returns:** `true` on success, or `nil, error_string` on failure.
 
 ```lua
-local err = fs.write("/tmp/output.txt", "hello world")
-if err then
+local ok, err = fs.write("output.txt", "hello world")
+if not ok then
   ttt.log("error", "Failed to write: " .. err)
 end
 ```
@@ -1202,14 +1324,16 @@ if result.exit_code == 0 then
 end
 ```
 
-### `sys.exec_async(binary, args, callback)`
+Arguments are validated before execution: shell-injection patterns and dangerous git flags (e.g. `--upload-pack`, `core.fsmonitor`) are rejected.
+
+### `sys.exec_async(binary, [args], callback)`
 
 Execute a command asynchronously. The callback receives the same result table and is called on the main thread when the command completes. The UI remains responsive during execution.
 
 | Parameter  | Type     | Required | Description                                  |
 |------------|----------|----------|----------------------------------------------|
 | `binary`   | string   | yes      | Command to execute.                          |
-| `args`     | table    | yes      | Array of string arguments. Pass `{}` if none. |
+| `args`     | table    | no       | Array of string arguments. May be omitted — the callback can be the second argument. |
 | `callback` | function | yes      | Receives the result table when done.         |
 
 ```lua
@@ -1219,9 +1343,12 @@ sys.exec_async("docker", {"ps", "--format", "{{.Names}}"}, function(result)
   end
   panel:redraw()
 end)
-```
 
-**Important:** For `exec_async`, the `args` table is required (pass `{}` for no arguments). The callback is always the third argument.
+-- Without arguments:
+sys.exec_async("uptime", function(result)
+  panel:redraw()
+end)
+```
 
 ### `sys.env(name)`
 
@@ -1236,6 +1363,8 @@ local home = sys.env("HOME")
 ## Network API
 
 The `ttt.net` module provides HTTP request capabilities. Requires the `network.http` permission.
+
+Requests are restricted for safety: only `http` and `https` URLs are allowed; requests to localhost, loopback, link-local, and private network addresses are blocked; requests time out after 30 seconds; and response bodies are capped at 10 MB.
 
 ```lua
 local net = require("ttt.net")
@@ -1354,7 +1483,9 @@ Register an event listener. Multiple listeners can be registered for the same ev
 | Event           | Description                 |
 |-----------------|-----------------------------|
 | `editor.change` | Buffer content changed.     |
-| `cursor.change` | Cursor position changed.    |
+| `cursor.change` | Cursor position changed (line or column). |
+
+All callbacks receive the file path of the affected file as their single argument.
 
 **Example:**
 
@@ -1369,11 +1500,13 @@ events.on("file.open", function(path)
   -- load file-specific config
 end)
 
-events.on("cursor.change", function()
+events.on("cursor.change", function(path)
   -- update status display
   panel:redraw()
 end)
 ```
+
+Registering an unknown event name raises a Lua error.
 
 ### `ttt.settings` Module
 
@@ -1385,25 +1518,23 @@ local settings = require("ttt.settings")
 
 #### `settings.get(key)`
 
-Read a setting value. Returns the value as a string, or `nil` if not set.
+Read a setting value. Returns the value (string, number, boolean, or table depending on the setting), or `nil` if not set.
 
 ```lua
 local formatter = settings.get("formatters.go")  -- "gofmt" or nil
+local debounce = settings.get("autocomplete.debounce")  -- 150
 ```
 
 #### `settings.set(key, value)`
 
-Write a setting value. Persists to `settings.json` immediately.
+Write a setting value. Persists to `settings.json` immediately. Any JSON-serializable value is accepted (string, number, boolean, table). Setting a key to `nil` deletes it.
 
 ```lua
 settings.set("formatters.go", "gofmt")
+settings.set("formatters.go", nil)  -- removes the key
 ```
 
-**Key format:** Settings keys use dot notation: `group.name`. Currently supported groups:
-
-| Group        | Description                              |
-|--------------|------------------------------------------|
-| `formatters` | External formatter commands by extension  |
+**Key format:** Settings keys use dot notation (`group.name`, e.g. `formatters.go`, `lsp.servers.gopls`). Intermediate objects are created as needed when setting nested keys.
 
 **Permission scoping:** The `settings_keys` manifest field controls which keys a plugin can access:
 
@@ -1443,6 +1574,7 @@ Named styles available for both widget and raw cell rendering. Actual colors dep
 | `line`     | Line numbers                   |
 | `input`    | Input field text               |
 | `bold`     | Bold/emphasized text           |
+| `italic`   | Italic text                    |
 | `code`     | Code/monospace text            |
 | `syntax_comment`   | Syntax: comments       |
 | `syntax_string`    | Syntax: string literals |
@@ -1604,7 +1736,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `on_uninstall`, `markdown` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `on_install`, `on_uninstall`, `markdown` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |
@@ -1787,6 +1919,167 @@ ttt.register({
       elseif #query > 0 then
         panel:label({ text = "No results", style = "warning" })
       end
+    end,
+  },
+})
+```
+
+### Context Menu with Tree
+
+A sidebar panel demonstrating context menus on tree items:
+
+```json
+{
+  "name": "context-menu-demo",
+  "entry": "init.lua",
+  "permissions": { "panel.sidebar": true }
+}
+```
+
+```lua
+local ttt = require("ttt")
+
+local items = {
+  { id = "item1", label = "First item" },
+  { id = "item2", label = "Second item" },
+  { id = "item3", label = "Third item" },
+}
+
+ttt.register({
+  sidebar = {
+    title = "Context Menu",
+    render = function(panel)
+      panel:list({
+        items = items,
+        on_select = function(node)
+          ttt.log("Selected: " .. node.label)
+        end,
+        on_command = function(command, node)
+          if command == "delete" then
+            ttt.confirm("Delete '" .. node.label .. "'?", function()
+              for i, item in ipairs(items) do
+                if item.id == node.id then
+                  table.remove(items, i)
+                  break
+                end
+              end
+              panel:redraw()
+            end)
+          elseif command == "rename" then
+            ttt.log("Rename " .. node.label)
+          end
+        end,
+        node_menu = {
+          { label = "Rename", command = "rename" },
+          { separator = true },
+          { label = "Delete", command = "delete" },
+        },
+      })
+    end,
+  },
+})
+```
+
+### Layout with VStack and Box
+
+Demonstrates using VStack and Box for structured layouts:
+
+```json
+{
+  "name": "layout-demo",
+  "entry": "init.lua",
+  "permissions": { "panel.sidebar": true }
+}
+```
+
+```lua
+local ttt = require("ttt")
+
+local containers = {
+  { id = "web", label = "web-app", badge = "nginx:latest" },
+  { id = "db", label = "postgres", badge = "postgres:15" },
+}
+
+ttt.register({
+  sidebar = {
+    title = "Layout",
+    render = function(panel)
+      -- Section 1: Containers
+      panel:vstack({
+        render = function(p)
+          p:label({ text = "Containers", badge = tostring(#containers), padding_left = 1 })
+          p:box({
+            border = true,
+            render = function(bp)
+              bp:list({
+                items = containers,
+                on_select = function(node)
+                  ttt.log("Selected: " .. node.label)
+                end,
+              })
+            end,
+          })
+        end,
+      })
+
+      -- Section 2: Info
+      panel:vstack({
+        render = function(p)
+          p:label({ text = "Details", padding_left = 1, margin_top = 1 })
+          p:box({
+            border = true,
+            render = function(bp)
+              bp:keyvalue({
+                { key = "Status", value = "Running" },
+                { key = "Uptime", value = "2h 30m" },
+              })
+            end,
+          })
+        end,
+      })
+    end,
+  },
+})
+```
+
+### Raw Cell Drawing
+
+A sidebar panel using only the raw cell API. (For an actual progress bar, prefer the built-in [`panel:progress`](#progress) widget — this example just demonstrates raw drawing.)
+
+```json
+{
+  "name": "progress",
+  "entry": "init.lua",
+  "permissions": { "panel.sidebar": true }
+}
+```
+
+```lua
+local ttt = require("ttt")
+
+local progress = 0.65  -- 65%
+
+ttt.register({
+  sidebar = {
+    title = "Progress",
+    render = function(panel)
+      local w, h = panel:size()
+
+      panel:text(0, 0, "Build Progress", "muted")
+
+      local bar_w = w - 2
+      local filled = math.floor(bar_w * progress)
+
+      for x = 0, bar_w - 1 do
+        if x < filled then
+          panel:cell(x + 1, 2, "#", "success")
+        else
+          panel:cell(x + 1, 2, ".", "muted")
+        end
+      end
+
+      local pct = math.floor(progress * 100) .. "%"
+      panel:text(1, 4, pct, "default")
     end,
   },
 })

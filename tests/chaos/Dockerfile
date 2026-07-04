@@ -18,6 +18,7 @@ COPY --from=builder /chaos-test /chaos-test
 ENV CHAOS_LOOP=1
 ENV CHAOS_EVENTS=500
 ENV CHAOS_OUTPUT_DIR=/output
+ENV CHAOS_SANDBOXED=1
 
 VOLUME /output
 

@@ -76,7 +76,7 @@ func registerHelpCommands(app *App) {
 		Keywords: []string{"plugin", "help"},
 		Handler: func() {
 			app.ShowPanelHelp("Plugins", pluginHelpEntries,
-				"Listed plugins are community plugins. They can also be installed from a git repository URL using 'Install from URL'. For more information visit: https://github.com/eugenioenko/ttt/blob/main/docs/PLUGINS.md")
+				"Listed plugins are community plugins. They can also be installed from a git repository URL using 'Install from URL'. For more information visit: https://tttedit.dev/guides/plugin-authoring/")
 		},
 	})
 

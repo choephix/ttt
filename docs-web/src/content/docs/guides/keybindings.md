@@ -106,7 +106,7 @@ You can open your keybindings file directly from the command palette (**Ctrl+P**
 
 | Shortcut | Action |
 |----------|--------|
-| Ctrl+PgDn / PgUp | Next / previous tab |
+| Alt+. / Alt+, | Next / previous tab |
 | Ctrl+W | Close tab |
 
 ### LSP
@@ -118,7 +118,8 @@ You can open your keybindings file directly from the command palette (**Ctrl+P**
 | Shift+F12 | Go to implementation |
 | F2 | Rename symbol |
 | Ctrl+K I | Hover info |
-| Ctrl+L F | Format document |
+| Ctrl+L F | Format document (LSP) |
+| Ctrl+L E | Format document (external formatter) |
 | Ctrl+L S | Format selection |
 | Ctrl+L O | Organize imports |
 | Ctrl+L X | Fix all |

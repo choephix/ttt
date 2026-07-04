@@ -38,7 +38,7 @@ ttt https://github.com/owner/repo/pull/123  # review a PR
 
 ## Tabs
 
-- **Ctrl+PgDn / Ctrl+PgUp** to switch tabs
+- **Alt+.** / **Alt+,** to switch tabs
 - **Ctrl+W** to close a tab
 - Opening a file replaces the current unpinned tab
 - Clicking an already-open tab pins it

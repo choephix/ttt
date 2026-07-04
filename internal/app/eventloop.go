@@ -33,6 +33,9 @@ func RunEventLoop(
 	lastBlameLine := -1
 	lastBlameFile := ""
 	lastGutterFile := ""
+	lastCursorLine := -1
+	lastCursorCol := -1
+	lastCursorFile := ""
 	lastBranchDir := app.Workspace.Primary()
 	blameGen := 0
 	app.Status.Branch = git.BranchName(lastBranchDir)
@@ -98,6 +101,15 @@ func RunEventLoop(
 		if filePath != lastGutterFile {
 			lastGutterFile = filePath
 			app.RequestGitGutterForActiveFile()
+		}
+
+		if filePath != lastCursorFile || line != lastCursorLine || col != lastCursorCol {
+			lastCursorFile = filePath
+			lastCursorLine = line
+			lastCursorCol = col
+			if app.PluginManager != nil {
+				app.PluginManager.DispatchEvent("cursor.change", filePath)
+			}
 		}
 
 		if filePath != lastBlameFile || line != lastBlameLine {

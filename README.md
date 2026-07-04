@@ -91,7 +91,7 @@ cp bin/ttt ~/.local/bin/
 
 - **Syntax highlighting** via [chroma](https://github.com/alecthomas/chroma) — supports hundreds of languages with automatic detection
 - **Bracket matching** with highlighted pairs
-- **Find and Replace** — inline find bar (Ctrl+F) with match navigation, replace bar (Ctrl+H) with replace-one and replace-all
+- **Find and Replace** — inline find bar (Ctrl+F) with match navigation, replace bar (Ctrl+R) with replace-one and replace-all
 - **Go to Line** (Ctrl+G)
 - **Selection, copy/cut/paste** (Ctrl+C/X/V) with system clipboard support
 - **Undo/redo** (Ctrl+Z/Y) via a command-pattern undo stack
@@ -117,8 +117,9 @@ Open multiple project directories in a single session. Each root appears as a co
 ttt                             # opens the current directory
 ttt .                           # also opens the current directory
 ttt /path/to/dir                # opens that directory as the workspace
-ttt /path/to/file.go            # opens the file; workspace is the git repo root
-                                # (falls back to the file's parent dir if not in a repo)
+ttt /path/to/file.go            # opens just the file — no workspace folder
+ttt /path/to/repo/subdir        # opens that folder; git features (changes,
+                                # branch) use the enclosing git repo root
 ttt dir1 dir2                   # opens multiple folders as a multi-root workspace
 ttt --workspace project.ttt     # loads a saved workspace file
 
@@ -146,7 +147,7 @@ Workspace files use the `.ttt` extension and store a list of folders as relative
 
 ### File Explorer
 
-Multi-root file tree in the sidebar (Ctrl+Shift+E). When multiple folders are open, each root is shown as a collapsible group.
+Multi-root file tree in the sidebar (Ctrl+K E). When multiple folders are open, each root is shown as a collapsible group.
 
 - Directories sorted before files, both alphabetically
 - Expand/collapse with Enter or arrow keys
@@ -155,7 +156,7 @@ Multi-root file tree in the sidebar (Ctrl+Shift+E). When multiple folders are op
 
 ### Search
 
-Sidebar search panel (Ctrl+Shift+F) powered by [ripgrep](https://github.com/BurntSushi/ripgrep). Results are grouped by file with match counts.
+Sidebar search panel (Ctrl+K F) powered by [ripgrep](https://github.com/BurntSushi/ripgrep). Results are grouped by file with match counts.
 
 - **Smart-case** matching by default
 - **Include/Exclude glob filters** — click the toggle arrow to reveal filter inputs (e.g. `*.go`, `vendor/**`)
@@ -165,7 +166,7 @@ Sidebar search panel (Ctrl+Shift+F) powered by [ripgrep](https://github.com/Burn
 
 ### Git Integration
 
-Changes panel in the sidebar (Ctrl+Shift+G) with full staging workflow.
+Changes panel in the sidebar (Ctrl+K C) with full staging workflow.
 
 **Staging:**
 - **Spacebar** — toggle stage/unstage on the selected file
@@ -175,7 +176,7 @@ Changes panel in the sidebar (Ctrl+Shift+G) with full staging workflow.
 - **`-` button** on the "Staged" section header — unstage all files in that section
 
 **Committing:**
-- Inline commit message input at the top of each group
+- Inline commit message input below the file list (Tab from the tree to focus it)
 - Type a message and press Enter to commit all staged files
 
 **Remote operations:**
@@ -193,15 +194,15 @@ Changes panel in the sidebar (Ctrl+Shift+G) with full staging workflow.
 
 ### Command Palette
 
-- **Ctrl+Shift+P** — opens the command palette with all available commands
-- **Ctrl+P** — opens quick file open (searches all files across workspace folders)
+- **Ctrl+P** — opens the command palette with all available commands
+- **Ctrl+K P** — opens quick file open (searches all files across workspace folders)
 - Type `>` in quick-open mode to switch to command mode
 - Delete the `>` in command mode to switch to file mode
 - Menu shortcuts resolve dynamically from your keybindings
 
 ### Bottom Panel
 
-The bottom panel (Ctrl+J to toggle) contains the **Terminal**, **Problems**, and **References** tabs.
+The bottom panel (Ctrl+K B to toggle) contains the **Terminal**, **Problems**, and **References** tabs.
 
 - **Problems tab** — lists all LSP diagnostics (errors, warnings) grouped by file; click to jump to location
 - **References tab** — shows results from Find All References; click to jump to location
@@ -209,13 +210,13 @@ The bottom panel (Ctrl+J to toggle) contains the **Terminal**, **Problems**, and
 
 ### Integrated Terminal
 
-Built-in terminal emulator. Press Ctrl+` to toggle the terminal panel.
+Built-in terminal emulator. Press Ctrl+T to toggle the terminal panel, or Alt+T for fullscreen.
 
 - **Ctrl+K T** to spawn a new terminal tab
 - Multiple terminal tabs with a vertical inner tab bar on the left edge
 - Full VT escape sequence support via `hinshun/vt10x` and PTY management via `creack/pty`
 - True color (24-bit) and 256-color rendering
-- When the terminal is focused, all keys go to the PTY except Ctrl+` (to toggle the panel)
+- When the terminal is focused, all keys go to the PTY except force keys (Ctrl+T, Alt+T, Ctrl+Q, Ctrl+P, Ctrl+K P, Ctrl+B, F6)
 - Terminal shell and scrollback are configurable in `settings.json`
 - Terminal ANSI colors are theme-configurable via the `terminal` field in `theme.json`
 - Close all terminals from the panel actions menu
@@ -272,7 +273,7 @@ To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 | Rename Symbol | F2 | Rename the symbol under the cursor across all files in the workspace |
 | Hover | Ctrl+K I | Show type information and documentation for the symbol under the cursor |
 | Format Document (LSP) | Ctrl+L F | Format the entire document using the language server |
-| Format Document (External) | Ctrl+K F | Format using an external formatter from settings |
+| Format Document (External) | Ctrl+L E | Format using an external formatter from settings |
 | Format Selection | *(command palette)* | Format the selected range via LSP |
 | Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
 
@@ -292,7 +293,7 @@ The LSP server publishes diagnostics (errors, warnings, hints) which are display
 #### Formatting
 
 - **Format Document (LSP)** (`Ctrl+L F`) — formats the entire file via the language server
-- **Format Document (External)** (`Ctrl+K F`) — formats the file using an external formatter configured in `settings.json`
+- **Format Document (External)** (`Ctrl+L E`) — formats the file using an external formatter configured in `settings.json`
 - **Format Selection** — formats only the selected range via LSP (available from the command palette)
 - **Format on Save** — enable `editor.formatOnSave` in `settings.json` to auto-format when saving. External formatters take priority over LSP; if no external formatter is configured for the file type, LSP formatting is used as a fallback.
 
@@ -322,7 +323,7 @@ Tabs follow a pin-on-reclick model similar to VS Code:
 
 - Opening a file from the explorer or search replaces the current **unpinned** tab
 - Clicking on an already-open tab (or opening the same file again) **pins** it
-- **Ctrl+W** to close a tab, **Ctrl+PgDn/PgUp** to switch tabs
+- **Ctrl+W** to close a tab, **Alt+.** / **Alt+,** to switch tabs
 - Right-click a tab for **Close**, **Close Others**, **Close All**
 - Tab bar actions button for **Close All**
 
@@ -416,7 +417,7 @@ TTT supports fully customizable themes via JSON files. You can change every colo
 
 #### Switching Themes
 
-Press **Ctrl+K Ctrl+T** (or use **View > Switch Theme** from the menu bar) to open the theme picker with a live preview.
+Use **View > Switch Theme** from the menu bar (or run **Switch Theme** from the command palette) to open the theme picker with a live preview.
 
 #### Customizing
 
@@ -473,7 +474,7 @@ To disable plugins entirely: `"plugins": { "enabled": false }` in settings.
 
 #### Creating Plugins
 
-Plugins are Lua scripts with a `plugin.ttt.json` manifest. See the [Plugin Authoring Guide](docs/PLUGINS.md) for the full API. To list your plugin in the built-in browser, submit a PR adding it to `community-plugins.json`.
+Plugins are Lua scripts with a `plugin.ttt.json` manifest. See the [Plugin Authoring Guide](https://tttedit.dev/guides/plugin-authoring/) for the full API. To list your plugin in the built-in browser, submit a PR adding it to `community-plugins.json`.
 
 ### Menu Bar
 
@@ -566,17 +567,19 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
 
 ## Keybindings
 
-All keybindings are customizable via [`keybindings.json`](config/keybindings.json). Supports chord sequences (e.g. `ctrl+k ctrl+t`). These are the defaults:
+All keybindings are customizable via [`keybindings.json`](config/keybindings.json). Supports chord sequences (e.g. `ctrl+k e`). These are the defaults:
 
 | Shortcut | Action |
 |----------|--------|
 | | **General** |
 | Ctrl+Q | Quit |
 | Ctrl+P | Command palette |
-| Alt+P | Quick open file |
-| Escape | Focus editor |
+| Ctrl+K P | Quick open file |
+| Escape | Dismiss overlay / focus editor |
+| F6 / Shift+F6 | Focus next / previous group |
 | | **File** |
 | Ctrl+N | New file |
+| Ctrl+O | Open folder |
 | Ctrl+S | Save |
 | Ctrl+K S | Save as |
 | | **Editor** |
@@ -587,6 +590,15 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 | Ctrl+X | Cut |
 | Ctrl+V | Paste |
 | Ctrl+G | Go to line |
+| Ctrl+/ | Toggle line comment |
+| Ctrl+Enter | Insert line below |
+| Alt+Up / Alt+Down | Move line up / down |
+| Ctrl+K K | Delete line |
+| Ctrl+K J | Join lines |
+| Ctrl+K O | Sort lines |
+| Ctrl+K M | Go to matching bracket |
+| Ctrl+K [ | Toggle fold |
+| Ctrl+K 0 / Ctrl+K 9 | Collapse / expand all folds |
 | | **Multi-Cursor** |
 | Ctrl+D | Select next occurrence |
 | Ctrl+K L | Select all occurrences |
@@ -595,20 +607,21 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 | Escape | Collapse to single cursor |
 | | **Search** |
 | Ctrl+F | Find |
-| Ctrl+H | Find and replace |
+| Ctrl+R | Find and replace |
 | F3 / Shift+F3 | Find next / previous |
 | | **View** |
 | Ctrl+B | Toggle sidebar |
-| Ctrl+J | Toggle bottom panel |
+| Ctrl+K B | Toggle bottom panel |
 | Ctrl+K E | Show file explorer |
 | Ctrl+K F | Search across files |
+| Ctrl+K R | Search and replace in files |
 | Ctrl+K C | Show changes |
+| Ctrl+K Y | Open keyboard shortcuts |
 | Ctrl+0 | Focus sidebar |
 | Alt+Shift+Left/Right | Resize sidebar |
 | Alt+Shift+Up/Down | Resize bottom panel |
-| Ctrl+K Ctrl+T | Switch theme |
 | | **Tabs** |
-| Ctrl+PgDn / PgUp | Next / previous tab |
+| Alt+. / Alt+, | Next / previous tab |
 | Ctrl+W | Close tab |
 | | **LSP** |
 | Ctrl+U | Autocomplete |
@@ -616,10 +629,13 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 | Shift+F12 | Go to implementation |
 | F2 | Rename symbol |
 | Ctrl+K I | Hover info |
+| Ctrl+L F | Format document (LSP) |
+| Ctrl+L E | Format document (external) |
 | | **Terminal / Bottom Panel** |
-| Ctrl+` | Toggle terminal |
-| Ctrl+J | Toggle bottom panel |
+| Ctrl+T | Toggle terminal |
+| Alt+T | Terminal fullscreen |
 | Ctrl+K T | New terminal tab |
+| Ctrl+K B | Toggle bottom panel |
 | | **Changes Panel** |
 | Space | Toggle stage/unstage file |
 | A | Stage all |
@@ -628,7 +644,7 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 | Enter | Open diff / activate |
 | | **Menu Bar** |
 | F10 / Alt+F | File menu |
-| Alt+E / S / V / H | Edit / Selection / View / Help |
+| Alt+E / S / V / O / H | Edit / Selection / View / Options / Help |
 
 ## Testing
 
@@ -679,20 +695,17 @@ All test levels run in CI on every push and pull request.
 
 A randomized fuzz tester that hammers the editor with thousands of random events — keypresses, mouse clicks, resizes, clipboard operations, and command palette commands — to find panics and crashes that normal testing misses. It runs against a `tcell.SimulationScreen` so no real terminal is needed.
 
-Runs in Docker to prevent random commands from opening browser tabs or interfering with your session.
+All chaos targets run in Docker: the random command stream can write files, persist settings, and open browser tabs, so the harness refuses to run unsandboxed (set `CHAOS_ALLOW_HOST=1` to force a host run, e.g. under a debugger).
 
 ```sh
-# Quick local run (50 iterations x 500 events)
+# Quick run (50 iterations x 500 events)
 make chaos
 
-# Build Docker image
-make chaos-docker-build
-
-# Run continuously in Docker (crash logs saved to chaos-output/)
+# Run continuously (crash logs saved to chaos-output/)
 make chaos-docker
 
 # Reproduce a specific crash deterministically
-CHAOS_REPLAY=chaos-output/crash-<seed>-<iter>.json go test ./tests/chaos/ -run TestChaosReplay
+CHAOS_REPLAY=chaos-output/crash-<seed>-<iter>.json make chaos-replay
 ```
 
 Each crash is saved as a JSON report with the random seed and full event log, so any panic can be replayed and debugged deterministically.
@@ -707,6 +720,8 @@ TTT includes a built-in scripted interaction system designed for AI agent intera
 | `--plugin FILE` | Load a Lua plugin file on startup with full permissions |
 | `--size WxH` | Force screen dimensions (e.g. `120x40`) for deterministic layout |
 | `--debug` | Enable debug mode regardless of config |
+
+The `TTT_CONFIG_DIR` environment variable overrides the config directory (`~/.config/ttt`) entirely — settings, keybindings, themes, and plugins are read from and written to that directory instead. Use it to run scripted sessions isolated from your real configuration.
 
 ### `--exec` Commands
 

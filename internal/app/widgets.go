@@ -83,6 +83,7 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		}
 	}
 
+	// Opening only files intentionally creates no workspace — a folder must be passed explicitly.
 	if len(folders) == 0 && len(prURLs) == 0 && len(openFiles) == 0 {
 		cwd, _ := os.Getwd()
 		folders = append(folders, cwd)

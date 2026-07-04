@@ -94,6 +94,8 @@ export function run(timeout = 15000) {
       encoding: "utf8",
       timeout,
       stdio: "pipe",
+      // Isolate from the real ~/.config/ttt — settings toggles persist and race across test files.
+      env: { ...process.env, TTT_CONFIG_DIR: join(tmpDir, "config") },
     });
   } catch (err) {
     if (err.status !== null && err.status !== 0 && err.status !== undefined) {

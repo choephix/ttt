@@ -2641,7 +2641,9 @@ func (e *EditorPaneWidget) transformSelection(fn func(string) string) {
 	copy(oldLines, e.Buf.Lines[start.Line:end.Line+1])
 
 	tLines := strings.Split(transformed, "\n")
-	prefix := string([]rune(oldLines[0])[:start.Col])
+	firstOld := []rune(oldLines[0])
+	startCol := min(start.Col, len(firstOld))
+	prefix := string(firstOld[:startCol])
 	lastOld := []rune(oldLines[len(oldLines)-1])
 	suffix := ""
 	if end.Col < len(lastOld) {
@@ -2672,12 +2674,12 @@ func (e *EditorPaneWidget) transformSelection(fn func(string) string) {
 	newEndLine := start.Line + len(tLines) - 1
 	var newEndCol int
 	if len(tLines) == 1 {
-		newEndCol = start.Col + len([]rune(tLines[0]))
+		newEndCol = startCol + len([]rune(tLines[0]))
 	} else {
 		newEndCol = len([]rune(tLines[len(tLines)-1]))
 	}
 
-	e.Selection.Start(start.Line, start.Col)
+	e.Selection.Start(start.Line, startCol)
 	e.Cursor.Line = newEndLine
 	e.Cursor.Col = newEndCol
 	e.clampCursor()

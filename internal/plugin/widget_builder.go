@@ -14,9 +14,15 @@ type WidgetState struct {
 }
 
 func NewWidgetState() *WidgetState {
-	return &WidgetState{
+	ws := &WidgetState{
 		focus: widgets.NewFocusManager(),
 	}
+	ws.focus.OnFocusChange = func(w widgets.FocusableWidget) {
+		if ws.root != nil {
+			widgets.ScrollIntoView(ws.root, w)
+		}
+	}
+	return ws
 }
 
 func (ws *WidgetState) Reconcile(descs []WidgetDesc, p *Plugin) *widgets.VStackWidget {
@@ -72,7 +78,7 @@ func createWidget(desc WidgetDesc, p *Plugin) widgets.Widget {
 	case WidgetProgress:
 		return createProgressWidget(desc)
 	case WidgetTable:
-		return createTableWidget(desc)
+		return createTableWidget(desc, p)
 	case WidgetMarkdown:
 		return createMarkdownWidget(desc, p)
 	}
@@ -95,6 +101,10 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 		if tw, ok := w.(*widgets.TitleWidget); ok {
 			tw.Config.Title = desc.Text
 			tw.Config.Badge = desc.Badge
+			tw.Config.Menu = desc.Entries
+			tw.Config.Icon = desc.Icon
+			tw.Config.Padded = desc.Padded
+			wireTitleMenu(&tw.Config, desc, p)
 			applyBoxModel(&tw.Box, desc)
 		}
 	case WidgetKeyValue:
@@ -118,7 +128,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 					item.Expanded = true
 				}
 			}
-			tw.RestoreExpanded(expanded)
+			tw.RestoreExpandedSilent(expanded)
 			tw.SetSelectedIndex(savedIdx)
 			wireTreeCallbacks(tw, desc, p)
 		}
@@ -132,15 +142,18 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 	case WidgetInput:
 		if iw, ok := w.(*widgets.InputWidget); ok {
 			iw.Config.Placeholder = desc.Placeholder
+			iw.Config.Prefix = desc.Prefix
 			wireInputCallbacks(iw, desc, p)
 		}
 	case WidgetVStack:
 		if vs, ok := w.(*widgets.VStackWidget); ok {
 			vs.Children = reconcileChildren(vs.Children, desc.Children, p)
+			applyBoxModel(&vs.Box, desc)
 		}
 	case WidgetHStack:
 		if hs, ok := w.(*widgets.HStackWidget); ok {
 			hs.Children = reconcileChildren(hs.Children, desc.Children, p)
+			applyBoxModel(&hs.Box, desc)
 		}
 	case WidgetDivider:
 		// nothing to update
@@ -149,6 +162,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 			if vs, ok := sv.Child.(*widgets.VStackWidget); ok {
 				vs.Children = reconcileChildren(vs.Children, desc.Children, p)
 			}
+			applyBoxModel(&sv.Box, desc)
 		}
 	case WidgetBox:
 		if bw, ok := w.(*widgets.BoxWidget); ok {
@@ -181,6 +195,10 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 			tw.Config.Rows = desc.Rows
 			tw.Config.OnSelect = desc.OnSelectIndex
 			tw.Config.OnCommand = desc.OnCommandStr
+			tw.Config.NodeMenu = desc.NodeMenu
+			tw.Config.KeyCommands = desc.KeyCommands
+			wireTableMenu(tw, p)
+			applyBoxModel(&tw.Box, desc)
 		}
 	case WidgetMarkdown:
 		if sv, ok := w.(*widgets.ScrollViewWidget); ok {
@@ -312,6 +330,14 @@ func createTitleWidget(desc WidgetDesc, p *Plugin) *widgets.TitleWidget {
 		Icon:   desc.Icon,
 		Padded: desc.Padded,
 	}
+	wireTitleMenu(&config, desc, p)
+	tw := widgets.NewTitleWidget(config)
+	applyBoxModel(&tw.Box, desc)
+	return tw
+}
+
+func wireTitleMenu(config *widgets.TitleConfig, desc WidgetDesc, p *Plugin) {
+	config.OnMenu = nil
 	if p.ShowContextMenu != nil && len(desc.Entries) > 0 {
 		config.OnMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
 			p.ShowContextMenu(entries, screenX, screenY, func(cmd string) {
@@ -321,9 +347,6 @@ func createTitleWidget(desc WidgetDesc, p *Plugin) *widgets.TitleWidget {
 			})
 		}
 	}
-	tw := widgets.NewTitleWidget(config)
-	applyBoxModel(&tw.Box, desc)
-	return tw
 }
 
 func createKeyValueWidget(desc WidgetDesc) *widgets.KeyValueListWidget {
@@ -364,6 +387,7 @@ func createVStackFromDescs(descs []WidgetDesc, p *Plugin) *widgets.VStackWidget 
 func createVStackWidget(desc WidgetDesc, p *Plugin) *widgets.VStackWidget {
 	vs := createVStackFromDescs(desc.Children, p)
 	vs.Gap = desc.Gap
+	applyBoxModel(&vs.Box, desc)
 	return vs
 }
 
@@ -375,6 +399,7 @@ func createHStackWidget(desc WidgetDesc, p *Plugin) *widgets.HStackWidget {
 	hs := widgets.NewHStackWidget(children...)
 	hs.Gap = desc.Gap
 	hs.FixedHeight = desc.FixedHeight
+	applyBoxModel(&hs.Box, desc)
 	return hs
 }
 
@@ -384,7 +409,11 @@ func createDividerWidget(_ WidgetDesc) *widgets.DividerWidget {
 
 func createScrollViewWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget {
 	child := createVStackFromDescs(desc.Children, p)
-	return widgets.NewScrollViewWidget(child)
+	// Measure grow widgets by content height so the stack doesn't collapse to zero.
+	child.MeasureGrow = true
+	sv := widgets.NewScrollViewWidget(child)
+	applyBoxModel(&sv.Box, desc)
+	return sv
 }
 
 func createBoxWidget(desc WidgetDesc, p *Plugin) *widgets.BoxWidget {
@@ -527,7 +556,7 @@ func createMarkdownWidget(desc WidgetDesc, p *Plugin) *widgets.ScrollViewWidget 
 	return sv
 }
 
-func createTableWidget(desc WidgetDesc) *widgets.TableWidget {
+func createTableWidget(desc WidgetDesc, p *Plugin) *widgets.TableWidget {
 	tw := widgets.NewTableWidget(widgets.TableConfig{
 		Columns:     desc.Columns,
 		Rows:        desc.Rows,
@@ -536,6 +565,20 @@ func createTableWidget(desc WidgetDesc) *widgets.TableWidget {
 		NodeMenu:    desc.NodeMenu,
 		KeyCommands: desc.KeyCommands,
 	})
+	wireTableMenu(tw, p)
 	applyBoxModel(&tw.Box, desc)
 	return tw
+}
+
+func wireTableMenu(tw *widgets.TableWidget, p *Plugin) {
+	if p == nil || p.ShowContextMenu == nil {
+		return
+	}
+	tw.Config.OnMenu = func(entries []widgets.MenuEntry, rowIdx int, sx, sy int) {
+		p.ShowContextMenu(entries, sx, sy, func(cmd string) {
+			if tw.Config.OnCommand != nil {
+				tw.Config.OnCommand(cmd, rowIdx)
+			}
+		})
+	}
 }
