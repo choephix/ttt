@@ -143,3 +143,51 @@ func TestReconcileEmptyDescriptors(t *testing.T) {
 		t.Errorf("expected 0 children, got %d", len(root.Children))
 	}
 }
+
+func TestContainersApplyBoxModel(t *testing.T) {
+	ws := NewWidgetState()
+	p := &Plugin{Name: "test", State: lua.NewState()}
+	defer p.State.Close()
+
+	descs := []WidgetDesc{
+		{Kind: WidgetVStack, Key: "vstack:0", MarginTop: 1, PaddingLeft: 2},
+		{Kind: WidgetHStack, Key: "hstack:0", MarginBottom: 3},
+		{Kind: WidgetScrollView, Key: "scrollview:0", PaddingRight: 4},
+	}
+
+	ws.Reconcile(descs, p)
+
+	vs := ws.items[0].(*widgets.VStackWidget)
+	if vs.Box.MarginTop != 1 || vs.Box.PaddingLeft != 2 {
+		t.Errorf("vstack box model not applied on create: %+v", vs.Box)
+	}
+	hs := ws.items[1].(*widgets.HStackWidget)
+	if hs.Box.MarginBottom != 3 {
+		t.Errorf("hstack box model not applied on create: %+v", hs.Box)
+	}
+	sv := ws.items[2].(*widgets.ScrollViewWidget)
+	if sv.Box.PaddingRight != 4 {
+		t.Errorf("scrollview box model not applied on create: %+v", sv.Box)
+	}
+
+	descs2 := []WidgetDesc{
+		{Kind: WidgetVStack, Key: "vstack:0", MarginTop: 5},
+		{Kind: WidgetHStack, Key: "hstack:0", MarginBottom: 6},
+		{Kind: WidgetScrollView, Key: "scrollview:0", PaddingRight: 7},
+	}
+
+	ws.Reconcile(descs2, p)
+
+	vs2 := ws.items[0].(*widgets.VStackWidget)
+	if vs2.Box.MarginTop != 5 {
+		t.Errorf("vstack box model not applied on update: %+v", vs2.Box)
+	}
+	hs2 := ws.items[1].(*widgets.HStackWidget)
+	if hs2.Box.MarginBottom != 6 {
+		t.Errorf("hstack box model not applied on update: %+v", hs2.Box)
+	}
+	sv2 := ws.items[2].(*widgets.ScrollViewWidget)
+	if sv2.Box.PaddingRight != 7 {
+		t.Errorf("scrollview box model not applied on update: %+v", sv2.Box)
+	}
+}

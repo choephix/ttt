@@ -76,6 +76,12 @@ All editor settings are nested under the `editor` key.
 |-----|------|---------|-------------|
 | `plugins.enabled` | bool | `true` | Enable the plugin system. When `false`, no plugins are loaded and the Plugins sidebar tab is hidden. |
 
+## Markdown
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `markdown.wrapWidth` | int | `80` | Column width at which prose wraps in rendered markdown (hover popups and plugin markdown widgets) |
+
 ## Autocomplete
 
 | Key | Type | Default | Description |
@@ -108,7 +114,7 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
 }
 ```
 
-**Keybinding:** `Ctrl+K F` runs the external formatter. `Ctrl+L F` runs the LSP formatter.
+**Keybinding:** `Ctrl+L E` runs the external formatter. `Ctrl+L F` runs the LSP formatter.
 
 ## Full Example
 

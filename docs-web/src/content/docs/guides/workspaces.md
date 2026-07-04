@@ -25,8 +25,9 @@ When multiple folders are open, each root is shown as a collapsible group.
 ttt                             # opens the current directory
 ttt .                           # also opens the current directory
 ttt /path/to/dir                # opens that directory as the workspace
-ttt /path/to/file.go            # opens the file; workspace is the git repo root
-                                # (falls back to the file's parent dir if not in a repo)
+ttt /path/to/file.go            # opens just the file — no workspace folder
+ttt /path/to/repo/subdir        # opens that folder; git features (changes,
+                                # branch) use the enclosing git repo root
 ttt dir1 dir2                   # opens multiple folders as a multi-root workspace
 ttt --workspace project.ttt     # loads a saved workspace file
 
@@ -66,6 +67,6 @@ Tabs follow a pin-on-reclick model similar to VS Code:
 
 - Opening a file from the explorer or search replaces the current unpinned tab
 - Clicking an already-open tab (or opening the same file again) pins it
-- **Ctrl+W** to close a tab, **Ctrl+PgDn/PgUp** to switch tabs
+- **Ctrl+W** to close a tab, **Alt+.** / **Alt+,** to switch tabs
 - Right-click a tab for **Close**, **Close Others**, **Close All**
 - Tab bar actions button for **Close All**

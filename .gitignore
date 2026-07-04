@@ -32,3 +32,7 @@ chaos-output/
 # Nix
 result
 result-*
+
+# Local editor state and debug dumps
+.ttt-notepad.json
+screenshot.txt

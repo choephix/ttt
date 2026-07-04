@@ -68,3 +68,53 @@ func TestLoadManifestMissingFile(t *testing.T) {
 		t.Fatal("expected error for missing file")
 	}
 }
+
+func TestLoadManifestAPIVersionDefaultsToOne(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name": "test", "entry": "init.lua"}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	m, err := LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.API != 1 {
+		t.Errorf("expected missing api to default to 1, got %d", m.API)
+	}
+}
+
+func TestLoadManifestAPIVersionSupported(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name": "test", "entry": "init.lua", "api": 1}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	m, err := LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.API != 1 {
+		t.Errorf("expected api 1, got %d", m.API)
+	}
+}
+
+func TestLoadManifestAPIVersionTooNew(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name": "test", "entry": "init.lua", "api": 2}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	_, err := LoadManifest(dir)
+	if err == nil {
+		t.Fatal("expected error for unsupported api version")
+	}
+}
+
+func TestLoadManifestAPIVersionInvalid(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name": "test", "entry": "init.lua", "api": -1}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	_, err := LoadManifest(dir)
+	if err == nil {
+		t.Fatal("expected error for invalid api version")
+	}
+}

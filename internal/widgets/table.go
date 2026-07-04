@@ -16,6 +16,7 @@ type TableConfig struct {
 	Rows        [][]string
 	OnSelect    func(rowIndex int)
 	OnCommand   func(command string, rowIndex int)
+	OnMenu      func(entries []MenuEntry, rowIndex int, screenX, screenY int)
 	NodeMenu    []MenuEntry
 	KeyCommands map[rune]string
 }
@@ -30,14 +31,24 @@ type TableWidget struct {
 
 	scrollbar scrollbar
 	contentW  int
+	widths    []int
 }
 
 func NewTableWidget(cfg TableConfig) *TableWidget {
 	return &TableWidget{Config: cfg}
 }
 
-func (t *TableWidget) Height() int        { return 0 }
-func (t *TableWidget) Width() int         { return 0 }
+func (t *TableWidget) Height() int { return 0 }
+func (t *TableWidget) Width() int  { return 0 }
+
+// ContentHeight reports header + rows so scroll views can measure the table.
+func (t *TableWidget) ContentHeight() int {
+	h := len(t.Config.Rows) + t.BoxOverheadH()
+	if len(t.Config.Columns) > 0 {
+		h++ // header row
+	}
+	return h
+}
 func (t *TableWidget) Focusable() bool    { return true }
 func (t *TableWidget) SetFocused(f bool)  { t.focused = f }
 func (t *TableWidget) IsFocused() bool    { return t.focused }
@@ -105,6 +116,7 @@ func (t *TableWidget) Render(surface Surface) {
 	if t.scrollbar.visible() {
 		t.contentW = w - 1
 	}
+	t.widths = t.effectiveWidths(t.contentW)
 
 	t.renderHeader(surface, t.contentW)
 
@@ -117,6 +129,44 @@ func (t *TableWidget) Render(surface Surface) {
 	}
 
 	t.scrollbar.Render(surface, w-1, headerH)
+}
+
+// effectiveWidths keeps fixed widths; auto columns split the remaining space (min 1 cell).
+func (t *TableWidget) effectiveWidths(w int) []int {
+	n := len(t.Config.Columns)
+	widths := make([]int, n)
+	sep := 0
+	if n > 1 {
+		sep = 2 * (n - 1)
+	}
+	fixed := 0
+	autoCount := 0
+	for i, col := range t.Config.Columns {
+		if col.Width > 0 {
+			widths[i] = col.Width
+			fixed += col.Width
+		} else {
+			autoCount++
+		}
+	}
+	if autoCount > 0 {
+		remaining := w - fixed - sep
+		if remaining < autoCount {
+			remaining = autoCount
+		}
+		per := remaining / autoCount
+		rem := remaining % autoCount
+		for i := range widths {
+			if widths[i] == 0 {
+				widths[i] = per
+				if rem > 0 {
+					widths[i]++
+					rem--
+				}
+			}
+		}
+	}
+	return widths
 }
 
 func (t *TableWidget) renderHeader(surface Surface, w int) {
@@ -133,8 +183,8 @@ func (t *TableWidget) renderHeader(surface Surface, w int) {
 				x++
 			}
 		}
-		t.renderCell(surface, col.Label, col, x, 0, style)
-		x += col.Width
+		t.renderCell(surface, col.Label, col, t.widths[i], x, 0, style)
+		x += t.widths[i]
 	}
 	// Fill remaining header space
 	for fx := x; fx < w; fx++ {
@@ -175,14 +225,13 @@ func (t *TableWidget) renderRow(surface Surface, idx, y, w int) {
 		if i < len(row) {
 			cellText = row[i]
 		}
-		t.renderCell(surface, cellText, col, x, y, style)
-		x += col.Width
+		t.renderCell(surface, cellText, col, t.widths[i], x, y, style)
+		x += t.widths[i]
 	}
 }
 
-func (t *TableWidget) renderCell(surface Surface, text string, col TableColumn, x, y int, style term.Style) {
+func (t *TableWidget) renderCell(surface Surface, text string, col TableColumn, colW, x, y int, style term.Style) {
 	runes := []rune(text)
-	colW := col.Width
 	if colW <= 0 {
 		return
 	}
@@ -236,20 +285,19 @@ func (t *TableWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	prev := t.selected
-	var result EventResult
 	switch tev := ev.(type) {
 	case *tcell.EventMouse:
-		result = t.handleMouse(tev)
+		// handleMouse fires OnSelect explicitly on click.
+		return t.handleMouse(tev)
 	case *tcell.EventKey:
-		result = t.handleKey(tev)
-	default:
-		return EventIgnored
+		prev := t.selected
+		result := t.handleKey(tev)
+		if t.selected != prev && t.Config.OnSelect != nil {
+			t.Config.OnSelect(t.selected)
+		}
+		return result
 	}
-	if t.selected != prev && t.Config.OnSelect != nil {
-		t.Config.OnSelect(t.selected)
-	}
-	return result
+	return EventIgnored
 }
 
 func (t *TableWidget) handleMouse(ev *tcell.EventMouse) EventResult {
@@ -298,9 +346,8 @@ func (t *TableWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 
 	if btn&tcell.Button2 != 0 {
 		t.selected = idx
-		if t.Config.OnCommand != nil && len(t.Config.NodeMenu) > 0 {
-			// Right-click fires the first menu entry's command as a convention,
-			// but typically this is handled via the context menu system.
+		if t.Config.OnMenu != nil && len(t.Config.NodeMenu) > 0 {
+			t.Config.OnMenu(t.Config.NodeMenu, idx, mx, my)
 		}
 		return EventConsumed
 	}
@@ -329,8 +376,17 @@ func (t *TableWidget) handleKey(ev *tcell.EventKey) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyEnter:
-		if t.Config.OnSelect != nil && t.selected >= 0 && t.selected < len(t.Config.Rows) {
-			t.Config.OnSelect(t.selected)
+		if t.selected >= 0 && t.selected < len(t.Config.Rows) {
+			if ev.Modifiers()&tcell.ModShift != 0 {
+				if t.Config.OnMenu != nil && len(t.Config.NodeMenu) > 0 {
+					r := t.GetRect()
+					t.Config.OnMenu(t.Config.NodeMenu, t.selected, r.X, r.Y+2+t.selected-t.scrollTop)
+				}
+				return EventConsumed
+			}
+			if t.Config.OnSelect != nil {
+				t.Config.OnSelect(t.selected)
+			}
 		}
 		return EventConsumed
 	case tcell.KeyRune:

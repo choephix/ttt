@@ -31,6 +31,15 @@ func NewScrollViewWidget(child ScrollableWidget) *ScrollViewWidget {
 func (sv *ScrollViewWidget) Height() int { return 0 }
 func (sv *ScrollViewWidget) Width() int  { return 0 }
 
+// ContentHeight lets an outer scroll view measure a nested one (e.g. the markdown widget).
+func (sv *ScrollViewWidget) ContentHeight() int {
+	if sv.Child == nil {
+		return 0
+	}
+	_, h := sv.Child.ScrollSize()
+	return h + sv.BoxOverheadH()
+}
+
 func (sv *ScrollViewWidget) EnsureVisible(x, y int) {
 	r := sv.rect
 	contentW, contentH := sv.Child.ScrollSize()
@@ -70,6 +79,19 @@ func (sv *ScrollViewWidget) viewportSize(w, h, contentW, contentH int) (int, int
 	return vw, vh
 }
 
+// viewportOrigin returns the screen position of the inner content area.
+func (sv *ScrollViewWidget) viewportOrigin() (int, int) {
+	ox := sv.rect.X + sv.Box.MarginLeft + sv.Box.PaddingLeft
+	oy := sv.rect.Y + sv.Box.MarginTop + sv.Box.PaddingTop
+	if sv.Box.BorderLeft {
+		ox++
+	}
+	if sv.Box.BorderTop {
+		oy++
+	}
+	return ox, oy
+}
+
 func (sv *ScrollViewWidget) Render(surface Surface) {
 	surface = sv.RenderBox(surface)
 	w, h := surface.Size()
@@ -87,7 +109,9 @@ func (sv *ScrollViewWidget) Render(surface Surface) {
 	sv.clamp(contentW, contentH, viewW, viewH)
 
 	virt := newVirtualSurface(contentW, contentH)
-	sv.Child.SetRect(Rect{X: 0, Y: 0, W: contentW, H: contentH})
+	// Children keep screen-space rects: content origin = viewport origin minus scroll offset.
+	ox, oy := sv.viewportOrigin()
+	sv.Child.SetRect(Rect{X: ox - sv.scrollX, Y: oy - sv.scrollY, W: contentW, H: contentH})
 	sv.Child.Render(virt)
 
 	for y := range viewH {
@@ -194,12 +218,31 @@ func (sv *ScrollViewWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			_ = viewH
 		}
+
+		// Scrolled-out widgets keep offscreen rects — don't let them catch stray clicks.
+		if btn != tcell.ButtonNone && btn&(tcell.WheelUp|tcell.WheelDown|tcell.WheelLeft|tcell.WheelRight) == 0 {
+			if !sv.viewportContains(mx, my) {
+				return EventIgnored
+			}
+		}
 	}
 
 	if sv.Child != nil {
 		return sv.Child.HandleEvent(ev)
 	}
 	return EventIgnored
+}
+
+func (sv *ScrollViewWidget) viewportContains(mx, my int) bool {
+	if sv.Child == nil {
+		return false
+	}
+	ox, oy := sv.viewportOrigin()
+	contentW, contentH := sv.Child.ScrollSize()
+	innerW := sv.rect.W - sv.BoxOverheadW()
+	innerH := sv.rect.H - sv.BoxOverheadH()
+	viewW, viewH := sv.viewportSize(innerW, innerH, contentW, contentH)
+	return mx >= ox && mx < ox+viewW && my >= oy && my < oy+viewH
 }
 
 func (sv *ScrollViewWidget) scrollHRight(amount int) {

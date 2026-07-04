@@ -35,6 +35,9 @@ func RunEventLoop(
 	lastGutterFile := ""
 	lastOutlineFile := ""
 	lastOutlineLine := -1
+	lastCursorLine := -1
+	lastCursorCol := -1
+	lastCursorFile := ""
 	lastBranchDir := app.Workspace.Primary()
 	blameGen := 0
 	app.Status.Branch = git.BranchName(lastBranchDir)
@@ -111,6 +114,15 @@ func RunEventLoop(
 			lastOutlineLine = line
 			if app.Sidebar.ActivePanel == "outline" {
 				app.Symbols.SelectNearest(line)
+			}
+		}
+
+		if filePath != lastCursorFile || line != lastCursorLine || col != lastCursorCol {
+			lastCursorFile = filePath
+			lastCursorLine = line
+			lastCursorCol = col
+			if app.PluginManager != nil {
+				app.PluginManager.DispatchEvent("cursor.change", filePath)
 			}
 		}
 

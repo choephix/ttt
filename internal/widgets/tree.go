@@ -61,6 +61,8 @@ type TreeWidget struct {
 	focused   bool
 
 	scrollbar scrollbar
+	contentX  int
+	contentY  int
 	contentW  int
 }
 
@@ -75,8 +77,12 @@ func NewTreeWidget(cfg TreeConfig) *TreeWidget {
 	return t
 }
 
-func (t *TreeWidget) Height() int       { return 0 }
-func (t *TreeWidget) Width() int        { return 0 }
+func (t *TreeWidget) Height() int { return 0 }
+func (t *TreeWidget) Width() int  { return 0 }
+
+// ContentHeight reports visible rows so scroll views can measure the tree.
+func (t *TreeWidget) ContentHeight() int { return len(t.flatList) + t.BoxOverheadH() }
+
 func (t *TreeWidget) Focusable() bool   { return true }
 func (t *TreeWidget) SetFocused(f bool) { t.focused = f }
 func (t *TreeWidget) IsFocused() bool   { return t.focused }
@@ -125,7 +131,15 @@ func (t *TreeWidget) CollectExpanded(out map[string]bool) {
 
 func (t *TreeWidget) RestoreExpanded(expanded map[string]bool) {
 	for _, root := range t.Config.Items {
-		t.restoreExpanded(root, expanded)
+		t.restoreExpanded(root, expanded, true)
+	}
+	t.flatten()
+}
+
+// RestoreExpandedSilent restores expansion without firing OnExpand — reconcile would loop otherwise.
+func (t *TreeWidget) RestoreExpandedSilent(expanded map[string]bool) {
+	for _, root := range t.Config.Items {
+		t.restoreExpanded(root, expanded, false)
 	}
 	t.flatten()
 }
@@ -139,14 +153,14 @@ func (t *TreeWidget) collectExpanded(nodes []*TreeNode, out map[string]bool) {
 	}
 }
 
-func (t *TreeWidget) restoreExpanded(node *TreeNode, expanded map[string]bool) {
+func (t *TreeWidget) restoreExpanded(node *TreeNode, expanded map[string]bool, notify bool) {
 	for _, child := range node.Children {
 		if expanded[child.ID] && child.isExpandable() {
 			child.Expanded = true
-			if t.Config.OnExpand != nil {
+			if notify && t.Config.OnExpand != nil {
 				t.Config.OnExpand(child)
 			}
-			t.restoreExpanded(child, expanded)
+			t.restoreExpanded(child, expanded, notify)
 		}
 	}
 }
@@ -199,6 +213,17 @@ func (t *TreeWidget) Render(surface Surface) {
 		return
 	}
 
+	ox := t.Box.MarginLeft + t.Box.PaddingLeft
+	oy := t.Box.MarginTop + t.Box.PaddingTop
+	if t.Box.BorderLeft {
+		ox++
+	}
+	if t.Box.BorderTop {
+		oy++
+	}
+	t.contentX = t.rect.X + ox
+	t.contentY = t.rect.Y + oy
+
 	if len(t.flatList) == 0 && t.Config.EmptyText != "" {
 		x := 1
 		for _, ch := range t.Config.EmptyText {
@@ -221,8 +246,8 @@ func (t *TreeWidget) Render(surface Surface) {
 
 	t.ensureVisible(h)
 
-	t.scrollbar.X = t.rect.X + w - 1
-	t.scrollbar.Y = t.rect.Y
+	t.scrollbar.X = t.contentX + w - 1
+	t.scrollbar.Y = t.contentY
 	t.scrollbar.Height = h
 	t.scrollbar.TotalItems = len(t.flatList)
 	t.scrollbar.TopItem = t.scrollTop
@@ -491,7 +516,7 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 		return EventConsumed
 	}
 
-	idx := t.scrollTop + (my - r.Y)
+	idx := t.scrollTop + (my - t.contentY)
 	if idx < 0 || idx >= len(t.flatList) {
 		return EventIgnored
 	}
@@ -509,14 +534,14 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 		t.selected = idx
 
 		menuW := t.menuIconWidth()
-		if menuW > 0 && mx >= t.rect.X+t.contentW-menuW {
+		if menuW > 0 && mx >= t.contentX+t.contentW-menuW {
 			if t.Config.OnMenu != nil {
 				t.Config.OnMenu(t.Config.NodeMenu, node, mx, my)
 			}
 			return EventConsumed
 		}
 
-		rightX := t.rect.X + t.contentW - 2 - t.menuIconWidth()
+		rightX := t.contentX + t.contentW - 2 - t.menuIconWidth()
 		for i := len(node.Actions) - 1; i >= 0; i-- {
 			action := node.Actions[i]
 			iconW := len([]rune(action.Icon))
@@ -561,7 +586,7 @@ func (t *TreeWidget) handleKey(ev *tcell.EventKey) EventResult {
 	case tcell.KeyEnter:
 		if ev.Modifiers()&tcell.ModShift != 0 {
 			if t.Config.OnMenu != nil && t.selected >= 0 && t.selected < len(t.flatList) {
-				t.Config.OnMenu(t.Config.NodeMenu, t.flatList[t.selected], t.rect.X, t.rect.Y+t.selected-t.scrollTop)
+				t.Config.OnMenu(t.Config.NodeMenu, t.flatList[t.selected], t.contentX, t.contentY+t.selected-t.scrollTop)
 			}
 			return EventConsumed
 		}

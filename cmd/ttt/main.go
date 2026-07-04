@@ -161,6 +161,10 @@ Docs: https://tttedit.dev
 		defer startProfiler()()
 	}
 
+	if dir := os.Getenv("TTT_CONFIG_DIR"); dir != "" {
+		config.OverrideConfigDir = dir
+	}
+
 	flags := parseFlags()
 	cfg := config.Load(flags.configFile)
 	config.ParseKeyBindings(cfg.Keybindings)

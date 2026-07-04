@@ -264,6 +264,21 @@ func panelTitleWidget(L *lua.LState) int {
 		if t := L.GetField(v, "text"); t != lua.LNil {
 			desc.Text = t.String()
 		}
+		if b := L.GetField(v, "badge"); b != lua.LNil {
+			desc.Badge = b.String()
+		}
+		if entries, ok := L.GetField(v, "menu").(*lua.LTable); ok {
+			desc.Entries = parseLuaMenuEntries(L, entries)
+		}
+		if fn, ok := L.GetField(v, "on_menu").(*lua.LFunction); ok {
+			desc.OnMenu = proxy.wrapStringCallback(fn)
+		}
+		if icon := L.GetField(v, "icon"); icon != lua.LNil {
+			desc.Icon = icon.String()
+		}
+		if padded := L.GetField(v, "padded"); padded == lua.LTrue {
+			desc.Padded = true
+		}
 		parseBoxModel(L, v, &desc)
 	default:
 		desc.Text = arg.String()

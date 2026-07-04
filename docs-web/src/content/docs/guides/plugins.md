@@ -93,6 +93,8 @@ Available permissions include:
 | `network.http` | Make HTTP requests |
 | `events.file` | Listen for file open/close/save events |
 | `events.editor` | Listen for buffer and cursor changes |
+| `settings` | Read/write editor settings |
+| `settings_keys` | Which settings keys the plugin can access (e.g. `formatters.*`) |
 
 ## Disabling the Plugin System
 
@@ -126,7 +128,7 @@ Community plugins are maintained in the [ttt-plugins](https://github.com/eugenio
 
 ## Creating Plugins
 
-See the [Plugin Authoring Guide](https://github.com/eugenioenko/ttt/blob/main/docs/PLUGINS.md) for the full API reference covering the widget system, editor API, filesystem API, system commands, networking, events, and more.
+See the [Plugin Authoring Guide](/guides/plugin-authoring/) for the full API reference covering the widget system, editor API, filesystem API, system commands, networking, events, and more.
 
 ### Adding to the Community Registry
 

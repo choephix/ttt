@@ -16,7 +16,9 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 | Ctrl+Q | `editor.quit` | Quit the editor |
 | Ctrl+P | `command.palette` | Open command palette |
 | Ctrl+K P | `file.quickOpen` | Quick open file |
-| Escape | `editor.focus` | Focus the editor |
+| Escape | *(built-in)* | Dismiss overlay / collapse cursors / focus the editor |
+| F6 | `focus.nextGroup` | Focus next group (editor → panel → sidebar) |
+| Shift+F6 | `focus.prevGroup` | Focus previous group |
 
 ## File
 
@@ -67,7 +69,7 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 | Ctrl+K L | `multicursor.selectAll` | Select all occurrences at once |
 | Ctrl+K U | `multicursor.undoCursor` | Undo last cursor addition |
 | Alt+Click | *(mouse)* | Add cursor at click position |
-| Escape | `editor.focus` | Collapse to single cursor (when multiple cursors exist) |
+| Escape | *(built-in)* | Collapse to single cursor (when multiple cursors exist) |
 
 ## Code Folding
 
@@ -109,8 +111,8 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 
 | Shortcut | Command | Description |
 |----------|---------|-------------|
-| Ctrl+PgDn | `tab.next` | Next tab |
-| Ctrl+PgUp | `tab.prev` | Previous tab |
+| Alt+. | `tab.next` | Next tab |
+| Alt+, | `tab.prev` | Previous tab |
 | Ctrl+W | `tab.close` | Close tab |
 
 ## LSP
@@ -123,7 +125,8 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 | F12 | `editor.goToDefinition` | Go to definition |
 | Shift+F12 | `editor.goToImplementation` | Go to implementation |
 | Ctrl+L I | `editor.goToImplementation` | Go to implementation |
-| Ctrl+L F | `editor.formatDocument` | Format document |
+| Ctrl+L F | `editor.formatDocument` | Format document (LSP) |
+| Ctrl+L E | `editor.formatExternal` | Format document (external formatter) |
 | Ctrl+L S | `editor.formatSelection` | Format selection |
 | Ctrl+L O | `editor.organizeImports` | Organize imports |
 | Ctrl+L X | `editor.fixAll` | Fix all |

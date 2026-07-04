@@ -58,6 +58,12 @@ func (pw *PluginPanelWidget) HandleEvent(ev tcell.Event) widgets.EventResult {
 		}
 	}
 
+	if pw.state != nil && pw.state.root != nil {
+		if result := pw.state.root.HandleEvent(ev); result != widgets.EventIgnored {
+			return result
+		}
+	}
+
 	if pw.eventFunc != nil && pw.plugin.State != nil {
 		tbl := eventToLua(pw.plugin.State, ev)
 		if tbl != nil {

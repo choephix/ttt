@@ -67,6 +67,11 @@ type HeightForWidther interface {
 	HeightForWidth(w int) int
 }
 
+// ContentHeighter reports the natural content height of a grow widget inside a scroll view.
+type ContentHeighter interface {
+	ContentHeight() int
+}
+
 type ScrollableWidget interface {
 	Widget
 	ScrollSize() (w, h int)
