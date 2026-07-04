@@ -91,6 +91,7 @@ func updateWidget(w widgets.Widget, desc WidgetDesc, p *Plugin) {
 		if lw, ok := w.(*widgets.LabelWidget); ok {
 			lw.Config.Text = desc.Text
 			lw.Config.Badge = desc.Badge
+			lw.FixedWidth = desc.FixedWidth
 			if desc.TextStyle != "" {
 				lw.Config.Style = resolveStyleName(desc.TextStyle)
 			}
