@@ -24,11 +24,11 @@ later; these can't be *changed* compatibly later.
   state via `fs.write` requires the broad fs.write permission, and the plugin dir is
   a git clone (update conflicts) that's deleted on uninstall.
 
-- [ ] **3. Timers (`ttt.set_interval` / `ttt.set_timeout`)**
-  No way to run periodic work today — docker-manager needs a manual Refresh button
-  because of this. Must be main-loop-safe (dispatch through the PostAsync path like
-  the other async APIs). Include `clear_interval`/`clear_timeout`, and clean up
-  timers on plugin destroy/reload.
+- [x] **3. Timers (`ttt.set_interval` / `ttt.set_timeout`)** — DONE (PR pending).
+  `set_timeout`/`set_interval` return ids; `clear_timeout`/`clear_interval` cancel
+  (interchangeable). Callbacks dispatch through the PostAsync main-loop path, so they
+  can touch state safely. `set_interval` floored at 50ms. All timers stopped on
+  Destroy (disable/reload/uninstall). Unit + functional tests, docs-web section.
 
 - [ ] **4. Streaming, cancellable exec (`sys.spawn`)**
   `exec_async` buffers all output until exit — test runners, build watchers, and log

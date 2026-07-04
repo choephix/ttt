@@ -66,6 +66,10 @@ export function exec(command) {
   commands.push(`exec "${command}"`);
 }
 
+export function panel(id) {
+  commands.push(`panel ${id}`);
+}
+
 export function wait(ms = 200) {
   commands.push(`wait ${ms}`);
 }

@@ -348,6 +348,39 @@ local ok, err = fs.write(state_file, json.encode(state))
 
 Note: the plugin directory is a git clone that `Plugins: Update` pulls into, and it is deleted on uninstall — keep only regenerable state there.
 
+### `ttt.set_timeout(ms, callback)` / `ttt.set_interval(ms, callback)`
+
+Schedule a callback to run later on the editor's main loop. `set_timeout` fires once after `ms` milliseconds; `set_interval` fires every `ms` milliseconds until cleared. Both return a numeric timer id. No permission required.
+
+Callbacks run on the main thread (the same place render and event handlers run), so they can safely touch plugin state and call any `ttt` API — no need for `panel:redraw()` juggling as with raw goroutines. Because they share the UI thread, `set_interval` enforces a minimum interval of 50ms.
+
+```lua
+local ttt = require("ttt")
+
+-- Refresh a data panel every 5 seconds
+local timer = ttt.set_interval(5000, function()
+  refresh_data()
+  panel:redraw()
+end)
+
+-- Run something once, shortly after load
+ttt.set_timeout(200, function()
+  ttt.log("plugin warmed up")
+end)
+```
+
+### `ttt.clear_timeout(id)` / `ttt.clear_interval(id)`
+
+Cancel a pending timeout or a running interval by its id. The two are interchangeable (a single timer registry backs both). Cancelling an unknown or already-fired id is a no-op.
+
+```lua
+local id = ttt.set_interval(1000, poll)
+-- later...
+ttt.clear_interval(id)
+```
+
+All of a plugin's timers are automatically stopped when the plugin is disabled, reloaded, or uninstalled — you don't need to clear them on shutdown.
+
 ### `ttt.on_install(callback)`
 
 Register a function that runs once when the plugin is installed (from the Plugins panel or **Plugins: Install from URL**). Use this for one-time setup like writing default settings. No permission required to register the hook; whatever the callback does is still permission-checked.
@@ -1752,7 +1785,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `on_install`, `on_uninstall`, `markdown` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |

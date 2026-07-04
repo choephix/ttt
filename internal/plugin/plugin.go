@@ -92,6 +92,9 @@ type Plugin struct {
 	pendingDrawer *pendingDrawerCall
 	LastError     error
 	errorCount    int
+
+	timers      map[int]func()
+	nextTimerID int
 }
 
 type pendingDrawerCall struct {
@@ -197,6 +200,7 @@ func (p *Plugin) SafePostAsync(result *PluginAsyncResult) {
 func (p *Plugin) Destroy() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.stopTimersLocked()
 	if p.State != nil {
 		p.State.Close()
 		p.State = nil
