@@ -90,7 +90,7 @@ Available permissions include:
 | `fs.write` | Write files |
 | `system.exec` | Execute specific system commands |
 | `system.env` | Read environment variables |
-| `network.http` | Make HTTP requests |
+| `network.http` | Make HTTP requests (`true` for any host, or a list of allowed hostnames) |
 | `events.file` | Listen for file open/close/save events |
 | `events.editor` | Listen for buffer and cursor changes |
 | `settings` | Read/write editor settings |

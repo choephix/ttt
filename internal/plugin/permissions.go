@@ -1,29 +1,82 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 )
 
+// NetworkHTTP is the network.http permission. In a manifest it is either a
+// boolean (`true` = any host) or an array of allowed hostnames
+// (`["api.github.com"]`). A missing field or `false` means no network access.
+type NetworkHTTP struct {
+	All   bool
+	Hosts []string
+}
+
+// Enabled reports whether the plugin may make any HTTP requests at all.
+func (n NetworkHTTP) Enabled() bool { return n.All || len(n.Hosts) > 0 }
+
+// AllowsHost reports whether requests to host are permitted. Matching is
+// exact and case-insensitive; `All` permits any host.
+func (n NetworkHTTP) AllowsHost(host string) bool {
+	if n.All {
+		return true
+	}
+	host = strings.ToLower(host)
+	for _, h := range n.Hosts {
+		if strings.ToLower(h) == host {
+			return true
+		}
+	}
+	return false
+}
+
+func (n NetworkHTTP) MarshalJSON() ([]byte, error) {
+	if n.All {
+		return json.Marshal(true)
+	}
+	if len(n.Hosts) > 0 {
+		return json.Marshal(n.Hosts)
+	}
+	return json.Marshal(false)
+}
+
+func (n *NetworkHTTP) UnmarshalJSON(data []byte) error {
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		n.All = b
+		n.Hosts = nil
+		return nil
+	}
+	var hosts []string
+	if err := json.Unmarshal(data, &hosts); err != nil {
+		return fmt.Errorf("network.http must be a boolean or an array of hostnames: %w", err)
+	}
+	n.All = false
+	n.Hosts = hosts
+	return nil
+}
+
 type PermissionSet struct {
-	PanelSidebar bool     `json:"panel.sidebar,omitempty"`
-	PanelBottom  bool     `json:"panel.bottom,omitempty"`
-	PanelDrawer  bool     `json:"panel.drawer,omitempty"`
-	PanelEditor  bool     `json:"panel.editor,omitempty"`
-	Commands     bool     `json:"commands,omitempty"`
-	Keybindings  bool     `json:"keybindings,omitempty"`
-	EditorRead   bool     `json:"editor.read,omitempty"`
-	EditorWrite  bool     `json:"editor.write,omitempty"`
-	FsRead       bool     `json:"fs.read,omitempty"`
-	FsWrite      bool     `json:"fs.write,omitempty"`
-	SystemExec   []string `json:"system.exec,omitempty"`
-	SystemEnv    bool     `json:"system.env,omitempty"`
-	NetworkHTTP  bool     `json:"network.http,omitempty"`
-	EventsFile   bool     `json:"events.file,omitempty"`
-	EventsEditor bool     `json:"events.editor,omitempty"`
-	Settings     bool     `json:"settings,omitempty"`
-	SettingsKeys []string `json:"settings_keys,omitempty"`
+	PanelSidebar bool        `json:"panel.sidebar,omitempty"`
+	PanelBottom  bool        `json:"panel.bottom,omitempty"`
+	PanelDrawer  bool        `json:"panel.drawer,omitempty"`
+	PanelEditor  bool        `json:"panel.editor,omitempty"`
+	Commands     bool        `json:"commands,omitempty"`
+	Keybindings  bool        `json:"keybindings,omitempty"`
+	EditorRead   bool        `json:"editor.read,omitempty"`
+	EditorWrite  bool        `json:"editor.write,omitempty"`
+	FsRead       bool        `json:"fs.read,omitempty"`
+	FsWrite      bool        `json:"fs.write,omitempty"`
+	SystemExec   []string    `json:"system.exec,omitempty"`
+	SystemEnv    bool        `json:"system.env,omitempty"`
+	NetworkHTTP  NetworkHTTP `json:"network.http,omitempty"`
+	EventsFile   bool        `json:"events.file,omitempty"`
+	EventsEditor bool        `json:"events.editor,omitempty"`
+	Settings     bool        `json:"settings,omitempty"`
+	SettingsKeys []string    `json:"settings_keys,omitempty"`
 }
 
 type PermissionDiffEntry struct {
@@ -55,7 +108,6 @@ func DiffPermissions(granted, requested PermissionSet) PermissionDiff {
 	check("fs.read", granted.FsRead, requested.FsRead)
 	check("fs.write", granted.FsWrite, requested.FsWrite)
 	check("system.env", granted.SystemEnv, requested.SystemEnv)
-	check("network.http", granted.NetworkHTTP, requested.NetworkHTTP)
 	check("events.file", granted.EventsFile, requested.EventsFile)
 	check("events.editor", granted.EventsEditor, requested.EventsEditor)
 	check("settings", granted.Settings, requested.Settings)
@@ -77,6 +129,16 @@ func DiffPermissions(granted, requested PermissionSet) PermissionDiff {
 	for _, b := range requested.SystemExec {
 		if !grantedExec[b] {
 			entries = append(entries, PermissionDiffEntry{Name: "system.exec", Value: b})
+		}
+	}
+
+	if requested.NetworkHTTP.All && !granted.NetworkHTTP.All {
+		entries = append(entries, PermissionDiffEntry{Name: "network.http", Value: "required"})
+	} else if !granted.NetworkHTTP.All {
+		for _, h := range requested.NetworkHTTP.Hosts {
+			if !granted.NetworkHTTP.AllowsHost(h) {
+				entries = append(entries, PermissionDiffEntry{Name: "network.http", Value: h})
+			}
 		}
 	}
 
@@ -113,7 +175,7 @@ func (ps PermissionSet) Check(perm string) error {
 	case "system.env":
 		allowed = ps.SystemEnv
 	case "network.http":
-		allowed = ps.NetworkHTTP
+		allowed = ps.NetworkHTTP.Enabled()
 	case "events.file":
 		allowed = ps.EventsFile
 	case "events.editor":
@@ -154,6 +216,14 @@ func (ps PermissionSet) CheckExec(binary string) error {
 	return fmt.Errorf("permission denied: system.exec %q", binary)
 }
 
+// CheckHost reports whether the plugin may make an HTTP request to host.
+func (ps PermissionSet) CheckHost(host string) error {
+	if ps.NetworkHTTP.AllowsHost(host) {
+		return nil
+	}
+	return fmt.Errorf("permission denied: network.http host %q not in the plugin's allowed hosts", host)
+}
+
 func (ps PermissionSet) DisplayEntries() []PermissionDiffEntry {
 	var entries []PermissionDiffEntry
 
@@ -174,12 +244,18 @@ func (ps PermissionSet) DisplayEntries() []PermissionDiffEntry {
 	add("Read files", ps.FsRead)
 	add("Write files", ps.FsWrite)
 	add("Environment", ps.SystemEnv)
-	add("HTTP requests", ps.NetworkHTTP)
 	add("File events", ps.EventsFile)
 	add("Editor events", ps.EventsEditor)
 
 	for _, b := range ps.SystemExec {
 		entries = append(entries, PermissionDiffEntry{Name: "Run binary", Value: b})
+	}
+
+	if ps.NetworkHTTP.All {
+		entries = append(entries, PermissionDiffEntry{Name: "HTTP requests", Value: "any host"})
+	}
+	for _, h := range ps.NetworkHTTP.Hosts {
+		entries = append(entries, PermissionDiffEntry{Name: "HTTP host", Value: h})
 	}
 
 	add("Settings", ps.Settings)

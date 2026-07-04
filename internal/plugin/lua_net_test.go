@@ -46,7 +46,7 @@ func TestNetGet(t *testing.T) {
 		getBody:    `{"ok": true}`,
 		getHeaders: map[string]string{"Content-Type": "application/json"},
 	}
-	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: true}, mock)
+	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: NetworkHTTP{All: true}}, mock)
 	defer cleanup()
 
 	err := p.State.DoString(`
@@ -71,7 +71,7 @@ func TestNetGet(t *testing.T) {
 
 func TestNetGetWithHeaders(t *testing.T) {
 	mock := &mockNetworkAPI{getStatus: 200, getBody: "ok"}
-	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: true}, mock)
+	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: NetworkHTTP{All: true}}, mock)
 	defer cleanup()
 
 	err := p.State.DoString(`
@@ -93,7 +93,7 @@ func TestNetPost(t *testing.T) {
 		postStatus: 201,
 		postBody:   `{"id": 1}`,
 	}
-	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: true}, mock)
+	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: NetworkHTTP{All: true}}, mock)
 	defer cleanup()
 
 	err := p.State.DoString(`
@@ -118,7 +118,7 @@ func TestNetPost(t *testing.T) {
 
 func TestNetGetError(t *testing.T) {
 	mock := &mockNetworkAPI{getErr: fmt.Errorf("connection refused")}
-	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: true}, mock)
+	p, cleanup := setupTestPluginWithNet(PermissionSet{NetworkHTTP: NetworkHTTP{All: true}}, mock)
 	defer cleanup()
 
 	err := p.State.DoString(`
@@ -149,5 +149,38 @@ func TestNetWithoutPermission(t *testing.T) {
 	`)
 	if err == nil {
 		t.Fatal("expected error when network.http not granted")
+	}
+}
+
+func TestNetHostAllowlistBlocksDisallowed(t *testing.T) {
+	mock := &mockNetworkAPI{getStatus: 200, getBody: "should not reach"}
+	p, cleanup := setupTestPluginWithNet(
+		PermissionSet{NetworkHTTP: NetworkHTTP{Hosts: []string{"api.github.com"}}}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local net = require("ttt.net")
+		local allowed = net.get("https://api.github.com/user")
+		_G.allowed_status = allowed.status
+		local denied = net.get("https://evil.com/steal")
+		_G.denied_status = denied.status
+		_G.denied_error = denied.error
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if p.State.GetGlobal("allowed_status").String() != "200" {
+		t.Errorf("allowed host should reach the network, got status %s",
+			p.State.GetGlobal("allowed_status").String())
+	}
+	if p.State.GetGlobal("denied_status").String() != "0" {
+		t.Errorf("denied host should return status 0, got %s",
+			p.State.GetGlobal("denied_status").String())
+	}
+	if p.State.GetGlobal("denied_error").String() == "" {
+		t.Error("denied host should carry an error message")
+	}
+	if mock.lastURL == "https://evil.com/steal" {
+		t.Error("denied request must not reach the network API")
 	}
 }

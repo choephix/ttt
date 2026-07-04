@@ -36,11 +36,12 @@ later; these can't be *changed* compatibly later.
   on_exit}) -> handle` with `handle:kill()` and `handle:write()` (stdin). Kill
   processes on plugin destroy/reload. go-test-runner is the in-house proof case.
 
-- [ ] **5. Network domain scoping in the manifest**
-  `"network.http": true` is all-hosts-or-nothing and the approval dialog can't be
-  reasoned about. Support `"network.http": ["api.github.com"]` (keep `true` as
-  all-hosts for compatibility), matching the per-binary `system.exec` design.
-  Enforce in the network API; show domains in the approval dialog.
+- [x] **5. Network domain scoping in the manifest** — DONE (PR pending).
+  `network.http` accepts `bool | []string`: `true` = any host (unchanged),
+  `["api.github.com"]` = exact-host allowlist, absent/`false` = no network.
+  Enforced in `ttt.net` (all four get/post/async), approval dialog lists hosts,
+  diff requires re-approval for new hosts or escalation to all-hosts. No `*` — `true`
+  covers it. Honestly scoped in docs: governs `ttt.net` only, not exec of curl/gh/git.
 
 ## High value — makes plugins first-class, strong candidates before 1.0
 
