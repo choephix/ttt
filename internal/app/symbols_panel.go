@@ -15,6 +15,9 @@ import (
 type SymbolsPanel struct {
 	Tree    *widgets.TreeWidget
 	Adapter *ui.WidgetAdapter
+	// Path is the file the current outline content belongs to; used to
+	// clear stale content when the active file changes.
+	Path string
 
 	// OnReveal fires while navigating the tree (selection change); it moves
 	// the editor cursor without taking focus. OnJump fires on activate
@@ -188,10 +191,17 @@ type mdHeading struct {
 func markdownSymbols(lines []string) []lsp.DocumentSymbol {
 	var headings []mdHeading
 	inFence := false
+	var fenceChar byte
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
-			inFence = !inFence
+			// A fence only closes on the same marker character it opened with.
+			if !inFence {
+				inFence = true
+				fenceChar = trimmed[0]
+			} else if trimmed[0] == fenceChar {
+				inFence = false
+			}
 			continue
 		}
 		if inFence || !strings.HasPrefix(trimmed, "#") {

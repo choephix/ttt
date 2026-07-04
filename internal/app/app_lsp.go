@@ -603,6 +603,7 @@ func (a *App) RefreshSymbols() {
 	}
 	path, lang := a.editorPathLang()
 	if path == "" || !a.EditorGroup.IsEditorActive() || a.EditorGroup.IsActiveVirtual() {
+		a.Symbols.Path = ""
 		a.Symbols.Clear()
 		return
 	}
@@ -618,6 +619,8 @@ func (a *App) ApplySymbols(symbols []lsp.DocumentSymbol) {
 }
 
 func (a *App) RequestDocumentSymbols(path, lang string) {
+	samePath := a.Symbols.Path == path
+	a.Symbols.Path = path
 	fallback := a.fallbackSymbols(path, lang)
 	serverKey, _, ok := a.lspResolve(path, lang)
 	if !ok {
@@ -640,10 +643,12 @@ func (a *App) RequestDocumentSymbols(path, lang string) {
 		}
 	}
 	// Show the built-in outline immediately when available; the server
-	// response replaces it. Otherwise indicate that a request is running.
+	// response replaces it. Otherwise show a loading state — except when
+	// re-requesting the same file, where the current outline stays up to
+	// avoid flicker (e.g. refresh on save).
 	if len(fallback) > 0 {
 		a.ApplySymbols(fallback)
-	} else if a.Symbols.Tree.ItemCount() == 0 {
+	} else if !samePath || a.Symbols.Tree.ItemCount() == 0 {
 		a.Symbols.SetStatus("Loading symbols…")
 	}
 	workDir := a.lspWorkDir(path)

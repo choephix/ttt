@@ -56,6 +56,24 @@ func TestMarkdownSymbolsSkipsFencesAndNonHeadings(t *testing.T) {
 	}
 }
 
+func TestMarkdownSymbolsMixedFenceMarkers(t *testing.T) {
+	lines := []string{
+		"# Real",
+		"```",
+		"~~~",
+		"# hidden inside backtick fence",
+		"```",
+		"## After",
+	}
+	syms := markdownSymbols(lines)
+	if len(syms) != 1 {
+		t.Fatalf("expected 1 root, got %d", len(syms))
+	}
+	if len(syms[0].Children) != 1 || syms[0].Children[0].Name != "After" {
+		t.Fatalf("~~~ must not close a ``` fence; got %+v", syms[0].Children)
+	}
+}
+
 func TestMarkdownSymbolsDeepFirstHeading(t *testing.T) {
 	syms := markdownSymbols([]string{"### Deep", "# Top"})
 	if len(syms) != 2 {
