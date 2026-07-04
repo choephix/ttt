@@ -70,6 +70,8 @@ type WidgetDesc struct {
 	Text      string
 	TextStyle string
 	Badge     string
+	Icon      string
+	Padded    bool
 
 	MarginTop     int
 	MarginBottom  int
