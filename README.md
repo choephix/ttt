@@ -695,20 +695,17 @@ All test levels run in CI on every push and pull request.
 
 A randomized fuzz tester that hammers the editor with thousands of random events — keypresses, mouse clicks, resizes, clipboard operations, and command palette commands — to find panics and crashes that normal testing misses. It runs against a `tcell.SimulationScreen` so no real terminal is needed.
 
-Runs in Docker to prevent random commands from opening browser tabs or interfering with your session.
+All chaos targets run in Docker: the random command stream can write files, persist settings, and open browser tabs, so the harness refuses to run unsandboxed (set `CHAOS_ALLOW_HOST=1` to force a host run, e.g. under a debugger).
 
 ```sh
-# Quick local run (50 iterations x 500 events)
+# Quick run (50 iterations x 500 events)
 make chaos
 
-# Build Docker image
-make chaos-docker-build
-
-# Run continuously in Docker (crash logs saved to chaos-output/)
+# Run continuously (crash logs saved to chaos-output/)
 make chaos-docker
 
 # Reproduce a specific crash deterministically
-CHAOS_REPLAY=chaos-output/crash-<seed>-<iter>.json go test ./tests/chaos/ -run TestChaosReplay
+CHAOS_REPLAY=chaos-output/crash-<seed>-<iter>.json make chaos-replay
 ```
 
 Each crash is saved as a JSON report with the random seed and full event log, so any panic can be replayed and debugged deterministically.

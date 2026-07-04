@@ -54,9 +54,7 @@ func newChaosHarness(seed int64) *chaosHarness {
 	clipboard.DisableSystem()
 	dir, _ := os.MkdirTemp("", "chaos-*")
 
-	// Isolate config writes: random commands can persist settings and
-	// keybindings (SaveSettings/SaveKeybindings) and would otherwise
-	// destroy the developer's real ~/.config/ttt.
+	// Isolate config writes — random commands persist settings and keybindings.
 	config.OverrideConfigDir = filepath.Join(dir, "config")
 
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"), 0644)
@@ -308,7 +306,22 @@ func runIteration(seed int64, eventsPerRun int) *CrashReport {
 	return report
 }
 
+// requireSandbox skips chaos tests outside a container — random commands can
+// write, delete, and execute anywhere the host user can.
+func requireSandbox(t *testing.T) {
+	t.Helper()
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return
+	}
+	if os.Getenv("CHAOS_SANDBOXED") == "1" || os.Getenv("CHAOS_ALLOW_HOST") == "1" {
+		return
+	}
+	t.Skip("chaos tests execute arbitrary random commands and must run in Docker " +
+		"(make chaos, make chaos-docker, make chaos-replay); set CHAOS_ALLOW_HOST=1 to force a host run")
+}
+
 func TestChaosMonkey(t *testing.T) {
+	requireSandbox(t)
 	iterations := 50
 	eventsPerRun := 500
 
@@ -346,6 +359,7 @@ func TestChaosMonkey(t *testing.T) {
 }
 
 func TestChaosReplay(t *testing.T) {
+	requireSandbox(t)
 	replayFile := os.Getenv("CHAOS_REPLAY")
 	if replayFile == "" {
 		t.Skip("set CHAOS_REPLAY=<crash-file.json> to replay")
@@ -381,6 +395,7 @@ func TestChaosReplay(t *testing.T) {
 
 // TestChaosLoop runs continuously until stopped — designed for Docker.
 func TestChaosLoop(t *testing.T) {
+	requireSandbox(t)
 	if os.Getenv("CHAOS_LOOP") == "" {
 		t.Skip("set CHAOS_LOOP=1 to run continuous chaos loop")
 	}
