@@ -278,9 +278,9 @@ To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 | Format Document (External) | Ctrl+L E | Format using an external formatter from settings |
 | Format Selection | *(command palette)* | Format the selected range via LSP |
 | Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
-| Outline | *(command palette)* | Symbol tree of the current file in the sidebar; navigate and jump to definitions. Uses LSP document symbols with a built-in fallback for Go and Markdown |
+| Outline\* | *(command palette)* | Symbol tree of the current file in the sidebar; navigate and jump to definitions. Uses LSP document symbols with a built-in fallback for Go and Markdown |
 
-The Outline panel was contributed by [@tenox7](https://github.com/tenox7).
+\* Thanks to [@tenox7](https://github.com/tenox7) for contributing the Outline feature.
 
 #### Auto-Completion
 
