@@ -33,6 +33,8 @@ func RunEventLoop(
 	lastBlameLine := -1
 	lastBlameFile := ""
 	lastGutterFile := ""
+	lastOutlineFile := ""
+	lastOutlineLine := -1
 	lastCursorLine := -1
 	lastCursorCol := -1
 	lastCursorFile := ""
@@ -101,6 +103,18 @@ func RunEventLoop(
 		if filePath != lastGutterFile {
 			lastGutterFile = filePath
 			app.RequestGitGutterForActiveFile()
+		}
+
+		if filePath != lastOutlineFile {
+			lastOutlineFile = filePath
+			lastOutlineLine = line
+			app.EnsureLSPOpen(filePath)
+			app.RefreshSymbols()
+		} else if line != lastOutlineLine {
+			lastOutlineLine = line
+			if app.Sidebar.ActivePanel == "outline" {
+				app.Symbols.SelectNearest(line)
+			}
 		}
 
 		if filePath != lastCursorFile || line != lastCursorLine || col != lastCursorCol {
@@ -283,6 +297,14 @@ func RunEventLoop(
 					app.ShowReferences(v.Locations)
 				} else {
 					app.StatusNotify("No references found")
+				}
+			case *SymbolsResult:
+				if v.Path == app.EditorGroup.ActiveFilePath() {
+					if len(v.Symbols) == 0 && v.Status != "" {
+						app.Symbols.SetStatus(v.Status)
+					} else {
+						app.ApplySymbols(v.Symbols)
+					}
 				}
 			case *FormattingResult:
 				if len(v.Edits) > 0 {

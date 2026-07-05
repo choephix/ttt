@@ -142,3 +142,63 @@ func TestClientConnectionClosed(t *testing.T) {
 		t.Fatal("expected error on closed connection")
 	}
 }
+
+func TestParseDocumentSymbolsHierarchical(t *testing.T) {
+	data := json.RawMessage(`[
+		{"name": "Server", "kind": 23, "range": {"start": {"line": 4, "character": 0}, "end": {"line": 9, "character": 1}},
+		 "selectionRange": {"start": {"line": 4, "character": 5}, "end": {"line": 4, "character": 11}},
+		 "children": [
+			{"name": "Start", "kind": 6, "range": {"start": {"line": 6, "character": 0}, "end": {"line": 8, "character": 1}},
+			 "selectionRange": {"start": {"line": 6, "character": 17}, "end": {"line": 6, "character": 22}}}
+		 ]}
+	]`)
+	symbols, err := parseDocumentSymbols(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(symbols) != 1 {
+		t.Fatalf("expected 1 symbol, got %d", len(symbols))
+	}
+	s := symbols[0]
+	if s.Name != "Server" || s.Kind != SKStruct {
+		t.Errorf("unexpected root symbol: %+v", s)
+	}
+	if s.SelectionRange.Start.Line != 4 || s.SelectionRange.Start.Character != 5 {
+		t.Errorf("unexpected selectionRange: %+v", s.SelectionRange)
+	}
+	if len(s.Children) != 1 || s.Children[0].Name != "Start" || s.Children[0].Kind != SKMethod {
+		t.Errorf("unexpected children: %+v", s.Children)
+	}
+}
+
+func TestParseDocumentSymbolsFlat(t *testing.T) {
+	data := json.RawMessage(`[
+		{"name": "helper", "kind": 12, "containerName": "main",
+		 "location": {"uri": "file:///a.go", "range": {"start": {"line": 10, "character": 5}, "end": {"line": 12, "character": 1}}}},
+		{"name": "main", "kind": 12,
+		 "location": {"uri": "file:///a.go", "range": {"start": {"line": 2, "character": 5}, "end": {"line": 8, "character": 1}}}}
+	]`)
+	symbols, err := parseDocumentSymbols(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(symbols) != 2 {
+		t.Fatalf("expected 2 symbols, got %d", len(symbols))
+	}
+	if symbols[0].Name != "main" || symbols[1].Name != "helper" {
+		t.Errorf("expected document order main, helper; got %s, %s", symbols[0].Name, symbols[1].Name)
+	}
+	if symbols[0].SelectionRange.Start.Line != 2 {
+		t.Errorf("expected selectionRange from location, got %+v", symbols[0].SelectionRange)
+	}
+}
+
+func TestParseDocumentSymbolsEmpty(t *testing.T) {
+	symbols, err := parseDocumentSymbols(json.RawMessage(`[]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(symbols) != 0 {
+		t.Fatalf("expected no symbols, got %d", len(symbols))
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -594,6 +595,114 @@ func (a *App) ShowReferences(locs []lsp.Location) {
 	}
 }
 
+// RefreshSymbols re-requests the outline for the active file. Cheap no-op
+// unless the Outline panel is the active sidebar panel.
+func (a *App) RefreshSymbols() {
+	if a.Symbols == nil || a.Sidebar.ActivePanel != "outline" {
+		return
+	}
+	path, lang := a.editorPathLang()
+	if path == "" || !a.EditorGroup.IsEditorActive() || a.EditorGroup.IsActiveVirtual() {
+		a.Symbols.Path = ""
+		a.Symbols.Clear()
+		return
+	}
+	a.RequestDocumentSymbols(path, lang)
+}
+
+// ApplySymbols replaces the outline content and syncs its selection to the
+// current cursor position.
+func (a *App) ApplySymbols(symbols []lsp.DocumentSymbol) {
+	a.Symbols.SetSymbols(symbols)
+	line, _ := a.EditorGroup.ActiveCursor()
+	a.Symbols.SelectNearest(line)
+}
+
+func (a *App) RequestDocumentSymbols(path, lang string) {
+	samePath := a.Symbols.Path == path
+	a.Symbols.Path = path
+	fallback := a.fallbackSymbols(path, lang)
+	serverKey, _, ok := a.lspResolve(path, lang)
+	if !ok {
+		if len(fallback) == 0 && lang != "" && !strings.EqualFold(lang, "plaintext") {
+			a.Symbols.SetStatus("No language server for " + lang)
+			return
+		}
+		a.ApplySymbols(fallback)
+		return
+	}
+	serverCfg := a.LspManager.ServerConfig(serverKey)
+	if len(serverCfg.Command) > 0 {
+		if _, err := exec.LookPath(serverCfg.Command[0]); err != nil {
+			if len(fallback) > 0 {
+				a.ApplySymbols(fallback)
+			} else {
+				a.Symbols.SetStatus(serverCfg.Command[0] + " is not installed")
+			}
+			return
+		}
+	}
+	// Show the built-in outline immediately when available; the server
+	// response replaces it. Otherwise show a loading state — except when
+	// re-requesting the same file, where the current outline stays up to
+	// avoid flicker (e.g. refresh on save).
+	if len(fallback) > 0 {
+		a.ApplySymbols(fallback)
+	} else if !samePath || a.Symbols.Tree.ItemCount() == 0 {
+		a.Symbols.SetStatus("Loading symbols…")
+	}
+	workDir := a.lspWorkDir(path)
+	go func() {
+		client, err := a.LspManager.ClientForLanguage(serverKey, workDir)
+		if err != nil {
+			slog.Error("lsp client", "err", err)
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&SymbolsResult{Path: path, Symbols: fallback, Status: "Language server unavailable"}))
+			return
+		}
+		symbols, err := client.DocumentSymbols(FileURI(path))
+		if err != nil {
+			// One retry absorbs cold-start latency and didOpen races.
+			time.Sleep(1500 * time.Millisecond)
+			symbols, err = client.DocumentSymbols(FileURI(path))
+		}
+		if err != nil {
+			slog.Error("lsp documentSymbol", "err", err)
+			a.Screen.PostEvent(tcell.NewEventInterrupt(&SymbolsResult{Path: path, Symbols: fallback, Status: lspStatusMessage(err)}))
+			return
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&SymbolsResult{Path: path, Symbols: symbols}))
+	}()
+}
+
+func lspStatusMessage(err error) string {
+	msg := err.Error()
+	if len(msg) > 60 {
+		msg = msg[:60] + "…"
+	}
+	return "LSP: " + msg
+}
+
+// EnsureLSPOpen sends didOpen for a file that became active without going
+// through OnFileOpen (tabs opened from CLI args before callbacks were wired).
+// Servers like clangd reject requests for documents they never saw opened.
+func (a *App) EnsureLSPOpen(path string) {
+	if path == "" || !a.EditorGroup.IsEditorActive() || a.EditorGroup.IsActiveVirtual() {
+		return
+	}
+	a.DocVersionsMu.Lock()
+	_, opened := a.DocVersions[path]
+	a.DocVersionsMu.Unlock()
+	if opened {
+		return
+	}
+	lang := ""
+	if a.EditorGroup.Editor.Highlighter != nil {
+		lang = a.EditorGroup.Editor.Highlighter.Language()
+	}
+	text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
+	a.NotifyLSPOpen(path, lang, text)
+}
+
 func (a *App) ApplyTextEdits(edits []lsp.TextEdit) {
 	if !a.EditorGroup.IsEditorActive() {
 		return
@@ -817,6 +926,11 @@ func (a *App) lspWorkDir(path string) string {
 	workDir := a.Workspace.Primary()
 	if folder := a.Workspace.FolderForFile(path); folder != nil {
 		workDir = folder.Path
+	}
+	if workDir == "" && path != "" {
+		// Single-file launch: no workspace folder exists. Root the server at
+		// the file's directory instead of an empty (invalid) rootURI.
+		workDir = filepath.Dir(path)
 	}
 	return workDir
 }

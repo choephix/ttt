@@ -52,6 +52,10 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
+	case "outline":
+		items = []ui.ContextMenuItem{
+			{Label: "Refresh", Command: "sidebar.outline"},
+		}
 	case "plugins":
 		items = []ui.ContextMenuItem{
 			{Label: "Install from URL", Command: "plugin.install"},
@@ -453,6 +457,27 @@ func registerWidgetCallbacks(app *App) {
 		if id == "changes" {
 			app.Changes.Refresh()
 		}
+		if id == "outline" {
+			app.RefreshSymbols()
+		}
+	}
+
+	revealSymbol := func(line, col int) {
+		app.EditorGroup.GoToLine(line + 1)
+		if app.EditorGroup.IsEditorActive() {
+			editor := app.EditorGroup.Editor
+			if editor.Cursor.Line < len(editor.Buf.Lines) {
+				runes := []rune(editor.Buf.Lines[editor.Cursor.Line])
+				if col > 0 && col <= len(runes) {
+					editor.Cursor.Col = col
+				}
+			}
+		}
+	}
+	app.Symbols.OnReveal = revealSymbol
+	app.Symbols.OnJump = func(line, col int) {
+		revealSymbol(line, col)
+		app.Root.SetFocus(app.EditorGroup)
 	}
 
 	app.EditorGroup.TabBar.OnTabClose = func(index int) {
