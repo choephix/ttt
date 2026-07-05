@@ -33,21 +33,23 @@ yay -S ttt
 
 ### NixOS
 
-> **Note:** Always install from a tagged release. The `main` branch is unstable and may contain work-in-progress features.
+> **Note:** The flake tracks `main`. A future tagged release will ship a pinned flake; until then, install from `main`.
 
 Try it without installing:
 ```sh
-nix run github:eugenioenko/ttt/v0.3.5
+nix run github:eugenioenko/ttt
 ```
 
 Add to your `flake.nix` inputs:
 ```nix
 {
-  inputs.ttt.url = "github:eugenioenko/ttt/v0.3.5";
+  inputs.ttt.url = "github:eugenioenko/ttt";
 }
 ```
 
 Then add `inputs.ttt.packages.${system}.default` to your `environment.systemPackages` or home-manager packages.
+
+Thanks to [@pirate-boop](https://github.com/pirate-boop) for keeping the flake's `vendorHash` in sync.
 
 ### Go Install
 
@@ -276,6 +278,9 @@ To disable LSP entirely: `"lsp": { "enabled": false }` in settings.
 | Format Document (External) | Ctrl+L E | Format using an external formatter from settings |
 | Format Selection | *(command palette)* | Format the selected range via LSP |
 | Diagnostics | *(automatic)* | Error/warning squiggles inline, status bar summary, hover popup |
+| Outline | *(command palette)* | Symbol tree of the current file in the sidebar; navigate and jump to definitions. Uses LSP document symbols with a built-in fallback for Go and Markdown |
+
+The Outline panel was contributed by [@tenox7](https://github.com/tenox7).
 
 #### Auto-Completion
 
