@@ -419,6 +419,18 @@ local lines = ttt.markdown("# Hello\nSome **bold** text")
 -- lines[2] = { {text = "Some ", style = "default"}, {text = "bold", style = "bold"}, ... }
 ```
 
+### Debug helpers
+
+These drive and capture the editor for automated testing (see [Testing Plugins](/guides/plugin-testing/)). They are the Lua equivalents of the `--exec` script commands. No permission required.
+
+| Function | Description |
+|----------|-------------|
+| `ttt.screenshot(path)` | Write the current screen (plain text) to a file. |
+| `ttt.debug(path)` | Write the editor's full state as JSON to a file (cursor, panels, widget tree, OUTPUT log). |
+| `ttt.click(x, y)` | Simulate a mouse click at screen coordinates. |
+| `ttt.drag(x1, y1, x2, y2)` | Simulate a mouse drag between two points. |
+| `ttt.quit()` | Exit the editor. |
+
 ### `ttt.json` Module
 
 The `ttt.json` module provides JSON encoding and decoding. No permission required.
@@ -1771,7 +1783,7 @@ Plugins run in a sandboxed Lua 5.1 environment. Only safe standard library modul
 | Function     | Returns | Description |
 |--------------|---------|-------------|
 | `os.time()`  | number  | Current Unix timestamp (seconds since epoch). |
-| `os.clock()` | number  | CPU time elapsed since the editor started (seconds, fractional). |
+| `os.clock()` | number  | Seconds elapsed since the editor started (wall-clock, fractional). |
 | `os.date([format])` | string | Format current time. Supports `%Y`, `%m`, `%d`, `%H`, `%M`, `%S`, `%c`, `%A`, `%a`, `%B`, `%b`, `%p`, `%I`, `%Z`, `%%`. Default format is `%c`. |
 
 ```lua
@@ -1798,7 +1810,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |

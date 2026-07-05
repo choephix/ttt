@@ -67,9 +67,10 @@ later; these can't be *changed* compatibly later.
   the local plugins dir, opens the entry file
 - [ ] **10. Registry version pinning** — install/update to tags instead of `git pull`
   whatever main is
-- [ ] **11. Plugin testing recipe docs** — the `--plugin` + `--exec` harness works
-  today (it found 6 widget bugs in the QA sweep); needs a docs-web page showing the
-  pattern
+- [x] **11. Plugin testing recipe docs** — DONE. New `guides/plugin-testing.md`:
+  `--plugin`/`--exec` harness, screenshot-vs-debug assertion pattern, `TTT_CONFIG_DIR`
+  isolation, testing scoped plugins via a pre-approved registry, timer example, and
+  `tui.js` wiring. Sidebar entry added.
 - [ ] **12. Render-time watchdog** — plugin render runs on the UI thread; log a
   warning when a plugin's render exceeds a budget (the 10-error auto-disable catches
   crashes, not slowness)

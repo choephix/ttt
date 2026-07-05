@@ -191,3 +191,21 @@ func TestContainersApplyBoxModel(t *testing.T) {
 		t.Errorf("scrollview box model not applied on update: %+v", sv2.Box)
 	}
 }
+
+func TestReconcileUpdatesLabelWidth(t *testing.T) {
+	ws := NewWidgetState()
+	p := &Plugin{Name: "test", State: lua.NewState()}
+	defer p.State.Close()
+
+	ws.Reconcile([]WidgetDesc{{Kind: WidgetLabel, Key: "label:0", Text: "hi", FixedWidth: 10}}, p)
+	lw := ws.items[0].(*widgets.LabelWidget)
+	if lw.FixedWidth != 10 {
+		t.Fatalf("expected initial width 10, got %d", lw.FixedWidth)
+	}
+
+	ws.Reconcile([]WidgetDesc{{Kind: WidgetLabel, Key: "label:0", Text: "hi", FixedWidth: 20}}, p)
+	lw2 := ws.items[0].(*widgets.LabelWidget)
+	if lw2.FixedWidth != 20 {
+		t.Errorf("expected width updated to 20 on reconcile, got %d", lw2.FixedWidth)
+	}
+}

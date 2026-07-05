@@ -35,6 +35,7 @@ export default defineConfig({
             { label: 'Keybindings', link: '/guides/keybindings/' },
             { label: 'Plugins', link: '/guides/plugins/' },
             { label: 'Plugin Authoring', link: '/guides/plugin-authoring/' },
+            { label: 'Testing Plugins', link: '/guides/plugin-testing/' },
           ],
         },
         {
