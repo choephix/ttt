@@ -206,7 +206,7 @@ Changes panel in the sidebar (Ctrl+K C) with full staging workflow.
 
 The bottom panel (Ctrl+K B to toggle) contains the **Terminal**, **Problems**, and **References** tabs.
 
-- **Problems tab** — lists all LSP diagnostics (errors, warnings) grouped by file; click to jump to location
+- **Diagnostics tab** — lists all LSP diagnostics (errors, warnings) grouped by file; click to jump to location
 - **References tab** — shows results from Find All References; click to jump to location
 - **Terminal tab** — integrated terminal emulator (see below)
 
@@ -291,7 +291,7 @@ Completions trigger automatically as you type with a configurable debounce (defa
 The LSP server publishes diagnostics (errors, warnings, hints) which are displayed as:
 
 - **Inline squiggles** — curly underlines on the affected range, colored by severity
-- **Problems panel** — a tab in the bottom panel listing all diagnostics grouped by file
+- **Diagnostics panel** — a tab in the bottom panel listing all diagnostics grouped by file
 - **Hover popup** — hover over a squiggle to see the diagnostic message
 - **Status bar** — error/warning counts shown in the status bar
 

@@ -144,7 +144,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	output := ui.NewOutputWidget()
 	bottomPanel := ui.NewBottomPanelWidget(borders)
 	bottomPanel.AddPanel("terminal", "Terminal", terminalPanel)
-	bottomPanel.AddPanel("problems", "Problems", problems)
+	bottomPanel.AddPanel("problems", "Diagnostics", problems)
 	bottomPanel.AddPanel("references", "References", references)
 	bottomPanel.AddPanel("output", "Output", output)
 
@@ -197,7 +197,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	root := ui.NewRoot(rootBox)
 	root.SetFocus(editorGroup)
 
-	return &App{
+	app := &App{
 		Root:                root,
 		EditorGroup:         editorGroup,
 		Sidebar:             sidebar,
@@ -220,8 +220,11 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		References:          references,
 		Output:              output,
 		DocVersions:         make(map[string]int),
-		AllDiagnostics:      make(map[string][]ui.Diagnostic),
 		LspNotified:         make(map[string]bool),
 		pluginDetailWidgets: make(map[string]*pluginDetailState),
 	}
+	// Rebuild the Diagnostics panel whenever any source (LSP or a plugin)
+	// changes its diagnostics.
+	app.EditorGroup.OnDiagnosticsChanged = app.refreshProblems
+	return app
 }

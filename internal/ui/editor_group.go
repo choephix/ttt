@@ -94,6 +94,9 @@ type EditorGroupWidget struct {
 	// diagSources holds diagnostics keyed by source ("lsp", "plugin:<name>")
 	// then by file path. Merged per-path into each tab's Diagnostics.
 	diagSources map[string]map[string][]Diagnostic
+	// OnDiagnosticsChanged fires whenever any source's diagnostics change, so
+	// the Diagnostics panel can rebuild from DiagnosticsByPath().
+	OnDiagnosticsChanged func()
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -956,6 +959,21 @@ func (g *EditorGroupWidget) SetDiagnosticsSource(source, path string, diags []Di
 		byPath[path] = diags
 	}
 	g.recomputeDiagnostics(path)
+	if g.OnDiagnosticsChanged != nil {
+		g.OnDiagnosticsChanged()
+	}
+}
+
+// DiagnosticsByPath returns every diagnostic across all sources, merged by
+// file path — used to populate the Diagnostics panel.
+func (g *EditorGroupWidget) DiagnosticsByPath() map[string][]Diagnostic {
+	merged := make(map[string][]Diagnostic)
+	for _, byPath := range g.diagSources {
+		for path, diags := range byPath {
+			merged[path] = append(merged[path], diags...)
+		}
+	}
+	return merged
 }
 
 // ClearDiagnosticsSource removes all diagnostics published by source and
@@ -972,6 +990,9 @@ func (g *EditorGroupWidget) ClearDiagnosticsSource(source string) {
 	delete(g.diagSources, source)
 	for _, path := range paths {
 		g.recomputeDiagnostics(path)
+	}
+	if g.OnDiagnosticsChanged != nil {
+		g.OnDiagnosticsChanged()
 	}
 }
 
