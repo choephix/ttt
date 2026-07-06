@@ -2382,6 +2382,94 @@ events.on("file.save", function(path)
 end)
 ```
 
+### Diagnostics (Linter)
+
+A minimal linter: it flags a few words, shows them as squiggles in the editor
+and in the **Diagnostics** panel, and offers a right-click fix. It re-scans the
+active file whenever it changes — including tab switches and files opened from
+the CLI, via the `tab.change` event.
+
+Manifest permissions:
+
+```json
+"permissions": {
+  "editor.read": true,
+  "editor.write": true,
+  "editor.diagnostics": true,
+  "events.editor": true
+}
+```
+
+```lua
+local editor = require("ttt.editor")
+local diag = require("ttt.diagnostics")
+local events = require("ttt.events")
+
+-- word -> preferred replacement
+local RULES = { utilise = "use", recieve = "receive", teh = "the" }
+
+local function scan()
+  local path = editor.file_path()
+  if path == "" then return end
+  local items = {}
+  for i, line in ipairs(editor.buffer_lines()) do
+    local init = 1
+    while true do
+      local s, e, word = string.find(line, "(%a+)", init)
+      if not s then break end
+      local fix = RULES[string.lower(word)]
+      if fix then
+        items[#items + 1] = {
+          line = i,
+          col = editor.byte_to_col(line, s),         -- byte offset -> rune column
+          end_line = i,
+          end_col = editor.byte_to_col(line, e + 1),
+          severity = "warning",
+          style = "warning",                          -- squiggle colour
+          message = "Prefer '" .. fix .. "'",
+          source = "my-linter",
+        }
+      end
+      init = e + 1
+    end
+  end
+  diag.publish(path, items)   -- replaces this plugin's diagnostics for the file
+end
+
+-- Right-click a flagged word to fix it.
+editor.register_context_menu(function(line, col, word)
+  local fix = RULES[string.lower(word or "")]
+  if not fix then return {} end
+  return {
+    { label = "Replace with '" .. fix .. "'", on_select = function()
+        local text = editor.buffer_lines()[line] or ""
+        local init = 1
+        while true do
+          local s, e = string.find(text, "(%a+)", init)
+          if not s then break end
+          local sc, ec = editor.byte_to_col(text, s), editor.byte_to_col(text, e + 1)
+          if col >= sc and col < ec then
+            editor.replace(line, sc, line, ec, fix)   -- single undo
+            scan()
+            return
+          end
+          init = e + 1
+        end
+    end },
+  }
+end)
+
+events.on("editor.change", scan)   -- re-scan on every edit
+events.on("tab.change", scan)      -- re-scan when the active file changes
+scan()                             -- initial scan
+```
+
+Diagnostics you publish coexist with the language server's, show up in the
+**Diagnostics** panel, and are cleared automatically when your plugin is
+disabled, reloaded, or uninstalled. Remember that `col`/`end_col` are **rune
+columns** — always convert byte offsets from `string.find` with
+`editor.byte_to_col`, or squiggles drift on lines with multi-byte characters.
+
 ### Reference Plugin
 
 For a complete, production-quality example, see the [Docker Manager plugin](https://github.com/eugenioenko/ttt-plugins/tree/main/docker-manager) in the community plugins repository. It demonstrates:
