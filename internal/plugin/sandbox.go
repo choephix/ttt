@@ -249,6 +249,15 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "notify", L.NewFunction(func(L *lua.LState) int {
+			msg := L.CheckString(1)
+			level := L.OptString(2, "info")
+			if p.Notify != nil {
+				p.Notify(msg, level)
+			}
+			return 0
+		}))
+
 		L.SetField(mod, "show_info", L.NewFunction(func(L *lua.LState) int {
 			title := L.CheckString(1)
 			tbl := L.CheckTable(2)

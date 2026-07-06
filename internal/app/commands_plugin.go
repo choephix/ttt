@@ -365,6 +365,16 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 			a.EditorGroup.GoToLine(line)
 		}
 	}
+	p.Notify = func(message, level string) {
+		switch level {
+		case "warn":
+			a.StatusWarn(message)
+		case "error":
+			a.StatusError(message)
+		default:
+			a.StatusNotify(message)
+		}
+	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}

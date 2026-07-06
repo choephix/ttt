@@ -80,6 +80,7 @@ type Plugin struct {
 	DebugDumpToFile    func(path string) error
 	QuitApp            func()
 	OpenFile           func(path string, line int)
+	Notify             func(message, level string)
 	PublishDiagnostics func(path string, items []DiagnosticItem)
 	ClearDiagnostics   func(path string)
 
@@ -236,6 +237,7 @@ func (p *Plugin) Destroy() {
 	p.ScreenshotToFile = nil
 	p.DebugDumpToFile = nil
 	p.QuitApp = nil
+	p.Notify = nil
 	p.PublishDiagnostics = nil
 	p.ClearDiagnostics = nil
 	p.EditorContextProvider = nil
