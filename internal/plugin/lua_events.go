@@ -15,6 +15,7 @@ var fileEvents = map[string]bool{
 var editorEvents = map[string]bool{
 	"editor.change": true,
 	"cursor.change": true,
+	"tab.change":    true,
 }
 
 func setupEventsModule(L *lua.LState, p *Plugin) {

@@ -33,6 +33,7 @@ func RunEventLoop(
 	lastBlameLine := -1
 	lastBlameFile := ""
 	lastGutterFile := ""
+	lastTabFile := ""
 	lastOutlineFile := ""
 	lastOutlineLine := -1
 	lastCursorLine := -1
@@ -103,6 +104,16 @@ func RunEventLoop(
 		if filePath != lastGutterFile {
 			lastGutterFile = filePath
 			app.RequestGitGutterForActiveFile()
+		}
+
+		// tab.change fires whenever the active file changes — including files
+		// opened from the CLI (which never go through file.open) and tab
+		// switches — giving plugins a reliable hook to (re)scan the active file.
+		if filePath != lastTabFile {
+			lastTabFile = filePath
+			if app.PluginManager != nil && filePath != "" {
+				app.PluginManager.DispatchEvent("tab.change", filePath)
+			}
 		}
 
 		if filePath != lastOutlineFile {

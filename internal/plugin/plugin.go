@@ -61,25 +61,29 @@ type Plugin struct {
 	Commands          []PluginCommand
 	PluginKeybindings []PluginKeybinding
 
-	RequestRedraw     func()
-	PostAsync         func(*PluginAsyncResult)
-	Log               func(level, message string)
-	ShowContextMenu   func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
-	ShowInfoDialog    func(title string, entries []widgets.KeyValueEntry)
-	ShowConfirmDialog func(message string, onConfirm func())
-	OpenDrawer        func(panel *PluginPanelWidget, width, minWidth int, side string)
-	CloseDrawer       func()
-	OpenTab           func(id string, panel *PluginPanelWidget)
-	CloseTab          func(id string)
-	RenderMarkdown    func(text string) []MarkdownLine
-	Markdown          config.MarkdownSettings
-	Borders           *term.BorderSet
-	SimulateClick     func(x, y int)
-	SimulateDrag      func(x1, y1, x2, y2 int)
-	ScreenshotToFile  func(path string) error
-	DebugDumpToFile   func(path string) error
-	QuitApp           func()
-	OpenFile          func(path string, line int)
+	RequestRedraw      func()
+	PostAsync          func(*PluginAsyncResult)
+	Log                func(level, message string)
+	ShowContextMenu    func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
+	ShowInfoDialog     func(title string, entries []widgets.KeyValueEntry)
+	ShowConfirmDialog  func(message string, onConfirm func())
+	OpenDrawer         func(panel *PluginPanelWidget, width, minWidth int, side string)
+	CloseDrawer        func()
+	OpenTab            func(id string, panel *PluginPanelWidget)
+	CloseTab           func(id string)
+	RenderMarkdown     func(text string) []MarkdownLine
+	Markdown           config.MarkdownSettings
+	Borders            *term.BorderSet
+	SimulateClick      func(x, y int)
+	SimulateDrag       func(x1, y1, x2, y2 int)
+	ScreenshotToFile   func(path string) error
+	DebugDumpToFile    func(path string) error
+	QuitApp            func()
+	OpenFile           func(path string, line int)
+	PublishDiagnostics func(path string, items []DiagnosticItem)
+	ClearDiagnostics   func(path string)
+
+	EditorContextProvider *lua.LFunction
 
 	Editor     EditorAPI
 	Filesystem FilesystemAPI
@@ -117,6 +121,7 @@ func (p *Plugin) Init() error {
 	p.State = NewSandbox()
 	setupTTTModule(p.State, p)
 	setupEditorModule(p.State, p)
+	setupDiagnosticsModule(p.State, p)
 	setupFsModule(p.State, p)
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
@@ -154,6 +159,7 @@ func (p *Plugin) InitFromSource(source string) error {
 	p.State = NewSandbox()
 	setupTTTModule(p.State, p)
 	setupEditorModule(p.State, p)
+	setupDiagnosticsModule(p.State, p)
 	setupFsModule(p.State, p)
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
@@ -230,6 +236,9 @@ func (p *Plugin) Destroy() {
 	p.ScreenshotToFile = nil
 	p.DebugDumpToFile = nil
 	p.QuitApp = nil
+	p.PublishDiagnostics = nil
+	p.ClearDiagnostics = nil
+	p.EditorContextProvider = nil
 	p.EventListeners = nil
 }
 

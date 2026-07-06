@@ -38,6 +38,7 @@ type Diagnostic struct {
 	EndLine   int
 	EndCol    int
 	Severity  DiagnosticSeverity
+	Style     term.Style
 	Message   string
 	Source    string
 }
@@ -90,6 +91,9 @@ type EditorGroupWidget struct {
 	OnNotify                func(msg string)
 	pendingNotify           []string
 	focused                 bool
+	// diagSources holds diagnostics keyed by source ("lsp", "plugin:<name>")
+	// then by file path. Merged per-path into each tab's Diagnostics.
+	diagSources map[string]map[string][]Diagnostic
 }
 
 func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool, gutterStyle string) *EditorGroupWidget {
@@ -911,12 +915,80 @@ func (g *EditorGroupWidget) ClearSearch() {
 	g.Editor.searchByLine = nil
 }
 
+// PositionAt maps screen coordinates to a 0-based buffer line/col and the word
+// under that position in the active editor. ok is false when the editor is not
+// active or the coordinates fall outside the editor content area.
+func (g *EditorGroupWidget) PositionAt(mx, my int) (line, col int, word string, ok bool) {
+	if !g.IsEditorActive() || g.Editor == nil || g.Editor.Buf == nil {
+		return 0, 0, "", false
+	}
+	r := g.Editor.GetRect()
+	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
+		return 0, 0, "", false
+	}
+	line, col = g.Editor.mouseToPos(r, mx, my)
+	if line < 0 || line >= len(g.Editor.Buf.Lines) {
+		return line, col, "", true
+	}
+	return line, col, wordAt(g.Editor.Buf.Lines[line], col), true
+}
+
+// SetDiagnostics replaces the LSP diagnostics for path. It is a thin wrapper
+// over SetDiagnosticsSource so LSP and plugin diagnostics merge on the same tab.
 func (g *EditorGroupWidget) SetDiagnostics(path string, diags []Diagnostic) {
+	g.SetDiagnosticsSource("lsp", path, diags)
+}
+
+// SetDiagnosticsSource stores the diagnostics for a given source/path pair and
+// recomputes the merged diagnostics shown for that path.
+func (g *EditorGroupWidget) SetDiagnosticsSource(source, path string, diags []Diagnostic) {
+	if g.diagSources == nil {
+		g.diagSources = make(map[string]map[string][]Diagnostic)
+	}
+	byPath := g.diagSources[source]
+	if byPath == nil {
+		byPath = make(map[string][]Diagnostic)
+		g.diagSources[source] = byPath
+	}
+	if len(diags) == 0 {
+		delete(byPath, path)
+	} else {
+		byPath[path] = diags
+	}
+	g.recomputeDiagnostics(path)
+}
+
+// ClearDiagnosticsSource removes all diagnostics published by source and
+// recomputes every path it touched.
+func (g *EditorGroupWidget) ClearDiagnosticsSource(source string) {
+	byPath, ok := g.diagSources[source]
+	if !ok {
+		return
+	}
+	paths := make([]string, 0, len(byPath))
+	for path := range byPath {
+		paths = append(paths, path)
+	}
+	delete(g.diagSources, source)
+	for _, path := range paths {
+		g.recomputeDiagnostics(path)
+	}
+}
+
+// recomputeDiagnostics merges every source's diagnostics for path and applies
+// the result to the matching tab (and the active editor if it is that tab).
+func (g *EditorGroupWidget) recomputeDiagnostics(path string) {
+	var merged []Diagnostic
+	for _, byPath := range g.diagSources {
+		if diags := byPath[path]; len(diags) > 0 {
+			merged = append(merged, diags...)
+		}
+	}
 	for i := range g.tabs {
 		if g.tabs[i].FilePath == path {
-			g.tabs[i].Diagnostics = diags
+			g.tabs[i].Diagnostics = merged
 			if i == g.active {
-				g.Editor.Diagnostics = diags
+				g.Editor.Diagnostics = merged
 				g.Editor.buildDiagIndex()
 			}
 			return

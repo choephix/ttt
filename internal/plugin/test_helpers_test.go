@@ -14,6 +14,7 @@ func newTestPluginBase(perms PermissionSet) (*Plugin, func()) {
 	p.State = L
 	setupTTTModule(L, p)
 	setupEditorModule(L, p)
+	setupDiagnosticsModule(L, p)
 	setupFsModule(L, p)
 	setupSystemModule(L, p)
 	setupNetModule(L, p)

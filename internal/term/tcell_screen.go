@@ -87,7 +87,18 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	}
 	if c.UlStyle != 0 {
 		us := t.styleMap[c.UlStyle]
-		s = s.Underline(us.GetUnderlineStyle(), us.GetUnderlineColor())
+		ulStyle := us.GetUnderlineStyle()
+		ulColor := us.GetUnderlineColor()
+		if ulStyle == tcell.UnderlineStyleNone {
+			// The style carries no underline of its own (e.g. a plain colour
+			// style a plugin passed for a diagnostic). Still draw a squiggle:
+			// force curly, coloured by the style's foreground.
+			ulStyle = tcell.UnderlineStyleCurly
+			if fg, _, _ := us.Decompose(); fg != tcell.ColorDefault {
+				ulColor = fg
+			}
+		}
+		s = s.Underline(ulStyle, ulColor)
 	}
 	if c.Underline {
 		s = s.Underline(true)

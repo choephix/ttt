@@ -11,18 +11,32 @@ import (
 )
 
 type DebugState struct {
-	Screen      DebugScreen      `json:"screen"`
-	Cursor      DebugCursor      `json:"cursor"`
-	Buffer      *DebugBuffer     `json:"buffer"`
-	Focus       string           `json:"focus"`
-	Sidebar     DebugPanel       `json:"sidebar"`
-	BottomPanel DebugPanel       `json:"bottom_panel"`
-	Tabs        []DebugTab       `json:"tabs"`
-	ActiveTab   int              `json:"active_tab"`
-	Overlay     *DebugOverlay    `json:"overlay"`
-	Selection   DebugSelection   `json:"selection"`
-	Output      []string         `json:"output"`
-	WidgetTree  *DebugWidgetNode `json:"widget_tree"`
+	Screen      DebugScreen       `json:"screen"`
+	Cursor      DebugCursor       `json:"cursor"`
+	Buffer      *DebugBuffer      `json:"buffer"`
+	Focus       string            `json:"focus"`
+	Sidebar     DebugPanel        `json:"sidebar"`
+	BottomPanel DebugPanel        `json:"bottom_panel"`
+	Tabs        []DebugTab        `json:"tabs"`
+	ActiveTab   int               `json:"active_tab"`
+	Overlay     *DebugOverlay     `json:"overlay"`
+	Selection   DebugSelection    `json:"selection"`
+	Diagnostics []DebugDiagnostic `json:"diagnostics"`
+	Output      []string          `json:"output"`
+	WidgetTree  *DebugWidgetNode  `json:"widget_tree"`
+}
+
+// DebugDiagnostic reports one diagnostic on the active editor (LSP or plugin),
+// so scripted tests can observe squiggles that a text screenshot can't show.
+type DebugDiagnostic struct {
+	StartLine int    `json:"start_line"`
+	StartCol  int    `json:"start_col"`
+	EndLine   int    `json:"end_line"`
+	EndCol    int    `json:"end_col"`
+	Severity  int    `json:"severity"`
+	Source    string `json:"source"`
+	Message   string `json:"message"`
+	Styled    bool   `json:"styled"`
 }
 
 type DebugScreen struct {
@@ -100,6 +114,17 @@ func (a *App) BuildDebugState() *DebugState {
 			Path:     a.EditorGroup.ActiveFilePath(),
 			Lines:    len(buf.Lines),
 			Modified: buf.Dirty,
+		}
+	}
+
+	if ed := a.EditorGroup.Editor; ed != nil {
+		for _, d := range ed.Diagnostics {
+			state.Diagnostics = append(state.Diagnostics, DebugDiagnostic{
+				StartLine: d.StartLine, StartCol: d.StartCol,
+				EndLine: d.EndLine, EndCol: d.EndCol,
+				Severity: int(d.Severity), Source: d.Source,
+				Message: d.Message, Styled: d.Style != 0,
+			})
 		}
 	}
 

@@ -185,6 +185,7 @@ func (a *App) pluginUninstall() {
 func (a *App) doPluginUninstall(name string) {
 	a.Sidebar.RemovePanel("plugin." + name)
 	a.BottomPanel.RemovePanel("plugin." + name)
+	a.EditorGroup.ClearDiagnosticsSource("plugin:" + name)
 
 	if err := a.PluginManager.Uninstall(name); err != nil {
 		slog.Error("plugin uninstall", "error", err)
@@ -366,6 +367,32 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
+	}
+	diagSource := "plugin:" + p.Name
+	p.PublishDiagnostics = func(path string, items []plugin.DiagnosticItem) {
+		diags := make([]ui.Diagnostic, 0, len(items))
+		for _, it := range items {
+			diags = append(diags, ui.Diagnostic{
+				StartLine: it.StartLine,
+				StartCol:  it.StartCol,
+				EndLine:   it.EndLine,
+				EndCol:    it.EndCol,
+				Severity:  ui.DiagnosticSeverity(it.Severity),
+				Style:     it.Style,
+				Message:   it.Message,
+				Source:    it.Source,
+			})
+		}
+		a.EditorGroup.SetDiagnosticsSource(diagSource, path, diags)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
+	p.ClearDiagnostics = func(path string) {
+		if path == "" {
+			a.EditorGroup.ClearDiagnosticsSource(diagSource)
+		} else {
+			a.EditorGroup.SetDiagnosticsSource(diagSource, path, nil)
+		}
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
 	p.RenderMarkdown = func(text string) []plugin.MarkdownLine {
 		rendered := markdown.Render(text)
@@ -560,6 +587,7 @@ func (a *App) pluginReload() {
 func (a *App) doPluginReload(name string) {
 	a.Sidebar.RemovePanel("plugin." + name)
 	a.BottomPanel.RemovePanel("plugin." + name)
+	a.EditorGroup.ClearDiagnosticsSource("plugin:" + name)
 
 	p, err := a.PluginManager.Reload(name)
 	if err != nil {

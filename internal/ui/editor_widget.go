@@ -556,6 +556,9 @@ func (e *EditorPaneWidget) diagStyleAt(line, col int) term.Style {
 		if line == d.EndLine && col >= d.EndCol {
 			continue
 		}
+		if d.Style != 0 {
+			return d.Style
+		}
 		switch d.Severity {
 		case DiagError:
 			return term.StyleDiagError
@@ -1216,6 +1219,32 @@ func (e *EditorPaneWidget) mouseToPos(r Rect, mx, my int) (line, col int) {
 		col = lineLen
 	}
 	return
+}
+
+// wordAt returns the maximal run of word characters (letters, digits, or '_')
+// surrounding col in lineText, or "" if col is not on a word character.
+func wordAt(lineText string, col int) string {
+	runes := []rune(lineText)
+	if len(runes) == 0 || col < 0 {
+		return ""
+	}
+	if col >= len(runes) {
+		col = len(runes) - 1
+	}
+	isWord := func(r rune) bool {
+		return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+	}
+	if !isWord(runes[col]) {
+		return ""
+	}
+	start, end := col, col
+	for start > 0 && isWord(runes[start-1]) {
+		start--
+	}
+	for end < len(runes)-1 && isWord(runes[end+1]) {
+		end++
+	}
+	return string(runes[start : end+1])
 }
 
 func (e *EditorPaneWidget) selectWord(line, col int) {

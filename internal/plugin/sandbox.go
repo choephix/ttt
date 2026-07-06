@@ -492,14 +492,15 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 	L.PreloadModule("ttt", loader)
 
 	allowedModules := map[string]bool{
-		"ttt":          true,
-		"ttt.editor":   true,
-		"ttt.fs":       true,
-		"ttt.system":   true,
-		"ttt.net":      true,
-		"ttt.events":   true,
-		"ttt.json":     true,
-		"ttt.settings": true,
+		"ttt":             true,
+		"ttt.editor":      true,
+		"ttt.diagnostics": true,
+		"ttt.fs":          true,
+		"ttt.system":      true,
+		"ttt.net":         true,
+		"ttt.events":      true,
+		"ttt.json":        true,
+		"ttt.settings":    true,
 	}
 
 	origRequire := L.GetGlobal("require")
