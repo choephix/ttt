@@ -257,6 +257,25 @@ ttt.show_info("Shortcuts", {
 })
 ```
 
+### `ttt.notify(message[, level])`
+
+Show a transient message in the status bar.
+
+| Parameter | Type   | Required | Description                                                       |
+|-----------|--------|----------|-------------------------------------------------------------------|
+| `message` | string | yes      | The text to show.                                                 |
+| `level`   | string | no       | `"info"` (default), `"warn"`, or `"error"` — controls the colour. |
+
+```lua
+ttt.notify("Formatted 3 files")
+ttt.notify("aspell not found in PATH", "warn")
+ttt.notify("Could not reach the server", "error")
+```
+
+Use `notify` for lightweight, non-blocking feedback (a linter's "binary missing"
+hint, "added to dictionary", and so on). For anything the user must respond to,
+use [`ttt.confirm`](#ttt-confirm) or [`ttt.show_info`](#ttt-show_info) instead.
+
 ### `ttt.open_drawer(config)`
 
 Open a drawer panel anchored to the left or right side of the editor. Requires `panel.drawer` permission.
@@ -1810,7 +1829,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.fs`       | Filesystem access              |
