@@ -82,13 +82,14 @@ type WidgetDesc struct {
 	PaddingLeft   int
 	PaddingRight  int
 
-	Items       []*widgets.TreeNode
-	Indent      int
-	OnSelect    func(node *widgets.TreeNode)
-	OnExpand    func(node *widgets.TreeNode)
-	OnCommand   func(command string, node *widgets.TreeNode)
-	NodeMenu    []widgets.MenuEntry
-	KeyCommands map[rune]string
+	Items         []*widgets.TreeNode
+	Indent        int
+	SelectOnClick bool
+	OnSelect      func(node *widgets.TreeNode)
+	OnExpand      func(node *widgets.TreeNode)
+	OnCommand     func(command string, node *widgets.TreeNode)
+	NodeMenu      []widgets.MenuEntry
+	KeyCommands   map[rune]string
 
 	Label   string
 	OnClick func()

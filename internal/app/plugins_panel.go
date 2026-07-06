@@ -60,12 +60,11 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 	})
 
 	pp.InstalledTree = widgets.NewTreeWidget(widgets.TreeConfig{
-		EmptyText: "No plugins installed",
-		Indent:    1,
-		// A non-empty NodeMenu renders the ⋮ button per row; the real,
-		// state-aware menu is built in OnMenu / ShowPluginRowMenu.
-		NodeMenu: []widgets.MenuEntry{{Label: "Actions"}},
-		MenuIcon: "⋮",
+		EmptyText:     "No plugins installed",
+		Indent:        1,
+		SelectOnClick: true,
+		NodeMenu:      []widgets.MenuEntry{{Label: "Actions"}},
+		MenuIcon:      "⋮",
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			pp.handleCommand(cmd, node)
 		},

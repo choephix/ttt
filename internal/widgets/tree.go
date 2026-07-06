@@ -39,8 +39,9 @@ type TreeConfig struct {
 	MenuIcon       string      `json:"menuIcon,omitempty"`
 	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
 	Indent         int         `json:"indent,omitempty"`
-	ActiveID       string      `json:"-"`
-	EmptyText      string      `json:"emptyText,omitempty"`
+	ActiveID       string `json:"-"`
+	EmptyText      string `json:"emptyText,omitempty"`
+	SelectOnClick  bool   `json:"-"`
 
 	OnCommand  func(command string, node *TreeNode)
 	OnMenu     func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
@@ -558,7 +559,9 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 			}
 		}
 
-		t.ActivateSelected()
+		if !t.Config.SelectOnClick {
+			t.ActivateSelected()
+		}
 		return EventConsumed
 	}
 
