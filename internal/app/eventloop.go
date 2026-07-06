@@ -322,13 +322,9 @@ func RunEventLoop(
 					app.ApplyTextEdits(v.Edits)
 				}
 			case *DiagnosticsResult:
+				// SetDiagnostics routes through the "lsp" source and fires
+				// OnDiagnosticsChanged, which rebuilds the Diagnostics panel.
 				app.EditorGroup.SetDiagnostics(v.Path, v.Diagnostics)
-				if len(v.Diagnostics) == 0 {
-					delete(app.AllDiagnostics, v.Path)
-				} else {
-					app.AllDiagnostics[v.Path] = v.Diagnostics
-				}
-				app.refreshProblems()
 			case *FileChangedResult:
 				app.HandleFileChanged(v.Path)
 			case *ui.SearchBatch:

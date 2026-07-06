@@ -296,7 +296,7 @@ Completions trigger automatically as you type with a configurable debounce (defa
 The LSP server publishes diagnostics (errors, warnings, hints) which are displayed as:
 
 - **Inline squiggles** on the affected range, colored by severity
-- **Problems panel** in the bottom panel listing all diagnostics grouped by file
+- **Diagnostics panel** in the bottom panel listing all diagnostics grouped by file
 - **Hover popup** over a squiggle to see the diagnostic message
 - **Status bar** error/warning counts
 

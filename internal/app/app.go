@@ -66,7 +66,6 @@ type App struct {
 	LastHoverCol           int
 	Problems               *ui.ProblemsWidget
 	References             *ui.ReferencesWidget
-	AllDiagnostics         map[string][]ui.Diagnostic
 	Keybindings            []config.KeyBinding
 	LspNotified            map[string]bool
 	Explorer               *NavigationPanel
@@ -289,7 +288,7 @@ func (a *App) refreshWorkspaceWidgets() {
 
 func (a *App) refreshProblems() {
 	var items []ui.ProblemItem
-	for path, diags := range a.AllDiagnostics {
+	for path, diags := range a.EditorGroup.DiagnosticsByPath() {
 		for _, d := range diags {
 			items = append(items, ui.ProblemItem{
 				File:     path,
