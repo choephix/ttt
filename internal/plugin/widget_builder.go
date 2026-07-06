@@ -358,9 +358,10 @@ func createKeyValueWidget(desc WidgetDesc) *widgets.KeyValueListWidget {
 
 func createTreeWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 	tw := widgets.NewTreeWidget(widgets.TreeConfig{
-		Items:    desc.Items,
-		Indent:   desc.Indent,
-		NodeMenu: desc.NodeMenu,
+		Items:         desc.Items,
+		Indent:        desc.Indent,
+		NodeMenu:      desc.NodeMenu,
+		SelectOnClick: desc.SelectOnClick,
 	})
 	wireTreeCallbacks(tw, desc, p)
 	applyBoxModel(&tw.Box, desc)
@@ -369,8 +370,9 @@ func createTreeWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 
 func createListWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 	tw := widgets.NewTreeWidget(widgets.TreeConfig{
-		Items:    desc.Items,
-		NodeMenu: desc.NodeMenu,
+		Items:         desc.Items,
+		NodeMenu:      desc.NodeMenu,
+		SelectOnClick: desc.SelectOnClick,
 	})
 	wireTreeCallbacks(tw, desc, p)
 	applyBoxModel(&tw.Box, desc)

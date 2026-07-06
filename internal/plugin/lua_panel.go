@@ -347,6 +347,9 @@ func panelTreeWidget(L *lua.LState) int {
 	if kc, ok := L.GetField(tbl, "key_commands").(*lua.LTable); ok {
 		desc.KeyCommands = parseLuaKeyCommands(L, kc)
 	}
+	if v := L.GetField(tbl, "select_on_click"); v == lua.LTrue {
+		desc.SelectOnClick = true
+	}
 
 	parseBoxModel(L, tbl, &desc)
 	proxy.appendDesc(WidgetTree, desc)
@@ -376,6 +379,9 @@ func panelListWidget(L *lua.LState) int {
 	}
 	if kc, ok := L.GetField(tbl, "key_commands").(*lua.LTable); ok {
 		desc.KeyCommands = parseLuaKeyCommands(L, kc)
+	}
+	if v := L.GetField(tbl, "select_on_click"); v == lua.LTrue {
+		desc.SelectOnClick = true
 	}
 
 	parseBoxModel(L, tbl, &desc)
