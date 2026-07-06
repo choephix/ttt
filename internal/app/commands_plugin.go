@@ -742,8 +742,14 @@ func (a *App) ShowPluginRowMenu(name string, enabled bool, x, y int) {
 	}
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = a.Borders
-	menu.OnExec = func(cmd string) {
+	restoreFocus := func() {
 		a.Root.PopOverlay()
+		if a.PluginsPanel != nil {
+			a.Root.SetFocus(a.PluginsPanel.InstalledTree)
+		}
+	}
+	menu.OnExec = func(cmd string) {
+		restoreFocus()
 		if a.PluginsPanel == nil {
 			return
 		}
@@ -763,7 +769,7 @@ func (a *App) ShowPluginRowMenu(name string, enabled bool, x, y int) {
 		}
 	}
 	menu.OnDismiss = func() {
-		a.Root.PopOverlay()
+		restoreFocus()
 	}
 	a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
 	a.Root.SetFocus(menu)
