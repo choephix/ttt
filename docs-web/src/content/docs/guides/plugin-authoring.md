@@ -1258,6 +1258,24 @@ Require the `editor.read` permission.
 | `editor.file_path()`   | string                                                    | Absolute path of the active file.    |
 | `editor.file_name()`   | string                                                    | Filename only.                       |
 | `editor.language()`    | string                                                    | Detected language (e.g. `"go"`, `"lua"`). |
+| `editor.byte_to_col(text, byte)` | number                                          | Convert a 1-based **byte** offset in `text` to a 1-based **rune column**. |
+| `editor.col_to_byte(text, col)`  | number                                          | Convert a 1-based **rune column** in `text` to a 1-based **byte** offset. |
+
+> **Columns are runes, not bytes.** The editor — and every position in the
+> `editor.replace` and diagnostics APIs — uses 1-based **rune (visual) columns**.
+> But Lua string functions like `string.find` return **byte** offsets, and the
+> two diverge on any line containing multi-byte characters (an em-dash `—` is
+> 3 bytes but 1 column). Convert offsets you get from Lua before handing them
+> to the editor:
+>
+> ```lua
+> local s = string.find(line, "teh")            -- byte offset
+> local col = editor.byte_to_col(line, s)        -- rune column the editor expects
+> editor.set_cursor(lineNumber, col)
+> ```
+>
+> Skipping this makes squiggles and edits land in the wrong place once a line
+> has any non-ASCII text.
 
 ### Write Functions
 
