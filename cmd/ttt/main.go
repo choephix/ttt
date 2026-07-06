@@ -295,6 +295,9 @@ Docs: https://tttedit.dev
 		pluginsPanel.OnOpenDetail = func(entry plugin.RemoteRegistryEntry) {
 			editor.OpenPluginDetail(entry)
 		}
+		pluginsPanel.OnRowMenu = func(name string, enabled bool, screenX, screenY int) {
+			editor.ShowPluginRowMenu(name, enabled, screenX, screenY)
+		}
 		pluginsPanel.OnDropdownMenu = func(entries []widgets.MenuEntry, screenX, screenY int) {
 			editor.ShowPluginDropdownMenu(entries, screenX, screenY)
 		}

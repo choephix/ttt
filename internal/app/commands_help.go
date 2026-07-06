@@ -65,7 +65,10 @@ func (a *App) ShowPanelHelp(title string, entries []widgets.KeyValueEntry, descr
 	a.ShowDialog(adapter)
 }
 
-var pluginHelpEntries = []widgets.KeyValueEntry{}
+var pluginHelpEntries = []widgets.KeyValueEntry{
+	{Key: "Enter / Space", Value: "Open the plugin actions menu (enable/disable, update, uninstall)"},
+	{Key: "⋮", Value: "Open the plugin actions menu"},
+}
 
 func registerHelpCommands(app *App) {
 	reg := app.Reg

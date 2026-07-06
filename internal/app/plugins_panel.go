@@ -22,6 +22,7 @@ type PluginsPanel struct {
 	OnToggle       func(name string, enabled bool)
 	OnUpdate       func(name string)
 	OnOpenDetail   func(entry plugin.RemoteRegistryEntry)
+	OnRowMenu      func(name string, enabled bool, screenX, screenY int)
 	OnDropdownMenu func(entries []widgets.MenuEntry, screenX, screenY int)
 
 	available   []plugin.RemoteRegistryEntry
@@ -61,8 +62,15 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 	pp.InstalledTree = widgets.NewTreeWidget(widgets.TreeConfig{
 		EmptyText: "No plugins installed",
 		Indent:    1,
+		// A non-empty NodeMenu renders the ⋮ button per row; the real,
+		// state-aware menu is built in OnMenu / ShowPluginRowMenu.
+		NodeMenu: []widgets.MenuEntry{{Label: "Actions"}},
+		MenuIcon: "⋮",
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			pp.handleCommand(cmd, node)
+		},
+		OnMenu: func(_ []widgets.MenuEntry, node *widgets.TreeNode, screenX, screenY int) {
+			pp.showRowMenu(node, screenX, screenY)
 		},
 	})
 
@@ -70,6 +78,8 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 		Entries: []widgets.MenuEntry{
 			{Label: "Update All", Command: "updateAll"},
 			{Label: "Refresh", Command: "refresh"},
+			{Separator: true},
+			{Label: "Help", Command: "help"},
 		},
 		OnMenu: func(entries []widgets.MenuEntry, screenX, screenY int) {
 			if pp.OnDropdownMenu != nil {
@@ -108,29 +118,29 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 	return pp
 }
 
+// handleCommand handles row activation. Selecting a row never toggles the
+// plugin (too easy to disable by accident); Enter / Space open the same
+// per-plugin actions menu as the ⋮ button, anchored to the selected row.
 func (pp *PluginsPanel) handleCommand(cmd string, node *widgets.TreeNode) {
-	switch cmd {
-	case "activate", "toggle":
-		reg := pp.manager.Registry()
-		if reg == nil {
-			return
-		}
-		entry := reg.Find(node.ID)
-		if entry == nil {
-			return
-		}
-		if pp.OnToggle != nil {
-			pp.OnToggle(node.ID, !entry.Enabled)
-		}
-	case "uninstall":
-		if pp.OnUninstall != nil {
-			pp.OnUninstall(node.ID)
-		}
-	case "update":
-		if pp.OnUpdate != nil {
-			pp.OnUpdate(node.ID)
-		}
+	if node == nil || cmd != "activate" {
+		return
 	}
+	rect := pp.InstalledTree.GetRect()
+	x := rect.X
+	y := rect.Y + pp.InstalledTree.SelectedIndex() - pp.InstalledTree.ScrollTop()
+	pp.showRowMenu(node, x, y)
+}
+
+// showRowMenu opens the per-plugin actions menu for the given row.
+func (pp *PluginsPanel) showRowMenu(node *widgets.TreeNode, x, y int) {
+	if node == nil || pp.OnRowMenu == nil {
+		return
+	}
+	enabled := false
+	if p := pp.manager.FindPlugin(node.ID); p != nil {
+		enabled = p.Enabled
+	}
+	pp.OnRowMenu(node.ID, enabled, x, y)
 }
 
 func (pp *PluginsPanel) Refresh() {
@@ -165,10 +175,6 @@ func (pp *PluginsPanel) Refresh() {
 			Badge:     badge,
 			Icon:      icon,
 			IconStyle: iconStyle,
-			Actions: []widgets.Action{
-				{Icon: "↑", Command: "update"},
-				{Icon: "×", Command: "uninstall"},
-			},
 		}
 		installed = append(installed, node)
 	}

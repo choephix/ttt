@@ -722,7 +722,51 @@ func (a *App) handlePluginDropdownCommand(cmd string) {
 		}
 	case "refresh":
 		a.PluginRefreshRegistry()
+	case "help":
+		a.Reg.Execute("plugin.help")
 	}
+}
+
+// ShowPluginRowMenu opens the per-plugin actions menu (enable/disable, update,
+// uninstall) for one installed plugin. Selecting a row no longer toggles it;
+// these actions live here and on the e/u/x shortcuts.
+func (a *App) ShowPluginRowMenu(name string, enabled bool, x, y int) {
+	toggleLabel := "Disable"
+	if !enabled {
+		toggleLabel = "Enable"
+	}
+	items := []ui.ContextMenuItem{
+		{Label: toggleLabel, Command: "toggle"},
+		{Label: "Update", Command: "update"},
+		{Label: "Uninstall", Command: "uninstall"},
+	}
+	menu := ui.NewContextMenuWidget(items, x, y)
+	menu.Borders = a.Borders
+	menu.OnExec = func(cmd string) {
+		a.Root.PopOverlay()
+		if a.PluginsPanel == nil {
+			return
+		}
+		switch cmd {
+		case "toggle":
+			if a.PluginsPanel.OnToggle != nil {
+				a.PluginsPanel.OnToggle(name, !enabled)
+			}
+		case "update":
+			if a.PluginsPanel.OnUpdate != nil {
+				a.PluginsPanel.OnUpdate(name)
+			}
+		case "uninstall":
+			if a.PluginsPanel.OnUninstall != nil {
+				a.PluginsPanel.OnUninstall(name)
+			}
+		}
+	}
+	menu.OnDismiss = func() {
+		a.Root.PopOverlay()
+	}
+	a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	a.Root.SetFocus(menu)
 }
 
 func (a *App) PluginRefreshRegistry() {
