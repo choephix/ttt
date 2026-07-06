@@ -21,6 +21,8 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "file_path", L.NewFunction(editorFilePath(p)))
 			L.SetField(mod, "file_name", L.NewFunction(editorFileName(p)))
 			L.SetField(mod, "language", L.NewFunction(editorLanguage(p)))
+			L.SetField(mod, "byte_to_col", L.NewFunction(editorByteToCol(p)))
+			L.SetField(mod, "col_to_byte", L.NewFunction(editorColToByte(p)))
 			L.SetField(mod, "register_context_menu", L.NewFunction(editorRegisterContextMenu(p)))
 		}
 
@@ -159,6 +161,66 @@ func editorLanguage(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		L.Push(lua.LString(p.Editor.Language()))
+		return 1
+	}
+}
+
+// isUTF8Lead reports whether b is a UTF-8 lead byte (start of a rune), i.e.
+// not a 0x80..0xBF continuation byte.
+func isUTF8Lead(b byte) bool {
+	return b < 0x80 || b >= 0xC0
+}
+
+// editorByteToCol converts a 1-based byte offset into a 1-based rune column for
+// the given line text. It counts the UTF-8 lead bytes in text[1..b-1] and adds
+// one. The offset is clamped to [1, #text+1]. This is a pure helper (no editor
+// state) so plugins can map byte offsets from Lua string functions to the
+// rune/visual columns the editor APIs expect.
+func editorByteToCol(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		text := L.CheckString(1)
+		b := L.CheckInt(2)
+		if b < 1 {
+			b = 1
+		}
+		if b > len(text)+1 {
+			b = len(text) + 1
+		}
+		col := 1
+		for i := 0; i < b-1; i++ {
+			if isUTF8Lead(text[i]) {
+				col++
+			}
+		}
+		L.Push(lua.LNumber(col))
+		return 1
+	}
+}
+
+// editorColToByte converts a 1-based rune column into the 1-based byte offset
+// where that rune starts, for the given line text. It walks the string counting
+// lead bytes and clamps the column to [1, runeCount+1] (a column past the end
+// maps to #text+1). Inverse of editorByteToCol.
+func editorColToByte(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		text := L.CheckString(1)
+		c := L.CheckInt(2)
+		if c < 1 {
+			c = 1
+		}
+		runes := 0
+		for i := 0; i < len(text); i++ {
+			if isUTF8Lead(text[i]) {
+				runes++
+				if runes == c {
+					L.Push(lua.LNumber(i + 1))
+					return 1
+				}
+			}
+		}
+		// Column at or past the end: the (runeCount+1)-th rune starts past the
+		// last byte.
+		L.Push(lua.LNumber(len(text) + 1))
 		return 1
 	}
 }
