@@ -1286,6 +1286,87 @@ local line = editor.current_line()
 editor.insert(pos.line, pos.col, "// TODO: ")
 ```
 
+## Diagnostics
+
+Plugins can publish editor **diagnostics** — curly-underline squiggles with a
+hover message — through the `ttt.diagnostics` module. This is how linters, spell
+checkers and similar tools surface problems. Requires the `editor.diagnostics`
+permission.
+
+```lua
+local diag = require("ttt.diagnostics")
+
+diag.publish("/abs/path/to/file.lua", {
+  {
+    line = 3, col = 5, end_line = 3, end_col = 8,   -- 1-based rune columns
+    severity = "warning",                            -- "error" | "warning" | "info" | "hint"
+    style = "danger",                                -- optional named style for the squiggle colour
+    message = "Did you mean 'and'?",                 -- shown on hover / in the Problems panel
+    source = "my-linter",                            -- optional label
+  },
+})
+
+diag.clear("/abs/path/to/file.lua")   -- clear this plugin's diagnostics for one file
+diag.clear()                          -- clear all of this plugin's diagnostics
+```
+
+### `diagnostics.publish(path, items)`
+
+Replaces this plugin's diagnostics for `path` with `items`. Each item is a table:
+
+| Field      | Type   | Required | Description                                                              |
+|------------|--------|----------|--------------------------------------------------------------------------|
+| `line`     | number | yes      | 1-based start line.                                                      |
+| `col`      | number | yes      | 1-based start **rune column** (see the note below).                     |
+| `end_line` | number | no       | 1-based end line. Defaults to `line`.                                   |
+| `end_col`  | number | no       | 1-based end column, exclusive. Defaults to `col + 1`.                   |
+| `severity` | string | no       | `"error"`, `"warning"` (default), `"info"`, or `"hint"`.                |
+| `style`    | string | no       | A named style for the squiggle colour, overriding the severity default. |
+| `message`  | string | no       | Text shown on hover and in the Problems panel.                          |
+| `source`   | string | no       | A short label identifying the producer.                                 |
+
+Publishing an empty list clears the plugin's diagnostics for that path. Your
+diagnostics coexist with the language server's (they don't replace each other)
+and are cleared automatically when the plugin is disabled, reloaded or
+uninstalled.
+
+> **Columns are rune columns, not bytes.** `col`/`end_col` are 1-based rune
+> (visual) columns. Lua's `string.find` returns *byte* offsets, which diverge on
+> multi-byte lines — convert them with `editor.byte_to_col` before publishing,
+> or squiggles will land in the wrong place.
+
+### `diagnostics.clear([path])`
+
+Clears this plugin's diagnostics. With a `path`, clears just that file; with no
+argument, clears every file.
+
+## Editor Context Menu
+
+A plugin can contribute items to the editor's activation / right-click menu —
+for example a spell checker's "Correct to …" actions. Requires `editor.read`.
+
+```lua
+local editor = require("ttt.editor")
+
+editor.register_context_menu(function(line, col, word)
+  -- line, col are 1-based; word is the word under the click ("" if none)
+  if word ~= "recieve" then return {} end
+  return {
+    { label = "Correct to 'receive'", on_select = function()
+        editor.replace(line, col, line, col + #word, "receive")
+    end },
+    { separator = true },
+    { label = "Add to dictionary", on_select = function() --[[ ... ]] end },
+  }
+end)
+```
+
+The callback receives the clicked position and the word under it, and returns an
+array of items. Each item is either `{ label = "...", on_select = function() ... end }`
+or `{ separator = true }`. The items are appended to the editor's context menu,
+and `on_select` runs when the user picks one. Return an empty table to
+contribute nothing for that click.
+
 ## Filesystem API
 
 The `ttt.fs` module provides file system access. Access is restricted to the workspace folders and the plugin's own directory — paths outside these roots (including via symlinks) return an "access denied" error.
@@ -1558,6 +1639,7 @@ Register an event listener. Multiple listeners can be registered for the same ev
 |-----------------|-----------------------------|
 | `editor.change` | Buffer content changed.     |
 | `cursor.change` | Cursor position changed (line or column). |
+| `tab.change`    | The active file changed — a tab switch, or a file opened from the CLI. Useful for re-scanning the newly active file. |
 
 All callbacks receive the file path of the affected file as their single argument.
 
@@ -1732,13 +1814,14 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 | `keybindings`    | boolean  | Bind keyboard shortcuts.                          |
 | `editor.read`    | boolean  | Read the contents of editor buffers (`ttt.editor` read functions). |
 | `editor.write`   | boolean  | Modify editor buffers (`ttt.editor` write functions). |
+| `editor.diagnostics` | boolean | Publish editor diagnostics/squiggles via `ttt.diagnostics`. |
 | `fs.read`        | boolean  | Read files and list directories (`ttt.fs` read functions). |
 | `fs.write`       | boolean  | Write files to the file system (`ttt.fs.write`).  |
 | `system.exec`    | string[] | Execute specific system commands. List each allowed binary name. |
 | `system.env`     | boolean  | Read environment variables (`ttt.system.env`).    |
 | `network.http`   | boolean \| string[] | Make outbound HTTP requests (`ttt.net`). `true` allows any host; an array (`["api.github.com"]`) restricts requests to those hostnames. See [Network host scoping](#network-host-scoping). |
 | `events.file`    | boolean  | Listen for file events: `file.open`, `file.close`, `file.save`. |
-| `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`. |
+| `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`, `tab.change`. |
 | `settings`       | boolean  | Read/write editor settings (`ttt.settings`).      |
 | `settings_keys`  | string[] | Allowed settings key patterns. Use `group.*` for prefix match or exact key. |
 
@@ -1813,6 +1896,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 | `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
+| `ttt.diagnostics` | Publish editor diagnostics (squiggles) |
 | `ttt.fs`       | Filesystem access              |
 | `ttt.system`   | Command execution, env vars    |
 | `ttt.net`      | HTTP requests                  |
