@@ -1,0 +1,51 @@
+name: Auto-update Flake Hash
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+
+jobs:
+  update-hash:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a PR
+      pull-requests: write # Required to create a PR
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v25
+
+      - name: Update vendorHash
+        id: update_hash
+        run: |
+          # Inject the fake hash
+          sed -i 's/vendorHash = ".*";/vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";/g' flake.nix
+          
+          # Trigger the build and capture the error output
+          ERROR_OUTPUT=$(nix build .#default --no-link 2>&1) || true
+          
+          # Reliable regex to extract the hash regardless of whitespace formatting
+          NEW_HASH=$(echo "$ERROR_OUTPUT" | grep -oP 'got:\s*\Ksha256-[A-Za-z0-9+/=]+' || true)
+          
+          if [ -n "$NEW_HASH" ] && [ "$NEW_HASH" != "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" ]; then
+            sed -i "s|vendorHash = \".*\";|vendorHash = \"$NEW_HASH\";|g" flake.nix
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.update_hash.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: auto-update vendorHash in flake.nix"
+          title: "chore: update vendorHash"
+          branch: "auto-update-vendorhash"
+          delete-branch: true
+          reviewers: ""
