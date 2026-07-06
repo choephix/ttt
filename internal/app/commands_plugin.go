@@ -281,9 +281,6 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 			a.DismissDialog()
 			if err := a.PluginManager.ApproveAndLoad(p); err == nil {
 				a.WirePlugin(p)
-				// Let a just-approved plugin scan the already-open file
-				// immediately (no file transition happens on approval).
-				a.PluginManager.DispatchEvent("tab.change", a.EditorGroup.ActiveFilePath())
 			}
 			a.updatePluginDetailButtons()
 			if a.PluginsPanel != nil {

@@ -285,12 +285,6 @@ Docs: https://tttedit.dev
 			}
 			if p != nil {
 				editor.WirePlugin(p)
-				if enabled {
-					// A plugin enabled while a file is already open never sees
-					// a file transition, so give it one so linters can do their
-					// initial scan of the active file immediately.
-					pluginManager.DispatchEvent("tab.change", editor.EditorGroup.ActiveFilePath())
-				}
 			}
 			pluginsPanel.Refresh()
 		}
