@@ -1,5 +1,31 @@
 package plugin
 
+import "github.com/eugenioenko/ttt/internal/term"
+
+// DiagnosticItem is a single editor diagnostic/decoration published by a
+// plugin. Coordinates are 0-based (converted from 1-based Lua on the binding
+// boundary). Severity mirrors the LSP severities (1=error .. 4=hint). A
+// non-zero Style overrides the severity's default squiggle color.
+type DiagnosticItem struct {
+	StartLine int
+	StartCol  int
+	EndLine   int
+	EndCol    int
+	Severity  int
+	Style     term.Style
+	Message   string
+	Source    string
+}
+
+// ContextMenuEntry is one item contributed by a plugin to the editor's
+// right-click context menu. A Separator entry renders as a divider; otherwise
+// OnSelect is invoked (on the main thread) when the item is chosen.
+type ContextMenuEntry struct {
+	Label     string
+	Separator bool
+	OnSelect  func()
+}
+
 type EditorAPI interface {
 	BufferText() string
 	BufferLines() []string

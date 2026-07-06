@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/ui"
 
@@ -232,6 +234,59 @@ func handleRightClick(app *App, mx, my int) {
 	if app.EditorGroup.ActiveDiffWidget() != nil {
 		openContextMenu(app, diffContextMenu, mx, my)
 	} else {
-		openContextMenu(app, editorContextMenu, mx, my)
+		openEditorContextMenu(app, mx, my)
 	}
+}
+
+// openEditorContextMenu shows the editor right-click menu, appending any items
+// contributed by enabled plugins. Plugin item selections are dispatched through
+// their own OnSelect callbacks (not the global command registry) using
+// synthetic command ids.
+func openEditorContextMenu(app *App, mx, my int) {
+	line, col, word, ok := app.EditorGroup.PositionAt(mx, my)
+
+	items := make([]ui.ContextMenuItem, len(editorContextMenu))
+	copy(items, editorContextMenu)
+
+	callbacks := map[string]func(){}
+	if ok {
+		for _, p := range app.PluginManager.Plugins() {
+			if !p.Enabled {
+				continue
+			}
+			entries := p.EditorContextMenuItems(line+1, col+1, word)
+			if len(entries) == 0 {
+				continue
+			}
+			items = append(items, ui.MenuSep())
+			for _, e := range entries {
+				if e.Separator {
+					items = append(items, ui.MenuSep())
+					continue
+				}
+				id := fmt.Sprintf("__plugin_ctx_%d", len(callbacks))
+				callbacks[id] = e.OnSelect
+				items = append(items, ui.ContextMenuItem{Label: e.Label, Command: id})
+			}
+		}
+	}
+
+	reg := app.Reg
+	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), mx, my)
+	menu.Borders = app.Borders
+	menu.OnExec = func(cmd string) {
+		app.Root.PopOverlay()
+		if cb, ok := callbacks[cmd]; ok {
+			if cb != nil {
+				cb()
+			}
+			return
+		}
+		reg.Execute(cmd)
+	}
+	menu.OnDismiss = func() {
+		app.Root.PopOverlay()
+	}
+	app.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
+	app.Root.SetFocus(menu)
 }

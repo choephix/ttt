@@ -60,23 +60,24 @@ func (n *NetworkHTTP) UnmarshalJSON(data []byte) error {
 }
 
 type PermissionSet struct {
-	PanelSidebar bool        `json:"panel.sidebar,omitempty"`
-	PanelBottom  bool        `json:"panel.bottom,omitempty"`
-	PanelDrawer  bool        `json:"panel.drawer,omitempty"`
-	PanelEditor  bool        `json:"panel.editor,omitempty"`
-	Commands     bool        `json:"commands,omitempty"`
-	Keybindings  bool        `json:"keybindings,omitempty"`
-	EditorRead   bool        `json:"editor.read,omitempty"`
-	EditorWrite  bool        `json:"editor.write,omitempty"`
-	FsRead       bool        `json:"fs.read,omitempty"`
-	FsWrite      bool        `json:"fs.write,omitempty"`
-	SystemExec   []string    `json:"system.exec,omitempty"`
-	SystemEnv    bool        `json:"system.env,omitempty"`
-	NetworkHTTP  NetworkHTTP `json:"network.http,omitempty"`
-	EventsFile   bool        `json:"events.file,omitempty"`
-	EventsEditor bool        `json:"events.editor,omitempty"`
-	Settings     bool        `json:"settings,omitempty"`
-	SettingsKeys []string    `json:"settings_keys,omitempty"`
+	PanelSidebar      bool        `json:"panel.sidebar,omitempty"`
+	PanelBottom       bool        `json:"panel.bottom,omitempty"`
+	PanelDrawer       bool        `json:"panel.drawer,omitempty"`
+	PanelEditor       bool        `json:"panel.editor,omitempty"`
+	Commands          bool        `json:"commands,omitempty"`
+	Keybindings       bool        `json:"keybindings,omitempty"`
+	EditorRead        bool        `json:"editor.read,omitempty"`
+	EditorWrite       bool        `json:"editor.write,omitempty"`
+	EditorDiagnostics bool        `json:"editor.diagnostics,omitempty"`
+	FsRead            bool        `json:"fs.read,omitempty"`
+	FsWrite           bool        `json:"fs.write,omitempty"`
+	SystemExec        []string    `json:"system.exec,omitempty"`
+	SystemEnv         bool        `json:"system.env,omitempty"`
+	NetworkHTTP       NetworkHTTP `json:"network.http,omitempty"`
+	EventsFile        bool        `json:"events.file,omitempty"`
+	EventsEditor      bool        `json:"events.editor,omitempty"`
+	Settings          bool        `json:"settings,omitempty"`
+	SettingsKeys      []string    `json:"settings_keys,omitempty"`
 }
 
 type PermissionDiffEntry struct {
@@ -105,6 +106,7 @@ func DiffPermissions(granted, requested PermissionSet) PermissionDiff {
 	check("keybindings", granted.Keybindings, requested.Keybindings)
 	check("editor.read", granted.EditorRead, requested.EditorRead)
 	check("editor.write", granted.EditorWrite, requested.EditorWrite)
+	check("editor.diagnostics", granted.EditorDiagnostics, requested.EditorDiagnostics)
 	check("fs.read", granted.FsRead, requested.FsRead)
 	check("fs.write", granted.FsWrite, requested.FsWrite)
 	check("system.env", granted.SystemEnv, requested.SystemEnv)
@@ -168,6 +170,8 @@ func (ps PermissionSet) Check(perm string) error {
 		allowed = ps.EditorRead
 	case "editor.write":
 		allowed = ps.EditorWrite
+	case "editor.diagnostics":
+		allowed = ps.EditorDiagnostics
 	case "fs.read":
 		allowed = ps.FsRead
 	case "fs.write":
@@ -241,6 +245,7 @@ func (ps PermissionSet) DisplayEntries() []PermissionDiffEntry {
 	add("Keybindings", ps.Keybindings)
 	add("Read editor", ps.EditorRead)
 	add("Write editor", ps.EditorWrite)
+	add("Editor diagnostics", ps.EditorDiagnostics)
 	add("Read files", ps.FsRead)
 	add("Write files", ps.FsWrite)
 	add("Environment", ps.SystemEnv)

@@ -21,6 +21,7 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "file_path", L.NewFunction(editorFilePath(p)))
 			L.SetField(mod, "file_name", L.NewFunction(editorFileName(p)))
 			L.SetField(mod, "language", L.NewFunction(editorLanguage(p)))
+			L.SetField(mod, "register_context_menu", L.NewFunction(editorRegisterContextMenu(p)))
 		}
 
 		if hasWrite {
@@ -222,6 +223,76 @@ func editorSetSelection(p *Plugin) lua.LGFunction {
 		p.Editor.SetSelection(sl, sc, el, ec)
 		return 0
 	}
+}
+
+// editorRegisterContextMenu stores a provider function invoked when the editor
+// context menu opens. The provider receives (line, col, word) with 1-based
+// line/col and must return an array of item tables:
+//
+//	{ label = "...", on_select = function() ... end }  -- clickable item
+//	{ separator = true }                               -- divider
+func editorRegisterContextMenu(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		fn := L.CheckFunction(1)
+		p.EditorContextProvider = fn
+		return 0
+	}
+}
+
+// EditorContextMenuItems invokes the registered context-menu provider on the
+// main thread with the given 1-based line/col and word, returning the entries
+// it produced. Each non-separator entry's OnSelect wraps invoking the returned
+// Lua closure via the plugin's safe-call path. Returns nil if no provider is
+// registered or it produced nothing.
+func (p *Plugin) EditorContextMenuItems(line, col int, word string) []ContextMenuEntry {
+	if p.State == nil || p.EditorContextProvider == nil {
+		return nil
+	}
+
+	L := p.State
+	err := L.CallByParam(lua.P{
+		Fn:      p.EditorContextProvider,
+		NRet:    1,
+		Protect: true,
+	}, lua.LNumber(line), lua.LNumber(col), lua.LString(word))
+	if err != nil {
+		p.LastError = err
+		p.logError("context menu", err)
+		return nil
+	}
+
+	ret := L.Get(-1)
+	L.Pop(1)
+	tbl, ok := ret.(*lua.LTable)
+	if !ok {
+		return nil
+	}
+
+	var entries []ContextMenuEntry
+	tbl.ForEach(func(_, v lua.LValue) {
+		itemTbl, ok := v.(*lua.LTable)
+		if !ok {
+			return
+		}
+		if sep := L.GetField(itemTbl, "separator"); sep != lua.LNil && lua.LVAsBool(sep) {
+			entries = append(entries, ContextMenuEntry{Separator: true})
+			return
+		}
+		label := ""
+		if lv := L.GetField(itemTbl, "label"); lv != lua.LNil {
+			label = lv.String()
+		}
+		if label == "" {
+			return
+		}
+		var onSelect func()
+		if fn, ok := L.GetField(itemTbl, "on_select").(*lua.LFunction); ok {
+			onSelect = func() { p.CallLuaFunc(fn) }
+		}
+		entries = append(entries, ContextMenuEntry{Label: label, OnSelect: onSelect})
+	})
+
+	return entries
 }
 
 func editorClearSelection(p *Plugin) lua.LGFunction {
