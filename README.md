@@ -759,6 +759,27 @@ The codebase follows a strict layered architecture: **core -> view -> render -> 
 - **`internal/git/`** — Git operations (status, stage, unstage, commit, pull, push, diff, blame)
 - **`internal/config/`** — Configuration loading (settings, themes, keybindings, editorconfig)
 
+## Contributors & Acknowledgments
+
+TTT is better because of the people who took the time to try it, report bugs, request features, and contribute code. Thank you — this project grows because of you. 🙏
+
+**Code contributions**
+
+- [@tenox7](https://github.com/tenox7) — the **Outline** sidebar panel (LSP document symbols with a built-in Go/Markdown fallback) and **markdown syntax highlighting**.
+- [@pirate-boop](https://github.com/pirate-boop) — **NixOS support** end to end: the initial `flake.nix` and ongoing `vendorHash` upkeep.
+
+**Packaging**
+
+- [@Dominiquini](https://github.com/Dominiquini) — maintaining the [Arch Linux (AUR)](https://aur.archlinux.org/packages/ttt) package.
+
+**Bug reports & feature requests**
+
+- [@jetpax](https://github.com/jetpax) — surfacing the macOS / iTerm2 issues (mouse support, clipboard copy, large-list scrolling, workspace paths).
+- [@egorse](https://github.com/egorse) — the search-panel focus fix.
+- [@pirate-boop](https://github.com/pirate-boop) — the Cyrillic cursor-offset fix and a number of UX/packaging ideas.
+
+Want to help? Bug reports, feature requests, and pull requests are all welcome — open an [issue](https://github.com/eugenioenko/ttt/issues) or a PR.
+
 ## License
 
 MIT
