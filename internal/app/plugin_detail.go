@@ -64,8 +64,20 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 		Style: term.StyleHoverBold,
 	})
 
-	headerRow := widgets.NewHStackWidget(nameLabel, installBtn)
-	headerRow.FixedHeight = 1
+	sourceBtn := widgets.NewButtonWidget(widgets.ButtonConfig{
+		Label: "Source",
+		Style: term.StyleDefault,
+		OnClick: func() {
+			OpenURL(repoFolderURL(entry.Repo, entry.Path))
+		},
+	})
+
+	// Source stacked above Install with a one-row gap between them.
+	buttons := widgets.NewVStackWidget(sourceBtn, installBtn)
+	buttons.Gap = 1
+
+	headerRow := widgets.NewHStackWidget(nameLabel, buttons)
+	headerRow.FixedHeight = 3
 
 	var metaParts []string
 	if entry.Version != "" {
@@ -176,6 +188,17 @@ func fetchPluginReadme(repoURL, repoPath string) (string, error) {
 	}
 
 	return string(body), nil
+}
+
+// repoFolderURL returns the GitHub URL of the plugin's source folder — the repo
+// root, or the plugin's subdirectory when the plugin lives in a monorepo.
+func repoFolderURL(repoURL, repoPath string) string {
+	repoURL = strings.TrimSuffix(repoURL, "/")
+	repoURL = strings.TrimSuffix(repoURL, ".git")
+	if repoPath != "" {
+		return repoURL + "/tree/main/" + repoPath
+	}
+	return repoURL
 }
 
 func repoToRawReadme(repoURL, repoPath string) string {
