@@ -35,6 +35,8 @@ type TabBarWidget struct {
 	OnNextTab        func()
 	OnDoubleClick    func()
 	tabSpans         []tabSpan
+	renderArrowW     int // arrow-gutter width from the last Render, reused by HandleEvent
+	renderInnerRight int // right edge of the tab zone from the last Render, reused by HandleEvent
 	hasOverflowLeft  bool
 	hasOverflowRight bool
 	totalTabWidth    int
@@ -96,17 +98,21 @@ func (t *TabBarWidget) Render(surface Surface) {
 
 	t.totalTabWidth = pos
 
-	// Determine if tabs overflow the available width
-	hasOverflow := pos > w
+	// Overflow is measured against the space left after the ⋮ MoreButton, so the
+	// arrow gutter is reserved before tabs can overlap the chevron. (issue #354)
+	moreW := 0
+	if t.MoreButton != nil && w >= 5 {
+		moreW = 4
+	}
+	hasOverflow := pos > w-moreW
 	arrowW := 0
 	if hasOverflow {
 		arrowW = 3 // " ◀ " or " ▶ "
 	}
 	innerLeft := arrowW
-	innerRight := w - arrowW
-	if t.MoreButton != nil && w >= 5 {
-		innerRight = w - 4 - arrowW
-	}
+	t.renderArrowW = arrowW
+	innerRight := w - moreW - arrowW
+	t.renderInnerRight = innerRight
 	innerW := innerRight - innerLeft
 	if innerW < 1 {
 		innerW = 1
@@ -121,6 +127,11 @@ func (t *TabBarWidget) Render(surface Surface) {
 		if s.start < t.ScrollOffset {
 			t.ScrollOffset = s.start
 		}
+	}
+	// Never scroll past the last tab, so closing tabs can't strand the view on
+	// the final tab with empty space to its right.
+	if maxScroll := pos - innerW; t.ScrollOffset > maxScroll {
+		t.ScrollOffset = maxScroll
 	}
 	if t.ScrollOffset < 0 {
 		t.ScrollOffset = 0
@@ -258,10 +269,8 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	arrowW := 0
-	if t.hasOverflowLeft || t.hasOverflowRight {
-		arrowW = 3
-	}
+	// Reuse Render's gutter width so click hit-tests line up with the screen.
+	arrowW := t.renderArrowW
 
 	if btn&tcell.Button2 != 0 && t.OnTabRightClick != nil {
 		localX := mx - r.X - arrowW + t.ScrollOffset
@@ -300,19 +309,21 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	// Handle overflow arrow clicks — switch to prev/next tab
-	if t.hasOverflowLeft && mx >= r.X && mx < r.X+arrowW {
-		if t.OnPrevTab != nil {
+	// Clicks in the reserved ◀/▶ arrow columns are consumed here so they never
+	// fall through to the empty-space double-click handler (which would spawn a
+	// tab — the "jump to the other side" bug when clicking a hidden chevron).
+	// Scroll only when there is something hidden in that direction; the overflow
+	// flag is set only when the active tab isn't already at that end, so it can't
+	// wrap.
+	if arrowW > 0 && mx >= r.X && mx < r.X+arrowW {
+		if t.hasOverflowLeft && t.OnPrevTab != nil {
 			t.OnPrevTab()
 		}
 		return EventConsumed
 	}
-	rightZoneStart := r.X + r.W - arrowW
-	if t.MoreButton != nil && r.W >= 5 {
-		rightZoneStart = r.X + r.W - 4 - arrowW
-	}
-	if t.hasOverflowRight && mx >= rightZoneStart && mx < rightZoneStart+arrowW {
-		if t.OnNextTab != nil {
+	rightZoneStart := r.X + t.renderInnerRight
+	if arrowW > 0 && mx >= rightZoneStart && mx < rightZoneStart+arrowW {
+		if t.hasOverflowRight && t.OnNextTab != nil {
 			t.OnNextTab()
 		}
 		return EventConsumed
