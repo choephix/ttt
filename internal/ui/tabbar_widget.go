@@ -309,16 +309,21 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	// Handle overflow arrow clicks — switch to prev/next tab
-	if t.hasOverflowLeft && mx >= r.X && mx < r.X+arrowW {
-		if t.OnPrevTab != nil {
+	// Clicks in the reserved ◀/▶ arrow columns are consumed here so they never
+	// fall through to the empty-space double-click handler (which would spawn a
+	// tab — the "jump to the other side" bug when clicking a hidden chevron).
+	// Scroll only when there is something hidden in that direction; the overflow
+	// flag is set only when the active tab isn't already at that end, so it can't
+	// wrap.
+	if arrowW > 0 && mx >= r.X && mx < r.X+arrowW {
+		if t.hasOverflowLeft && t.OnPrevTab != nil {
 			t.OnPrevTab()
 		}
 		return EventConsumed
 	}
 	rightZoneStart := r.X + t.renderInnerRight
-	if t.hasOverflowRight && mx >= rightZoneStart && mx < rightZoneStart+arrowW {
-		if t.OnNextTab != nil {
+	if arrowW > 0 && mx >= rightZoneStart && mx < rightZoneStart+arrowW {
+		if t.hasOverflowRight && t.OnNextTab != nil {
 			t.OnNextTab()
 		}
 		return EventConsumed
