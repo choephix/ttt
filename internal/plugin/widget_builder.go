@@ -362,6 +362,7 @@ func createTreeWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 		Indent:        desc.Indent,
 		NodeMenu:      desc.NodeMenu,
 		SelectOnClick: desc.SelectOnClick,
+		TruncateLeft:  desc.TruncateLeft,
 	})
 	wireTreeCallbacks(tw, desc, p)
 	applyBoxModel(&tw.Box, desc)
@@ -373,6 +374,7 @@ func createListWidget(desc WidgetDesc, p *Plugin) *widgets.TreeWidget {
 		Items:         desc.Items,
 		NodeMenu:      desc.NodeMenu,
 		SelectOnClick: desc.SelectOnClick,
+		TruncateLeft:  desc.TruncateLeft,
 	})
 	wireTreeCallbacks(tw, desc, p)
 	applyBoxModel(&tw.Box, desc)

@@ -42,6 +42,7 @@ type TreeConfig struct {
 	ActiveID       string      `json:"-"`
 	EmptyText      string      `json:"emptyText,omitempty"`
 	SelectOnClick  bool        `json:"-"`
+	TruncateLeft   bool        `json:"truncateLeft,omitempty"` // truncate labels from the left (…tail) so the end stays visible
 
 	OnCommand  func(command string, node *TreeNode)
 	OnMenu     func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
@@ -372,6 +373,13 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		labelStyle = term.StyleMuted
 	}
 	labelRunes := []rune(node.Label)
+	if t.Config.TruncateLeft {
+		if avail := maxX - x; avail > 0 && len(labelRunes) > avail {
+			// Keep the tail visible: leading … then the last avail-1 runes.
+			tail := labelRunes[len(labelRunes)-(avail-1):]
+			labelRunes = append([]rune{'…'}, tail...)
+		}
+	}
 	labelFits := x+len(labelRunes) <= maxX
 	for i, ch := range labelRunes {
 		if x >= maxX {
