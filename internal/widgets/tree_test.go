@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
@@ -207,6 +208,29 @@ func TestTreeRenderEllipsisTruncation(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("long label should be truncated with ellipsis, got %q", row)
+	}
+}
+
+func TestTreeRenderTruncateLeft(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		TruncateLeft: true,
+		Items: []*TreeNode{
+			{ID: "path", Label: "internal/app/changes_panel.go"},
+		},
+	})
+	// maxX = w - 2 = 10; the leading … plus the tail of the path must be shown.
+	s := renderWidget(tree, 0, 0, 12, 5)
+	row := surfaceRowText(s, 0)
+
+	if []rune(row)[0] != '…' {
+		t.Errorf("left-truncated label should start with …, got %q", row)
+	}
+	// The filename tail must survive; the head (internal/app) must be dropped.
+	if !strings.Contains(row, "panel.go") {
+		t.Errorf("left truncation should keep the tail visible, got %q", row)
+	}
+	if strings.Contains(row, "internal") {
+		t.Errorf("left truncation should drop the head, got %q", row)
 	}
 }
 

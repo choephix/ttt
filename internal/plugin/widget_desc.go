@@ -85,6 +85,7 @@ type WidgetDesc struct {
 	Items         []*widgets.TreeNode
 	Indent        int
 	SelectOnClick bool
+	TruncateLeft  bool
 	OnSelect      func(node *widgets.TreeNode)
 	OnExpand      func(node *widgets.TreeNode)
 	OnCommand     func(command string, node *widgets.TreeNode)

@@ -71,8 +71,9 @@ func NewChangesPanel(dirs ...string) *ChangesPanel {
 	})
 
 	cp.Tree = widgets.NewTreeWidget(widgets.TreeConfig{
-		Indent:    1,
-		EmptyText: "No changes",
+		Indent:       1,
+		EmptyText:    "No changes",
+		TruncateLeft: true,
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			cp.handleCommand(cmd, node)
 		},
