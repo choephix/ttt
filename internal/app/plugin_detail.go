@@ -72,11 +72,16 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 		},
 	})
 
-	// Source stacked above Install with a one-row gap between them.
+	// Source stacked above Install with a one-row gap between them. A VStack
+	// reports zero width, so wrap it in a fixed-width box — otherwise the HStack
+	// treats it as a grow child and it takes half the row. 14 fits the widest
+	// button label ("Installing...").
 	buttons := widgets.NewVStackWidget(sourceBtn, installBtn)
 	buttons.Gap = 1
+	buttonBox := &widgets.BoxWidget{FixedWidth: 14, FixedHeight: 3}
+	buttonBox.Child = buttons
 
-	headerRow := widgets.NewHStackWidget(nameLabel, buttons)
+	headerRow := widgets.NewHStackWidget(nameLabel, buttonBox)
 	headerRow.FixedHeight = 3
 
 	var metaParts []string
