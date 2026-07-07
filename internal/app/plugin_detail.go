@@ -72,16 +72,11 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 		},
 	})
 
-	// Title row: three columns — the plugin name grows to fill, with fixed-width
-	// Source and Install button columns on the right. Fixed widths keep the
-	// buttons from taking half the row and stop the layout jumping when the
-	// Install label changes ("Install" → "Installing..." → "Installed").
-	sourceBox := &widgets.BoxWidget{FixedWidth: 8} // "Source" = 6 + 2 padding
-	sourceBox.Child = sourceBtn
-	installBox := &widgets.BoxWidget{FixedWidth: 14} // "Installing..." = 12 + 2
-	installBox.Child = installBtn
-
-	headerRow := widgets.NewHStackWidget(nameLabel, sourceBox, installBox)
+	// Title row: three columns — the plugin name grows to fill, with the Source
+	// and Install buttons as fixed columns on the right. The buttons report
+	// their own width, so no wrapper is needed; letting each button's rect hug
+	// its label also keeps the focus highlight tight (no trailing padding).
+	headerRow := widgets.NewHStackWidget(nameLabel, sourceBtn, installBtn)
 	headerRow.Gap = 1
 	headerRow.FixedHeight = 1
 
