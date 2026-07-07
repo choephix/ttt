@@ -26,11 +26,22 @@ let size = "120x40";
 export function start(...startArgs) {
   commands = [];
   snapCount = 0;
+  size = "120x40";
   tmpDir = mkdtempSync(join(tmpdir(), "ttt-bb-"));
   args = [];
   for (const a of startArgs) {
     args.push(a);
   }
+}
+
+// Override the terminal size for this run (default 120x40). Reset by start().
+export function setSize(w, h) {
+  size = `${w}x${h}`;
+}
+
+// Simulate a mouse click at screen coordinates (col x, row y).
+export function click(x, y) {
+  commands.push(`click ${x} ${y}`);
 }
 
 export function type(text) {
