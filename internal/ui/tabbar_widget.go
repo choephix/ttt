@@ -35,6 +35,7 @@ type TabBarWidget struct {
 	OnNextTab        func()
 	OnDoubleClick    func()
 	tabSpans         []tabSpan
+	renderArrowW     int // arrow-gutter width from the last Render; HandleEvent reuses it for hit tests
 	hasOverflowLeft  bool
 	hasOverflowRight bool
 	totalTabWidth    int
@@ -103,6 +104,7 @@ func (t *TabBarWidget) Render(surface Surface) {
 		arrowW = 3 // " ◀ " or " ▶ "
 	}
 	innerLeft := arrowW
+	t.renderArrowW = arrowW
 	innerRight := w - arrowW
 	if t.MoreButton != nil && w >= 5 {
 		innerRight = w - 4 - arrowW
@@ -258,10 +260,13 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	arrowW := 0
-	if t.hasOverflowLeft || t.hasOverflowRight {
-		arrowW = 3
-	}
+	// Single source of truth: reuse the exact arrow-gutter width the last Render
+	// used, instead of recomputing it from the overflow flags. The two diverge in
+	// the window where tabs overflow the inner zone (the ⋮ MoreButton steals 4
+	// cols) but not the full width: Render reserves no gutter (arrowW 0) while a
+	// recompute here would assume 3 — shifting every close-X hit test by 3 cells
+	// and making the button dead until the tab set grows/shrinks. (issue #354)
+	arrowW := t.renderArrowW
 
 	if btn&tcell.Button2 != 0 && t.OnTabRightClick != nil {
 		localX := mx - r.X - arrowW + t.ScrollOffset

@@ -1,8 +1,10 @@
 package ui
 
 import (
-	"github.com/eugenioenko/ttt/internal/term"
 	"testing"
+
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/gdamore/tcell/v2"
 )
 
 func TestTabBarRender(t *testing.T) {
@@ -86,6 +88,62 @@ func TestTabBarOverflowScrollLeft(t *testing.T) {
 	// Left arrow " ◀ " — chevron is at col 1
 	if grid[1][1].Ch != '◀' {
 		t.Fatalf("expected left arrow at row 1 col 1, got '%c'", grid[1][1].Ch)
+	}
+}
+
+// TestTabBarCloseHitInMoreButtonWindow guards issue #354: when the tabs overflow
+// the inner zone (the ⋮ MoreButton reserves 4 cols) but NOT the full widget width,
+// Render reserves no arrow gutter (arrowW 0). HandleEvent used to recompute arrowW
+// from the overflow flags and land on 3, shifting every close-X hit test by 3 cells
+// so clicking the active tab's × did nothing. The click must reuse Render's arrowW.
+func TestTabBarCloseHitInMoreButtonWindow(t *testing.T) {
+	tb := NewTabBarWidget()
+	tb.MoreButton = NewMoreButtonWidget()
+	tb.SetTabs([]Tab{
+		{Name: "main.go", Active: true, Closable: true},
+		{Name: "buffer.go"},
+		{Name: "cursor.go"},
+	})
+
+	// Measure total tab width, then size the bar to exactly that width. With the
+	// MoreButton stealing 4 cols this puts us in the divergent window: tabs fit the
+	// full width (arrowW 0) but overflow the inner zone (hasOverflowRight true).
+	tb.SetRect(Rect{X: 0, Y: 0, W: 200, H: 3})
+	probe := makeGrid(200, 3)
+	tb.Render(NewRenderSurface(probe, Rect{X: 0, Y: 0, W: 200, H: 3}))
+	w := tb.totalTabWidth
+
+	tb.SetRect(Rect{X: 0, Y: 0, W: w, H: 3})
+	grid := makeGrid(w, 3)
+	tb.Render(NewRenderSurface(grid, Rect{X: 0, Y: 0, W: w, H: 3}))
+
+	if tb.renderArrowW != 0 {
+		t.Fatalf("test setup: expected no arrow gutter, got renderArrowW=%d", tb.renderArrowW)
+	}
+	if !tb.hasOverflowRight {
+		t.Fatal("test setup: expected right overflow inside the MoreButton window")
+	}
+
+	// Find the rendered close × of the active tab (row 1, StyleActiveTab).
+	closeX := -1
+	for x := 0; x < w; x++ {
+		if grid[1][x].Ch == 'x' && grid[1][x].Style == term.StyleActiveTab {
+			closeX = x
+		}
+	}
+	if closeX < 0 {
+		t.Fatal("test setup: could not find rendered close × for active tab")
+	}
+
+	closed := -1
+	tb.OnTabClose = func(i int) { closed = i }
+
+	// A real click is mouse-down then mouse-up at the same cell.
+	tb.HandleEvent(tcell.NewEventMouse(closeX, 1, tcell.Button1, 0))
+	tb.HandleEvent(tcell.NewEventMouse(closeX, 1, tcell.ButtonNone, 0))
+
+	if closed != 0 {
+		t.Fatalf("clicking the visible close × should close tab 0, got closed=%d", closed)
 	}
 }
 
