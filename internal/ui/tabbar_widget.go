@@ -35,7 +35,8 @@ type TabBarWidget struct {
 	OnNextTab        func()
 	OnDoubleClick    func()
 	tabSpans         []tabSpan
-	renderArrowW     int // arrow-gutter width from the last Render; HandleEvent reuses it for hit tests
+	renderArrowW     int // arrow-gutter width from the last Render, reused by HandleEvent
+	renderInnerRight int // right edge of the tab zone from the last Render, reused by HandleEvent
 	hasOverflowLeft  bool
 	hasOverflowRight bool
 	totalTabWidth    int
@@ -97,18 +98,21 @@ func (t *TabBarWidget) Render(surface Surface) {
 
 	t.totalTabWidth = pos
 
-	// Determine if tabs overflow the available width
-	hasOverflow := pos > w
+	// Overflow is measured against the space left after the ⋮ MoreButton, so the
+	// arrow gutter is reserved before tabs can overlap the chevron. (issue #354)
+	moreW := 0
+	if t.MoreButton != nil && w >= 5 {
+		moreW = 4
+	}
+	hasOverflow := pos > w-moreW
 	arrowW := 0
 	if hasOverflow {
 		arrowW = 3 // " ◀ " or " ▶ "
 	}
 	innerLeft := arrowW
 	t.renderArrowW = arrowW
-	innerRight := w - arrowW
-	if t.MoreButton != nil && w >= 5 {
-		innerRight = w - 4 - arrowW
-	}
+	innerRight := w - moreW - arrowW
+	t.renderInnerRight = innerRight
 	innerW := innerRight - innerLeft
 	if innerW < 1 {
 		innerW = 1
@@ -123,6 +127,11 @@ func (t *TabBarWidget) Render(surface Surface) {
 		if s.start < t.ScrollOffset {
 			t.ScrollOffset = s.start
 		}
+	}
+	// Never scroll past the last tab, so closing tabs can't strand the view on
+	// the final tab with empty space to its right.
+	if maxScroll := pos - innerW; t.ScrollOffset > maxScroll {
+		t.ScrollOffset = maxScroll
 	}
 	if t.ScrollOffset < 0 {
 		t.ScrollOffset = 0
@@ -260,12 +269,7 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		return EventConsumed
 	}
 
-	// Single source of truth: reuse the exact arrow-gutter width the last Render
-	// used, instead of recomputing it from the overflow flags. The two diverge in
-	// the window where tabs overflow the inner zone (the ⋮ MoreButton steals 4
-	// cols) but not the full width: Render reserves no gutter (arrowW 0) while a
-	// recompute here would assume 3 — shifting every close-X hit test by 3 cells
-	// and making the button dead until the tab set grows/shrinks. (issue #354)
+	// Reuse Render's gutter width so click hit-tests line up with the screen.
 	arrowW := t.renderArrowW
 
 	if btn&tcell.Button2 != 0 && t.OnTabRightClick != nil {
@@ -312,10 +316,7 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 		return EventConsumed
 	}
-	rightZoneStart := r.X + r.W - arrowW
-	if t.MoreButton != nil && r.W >= 5 {
-		rightZoneStart = r.X + r.W - 4 - arrowW
-	}
+	rightZoneStart := r.X + t.renderInnerRight
 	if t.hasOverflowRight && mx >= rightZoneStart && mx < rightZoneStart+arrowW {
 		if t.OnNextTab != nil {
 			t.OnNextTab()

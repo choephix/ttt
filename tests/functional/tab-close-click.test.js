@@ -8,11 +8,8 @@ afterEach(() => {
 describe("tab close button hit test (#354)", () => {
   it("closes the active tab when its × is clicked in the MoreButton overflow window", () => {
     tui.start();
-    // At 83 cols the tab strip overflows the inner zone (the ⋮ MoreButton
-    // reserves 4 cols) but NOT the full width — the window where Render draws
-    // no overflow-arrow gutter. The click handler used to assume a 3-col gutter
-    // anyway, shifting the close-X hit test by 3 cells so the × was a dead
-    // click. This puts the active tab's × at row 2, col 75.
+    // At 83 cols the strip lands in the #354 overflow window; the active tab's
+    // close × renders at row 2, col 72.
     tui.setSize(83, 24);
 
     tui.press("ctrl+n");
@@ -21,18 +18,36 @@ describe("tab close button hit test (#354)", () => {
     tui.waitStable();
     const before = tui.snapshot();
 
-    tui.click(75, 2);
+    tui.click(72, 2);
     tui.waitStable();
     const after = tui.snapshot();
 
     const { snapshots } = tui.run();
 
-    // Sanity: the × really is under the click (guards against geometry drift
-    // silently turning this into a no-op that always passes).
-    expect(snapshots[before].split("\n")[2][75]).toBe("x");
+    // Sanity: the × really is under the click (guard against geometry drift).
+    expect(snapshots[before].split("\n")[2][72]).toBe("x");
     expect(snapshots[before]).toContain("untitled-4");
 
     // The click must close the active tab.
     expect(snapshots[after]).not.toContain("untitled-4");
+  });
+
+  it("does not over-scroll the strip after closing many tabs", () => {
+    tui.start();
+    tui.setSize(150, 30);
+
+    for (let i = 0; i < 20; i++) tui.press("ctrl+n");
+    tui.waitStable();
+    for (let i = 0; i < 11; i++) tui.press("ctrl+w");
+    tui.waitStable();
+
+    const s = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    // Before the fix the strip was stranded on the last tab (one label visible);
+    // it should now show several tabs.
+    const tabRow = snapshots[s].split("\n")[2];
+    const visible = (tabRow.match(/untitled-\d+/g) || []).length;
+    expect(visible).toBeGreaterThan(1);
   });
 });

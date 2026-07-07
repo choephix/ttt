@@ -91,12 +91,11 @@ func TestTabBarOverflowScrollLeft(t *testing.T) {
 	}
 }
 
-// TestTabBarCloseHitInMoreButtonWindow guards issue #354: when the tabs overflow
-// the inner zone (the ⋮ MoreButton reserves 4 cols) but NOT the full widget width,
-// Render reserves no arrow gutter (arrowW 0). HandleEvent used to recompute arrowW
-// from the overflow flags and land on 3, shifting every close-X hit test by 3 cells
-// so clicking the active tab's × did nothing. The click must reuse Render's arrowW.
-func TestTabBarCloseHitInMoreButtonWindow(t *testing.T) {
+// renderInMoreButtonWindow sizes the bar to exactly the total tab width with a
+// MoreButton present, so tabs overflow the inner zone but not the full width —
+// the #354 window. Returns the rendered grid and the bar width.
+func renderInMoreButtonWindow(t *testing.T) (*TabBarWidget, [][]term.Cell, int) {
+	t.Helper()
 	tb := NewTabBarWidget()
 	tb.MoreButton = NewMoreButtonWidget()
 	tb.SetTabs([]Tab{
@@ -105,9 +104,6 @@ func TestTabBarCloseHitInMoreButtonWindow(t *testing.T) {
 		{Name: "cursor.go"},
 	})
 
-	// Measure total tab width, then size the bar to exactly that width. With the
-	// MoreButton stealing 4 cols this puts us in the divergent window: tabs fit the
-	// full width (arrowW 0) but overflow the inner zone (hasOverflowRight true).
 	tb.SetRect(Rect{X: 0, Y: 0, W: 200, H: 3})
 	probe := makeGrid(200, 3)
 	tb.Render(NewRenderSurface(probe, Rect{X: 0, Y: 0, W: 200, H: 3}))
@@ -116,12 +112,16 @@ func TestTabBarCloseHitInMoreButtonWindow(t *testing.T) {
 	tb.SetRect(Rect{X: 0, Y: 0, W: w, H: 3})
 	grid := makeGrid(w, 3)
 	tb.Render(NewRenderSurface(grid, Rect{X: 0, Y: 0, W: w, H: 3}))
+	return tb, grid, w
+}
 
-	if tb.renderArrowW != 0 {
-		t.Fatalf("test setup: expected no arrow gutter, got renderArrowW=%d", tb.renderArrowW)
-	}
-	if !tb.hasOverflowRight {
-		t.Fatal("test setup: expected right overflow inside the MoreButton window")
+// TestTabBarCloseHitInMoreButtonWindow guards issue #354: clicking the active
+// tab's rendered × in the MoreButton window must close it (was a dead click).
+func TestTabBarCloseHitInMoreButtonWindow(t *testing.T) {
+	tb, grid, w := renderInMoreButtonWindow(t)
+
+	if tb.renderArrowW == 0 {
+		t.Fatal("expected the arrow gutter to be reserved once the strip overflows the inner zone")
 	}
 
 	// Find the rendered close × of the active tab (row 1, StyleActiveTab).
@@ -144,6 +144,54 @@ func TestTabBarCloseHitInMoreButtonWindow(t *testing.T) {
 
 	if closed != 0 {
 		t.Fatalf("clicking the visible close × should close tab 0, got closed=%d", closed)
+	}
+}
+
+// TestTabBarChevronNotDrawnOverTab: when a chevron shows, its gutter must be
+// reserved so tabs never render on top of it.
+func TestTabBarChevronNotDrawnOverTab(t *testing.T) {
+	tb, grid, _ := renderInMoreButtonWindow(t)
+
+	if (tb.hasOverflowLeft || tb.hasOverflowRight) && tb.renderArrowW == 0 {
+		t.Fatal("chevron shown without a reserved gutter — tabs will overlap it")
+	}
+	if tb.hasOverflowLeft && grid[1][1].Ch != '◀' {
+		t.Fatalf("left chevron cell overwritten by a tab, got '%c'", grid[1][1].Ch)
+	}
+}
+
+// TestTabBarNoOverScrollAfterClose: closing tabs must not leave the strip scrolled
+// past the last tab (only the final tab visible with empty space to its right).
+func TestTabBarNoOverScrollAfterClose(t *testing.T) {
+	tb := NewTabBarWidget()
+	tb.MoreButton = NewMoreButtonWidget()
+
+	many := make([]Tab, 20)
+	for i := range many {
+		many[i] = Tab{Name: "untitled-" + string(rune('a'+i)) + ".go"}
+	}
+	many[19].Active = true
+	tb.SetTabs(many)
+	tb.SetRect(Rect{X: 0, Y: 0, W: 40, H: 3})
+	tb.Render(NewRenderSurface(makeGrid(40, 3), Rect{X: 0, Y: 0, W: 40, H: 3}))
+	if tb.ScrollOffset == 0 {
+		t.Fatal("test setup: expected a non-zero scroll offset with 20 tabs at width 40")
+	}
+
+	// Close down to three tabs, first active (like closing everything to the right).
+	tb.SetTabs([]Tab{
+		{Name: "untitled-a.go", Active: true},
+		{Name: "untitled-b.go"},
+		{Name: "untitled-c.go"},
+	})
+	tb.SetRect(Rect{X: 0, Y: 0, W: 40, H: 3})
+	tb.Render(NewRenderSurface(makeGrid(40, 3), Rect{X: 0, Y: 0, W: 40, H: 3}))
+
+	if tb.ScrollOffset != 0 {
+		t.Fatalf("offset should snap back to 0 once the tabs fit, got %d", tb.ScrollOffset)
+	}
+	if tb.hasOverflowLeft {
+		t.Fatal("no left overflow expected once the tabs fit")
 	}
 }
 
