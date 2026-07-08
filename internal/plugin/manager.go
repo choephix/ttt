@@ -427,6 +427,43 @@ func (m *Manager) Uninstall(name string) error {
 	return nil
 }
 
+// DenyPlugin permanently stops a pending plugin from prompting for approval.
+// A plugin ttt freshly cloned into pluginsDir (not yet in the registry) is
+// deleted outright so it leaves no trace. Anything else — a workspace-local
+// plugin, or one already tracked in the registry — is recorded as disabled so
+// LoadAll skips it on the next launch instead of re-prompting forever (#358).
+func (m *Manager) DenyPlugin(p *Plugin) error {
+	if p == nil {
+		return nil
+	}
+	var entry *RegistryEntry
+	if m.registry != nil {
+		entry = m.registry.Find(p.Name)
+	}
+	if entry == nil && withinDir(m.pluginsDir, p.Dir) {
+		if err := os.RemoveAll(p.Dir); err != nil {
+			return fmt.Errorf("remove denied plugin: %w", err)
+		}
+		return nil
+	}
+	if m.registry == nil {
+		return nil
+	}
+	m.registry.AddOrUpdate(p.Manifest.Name, p.Repo, p.RepoPath, p.Manifest.Version, p.Manifest.Permissions)
+	m.registry.SetEnabled(p.Manifest.Name, false)
+	return m.registry.Save()
+}
+
+// withinDir reports whether child lives inside parent (not equal to it, not an
+// escape via ..). Used to confine deny-deletion to ttt's own plugins dir.
+func withinDir(parent, child string) bool {
+	rel, err := filepath.Rel(parent, child)
+	if err != nil {
+		return false
+	}
+	return rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 func (m *Manager) Update(name string) (*Plugin, bool, error) {
 	dir := filepath.Join(m.pluginsDir, name)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {

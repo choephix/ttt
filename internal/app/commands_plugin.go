@@ -272,10 +272,9 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	dialog.Borders = *a.Borders
 	dialog.SetContent(content)
 	dialog.Buttons = []widgets.DialogButton{
-		{Label: "&Cancel", Handler: func() {
+		{Label: "&Deny", Handler: func() {
 			a.DismissDialog()
-			a.resetPluginDetailButton(p.Manifest.Name)
-			a.showNextPluginApproval()
+			a.denyPluginApproval(p)
 		}},
 		{Label: "&Allow", Handler: func() {
 			a.DismissDialog()
@@ -291,8 +290,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	}
 	dialog.OnDismiss = func() {
 		a.DismissDialog()
-		a.resetPluginDetailButton(p.Manifest.Name)
-		a.showNextPluginApproval()
+		a.denyPluginApproval(p)
 	}
 	dialog.Build()
 
@@ -784,6 +782,21 @@ func (a *App) PluginRefreshRegistry() {
 		entries, err := plugin.FetchRemoteRegistry(plugin.DefaultRegistryURL)
 		a.Screen.PostEvent(tcell.NewEventInterrupt(&RemoteRegistryResult{Entries: entries, Err: err}))
 	}()
+}
+
+// denyPluginApproval permanently declines a pending plugin: it deletes a fresh
+// ttt-installed clone (or disables an on-disk one) so it stops prompting,
+// resets the install button, and advances to the next pending approval.
+func (a *App) denyPluginApproval(p *plugin.Plugin) {
+	if err := a.PluginManager.DenyPlugin(p); err != nil {
+		slog.Error("deny plugin", "error", err)
+	}
+	a.resetPluginDetailButton(p.Manifest.Name)
+	a.updatePluginDetailButtons()
+	if a.PluginsPanel != nil {
+		a.PluginsPanel.Refresh()
+	}
+	a.showNextPluginApproval()
 }
 
 func (a *App) showNextPluginApproval() {
