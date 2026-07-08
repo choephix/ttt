@@ -31,6 +31,7 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
 ```json
 {
   "name": "my-plugin",
+  "displayName": "My Plugin",
   "description": "A short description of what this plugin does",
   "version": "1.0.0",
   "author": "Your Name",
@@ -44,7 +45,8 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
 
 | Field         | Type   | Required | Description                                         |
 |---------------|--------|----------|-----------------------------------------------------|
-| `name`        | string | yes      | Unique plugin identifier. Must match directory name. |
+| `name`        | string | yes      | Unique plugin identifier. Must match directory name. Used for the install directory, registry key, and panel IDs — keep it stable and kebab-case. |
+| `displayName` | string | no       | Human-facing name shown in the plugin list, approval dialog, and detail view. Falls back to `name` when omitted. |
 | `description` | string | no       | Shown in the plugin list dialog.                    |
 | `version`     | string | no       | Semver version string.                              |
 | `author`      | string | no       | Plugin author name.                                 |

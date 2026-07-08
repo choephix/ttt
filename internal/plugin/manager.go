@@ -161,6 +161,7 @@ func (m *Manager) ApproveAndLoad(p *Plugin) error {
 
 	m.registry.AddOrUpdate(
 		p.Manifest.Name,
+		p.Manifest.DisplayName,
 		p.Repo,
 		p.RepoPath,
 		p.Manifest.Version,
@@ -449,7 +450,7 @@ func (m *Manager) DenyPlugin(p *Plugin) error {
 	if m.registry == nil {
 		return nil
 	}
-	m.registry.AddOrUpdate(p.Manifest.Name, p.Repo, p.RepoPath, p.Manifest.Version, p.Manifest.Permissions)
+	m.registry.AddOrUpdate(p.Manifest.Name, p.Manifest.DisplayName, p.Repo, p.RepoPath, p.Manifest.Version, p.Manifest.Permissions)
 	m.registry.SetEnabled(p.Manifest.Name, false)
 	return m.registry.Save()
 }

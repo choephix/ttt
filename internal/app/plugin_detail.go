@@ -60,7 +60,7 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 	}
 
 	nameLabel := widgets.NewLabelWidget(widgets.LabelConfig{
-		Text:  entry.Name,
+		Text:  entry.Title(),
 		Style: term.StyleHoverBold,
 	})
 
@@ -117,7 +117,7 @@ func (a *App) OpenPluginDetail(entry plugin.RemoteRegistryEntry) {
 	content := widgets.NewVStackWidget(header, divider, scroll)
 	adapter := ui.NewWidgetAdapter(content)
 
-	a.EditorGroup.OpenPluginTab(tabID, entry.Name, adapter)
+	a.EditorGroup.OpenPluginTab(tabID, entry.Title(), adapter)
 
 	go func() {
 		readme, err := fetchPluginReadme(entry.Repo, entry.Path)

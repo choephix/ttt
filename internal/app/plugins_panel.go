@@ -153,15 +153,18 @@ func (pp *PluginsPanel) Refresh() {
 		var icon string
 		var iconStyle term.Style
 
+		label := name
 		p := pp.manager.FindPlugin(name)
 		if p != nil && p.Enabled {
 			badge = "v" + p.Manifest.Version
 			icon = "●"
 			iconStyle = term.StyleSuccess
+			label = p.Manifest.Title()
 		} else {
 			if reg != nil {
 				if entry := reg.Find(name); entry != nil {
 					badge = "v" + entry.Version
+					label = entry.Title()
 				}
 			}
 			icon = "○"
@@ -170,7 +173,7 @@ func (pp *PluginsPanel) Refresh() {
 
 		node := &widgets.TreeNode{
 			ID:        name,
-			Label:     name,
+			Label:     label,
 			Badge:     badge,
 			Icon:      icon,
 			IconStyle: iconStyle,
@@ -203,7 +206,7 @@ func (pp *PluginsPanel) refreshAvailable() {
 		}
 		items = append(items, &widgets.TreeNode{
 			ID:    "available." + entry.Name,
-			Label: entry.Name,
+			Label: entry.Title(),
 			Badge: entry.Description,
 		})
 	}

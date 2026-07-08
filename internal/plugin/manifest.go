@@ -13,12 +13,22 @@ const SupportedAPIVersion = 1
 
 type Manifest struct {
 	Name        string        `json:"name"`
+	DisplayName string        `json:"displayName,omitempty"`
 	Description string        `json:"description"`
 	Version     string        `json:"version"`
 	Author      string        `json:"author"`
 	Entry       string        `json:"entry"`
 	API         int           `json:"api,omitempty"`
 	Permissions PermissionSet `json:"permissions"`
+}
+
+// Title is the human-facing plugin name shown in the UI: DisplayName when the
+// author set one, otherwise the unique kebab-case Name identifier.
+func (m Manifest) Title() string {
+	if m.DisplayName != "" {
+		return m.DisplayName
+	}
+	return m.Name
 }
 
 func LoadManifest(dir string) (Manifest, error) {

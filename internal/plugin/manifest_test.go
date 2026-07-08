@@ -40,6 +40,30 @@ func TestLoadManifest(t *testing.T) {
 	}
 }
 
+func TestLoadManifestDisplayName(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"name":"my-plugin","displayName":"My Plugin","entry":"init.lua"}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	m, err := LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.DisplayName != "My Plugin" {
+		t.Errorf("expected displayName 'My Plugin', got %q", m.DisplayName)
+	}
+	if m.Title() != "My Plugin" {
+		t.Errorf("Title() should use displayName, got %q", m.Title())
+	}
+}
+
+func TestManifestTitleFallsBackToName(t *testing.T) {
+	m := Manifest{Name: "my-plugin"}
+	if m.Title() != "my-plugin" {
+		t.Errorf("Title() should fall back to name, got %q", m.Title())
+	}
+}
+
 func TestLoadManifestMissingName(t *testing.T) {
 	dir := t.TempDir()
 	data := `{"entry": "main.ttt.lua"}`
