@@ -20,7 +20,7 @@ func TestLoadRegistryMissing(t *testing.T) {
 func TestRegistryRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plugins.ttt.json")
 	r := &Registry{path: path}
-	r.AddOrUpdate("test", "github.com/test/test", "", "1.0.0", PermissionSet{PanelSidebar: true})
+	r.AddOrUpdate("test", "Test Plugin", "github.com/test/test", "", "1.0.0", PermissionSet{PanelSidebar: true})
 
 	if err := r.Save(); err != nil {
 		t.Fatalf("save error: %v", err)
@@ -36,6 +36,12 @@ func TestRegistryRoundTrip(t *testing.T) {
 	if r2.Entries[0].Name != "test" {
 		t.Errorf("expected name test, got %s", r2.Entries[0].Name)
 	}
+	if r2.Entries[0].DisplayName != "Test Plugin" {
+		t.Errorf("expected displayName to round-trip, got %q", r2.Entries[0].DisplayName)
+	}
+	if r2.Entries[0].Title() != "Test Plugin" {
+		t.Errorf("expected Title() to use displayName, got %q", r2.Entries[0].Title())
+	}
 	if !r2.Entries[0].Permissions.PanelSidebar {
 		t.Error("expected panel.sidebar to be true")
 	}
@@ -44,8 +50,8 @@ func TestRegistryRoundTrip(t *testing.T) {
 func TestRegistryFind(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plugins.ttt.json")
 	r := &Registry{path: path}
-	r.AddOrUpdate("alpha", "", "", "1.0", PermissionSet{})
-	r.AddOrUpdate("beta", "", "", "2.0", PermissionSet{})
+	r.AddOrUpdate("alpha", "", "", "", "1.0", PermissionSet{})
+	r.AddOrUpdate("beta", "", "", "", "2.0", PermissionSet{})
 
 	if r.Find("alpha") == nil {
 		t.Error("expected to find alpha")
@@ -58,7 +64,7 @@ func TestRegistryFind(t *testing.T) {
 func TestRegistrySetEnabled(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plugins.ttt.json")
 	r := &Registry{path: path}
-	r.AddOrUpdate("test", "", "", "1.0", PermissionSet{})
+	r.AddOrUpdate("test", "", "", "", "1.0", PermissionSet{})
 
 	r.SetEnabled("test", false)
 	entry := r.Find("test")
@@ -70,7 +76,7 @@ func TestRegistrySetEnabled(t *testing.T) {
 func TestRegistryUpdatePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plugins.ttt.json")
 	r := &Registry{path: path}
-	r.AddOrUpdate("test", "", "", "1.0", PermissionSet{})
+	r.AddOrUpdate("test", "", "", "", "1.0", PermissionSet{})
 
 	r.UpdatePermissions("test", PermissionSet{Commands: true})
 	entry := r.Find("test")

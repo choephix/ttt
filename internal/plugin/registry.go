@@ -8,11 +8,20 @@ import (
 
 type RegistryEntry struct {
 	Name        string        `json:"name"`
+	DisplayName string        `json:"displayName,omitempty"`
 	Repo        string        `json:"repo,omitempty"`
 	Path        string        `json:"path,omitempty"`
 	Version     string        `json:"version"`
 	Enabled     bool          `json:"enabled"`
 	Permissions PermissionSet `json:"permissions"`
+}
+
+// Title is the human-facing name: DisplayName when set, else the unique Name.
+func (e RegistryEntry) Title() string {
+	if e.DisplayName != "" {
+		return e.DisplayName
+	}
+	return e.Name
 }
 
 type Registry struct {
@@ -77,9 +86,10 @@ func (r *Registry) Remove(name string) {
 	}
 }
 
-func (r *Registry) AddOrUpdate(name, repo, path, version string, perms PermissionSet) {
+func (r *Registry) AddOrUpdate(name, displayName, repo, path, version string, perms PermissionSet) {
 	entry := r.Find(name)
 	if entry != nil {
+		entry.DisplayName = displayName
 		entry.Repo = repo
 		entry.Path = path
 		entry.Version = version
@@ -89,6 +99,7 @@ func (r *Registry) AddOrUpdate(name, repo, path, version string, perms Permissio
 	}
 	r.Entries = append(r.Entries, RegistryEntry{
 		Name:        name,
+		DisplayName: displayName,
 		Repo:        repo,
 		Path:        path,
 		Version:     version,

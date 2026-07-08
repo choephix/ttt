@@ -12,12 +12,22 @@ const DefaultRegistryURL = "https://raw.githubusercontent.com/eugenioenko/ttt/ma
 
 type RemoteRegistryEntry struct {
 	Name        string   `json:"name"`
+	DisplayName string   `json:"displayName,omitempty"`
 	Repo        string   `json:"repo"`
 	Description string   `json:"description"`
 	Author      string   `json:"author"`
 	Version     string   `json:"version,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 	Path        string   `json:"path,omitempty"`
+}
+
+// Title is the human-facing name shown in the registry UI: DisplayName when the
+// entry provides one, otherwise the unique Name identifier.
+func (e RemoteRegistryEntry) Title() string {
+	if e.DisplayName != "" {
+		return e.DisplayName
+	}
+	return e.Name
 }
 
 func FetchRemoteRegistry(url string) ([]RemoteRegistryEntry, error) {

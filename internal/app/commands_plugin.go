@@ -109,7 +109,7 @@ func (a *App) showPluginList() {
 			status = "error"
 		}
 		entries = append(entries, widgets.KeyValueEntry{
-			Key:   p.Name,
+			Key:   p.Manifest.Title(),
 			Value: status + " v" + p.Manifest.Version,
 		})
 	}
@@ -268,7 +268,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 	content.InvertStyles = true
 
 	dialog := widgets.NewDialogWidget(50)
-	dialog.Title = p.Manifest.Name + " requests"
+	dialog.Title = p.Manifest.Title() + " requests"
 	dialog.Borders = *a.Borders
 	dialog.SetContent(content)
 	dialog.Buttons = []widgets.DialogButton{
