@@ -60,11 +60,10 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 	})
 
 	pp.InstalledTree = widgets.NewTreeWidget(widgets.TreeConfig{
-		EmptyText:     "No plugins installed",
-		Indent:        1,
-		SelectOnClick: true,
-		NodeMenu:      []widgets.MenuEntry{{Label: "Actions"}},
-		MenuIcon:      "⋮",
+		EmptyText: "No plugins installed",
+		Indent:    1,
+		NodeMenu:  []widgets.MenuEntry{{Label: "Actions"}},
+		MenuIcon:  "⋮",
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			pp.handleCommand(cmd, node)
 		},
@@ -117,17 +116,41 @@ func NewPluginsPanel(mgr *plugin.Manager) *PluginsPanel {
 	return pp
 }
 
-// handleCommand handles row activation. Selecting a row never toggles the
-// plugin (too easy to disable by accident); Enter / Space open the same
-// per-plugin actions menu as the ⋮ button, anchored to the selected row.
+// handleCommand opens the plugin's README on activate (click/Enter/Space), like
+// the search list. Per-plugin actions live on the ⋮ button.
 func (pp *PluginsPanel) handleCommand(cmd string, node *widgets.TreeNode) {
 	if node == nil || cmd != "activate" {
 		return
 	}
-	rect := pp.InstalledTree.GetRect()
-	x := rect.X
-	y := rect.Y + pp.InstalledTree.SelectedIndex() - pp.InstalledTree.ScrollTop()
-	pp.showRowMenu(node, x, y)
+	pp.openInstalledDetail(node.ID)
+}
+
+// openInstalledDetail reuses the search detail flow, rebuilding a registry entry
+// from the local registry (repo/path) and loaded manifest (description).
+func (pp *PluginsPanel) openInstalledDetail(name string) {
+	if pp.OnOpenDetail == nil {
+		return
+	}
+	entry := plugin.RemoteRegistryEntry{Name: name}
+	if reg := pp.manager.Registry(); reg != nil {
+		if e := reg.Find(name); e != nil {
+			entry.DisplayName = e.DisplayName
+			entry.Repo = e.Repo
+			entry.Path = e.Path
+			entry.Version = e.Version
+		}
+	}
+	if p := pp.manager.FindPlugin(name); p != nil {
+		entry.Description = p.Manifest.Description
+		entry.Author = p.Manifest.Author
+		if entry.DisplayName == "" {
+			entry.DisplayName = p.Manifest.DisplayName
+		}
+		if entry.Version == "" {
+			entry.Version = p.Manifest.Version
+		}
+	}
+	pp.OnOpenDetail(entry)
 }
 
 // showRowMenu opens the per-plugin actions menu for the given row.
