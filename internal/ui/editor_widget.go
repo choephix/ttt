@@ -1460,9 +1460,6 @@ var bracketPairs = map[rune]rune{
 
 var closingBrackets = map[rune]bool{')': true, ']': true, '}': true}
 
-// indentOpeners are the characters that, when they precede the cursor on Enter,
-// add an extra indent level to the new line. Unlike openBrackets, this includes
-// ':' (block openers in Python/YAML) and so is intentionally not a bracket set.
 var indentOpeners = map[rune]bool{'{': true, '(': true, '[': true, ':': true}
 
 func (e *EditorPaneWidget) findMatchingBracket() (int, int, bool) {
