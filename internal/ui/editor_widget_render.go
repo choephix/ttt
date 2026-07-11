@@ -256,7 +256,7 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 							}
 						}
 					} else {
-						isCursorLine = lineIdx == e.Cursor.Line && !hasSel
+						isCursorLine = lineIdx == e.Cursor.Line
 					}
 					if isCursorLine && !isSearchHighlight {
 						bgStyle = term.StyleActiveLine
