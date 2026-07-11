@@ -263,30 +263,34 @@ func (e *EditorPaneWidget) execEnter() {
 	e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
 	e.Cursor.Line++
 	e.Cursor.Col = 0
+
+	// Indentation inheritance is baseline behavior and always applies; the
+	// AutoIndent flag only governs the bracket-aware extra level and dedent.
+	indent := leadingWhitespace(line)
+	newIndent := indent
+	runes := []rune(line)
+	charAfter := ' '
+	if col < len(runes) {
+		charAfter = runes[col]
+	}
+	extraIndent := false
 	if e.AutoIndent {
-		indent := leadingWhitespace(line)
-		runes := []rune(line)
 		charBefore := ' '
 		if col > 0 && col <= len(runes) {
 			charBefore = runes[col-1]
 		}
-		charAfter := ' '
-		if col < len(runes) {
-			charAfter = runes[col]
-		}
-		extraIndent := indentOpeners[charBefore]
-		newIndent := indent
+		extraIndent = indentOpeners[charBefore]
 		if extraIndent {
 			newIndent += e.indentUnit()
 		}
-		if len(newIndent) > 0 {
-			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
-			e.Cursor.Col = len([]rune(newIndent))
-		}
-		if extraIndent && closingBrackets[charAfter] {
-			e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
-			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
-		}
+	}
+	if len(newIndent) > 0 {
+		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
+		e.Cursor.Col = len([]rune(newIndent))
+	}
+	if extraIndent && closingBrackets[charAfter] {
+		e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
 	}
 }
 

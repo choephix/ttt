@@ -118,3 +118,51 @@ func TestAutoIndentEnabledByDefault(t *testing.T) {
 		t.Fatal("expected auto-indent to be enabled by default")
 	}
 }
+
+// With auto-indent off, a new line should still inherit the previous line's
+// indentation. Auto-indent only governs the bracket-aware extra level, not
+// basic indentation inheritance.
+func TestAutoIndentOffInheritsIndentation(t *testing.T) {
+	e := newEditorWithLines("    foo")
+	e.AutoIndent = false
+	e.Cursor.Col = 7
+
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+
+	if e.Buf.Lines[1] != "    " {
+		t.Fatalf("expected new line to inherit 4-space indent, got %q", e.Buf.Lines[1])
+	}
+	if e.Cursor.Col != 4 {
+		t.Fatalf("expected cursor at col 4, got %d", e.Cursor.Col)
+	}
+}
+
+// Single-cursor and multi-cursor Enter must indent identically. Previously the
+// multi-cursor path inherited indentation unconditionally while the single
+// path gated it behind AutoIndent, so they diverged with auto-indent off.
+func TestAutoIndentOffEnterConsistentAcrossCursorModes(t *testing.T) {
+	single := newEditorWithLines("    foo")
+	single.AutoIndent = false
+	single.Cursor.Line, single.Cursor.Col = 0, 7
+	single.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	singleIndent := single.Buf.Lines[1]
+
+	multi := newEditorWithLines("    foo", "    bar")
+	multi.AutoIndent = false
+	multi.Cursor.Line, multi.Cursor.Col = 0, 7
+	multi.ensureMulti()
+	multi.Multi.Add(1, 7)
+	multi.syncFromMulti()
+	if !multi.isMultiActive() {
+		t.Fatal("expected multi-cursor mode to be active")
+	}
+	multi.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	multiIndent := multi.Buf.Lines[1]
+
+	if singleIndent != multiIndent {
+		t.Fatalf("indent diverged with auto-indent off: single=%q multi=%q", singleIndent, multiIndent)
+	}
+	if singleIndent != "    " {
+		t.Fatalf("expected both to inherit 4-space indent, got %q", singleIndent)
+	}
+}
