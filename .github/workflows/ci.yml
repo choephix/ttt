@@ -150,6 +150,13 @@ jobs:
           pip install pyright
           sudo apt-get install -y clangd
 
+      # typescript-language-server resolves the "typescript" package via Node's
+      # module resolution. The temp fixture workspaces have no node_modules, so
+      # point NODE_PATH at the global install (inherited by the LSP subprocess)
+      # to avoid "Could not find a valid TypeScript installation".
+      - name: Expose global node_modules to language servers
+        run: echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+
       - name: Install test dependencies
         working-directory: tests/integration
         run: pnpm install
