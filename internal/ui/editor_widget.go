@@ -1037,7 +1037,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				if col < len(runes) {
 					charAfter = runes[col]
 				}
-				extraIndent := charBefore == '{' || charBefore == '(' || charBefore == '[' || charBefore == ':'
+				extraIndent := indentOpeners[charBefore]
 				newIndent := indent
 				if extraIndent {
 					newIndent += e.indentUnit()
@@ -1046,7 +1046,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 					e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
 					e.Cursor.Col = len([]rune(newIndent))
 				}
-				if extraIndent && (charAfter == '}' || charAfter == ')' || charAfter == ']') {
+				if extraIndent && closingBrackets[charAfter] {
 					e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
 					e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
 				}
@@ -1124,7 +1124,7 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 					e.replaceSelection(&undo.InsertRuneCommand{Line: start.Line, Col: start.Col, Rune: r})
 					e.Cursor.Col = start.Col + 1
 				} else {
-					if e.AutoIndent && (r == '}' || r == ')' || r == ']') {
+					if e.AutoIndent && closingBrackets[r] {
 						e.dedentForCloser()
 					}
 					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
@@ -1459,6 +1459,11 @@ var bracketPairs = map[rune]rune{
 }
 
 var closingBrackets = map[rune]bool{')': true, ']': true, '}': true}
+
+// indentOpeners are the characters that, when they precede the cursor on Enter,
+// add an extra indent level to the new line. Unlike openBrackets, this includes
+// ':' (block openers in Python/YAML) and so is intentionally not a bracket set.
+var indentOpeners = map[rune]bool{'{': true, '(': true, '[': true, ':': true}
 
 func (e *EditorPaneWidget) findMatchingBracket() (int, int, bool) {
 	if e.Cursor.Line < 0 || e.Cursor.Line >= len(e.Buf.Lines) {
