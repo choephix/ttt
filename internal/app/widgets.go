@@ -128,7 +128,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.SyntaxHighlight = cfg.Settings.Editor.IsSyntaxHighlightEnabled()
 	editorGroup.WordWrap = cfg.Settings.Editor.WordWrap
 	editorGroup.Editor.WordWrap = cfg.Settings.Editor.WordWrap
-	editorGroup.Editor.AutoIndent = cfg.Settings.Editor.IsAutoIndentEnabled()
+	editorGroup.Editor.AutoDedent = cfg.Settings.Editor.IsAutoDedentEnabled()
 	editorGroup.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.Editor.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.BracketColorStyles = bracketStyles

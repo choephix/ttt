@@ -264,25 +264,23 @@ func (e *EditorPaneWidget) execEnter() {
 	e.Cursor.Line++
 	e.Cursor.Col = 0
 
-	// Indentation inheritance is baseline behavior and always applies; the
-	// AutoIndent flag only governs the bracket-aware extra level and dedent.
+	// Indentation inheritance and the bracket-aware extra level both always
+	// apply on Enter. Only the closing-bracket dedent (see execRune) is
+	// gated, behind the AutoDedent flag.
 	indent := leadingWhitespace(line)
 	newIndent := indent
 	runes := []rune(line)
+	charBefore := ' '
+	if col > 0 && col <= len(runes) {
+		charBefore = runes[col-1]
+	}
 	charAfter := ' '
 	if col < len(runes) {
 		charAfter = runes[col]
 	}
-	extraIndent := false
-	if e.AutoIndent {
-		charBefore := ' '
-		if col > 0 && col <= len(runes) {
-			charBefore = runes[col-1]
-		}
-		extraIndent = indentOpeners[charBefore]
-		if extraIndent {
-			newIndent += e.indentUnit()
-		}
+	extraIndent := indentOpeners[charBefore]
+	if extraIndent {
+		newIndent += e.indentUnit()
 	}
 	if len(newIndent) > 0 {
 		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
@@ -361,7 +359,7 @@ func (e *EditorPaneWidget) execRune(r rune) {
 		e.Cursor.Col = start.Col + 1
 		return
 	}
-	if e.AutoIndent && closingBrackets[r] {
+	if e.AutoDedent && closingBrackets[r] {
 		e.dedentForCloser()
 	}
 	e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})

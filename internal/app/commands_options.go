@@ -26,11 +26,11 @@ func (a *App) ToggleWordWrap() {
 	config.SaveSettings(*a.Settings)
 }
 
-func (a *App) ToggleAutoIndent() {
-	enabled := !a.Settings.Editor.IsAutoIndentEnabled()
-	a.Settings.Editor.AutoIndent = &enabled
+func (a *App) ToggleAutoDedent() {
+	enabled := !a.Settings.Editor.IsAutoDedentEnabled()
+	a.Settings.Editor.AutoDedent = &enabled
 	if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.AutoIndent = enabled
+		a.EditorGroup.Editor.AutoDedent = enabled
 	}
 	config.SaveSettings(*a.Settings)
 }
@@ -146,9 +146,9 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		bracketColorChecked = ui.MenuChecked
 	}
 
-	autoIndentChecked := ui.MenuUnchecked
-	if a.Settings.Editor.IsAutoIndentEnabled() {
-		autoIndentChecked = ui.MenuChecked
+	autoDedentChecked := ui.MenuUnchecked
+	if a.Settings.Editor.IsAutoDedentEnabled() {
+		autoDedentChecked = ui.MenuChecked
 	}
 
 	lspChecked := ui.MenuUnchecked
@@ -169,7 +169,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
-		{Label: "Auto Indent", Command: "options.toggleAutoIndent", Checked: autoIndentChecked},
+		{Label: "Auto Dedent", Command: "options.toggleAutoDedent", Checked: autoDedentChecked},
 		{Label: "Syntax Highlight", Command: "options.toggleSyntaxHighlight", Checked: syntaxChecked},
 		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
 		{Label: "LSP Code Assist", Command: "options.toggleLSP", Checked: lspChecked},
@@ -208,9 +208,9 @@ func registerOptionsCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "options.toggleAutoIndent", Title: "Toggle Auto Indent",
-		Keywords: []string{"preferences", "settings", "editor", "indentation", "indent"},
-		Handler:  app.ToggleAutoIndent,
+		ID: "options.toggleAutoDedent", Title: "Toggle Auto Dedent",
+		Keywords: []string{"preferences", "settings", "editor", "indentation", "dedent", "bracket"},
+		Handler:  app.ToggleAutoDedent,
 	})
 
 	reg.Register(command.Command{
