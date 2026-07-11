@@ -78,6 +78,7 @@ type EditorSettings struct {
 	FocusOnOpen             bool   `json:"focusOnOpen"`
 	SyntaxHighlight         *bool  `json:"syntaxHighlight,omitempty"`
 	GitGutter               *bool  `json:"gitGutter,omitempty"`
+	AutoIndent              *bool  `json:"autoIndent,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
 	BorderStyle             string `json:"borderStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`
@@ -89,6 +90,10 @@ func (e EditorSettings) IsSyntaxHighlightEnabled() bool {
 
 func (e EditorSettings) IsGitGutterEnabled() bool {
 	return e.GitGutter == nil || *e.GitGutter
+}
+
+func (e EditorSettings) IsAutoIndentEnabled() bool {
+	return e.AutoIndent == nil || *e.AutoIndent
 }
 
 func DefaultEditorSettings() EditorSettings {

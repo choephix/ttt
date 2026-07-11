@@ -26,6 +26,15 @@ func (a *App) ToggleWordWrap() {
 	config.SaveSettings(*a.Settings)
 }
 
+func (a *App) ToggleAutoIndent() {
+	enabled := !a.Settings.Editor.IsAutoIndentEnabled()
+	a.Settings.Editor.AutoIndent = &enabled
+	if a.EditorGroup.Editor != nil {
+		a.EditorGroup.Editor.AutoIndent = enabled
+	}
+	config.SaveSettings(*a.Settings)
+}
+
 func (a *App) ToggleSyntaxHighlight() {
 	enabled := !a.Settings.Editor.IsSyntaxHighlightEnabled()
 	a.Settings.Editor.SyntaxHighlight = &enabled
@@ -137,6 +146,11 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		bracketColorChecked = ui.MenuChecked
 	}
 
+	autoIndentChecked := ui.MenuUnchecked
+	if a.Settings.Editor.IsAutoIndentEnabled() {
+		autoIndentChecked = ui.MenuChecked
+	}
+
 	lspChecked := ui.MenuUnchecked
 	if a.Settings.LSP.IsEnabled() {
 		lspChecked = ui.MenuChecked
@@ -155,6 +169,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
+		{Label: "Auto Indent", Command: "options.toggleAutoIndent", Checked: autoIndentChecked},
 		{Label: "Syntax Highlight", Command: "options.toggleSyntaxHighlight", Checked: syntaxChecked},
 		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
 		{Label: "LSP Code Assist", Command: "options.toggleLSP", Checked: lspChecked},
@@ -190,6 +205,12 @@ func registerOptionsCommands(app *App) {
 		ID: "options.toggleWordWrap", Title: "Toggle Word Wrap",
 		Keywords: []string{"preferences", "settings", "editor", "view"},
 		Handler:  app.ToggleWordWrap,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleAutoIndent", Title: "Toggle Auto Indent",
+		Keywords: []string{"preferences", "settings", "editor", "indentation", "indent"},
+		Handler:  app.ToggleAutoIndent,
 	})
 
 	reg.Register(command.Command{

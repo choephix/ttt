@@ -504,6 +504,7 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `tabSize` | int | `4` | Number of spaces per indentation level |
 | `insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
 | `wordWrap` | bool | `false` | Wrap long lines at the editor width |
+| `autoIndent` | bool | `true` | Auto-indent new lines after `{ ( [ :` and dedent when typing a closing bracket |
 | `lineNumbers` | bool | `true` | Show line numbers in the gutter |
 | `sidebarVisible` | bool | `true` | Show the sidebar on startup |
 | `sidebarWidth` | int | `30` | Width of the sidebar in columns |
@@ -533,6 +534,7 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
   "tabSize": 4,
   "insertSpaces": true,
   "wordWrap": false,
+  "autoIndent": true,
   "lineNumbers": true,
   "sidebarVisible": true,
   "sidebarWidth": 30,
