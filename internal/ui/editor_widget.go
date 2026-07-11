@@ -36,6 +36,7 @@ type EditorPaneWidget struct {
 	LineNumbers             bool
 	GutterStyle             string
 	WordWrap                bool
+	AutoIndent              bool
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	Highlighter             *highlight.Highlighter
@@ -74,6 +75,7 @@ func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewpo
 		Buf:               buf,
 		Cursor:            cur,
 		Viewport:          vp,
+		AutoIndent:        true,
 		bracketColorDirty: true,
 	}
 }
@@ -1021,31 +1023,33 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 				col = lineLen
 			}
 			line := e.Buf.Lines[e.Cursor.Line]
-			indent := leadingWhitespace(line)
-			runes := []rune(line)
-			charBefore := ' '
-			if col > 0 && col <= len(runes) {
-				charBefore = runes[col-1]
-			}
-			charAfter := ' '
-			if col < len(runes) {
-				charAfter = runes[col]
-			}
-			extraIndent := charBefore == '{' || charBefore == '(' || charBefore == '[' || charBefore == ':'
 			e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
 			e.Cursor.Line++
 			e.Cursor.Col = 0
-			newIndent := indent
-			if extraIndent {
-				newIndent += e.indentUnit()
-			}
-			if len(newIndent) > 0 {
-				e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
-				e.Cursor.Col = len([]rune(newIndent))
-			}
-			if extraIndent && (charAfter == '}' || charAfter == ')' || charAfter == ']') {
-				e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
-				e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
+			if e.AutoIndent {
+				indent := leadingWhitespace(line)
+				runes := []rune(line)
+				charBefore := ' '
+				if col > 0 && col <= len(runes) {
+					charBefore = runes[col-1]
+				}
+				charAfter := ' '
+				if col < len(runes) {
+					charAfter = runes[col]
+				}
+				extraIndent := charBefore == '{' || charBefore == '(' || charBefore == '[' || charBefore == ':'
+				newIndent := indent
+				if extraIndent {
+					newIndent += e.indentUnit()
+				}
+				if len(newIndent) > 0 {
+					e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
+					e.Cursor.Col = len([]rune(newIndent))
+				}
+				if extraIndent && (charAfter == '}' || charAfter == ')' || charAfter == ']') {
+					e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
+					e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
+				}
 			}
 		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
@@ -1120,6 +1124,9 @@ func (e *EditorPaneWidget) HandleEvent(ev tcell.Event) EventResult {
 					e.replaceSelection(&undo.InsertRuneCommand{Line: start.Line, Col: start.Col, Rune: r})
 					e.Cursor.Col = start.Col + 1
 				} else {
+					if e.AutoIndent && (r == '}' || r == ')' || r == ']') {
+						e.dedentForCloser()
+					}
 					e.exec(&undo.InsertRuneCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Rune: r})
 					e.Cursor.Col++
 				}
@@ -1302,6 +1309,35 @@ func (e *EditorPaneWidget) indentUnit() string {
 		return "\t"
 	}
 	return strings.Repeat(" ", e.resolveTabSize())
+}
+
+// dedentForCloser removes one indent level from the current line when a closing
+// bracket is typed on an otherwise-blank line, so `}` lands back at the
+// indentation of its opening line. It is a no-op when there is non-whitespace
+// before the cursor or less than a full indent unit to remove.
+func (e *EditorPaneWidget) dedentForCloser() {
+	runes := []rune(e.Buf.Lines[e.Cursor.Line])
+	col := e.Cursor.Col
+	if col > len(runes) {
+		col = len(runes)
+	}
+	for i := 0; i < col; i++ {
+		if runes[i] != ' ' && runes[i] != '\t' {
+			return
+		}
+	}
+	remove := leadingIndentWidth(e.Buf.Lines[e.Cursor.Line], e.resolveTabSize())
+	if remove <= 0 || remove > col {
+		return
+	}
+	e.exec(&undo.DeleteSelectionCommand{
+		StartLine: e.Cursor.Line, StartCol: 0,
+		EndLine: e.Cursor.Line, EndCol: remove,
+	})
+	e.Cursor.Col -= remove
+	if e.Cursor.Col < 0 {
+		e.Cursor.Col = 0
+	}
 }
 
 func leadingIndentWidth(line string, tabSize int) int {

@@ -13,6 +13,10 @@ Matching brackets are highlighted automatically when the cursor is on a bracket 
 
 Bracket pair colorization is also available, rendering each nesting level in a distinct color. It is off by default and can be enabled with the `editor.bracketPairColorization` setting.
 
+## Auto Indent
+
+New lines inherit the indentation of the previous line, and adding an extra level after an open `{`, `(`, `[`, or trailing `:`. Typing a closing `}`, `)`, or `]` on an otherwise-blank line dedents it one level so it lines up with its opening line. Auto indent is on by default; toggle it from the Options menu (**Auto Indent**) or with the `editor.autoIndent` setting.
+
 ## Find and Replace
 
 - **Ctrl+F** opens the find bar with match navigation
