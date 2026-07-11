@@ -83,28 +83,47 @@ describe("clipboard roundtrip", () => {
     tui.start(file);
     tui.waitFor("first line");
 
-    // Cursor is on line 1, no selection — copy
+    // Cursor is on line 1, no selection — copy the whole line
     tui.press("ctrl+c");
     tui.waitStable();
 
-    // Move to line 2
+    // Move to line 2 and paste
     tui.press("arrow_down");
     tui.press("end");
-    tui.waitStable();
-
-    // Paste
     tui.press("ctrl+v");
     tui.waitStable();
 
-    // Save and check — documents behavior regardless of whether full line was copied
+    tui.press("ctrl+s");
+    tui.waitStable();
+
+    const { snapshots } = tui.run();
+
+    // The whole "first line" was copied, so it now appears twice.
+    const content = readFile(file);
+    expect((content.match(/first line/g) || []).length).toBe(2);
+  });
+
+  it("should cut entire line when nothing is selected", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "linecut.txt", "alpha\nbeta\ngamma");
+
+    tui.start(file);
+    tui.waitFor("beta");
+
+    // Move to line 2 ("beta"), no selection — cut the whole line
+    tui.press("arrow_down");
+    tui.press("ctrl+x");
+    tui.waitStable();
+
     tui.press("ctrl+s");
     tui.waitStable();
 
     const { snapshots } = tui.run();
 
     const content = readFile(file);
-    expect(content).toContain("first line");
-    expect(content).toContain("second line");
+    expect(content).not.toContain("beta");
+    expect(content).toContain("alpha");
+    expect(content).toContain("gamma");
   });
 
   it("should paste the same text multiple times", () => {
