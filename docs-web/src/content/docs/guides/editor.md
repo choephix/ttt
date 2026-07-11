@@ -15,7 +15,9 @@ Bracket pair colorization is also available, rendering each nesting level in a d
 
 ## Auto Indent
 
-New lines inherit the indentation of the previous line, and adding an extra level after an open `{`, `(`, `[`, or trailing `:`. Typing a closing `}`, `)`, or `]` on an otherwise-blank line dedents it one level so it lines up with its opening line. Auto indent is on by default; toggle it from the Options menu (**Auto Indent**) or with the `editor.autoIndent` setting.
+New lines inherit the indentation of the previous line and gain an extra level after an open `{`, `(`, `[`, or trailing `:`. These always apply.
+
+Typing a closing `}`, `)`, or `]` on an otherwise-blank line dedents it one level so it lines up with its opening line. This dedent is on by default; toggle it from the Options menu (**Auto Dedent**) or with the `editor.autoDedent` setting.
 
 ## Find and Replace
 

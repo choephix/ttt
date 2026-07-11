@@ -85,24 +85,26 @@ func TestAutoIndentDedentSkipsMidLine(t *testing.T) {
 	}
 }
 
-func TestAutoIndentDisabledPlainNewline(t *testing.T) {
+// Open-brace indentation applies on Enter regardless of AutoDedent; the flag
+// only controls the closing-bracket dedent.
+func TestOpenIndentAppliesRegardlessOfAutoDedent(t *testing.T) {
 	e := newEditorWithLines("{")
-	e.AutoIndent = false
+	e.AutoDedent = false
 	e.Cursor.Col = 1
 
 	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
 
-	if e.Buf.Lines[1] != "" {
-		t.Fatalf("expected empty new line when auto-indent off, got %q", e.Buf.Lines[1])
+	if e.Buf.Lines[1] != "    " {
+		t.Fatalf("expected open-brace indent even with auto-dedent off, got %q", e.Buf.Lines[1])
 	}
-	if e.Cursor.Line != 1 || e.Cursor.Col != 0 {
-		t.Fatalf("expected cursor at (1,0), got (%d,%d)", e.Cursor.Line, e.Cursor.Col)
+	if e.Cursor.Line != 1 || e.Cursor.Col != 4 {
+		t.Fatalf("expected cursor at (1,4), got (%d,%d)", e.Cursor.Line, e.Cursor.Col)
 	}
 }
 
-func TestAutoIndentDisabledNoDedent(t *testing.T) {
+func TestAutoDedentDisabledNoDedent(t *testing.T) {
 	e := newEditorWithLines("    ")
-	e.AutoIndent = false
+	e.AutoDedent = false
 	e.Cursor.Col = 4
 
 	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '}', 0))
@@ -112,19 +114,17 @@ func TestAutoIndentDisabledNoDedent(t *testing.T) {
 	}
 }
 
-func TestAutoIndentEnabledByDefault(t *testing.T) {
+func TestAutoDedentEnabledByDefault(t *testing.T) {
 	e := newEditorWithLines("")
-	if !e.AutoIndent {
-		t.Fatal("expected auto-indent to be enabled by default")
+	if !e.AutoDedent {
+		t.Fatal("expected auto-dedent to be enabled by default")
 	}
 }
 
-// With auto-indent off, a new line should still inherit the previous line's
-// indentation. Auto-indent only governs the bracket-aware extra level, not
-// basic indentation inheritance.
-func TestAutoIndentOffInheritsIndentation(t *testing.T) {
+// Indentation inheritance always applies on Enter, independent of AutoDedent.
+func TestEnterInheritsIndentation(t *testing.T) {
 	e := newEditorWithLines("    foo")
-	e.AutoIndent = false
+	e.AutoDedent = false
 	e.Cursor.Col = 7
 
 	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
@@ -137,18 +137,14 @@ func TestAutoIndentOffInheritsIndentation(t *testing.T) {
 	}
 }
 
-// Single-cursor and multi-cursor Enter must indent identically. Previously the
-// multi-cursor path inherited indentation unconditionally while the single
-// path gated it behind AutoIndent, so they diverged with auto-indent off.
-func TestAutoIndentOffEnterConsistentAcrossCursorModes(t *testing.T) {
+// Single-cursor and multi-cursor Enter must indent identically.
+func TestEnterIndentConsistentAcrossCursorModes(t *testing.T) {
 	single := newEditorWithLines("    foo")
-	single.AutoIndent = false
 	single.Cursor.Line, single.Cursor.Col = 0, 7
 	single.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
 	singleIndent := single.Buf.Lines[1]
 
 	multi := newEditorWithLines("    foo", "    bar")
-	multi.AutoIndent = false
 	multi.Cursor.Line, multi.Cursor.Col = 0, 7
 	multi.ensureMulti()
 	multi.Multi.Add(1, 7)
@@ -160,7 +156,7 @@ func TestAutoIndentOffEnterConsistentAcrossCursorModes(t *testing.T) {
 	multiIndent := multi.Buf.Lines[1]
 
 	if singleIndent != multiIndent {
-		t.Fatalf("indent diverged with auto-indent off: single=%q multi=%q", singleIndent, multiIndent)
+		t.Fatalf("indent diverged between cursor modes: single=%q multi=%q", singleIndent, multiIndent)
 	}
 	if singleIndent != "    " {
 		t.Fatalf("expected both to inherit 4-space indent, got %q", singleIndent)

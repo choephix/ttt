@@ -35,7 +35,7 @@ type EditorPaneWidget struct {
 	LineNumbers             bool
 	GutterStyle             string
 	WordWrap                bool
-	AutoIndent              bool
+	AutoDedent              bool
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	Highlighter             *highlight.Highlighter
@@ -74,7 +74,7 @@ func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewpo
 		Buf:               buf,
 		Cursor:            cur,
 		Viewport:          vp,
-		AutoIndent:        true,
+		AutoDedent:        true,
 		bracketColorDirty: true,
 	}
 }

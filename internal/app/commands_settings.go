@@ -26,7 +26,7 @@ func (a *App) ApplySettings(s config.Settings) {
 	a.EditorGroup.Editor.TabSize = s.Editor.TabSize
 	a.EditorGroup.Editor.LineNumbers = s.Editor.LineNumbers
 	a.EditorGroup.Editor.GutterStyle = s.Editor.GutterStyle
-	a.EditorGroup.Editor.AutoIndent = s.Editor.IsAutoIndentEnabled()
+	a.EditorGroup.Editor.AutoDedent = s.Editor.IsAutoDedentEnabled()
 
 	// Apply cursor style
 	if a.Screen != nil {

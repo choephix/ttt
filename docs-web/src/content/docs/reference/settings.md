@@ -26,7 +26,7 @@ All editor settings are nested under the `editor` key.
 | `editor.tabSize` | int | `4` | Number of spaces per indentation level |
 | `editor.insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
 | `editor.wordWrap` | bool | `false` | Wrap long lines at the editor width |
-| `editor.autoIndent` | bool | `true` | Auto-indent new lines after `{ ( [ :` and dedent when typing a closing bracket |
+| `editor.autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line (indentation inheritance and indent after `{ ( [ :` always apply) |
 | `editor.lineNumbers` | bool | `true` | Show line numbers in the gutter |
 | `editor.cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
 | `editor.formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
@@ -128,7 +128,7 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
     "tabSize": 4,
     "insertSpaces": true,
     "wordWrap": false,
-    "autoIndent": true,
+    "autoDedent": true,
     "lineNumbers": true,
     "cursorStyle": "",
     "formatOnSave": false,
