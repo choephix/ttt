@@ -199,6 +199,11 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 			}
 		}
 	case tcell.KeyBacktab:
+		if multi {
+			// Outdent under multiple cursors is a no-op (see #371); backspace
+			// covers per-cursor de-indentation.
+			break
+		}
 		tabSize := e.resolveTabSize()
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
@@ -226,6 +231,10 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 			}
 		}
 	case tcell.KeyTab:
+		if multi {
+			e.multiExecTab()
+			break
+		}
 		indent := e.indentUnit()
 		if hasSel {
 			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
