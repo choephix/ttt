@@ -14,10 +14,10 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Code folding × editing | swept (2 findings) | BUG-026, BUG-027 |
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
-| Explorer (file tree) | in progress | |
+| Explorer (file tree) | swept (9 findings) | BUG-028..035 |
 | Global search (sidebar, rg-based) | pending | |
 | Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
-| Resize & layout | pending | |
+| Resize & layout | in progress | |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
 | Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
 | Themes & rendering | pending | |
@@ -240,6 +240,81 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### BUG-028: Explorer Delete/Rename with no selection targets the workspace ROOT (data loss)
+- **Area:** Explorer
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified — root dir actually removed from disk)
+- **Repro:** open a folder, `exec "Show Explorer"`, `exec "Explorer: Delete"` (no prior selection), confirm → `os.RemoveAll` wipes the whole workspace; dialog reads a plain "Delete <name>?" indistinguishable from a file. Rename variant renames the root and orphans the workspace (`Workspace.Folders[0].Path` not updated → tree renders permanently empty).
+- **Expected:** operate on an explicit selection; block or distinctly warn for the root (the right-click path already routes root to a delete-less menu via `isRoot()`)
+- **Actual:** `explorerNodePath()` (`internal/app/commands_explorer.go`) falls back to `Tree.Selected()`==0==root with no `isRoot` guard
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`, delete case)
+
+### BUG-029: Renaming an open file leaves the tab tracking the old path (data loss)
+- **Area:** Explorer
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified with disk + tab-path dump)
+- **Repro:** open root.txt, `Explorer: Rename` → renamed.txt, edit, save → tab still `path: root.txt`, so save recreates root.txt with the edit while renamed.txt keeps stale content. Folder-rename variant makes save fail outright ("no such file or directory"), stranding the edit.
+- **Expected:** rename updates the open tab's path (or warns/blocks save)
+- **Actual:** tab path never updated after rename
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+
+### BUG-030: New File / Rename silently clobbers an existing file (data loss)
+- **Area:** Explorer
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `Explorer: New File` named `dup.txt` when dup.txt exists → truncated to empty (O_TRUNC). Rename onto an existing name → `os.Rename` replaces the target outright.
+- **Expected:** error/warn/confirm on collision
+- **Actual:** `FileOpNewFile`/`FileOpRename` (`internal/app/fileops.go`) never `os.Stat` the target before writing
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+
+### BUG-031: Deleting an open file leaves a stale tab with no warning; the disk-deleted warning path is dead code
+- **Area:** Explorer × file watching
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified via timed external rm)
+- **Repro:** open a file, `rm` it externally (or delete via Explorer), wait → tab shows old content, `modified:false`, no status message. Edit+save silently resurrects the file.
+- **Expected:** warn ("<file> was deleted on disk") and/or close/mark the tab
+- **Actual:** `HandleFileChanged` (`internal/app/watch.go`) returns early on `buf.DiskChanged(path)==false`, but `Buffer.DiskChanged` (`internal/core/buffer/io.go`) returns false when the file is missing — so the "was deleted on disk" branch is unreachable
+- **Test:** none — batch functional harness can't rm mid-session; ledger-only (integration/PTY test is the right home)
+
+### BUG-032: Opening a file from the Explorer does not focus the editor — keystrokes swallowed
+- **Area:** Explorer
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `Show Explorer`, arrow to file, Enter, type → buffer unchanged (`text` still original, `modified:false`); the Tree keeps focus
+- **Expected:** Enter opens AND focuses the editor (standard UX)
+- **Actual:** `DefaultEditorSettings()` never sets `FocusOnOpen`, so it defaults false and `OnOpenFile` calls `FocusEditorIfEnabled()` (a no-op) instead of `FocusEditor()`. Note: this is a default-setting choice — but the default silently drops the user's first keystrokes.
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+
+### BUG-033: CJK filenames break tree column alignment (rune-count vs display-width)
+- **Area:** Explorer / rendering
+- **Severity:** medium
+- **Status:** confirmed (agent-reported; orchestrator confirmed the code path — the internal screenshot grid masks it because it uses the same 1-cell-per-rune model, but a real terminal renders wide glyphs at 2 cols → 3-col overflow for a 3-glyph name)
+- **Repro:** a workspace with `日本語.txt` and `root.txt`; the sidebar/editor divider shifts right by the CJK glyphs' extra display width on that row
+- **Expected:** the divider sits at the same display column on every row
+- **Actual:** `internal/widgets/tree.go` (~lines 298, 556) sizes rows via `len([]rune(...))`, undercounting each wide glyph by one cell
+- **Test:** none — misalignment is invisible in the char-grid screenshot; would need a display-width-aware render assertion (noted for a rendering-specific harness)
+
+### BUG-034: New File honors `/` in the name, silently creating nested subdirectories
+- **Area:** Explorer
+- **Severity:** low
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `Explorer: New File` named `sub/dir/deep.txt` → `os.MkdirAll` creates the whole path with no distinct confirmation
+- **Expected:** reject `/` in a filename field, or clearly signal path creation
+- **Actual:** slashes silently create directories
+- **Test:** none — behavior may be intended-as-feature; ledger-only pending an owner decision
+
+### BUG-035: Quick Open does not sync the Explorer keyboard-selection to the opened file
+- **Area:** Explorer
+- **Severity:** low
+- **Status:** confirmed (agent-reported, orchestrator re-verified — `Tree.selected` stays 0)
+- **Repro:** Quick Open beta.txt → tab opens but `Tree.props.selected` stays 0 (root), not beta's index
+- **Expected:** reveal/select the opened file in the tree (VS Code "reveal in explorer")
+- **Actual:** keyboard selection not moved. (A separate active-file *highlight* may exist but couldn't be confirmed — no style info in the dump.)
+- **Test:** none — low priority; keyboard-selection sync only observable via widget-tree props, covered by the ledger note
+
+### Explorer area notes (clean probes)
+Nested-dir navigation, create-in-selected-dir, empty-dir handling, keyboard expand/collapse, arrow nav through a 50-file dir, tree re-sort after create, collapse-state preservation across ops, and CJK/space filenames opening correctly all worked. Data-loss findings clustered in the rename/delete/collision paths and the file-watch teardown.
 
 ### BUG-026: Fold collapsed-state reattaches to an unrelated block after line-count edits
 - **Area:** Folding × editing
