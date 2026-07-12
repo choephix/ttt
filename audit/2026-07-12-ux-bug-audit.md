@@ -555,14 +555,12 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 - **Status:** REJECTED — intended feature (VS Code parity)
 - **Test:** none (was ledger-only)
 
-### BUG-035: Quick Open does not sync the Explorer keyboard-selection to the opened file
+### BUG-035: Quick Open does not sync the Explorer keyboard-selection to the opened file — ❌ REJECTED (mostly works)
 - **Area:** Explorer
-- **Severity:** low
-- **Status:** confirmed (agent-reported, orchestrator re-verified — `Tree.selected` stays 0)
-- **Repro:** Quick Open beta.txt → tab opens but `Tree.props.selected` stays 0 (root), not beta's index
-- **Expected:** reveal/select the opened file in the tree (VS Code "reveal in explorer")
-- **Actual:** keyboard selection not moved. (A separate active-file *highlight* may exist but couldn't be confirmed — no style info in the dump.)
-- **Test:** none — low priority; keyboard-selection sync only observable via widget-tree props, covered by the ledger note
+- **Severity:** ~~low~~ — n/a (agent over-reported)
+- **Curation (2026-07-12, REJECTED — reveal actually works):** the agent under-observed because screenshots carry no color info. The active file IS revealed/highlighted on Quick Open: `SetActiveFile` fires in the event-loop sync (`eventloop.go:60`) → `Tree.SetActiveID`, and the active node renders with `StyleSidebarSelected` (`tree.go:315`). The only residual is that the keyboard-nav `selected` INDEX isn't synced to the active file (so arrowing after focusing the tree doesn't continue from it, and the `selected` highlight overrides the active-file one when the tree is focused). Trivial nit, arguably by-design. **Optional enhancement (not a bug):** on reveal, also set `selected` to the active node for exact VS Code parity.
+- **Status:** REJECTED — reveal works; selection-index sync is a trivial optional enhancement
+- **Test:** none (was ledger-only)
 
 ### Explorer area notes (clean probes)
 Nested-dir navigation, create-in-selected-dir, empty-dir handling, keyboard expand/collapse, arrow nav through a 50-file dir, tree re-sort after create, collapse-state preservation across ops, and CJK/space filenames opening correctly all worked. Data-loss findings clustered in the rename/delete/collision paths and the file-watch teardown.
