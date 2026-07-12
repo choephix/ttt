@@ -6,6 +6,22 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 
 **Resuming this hunt?** See [`## Resume guide`](#resume-guide) at the bottom: the orchestration loop, harness state, standing dump gaps, and ready-to-paste agent prompts for every remaining area.
 
+## Status: discovery phase COMPLETE (all 19 areas swept)
+
+**59 confirmed findings (BUG-001..059)** — 20 high, 29 medium, 10 low. 37 have expected-failure repro tests (vitest `it.fails` / Go `t.Skip`); 22 are ledger-only (feedback signal undefined until fixed, tiny-size-only, PTY/timing-dependent, or design questions). Every repro was re-verified by the orchestrator before entry. No fixes on this branch.
+
+**Recurring root-cause clusters** (fix these, not 59 individual bugs):
+- Line-range commands ignore the col-0 selection convention -> BUG-001..004
+- Primary-cursor-only ops ignore `e.Multi` -> BUG-005..008
+- Missing `BatchCommand` (non-atomic undo) -> BUG-012, 021, 022
+- Undo restores text but not the user's view (cursor/viewport) -> BUG-020, 023
+- Editor search/find state shared across tabs, not reset on switch -> BUG-013, 048
+- File ops mutate disk without stat-guard or tab-model reconciliation -> BUG-028..031
+- Fold state keyed by raw line number, no content anchor -> BUG-024, 026, 027
+- Focus/key-routing gaps around overlays & the terminal -> BUG-057, 058, 059
+
+**Data-loss / trapping highs to fix first:** BUG-028/029/030 (explorer wipes/clobbers/misdirects saves), BUG-052 (plugin freezes editor), BUG-057 (typing corrupts file after dialog).
+
 ## Coverage matrix
 
 | Area | Status | Findings |
