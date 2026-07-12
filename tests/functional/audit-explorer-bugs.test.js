@@ -18,8 +18,8 @@ afterEach(() => {
   if (dir) cleanupDir(dir);
 });
 
-describe("BUG-028: Explorer delete/rename with no selection targets the workspace root", () => {
-  it.fails("Explorer: Delete with no selection does not remove the root folder", () => {
+describe("BUG-028: command-palette Explorer: Delete lacks the isRoot guard the right-click menu has", () => {
+  it.fails("Explorer: Delete with the root selected does not disk-remove the root folder", () => {
     dir = createTempDir();
     mkdirSync(join(dir, "sub"));
     writeFileSync(join(dir, "file.txt"), "hi\n");

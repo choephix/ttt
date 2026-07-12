@@ -8,7 +8,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 
 ## Status: discovery phase COMPLETE (all 19 areas swept)
 
-**59 confirmed findings (BUG-001..059)** — 20 high, 29 medium, 10 low. 37 have expected-failure repro tests (vitest `it.fails` / Go `t.Skip`); 22 are ledger-only (feedback signal undefined until fixed, tiny-size-only, PTY/timing-dependent, or design questions). Every repro was re-verified by the orchestrator before entry. No fixes on this branch.
+**59 confirmed findings (BUG-001..059)** — 20 high, 29 medium, 10 low (pre-curation counts; a **curation pass is in progress** — see per-entry `Curation:` lines for downgrades/rejections, recount at the end). 37 have expected-failure repro tests (vitest `it.fails` / Go `t.Skip`); 22 are ledger-only (feedback signal undefined until fixed, tiny-size-only, PTY/timing-dependent, or design questions). Every repro was re-verified by the orchestrator before entry. No fixes on this branch.
 
 **Recurring root-cause clusters** (fix these, not 59 individual bugs):
 - Line-range commands ignore the col-0 selection convention -> BUG-001..004
@@ -494,14 +494,14 @@ Cycled all 18 built-in themes (`internal/config/themes/*.json`) — no crash, no
 ### Resize area notes
 Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at 50 cols — a realistic split width). No crashes/panics at any size down to 10x5 (rects clamp at w:1/h:1, never negative). **DUMP GAP:** `overlay.type` is always `"unknown"` and overlays (palette/dialog/menu) are NOT in `widget_tree` — no rect data for overlays, so BUG-039/040 are screenshot-only. Adding overlay rects to the dump would make dialog/menu layout testable non-visually. Adjacent note: tab-bar decorative border truncates mid-glyph at ~20 cols even with no overlay (likely normal chrome degradation; a tab-bar-rendering sweep could double-check).
 
-### BUG-028: Explorer Delete/Rename with no selection targets the workspace ROOT (data loss)
-- **Area:** Explorer
-- **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified — root dir actually removed from disk)
-- **Repro:** open a folder, `exec "Show Explorer"`, `exec "Explorer: Delete"` (no prior selection), confirm → `os.RemoveAll` wipes the whole workspace; dialog reads a plain "Delete <name>?" indistinguishable from a file. Rename variant renames the root and orphans the workspace (`Workspace.Folders[0].Path` not updated → tree renders permanently empty).
-- **Expected:** operate on an explicit selection; block or distinctly warn for the root (the right-click path already routes root to a delete-less menu via `isRoot()`)
-- **Actual:** `explorerNodePath()` (`internal/app/commands_explorer.go`) falls back to `Tree.Selected()`==0==root with no `isRoot` guard
-- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`, delete case)
+### BUG-028: Selection-dependent explorer commands are exposed in the command palette (no valid target there)
+- **Area:** Explorer / command palette
+- **Severity:** low  *(was high — see Curation)*
+- **Curation (2026-07-12, DOWNGRADED + REFRAMED):** original framing ("no selection", "silent data loss") was inaccurate — the tree's default selection IS the root (shown selected), and `FileOpDelete` shows a confirm dialog naming the folder. The real, general issue: `Explorer: Delete/Rename` (and other `explorer.*` context commands) operate on the explorer's selected node, but they are listed in the command palette (`commands_palette.go:14` = `a.Reg.List()`, unfiltered) where there is no meaningful selection — so from the palette they fall back to `Tree.Selected()` = root. **There are NO global keybindings for any `explorer.*` command** (confirmed: `keybindings.go` has none), so the palette is the ONLY context-free entry point; the right-click menu already guards the root (offers Refresh / Copy Path / Remove from Workspace via `isRoot()`, `callbacks.go:545`). Hiding these from the palette fully removes the bad path.
+- **Status:** confirmed behavior; reframed as a palette-exposure design gap, not data loss
+- **Fix (shared with the explorer-command-exposure cluster):** add a `Hidden bool` / `ShowInPalette` field to `command.Command`; filter it at the palette call site only (keep `Reg.List()` intact for the keybindings view / `exec` / tests). Mark selection-dependent commands hidden: `explorer.delete/rename/newFile/newFolder/open/removeRoot/copyAbsolutePath/copyRelativePath`. Keep `explorer.refresh/help` visible. This alone closes BUG-028 (no keybinding path remains); the residual bugs in BUG-029/030 are separate and still need their own fixes.
+- **Repro:** `exec "Explorer: Delete"` with root selected, confirm → `os.RemoveAll` root (palette-only path)
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`, delete case) — kept; note `exec`/`FindByTitle` bypasses the palette filter so the test still drives the command deliberately (real users lose only the palette route)
 
 ### BUG-029: Renaming an open file leaves the tab tracking the old path (data loss)
 - **Area:** Explorer
