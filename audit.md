@@ -11,10 +11,10 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Editing commands × selection | swept (4 findings) | BUG-001..004 |
 | Multicursor interactions | swept (4 findings) | BUG-005..008 |
 | Undo/redo semantics | swept (6 findings) | BUG-020..025 |
-| Code folding × editing | in progress | |
+| Code folding × editing | swept (2 findings) | BUG-026, BUG-027 |
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
-| Explorer (file tree) | pending | |
+| Explorer (file tree) | in progress | |
 | Global search (sidebar, rg-based) | pending | |
 | Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
 | Resize & layout | pending | |
@@ -240,6 +240,27 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### BUG-026: Fold collapsed-state reattaches to an unrelated block after line-count edits
+- **Area:** Folding × editing
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** fold the `if true {` block (line 4), insert a blank line at the top of the file → the fold marker now collapses `func outer()`'s entire body instead
+- **Expected:** collapsed state follows the folded content (or at worst clears); a region the user never folded must never become collapsed
+- **Actual:** `fold.State.SetRanges` (`internal/core/fold/fold.go:26-39`) recomputes ranges on every line-count change and preserves collapse purely by raw `StartLine` equality — after the shift, the outer function's new start line coincides with the old collapsed key and inherits the fold, silently hiding different code. Duplicate Line on a folded header makes the fold vanish by the same mechanism.
+- **Test:** `tests/functional/audit-fold-bugs.test.js` (`it.fails`)
+
+### BUG-027: Move Line on a folded header swaps the header with a HIDDEN line — silent code reordering
+- **Area:** Folding × editing
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** fold `if true {`, press `alt+down` → buffer becomes `func outer() { / \t\tfoo() / \tif true {` — `foo()` hoisted out of its block — while the fold marker still renders as if valid
+- **Expected:** move the whole folded region as a unit (VS Code) or no-op while folded; never reorder invisible code
+- **Actual:** `MoveLineDown`/`Up` issue a raw `SwapLineCommand` with no fold awareness; since line COUNT is unchanged, the `exec()` fold-recompute guard (`internal/ui/editor_widget.go:214-217`) never fires, so the stale marker keeps rendering over now-invalid structure
+- **Test:** `tests/functional/audit-fold-bugs.test.js` (`it.fails`)
+
+### Folding area notes (clean probes)
+Delete Line on folded header (hidden lines revealed, no data loss), copy/paste of header, selection deletion across folds, Join Lines, arrow-skip over collapsed regions, go-to-line auto-expand, nested fold preservation, collapse/expand-all, save-with-folds — all correct. Syntax-highlight layering on collapsed headers not independently verified (no style info in dump).
 
 ### BUG-018: Clicking a second menu header closes the open menu instead of switching to it
 - **Area:** Mouse / menu bar
