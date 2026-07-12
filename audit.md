@@ -12,12 +12,12 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Multicursor interactions | swept (4 findings) | BUG-005..008 |
 | Undo/redo semantics | pending | |
 | Code folding × editing | pending | |
-| Find/replace + search highlights | pending | |
+| Find/replace + search highlights | in progress | |
 | Tabs & split panes | pending | |
 | Explorer (file tree) | pending | |
 | Mouse targets / click offsets | pending | |
 | Resize & layout | pending | |
-| Wide-char / edge content (CJK, emoji, tabs, long lines) | pending | |
+| Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
 | Themes & rendering | pending | |
 | Settings & options | pending | |
 | Workspace (multi-folder) | pending | |
@@ -99,6 +99,16 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** undo restores text and either restores consistent multicursor selections or collapses to single cursor at the primary's pre-edit position
 - **Actual:** text restores, but the cursor jumps to the last secondary cursor's stale post-edit position, "(4 cursors)" persists, and typing "Z" corrupts: `foo barZ foo baz` / `fZoo qux` / `bar fZoZo end` (two Z's from one keystroke). Root cause: undo (`internal/core/undo`) has no concept of `e.Multi`, so stale post-edit offsets survive into the reverted buffer.
 - **Test:** `tests/functional/audit-multicursor-bugs.test.js` (`it.fails`)
+
+### BUG-009: Cursor movement and backspace split ZWJ grapheme clusters
+- **Area:** Wide-char / edge content
+- **Severity:** medium
+- **Status:** confirmed (orchestrator spot-check; the area agent's sweep missed it and reported clean)
+- **Repro:** file `a👨‍👩‍👧‍👦b\n`; `bin/ttt --size 80x15 --exec 'wait 200; key right; key right; debug /tmp/d.json; key backspace; screenshot /tmp/s.txt; quit' zwj.txt`
+- **Expected:** the family emoji (7 runes: 👨 ZWJ 👩 ZWJ 👧 ZWJ 👦) is one grapheme cluster — arrow keys cross it in one press, backspace deletes it whole (VS Code behavior)
+- **Actual:** cursor stops mid-cluster (rune col 2 after two rights); backspace deletes only the 👨 rune, leaving a dangling ZWJ in the buffer and the emoji rendering exploded as `a 👩 👧 👦b`. Movement/deletion is rune-based everywhere, with no grapheme-cluster segmentation. Combining accents (e + U+0301) are presumably the same family — not separately verified.
+- **Note:** rune-based `Col` is a documented design constraint, so the fix is a design decision (grapheme segmentation layer), not a one-liner. Plain CJK, skin-tone-free emoji, tabs, long lines, and boundary cases all passed the sweep — this is specifically about multi-rune clusters.
+- **Test:** `tests/functional/audit-grapheme-bugs.test.js` (`it.fails`)
 
 ### Harness gap (not a product bug): `--exec key shift+tab` cannot produce `KeyBacktab`
 `comboToTcell("shift+tab")` yields `(KeyTab, ModShift)`; there is no `backtab` keyword in the key parser, so the `KeyBacktab` code path is unreachable from `--exec`/functional tests. Real terminals send Backtab as CSI Z. Consider adding a `backtab` keyword when convenient — until then, Backtab behavior is only testable via e2e event injection.
