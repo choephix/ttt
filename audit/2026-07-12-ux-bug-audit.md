@@ -540,7 +540,8 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 
 ### BUG-033: CJK filenames break tree column alignment (rune-count vs display-width)
 - **Area:** Explorer / rendering
-- **Severity:** medium
+- **Severity:** low  *(cosmetic divider misalignment; was medium)*
+- **Curation (2026-07-12, CONFIRMED, downgraded medium→low):** real but cosmetic. **Fix requires a NEW display-width helper — there is none in the codebase.** Checked: `editor.byte_to_col`/`col_to_byte` (the Lua-exposed converters) count UTF-8 lead bytes = RUNE count, not display width (a CJK char → 1), so they reproduce the bug rather than fix it; `bufColToVisualCol` only expands tabs (CJK → width 1); no `runewidth` usage anywhere. The editor is rune-width throughout, not cell-width — SAME root cause as [[BUG-009]] (ZWJ). Fix = wrap `uniseg.StringWidth` (already an indirect dep — `go mod tidy` promotes it) into a `DisplayWidth(string) int` helper and use it in `tree.go` (~298, 556) instead of `len([]rune())`; that helper is the reusable foundation for BUG-009 and could back a real Lua `str_width`. **Recommend a small foundational task: add `DisplayWidth`, then BUG-033 + BUG-009 both consume it.**
 - **Status:** confirmed (agent-reported; orchestrator confirmed the code path — the internal screenshot grid masks it because it uses the same 1-cell-per-rune model, but a real terminal renders wide glyphs at 2 cols → 3-col overflow for a 3-glyph name)
 - **Repro:** a workspace with `日本語.txt` and `root.txt`; the sidebar/editor divider shifts right by the CJK glyphs' extra display width on that row
 - **Expected:** the divider sits at the same display column on every row
