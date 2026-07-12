@@ -22,6 +22,80 @@ afterEach(() => {
   if (dir) cleanupDir(dir);
 });
 
+describe("BUG-006: case transforms under multicursor only affect primary cursor", () => {
+  it.fails("Transform to Uppercase applies to all selected occurrences", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "upper.txt", FOO_LINES);
+
+    tui.start(file);
+    tui.waitFor("foo");
+
+    tui.pressChord("ctrl+k", "l");
+    tui.exec("Transform to Uppercase");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+    tui.run();
+
+    // Buggy behavior uppercases only the first occurrence while the
+    // status bar still reports "(4 cursors)".
+    expect(readFile(file)).toBe("FOO bar FOO baz\nFOO qux\nbar FOO end\n");
+  });
+});
+
+describe("BUG-007: paste under multicursor only replaces the primary selection", () => {
+  it.fails("paste applies at every cursor's selection", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "paste.txt", FOO_LINES);
+
+    tui.start(file);
+    tui.waitFor("foo");
+
+    // Copy "bar" (chars 4-6 of line0), then select all "foo" and paste
+    for (let i = 0; i < 4; i++) tui.press("right");
+    for (let i = 0; i < 3; i++) tui.press("shift+right");
+    tui.press("ctrl+c");
+    tui.press("home");
+    tui.pressChord("ctrl+k", "l");
+    tui.press("ctrl+v");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+    tui.run();
+
+    // Buggy behavior replaces only the first "foo".
+    expect(readFile(file)).toBe("bar bar bar baz\nbar qux\nbar bar end\n");
+  });
+});
+
+describe("BUG-008: undo after multicursor edit strands cursor and stale e.Multi", () => {
+  it.fails("typing after undo edits at consistent cursor positions", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "undo.txt", FOO_LINES);
+
+    tui.start(file);
+    tui.waitFor("foo");
+
+    tui.pressChord("ctrl+k", "l");
+    tui.type("X"); // replaces all 4 occurrences
+    tui.press("ctrl+z"); // restores text, but leaves Multi.Cursors stale
+    tui.type("Z");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+    tui.run();
+
+    // Correct behavior: undo restores text AND multicursor selections, so
+    // "Z" replaces each occurrence again. Buggy behavior today corrupts:
+    // "foo barZ foo baz\nfZoo qux\nbar fZoZo end" (two Z's on one line
+    // from a single keystroke).
+    expect(readFile(file)).toBe("Z bar Z baz\nZ qux\nbar Z end\n");
+  });
+});
+
 describe("BUG-005: line commands under multicursor corrupt the buffer", () => {
   it.fails("typing after Duplicate Line edits at consistent cursor positions", () => {
     dir = createTempDir();

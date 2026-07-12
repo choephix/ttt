@@ -73,6 +73,33 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Actual:** buffer corrupted — `Yar foo baz` / `foo Y` / `bar foo end` (characters clobbered in words that were never selected). Same pattern with Delete Line and Move Line Down. Root cause: `DuplicateLine`/`DeleteLine`/`MoveLineUp`/`MoveLineDown` (`internal/ui/editor_widget_lines.go`) never read or update `e.Multi.Cursors`.
 - **Test:** `tests/functional/audit-multicursor-bugs.test.js` (`it.fails`)
 
+### BUG-006: Case transforms under multicursor only affect the primary cursor
+- **Area:** Multicursor interactions
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** same file; `bin/ttt --size 120x40 --exec 'wait 200; key ctrl+k l; exec "Transform to Uppercase"; screenshot /tmp/s.txt; quit' foo.txt`
+- **Expected:** all 4 selected "foo" occurrences become "FOO"
+- **Actual:** only the first is uppercased; the other 3 are silently ignored while the status bar reports "(4 cursors)". Root cause: `transformSelection` (`internal/ui/editor_widget_text.go:163`) reads only the primary `e.Selection`.
+- **Test:** `tests/functional/audit-multicursor-bugs.test.js` (`it.fails`)
+
+### BUG-007: Paste (and cut/copy) under multicursor only applies to the primary selection
+- **Area:** Multicursor interactions
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** same file; copy "bar", `key ctrl+k l`, `key ctrl+v`
+- **Expected:** paste replaces every cursor's selection (VS Code semantics), or is an explicit no-op under multicursor
+- **Actual:** only the primary "foo" becomes "bar"; the other 3 untouched, status bar still "(4 cursors)". Root cause: `EditorGroupWidget.Paste`/`Copy`/`Cut` (`internal/ui/editor_group.go:1262-1322`) and `pasteText` (`internal/ui/editor_widget.go:290`) never consult `e.Multi`.
+- **Test:** `tests/functional/audit-multicursor-bugs.test.js` (`it.fails`)
+
+### BUG-008: Undo after a multicursor edit strands the cursor and leaves `e.Multi` stale — next keystroke corrupts
+- **Area:** Multicursor interactions
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** same file; `bin/ttt --size 120x40 --exec 'wait 200; key ctrl+k l; type X; key ctrl+z; type Z; screenshot /tmp/s.txt; quit' foo.txt`
+- **Expected:** undo restores text and either restores consistent multicursor selections or collapses to single cursor at the primary's pre-edit position
+- **Actual:** text restores, but the cursor jumps to the last secondary cursor's stale post-edit position, "(4 cursors)" persists, and typing "Z" corrupts: `foo barZ foo baz` / `fZoo qux` / `bar fZoZo end` (two Z's from one keystroke). Root cause: undo (`internal/core/undo`) has no concept of `e.Multi`, so stale post-edit offsets survive into the reverted buffer.
+- **Test:** `tests/functional/audit-multicursor-bugs.test.js` (`it.fails`)
+
 ### Harness gap (not a product bug): `--exec key shift+tab` cannot produce `KeyBacktab`
 `comboToTcell("shift+tab")` yields `(KeyTab, ModShift)`; there is no `backtab` keyword in the key parser, so the `KeyBacktab` code path is unreachable from `--exec`/functional tests. Real terminals send Backtab as CSI Z. Consider adding a `backtab` keyword when convenient — until then, Backtab behavior is only testable via e2e event injection.
 
