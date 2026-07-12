@@ -503,9 +503,10 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 - **Repro:** `exec "Explorer: Delete"` with root selected, confirm → `os.RemoveAll` root (palette-only path)
 - **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`, delete case) — kept; note `exec`/`FindByTitle` bypasses the palette filter so the test still drives the command deliberately (real users lose only the palette route)
 
-### BUG-029: Renaming an open file leaves the tab tracking the old path (data loss)
+### BUG-029: Renaming an open file leaves the tab tracking the old path (misdirected save)
 - **Area:** Explorer
-- **Severity:** high
+- **Severity:** medium  *(was high — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded high→medium):** genuine bug (not mis-framed like BUG-028) — `FileOpRename` (`fileops.go:54`) does `os.Rename` + explorer `reload()` and never updates open editor tabs (no `RenameTab`/`UpdateTabPath` mechanism exists). Triggers via the legitimate right-click Rename on an open file, so it's independent of the palette-exposure issue. Downgraded to medium: needs the rename-open-file-then-save sequence and the misdirected save is confusing-but-detectable (tab shows old name, tree shows new); the folder-rename-save-fails variant is nastier but rarer. **Shares one root cause and fix with [[BUG-031]]: reconcile the open-tab model when a file is renamed/deleted** — fix them together.
 - **Status:** confirmed (agent-reported, orchestrator re-verified with disk + tab-path dump)
 - **Repro:** open root.txt, `Explorer: Rename` → renamed.txt, edit, save → tab still `path: root.txt`, so save recreates root.txt with the edit while renamed.txt keeps stale content. Folder-rename variant makes save fail outright ("no such file or directory"), stranding the edit.
 - **Expected:** rename updates the open tab's path (or warns/blocks save)
