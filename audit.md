@@ -17,11 +17,11 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
 | Explorer (file tree) | swept (9 findings) | BUG-028..035 |
-| Global search (sidebar, rg-based) | in progress | |
+| Global search (sidebar, rg-based) | swept (4 findings) | BUG-047..050 |
 | Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
 | Resize & layout | swept (5 findings) | BUG-036..040 |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
-| Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
+| Keyboard navigation parity | in progress | BUG-017 |
 | Themes & rendering | swept (2 findings) | BUG-041, BUG-042 |
 | Settings & options | swept (clean) | — |
 | Workspace (multi-folder) | swept (4 findings) | BUG-043..046 |
@@ -242,6 +242,45 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### BUG-047: Global-search navigation ignores the match column — cursor always lands at col 0
+- **Area:** Global search
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified — cursor col 0, real match col 8)
+- **Repro:** search `needle`, activate the "another needle line" result → cursor at line 3 col 0 (should be col 8)
+- **Expected:** cursor lands at the match's exact column
+- **Actual:** `NavigateToSearchMatch` (`internal/app/callbacks.go:~131`) receives `col` but never uses it — `GoToLine` unconditionally sets `Cursor.Col=0` (`internal/ui/editor_group.go:885`) and col is never restored
+- **Test:** `tests/functional/audit-global-search-bugs.test.js` (`it.fails`, marker-based)
+
+### BUG-048: Editor search state shared across tabs — Find Next after a direct tab switch applies another file's match coords
+- **Area:** Global search × tabs
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified — F3 placed cursor at col 8, a column valid only in the other file, on a line that doesn't exist in the active buffer)
+- **Repro:** search + navigate to a match in file B, dirty it, navigate to a match in a new tab, `alt+,` back to the first tab, `f3` → cursor jumps to stale cross-file coordinates
+- **Expected:** Find Next after a tab switch no-ops or finds a match IN the active file
+- **Actual:** `Editor.SearchMatches`/`SearchActive` live on the single Editor widget and are recomputed/cleared only by `NavigateToSearchMatch` and the sidebar-panel-change callback (`internal/app/callbacks.go:451`) — NOT by `SwitchTab` (`internal/ui/editor_group.go:516`). Direct tab switches (tab bar, `alt+.`/`alt+,`) leave stale coords that `FindNext` applies with no bounds/identity check. Same architectural class as BUG-013.
+- **Test:** none — fragile multi-tab/dirty-tab sequence; exact `--exec` repro in this entry, shares root with BUG-013
+
+### BUG-049: Per-file result cap (rg --max-count=100) silently truncates with no UI indication
+- **Area:** Global search
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified — `many.txt (100)`, "104 results in 3 files", real count 2000)
+- **Repro:** a file with 2000 matching lines → panel shows 100, no "showing 100 of 2000+" anywhere
+- **Expected:** all matches reachable, or a visible truncation notice
+- **Actual:** `--max-count=100` hard cap in `internal/ui/search_widget.go:314` with no truncation signal in list/summary/scroll
+- **Test:** none — the fix defines the truncation-indicator text; ledger-only
+
+### BUG-050: Multi-root workspaces with same-named files show indistinguishable unlabeled result groups
+- **Area:** Global search
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified — two identical `dup.txt (1)` headers)
+- **Repro:** two roots each with `dup.txt` containing the term → two `dup.txt (1)` group headers, no folder qualifier
+- **Expected:** folder-prefixed/qualified path when roots share a relative path
+- **Actual:** `SearchWidget.Render` (`internal/ui/search_widget.go:639`) prints `g.RelPath` relative to whichever workdir matches first; navigation still opens the correct absolute file (display-only bug)
+- **Test:** none — fix defines the label format; ledger-only
+
+### Global search area notes
+Basic search, result counts, case/regex behavior, empty/whitespace/CJK queries, and the debounce+generation race (no stale flicker observed) came back clean; search-and-replace-in-files spot-checked OK (adjacent, not fully swept). Findings cluster in navigation (col ignored, cross-tab stale state) and result-display (truncation, multi-root labels). **DUMP GAP:** `Editor.SearchMatches`/`SearchActive` not in the dump — highlight rendering verified indirectly via Find-Next cursor placement.
 
 ### BUG-043: `--workspace <file>` silently falls back to cwd on load failure (no feedback)
 - **Area:** Workspace
