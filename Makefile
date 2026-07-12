@@ -1,6 +1,6 @@
 # Makefile for ttt - terminal text editor
 
-.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build profiler
+.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build profiler install
 
 all: build
 
@@ -14,6 +14,12 @@ test:
 
 run: build
 	./bin/ttt
+
+INSTALL_DIR ?= $(HOME)/.local/bin
+
+install: build
+	install -m755 bin/ttt $(INSTALL_DIR)/ttt
+	@echo "Installed $$($(INSTALL_DIR)/ttt --version) to $(INSTALL_DIR)/ttt"
 
 fmt:
 	gofmt -w .
