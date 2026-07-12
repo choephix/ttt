@@ -8,7 +8,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// Repro test for BUG-004 from audit.md (branch audit/bug-hunt).
+// Repro test for BUG-004 from audit/2026-07-12-ux-bug-audit.md (branch audit/bug-hunt).
 // Asserts the CORRECT behavior and is skipped while the bug exists —
 // remove the t.Skip when fixing, and delete the audit entry.
 //
@@ -16,7 +16,7 @@ import (
 // synthesize tcell.KeyBacktab; only direct event injection reaches
 // the KeyBacktab branch in editor_widget_keyboard.go.
 func TestBacktabExcludesColZeroSelectionLine(t *testing.T) {
-	t.Skip("BUG-004, see audit.md — outdent includes line past col-0 selection end")
+	t.Skip("BUG-004, see audit/2026-07-12-ux-bug-audit.md — outdent includes line past col-0 selection end")
 
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()

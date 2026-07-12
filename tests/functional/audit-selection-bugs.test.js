@@ -1,4 +1,4 @@
-// Repro tests for confirmed bugs from audit.md (branch audit/bug-hunt).
+// Repro tests for confirmed bugs from audit/2026-07-12-ux-bug-audit.md (branch audit/bug-hunt).
 // Each test asserts the CORRECT behavior and is declared with `it.fails`,
 // so it passes while the bug exists and goes red the moment the bug is
 // fixed — at that point remove the `.fails` marker and the audit entry.

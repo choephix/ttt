@@ -648,7 +648,7 @@ Everything a fresh session needs to continue this audit without re-deriving it. 
 ### The orchestration loop (what the orchestrator does per area)
 
 1. Mark the area `in progress` in the coverage matrix; commit.
-2. Spawn **exactly one** hunting agent (background) with the area prompt below. Sonnet for judgment-heavy areas, Haiku for mechanical sweeps. Agents are **read-only on the repo** and report structured findings per `agent-brief.md`.
+2. Spawn **exactly one** hunting agent (background) with the area prompt below. Sonnet for judgment-heavy areas, Haiku for mechanical sweeps. Agents are **read-only on the repo** and report structured findings per `audit/agent-brief.md`.
 3. When it returns, **re-verify every repro yourself** by re-running the exact `bin/ttt --exec` command. Do not trust an agent finding until you reproduce it. A "clean" report from a mechanical sweep gets a **skeptical spot-check of its single hardest case** before the area is marked clean (this is how BUG-009 was caught after a clean report).
 4. For each confirmed finding: assign the next BUG-NNN, write a repro **test that asserts the CORRECT behavior**, marked expected-failure — `it.fails(...)` (vitest) or `t.Skip("BUG-NNN")` (Go e2e). It passes now, goes red when the bug is fixed. If untestable via the batch harness, record it ledger-only and say why.
 5. Add a ledger entry (use the template in the Findings section), update the matrix, **commit per finding** (message `audit: BUG-NNN <summary>`). Commit from the repo root — `git -C /home/enko/Documents/ttt ...` if cwd drifted.
@@ -689,7 +689,7 @@ Debug dump (`--exec "debug PATH"`, `internal/app/debug_dump.go`) now includes:
 
 ### Remaining areas — ready-to-paste agent prompts
 
-Every prompt below assumes the agent first reads `agent-brief.md`. Prepend to each: *"First, read /home/enko/Documents/ttt/agent-brief.md and follow it exactly."* and append the standard *"Already-known bugs (skip, see audit.md): BUG-001..NNN — don't re-report. Work in /tmp (mktemp -d) with files you create. Read-only on the repo; report findings in the exact format from the brief."* Bump the NNN to the current max as you go.
+Every prompt below assumes the agent first reads `audit/agent-brief.md`. Prepend to each: *"First, read /home/enko/Documents/ttt/audit/agent-brief.md and follow it exactly."* and append the standard *"Already-known bugs (skip, see audit/2026-07-12-ux-bug-audit.md): BUG-001..NNN — don't re-report. Work in /tmp (mktemp -d) with files you create. Read-only on the repo; report findings in the exact format from the brief."* Bump the NNN to the current max as you go.
 
 **Resize & layout** — (was in progress at pause; re-run if that agent's results were lost). `--exec` can only set size at startup (`--size WxH`), not mid-session — compare the SAME state at several fixed sizes (20x10, 30x15, 40x20, 80x24, 120x40, 200x50). Scan `widget_tree` at each for rects with w<=0/h<=0, children overflowing parents, overlapping siblings, nodes pushed off-screen. Probe: base editor, sidebar-open split divider, bottom-panel split heights, overlays (palette/quick-open/confirm/help dialogs) fitting/centering at tiny AND huge sizes, menu dropdowns at 20x10, status/menu bar at 20 cols, 300-char line at 40 vs 200 cols, word-wrap column per size, tab bar at 20 cols (rendering/overlap, not the BUG-016 chevron). A panic at any size is high severity.
 

@@ -7,7 +7,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 )
 
-// Repro for BUG-052 from audit.md (branch audit/bug-hunt). Asserts the
+// Repro for BUG-052 from audit/2026-07-12-ux-bug-audit.md (branch audit/bug-hunt). Asserts the
 // CORRECT behavior and is skipped while the bug exists — remove the
 // t.Skip when fixing, and delete the audit entry.
 //
@@ -19,7 +19,7 @@ import (
 // The work runs in a goroutine guarded by a timeout so this test FAILS
 // fast rather than hanging the suite when the bug is present.
 func TestClearRectClampsToSurfaceBounds(t *testing.T) {
-	t.Skip("BUG-052, see audit.md — ClearRect has no bound check; huge w/h freezes the UI")
+	t.Skip("BUG-052, see audit/2026-07-12-ux-bug-audit.md — ClearRect has no bound check; huge w/h freezes the UI")
 
 	vs := newVirtualSurface(20, 10)
 

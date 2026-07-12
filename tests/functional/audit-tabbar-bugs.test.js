@@ -1,4 +1,4 @@
-// Repro test for confirmed bug from audit.md (branch audit/bug-hunt).
+// Repro test for confirmed bug from audit/2026-07-12-ux-bug-audit.md (branch audit/bug-hunt).
 // Asserts the CORRECT behavior with `it.fails` — passes while the bug
 // exists, goes red when fixed. Remove `.fails` + audit entry when fixing.
 import { describe, it, expect, afterEach } from "vitest";

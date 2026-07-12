@@ -1,4 +1,4 @@
-// Repro tests for confirmed bugs from audit.md (branch audit/bug-hunt).
+// Repro tests for confirmed bugs from audit/2026-07-12-ux-bug-audit.md (branch audit/bug-hunt).
 // Each test asserts the CORRECT behavior and is declared with `it.fails`,
 // so it passes while the bug exists and goes red the moment the bug is
 // fixed — at that point remove the `.fails` marker and the audit entry.
@@ -101,7 +101,7 @@ describe("BUG-030: New File / Rename silently clobber an existing file", () => {
 });
 
 // BUG-031 (stale tab after external delete) has no functional test: the
-// batch harness can't rm mid-session. See audit.md for the timed
+// batch harness can't rm mid-session. See audit/2026-07-12-ux-bug-audit.md for the timed
 // external-delete --exec repro; an integration (PTY) test is the right
 // home for it if one is added.
 
