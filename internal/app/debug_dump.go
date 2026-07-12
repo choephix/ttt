@@ -11,19 +11,21 @@ import (
 )
 
 type DebugState struct {
-	Screen      DebugScreen       `json:"screen"`
-	Cursor      DebugCursor       `json:"cursor"`
-	Buffer      *DebugBuffer      `json:"buffer"`
-	Focus       string            `json:"focus"`
-	Sidebar     DebugPanel        `json:"sidebar"`
-	BottomPanel DebugPanel        `json:"bottom_panel"`
-	Tabs        []DebugTab        `json:"tabs"`
-	ActiveTab   int               `json:"active_tab"`
-	Overlay     *DebugOverlay     `json:"overlay"`
-	Selection   DebugSelection    `json:"selection"`
-	Diagnostics []DebugDiagnostic `json:"diagnostics"`
-	Output      []string          `json:"output"`
-	WidgetTree  *DebugWidgetNode  `json:"widget_tree"`
+	Screen      DebugScreen        `json:"screen"`
+	Cursor      DebugCursor        `json:"cursor"`
+	Buffer      *DebugBuffer       `json:"buffer"`
+	Viewport    *DebugViewport     `json:"viewport,omitempty"`
+	Focus       string             `json:"focus"`
+	Sidebar     DebugPanel         `json:"sidebar"`
+	BottomPanel DebugPanel         `json:"bottom_panel"`
+	Tabs        []DebugTab         `json:"tabs"`
+	ActiveTab   int                `json:"active_tab"`
+	Overlay     *DebugOverlay      `json:"overlay"`
+	Selection   DebugSelection     `json:"selection"`
+	MultiCursor []DebugMultiCursor `json:"multi_cursor,omitempty"`
+	Diagnostics []DebugDiagnostic  `json:"diagnostics"`
+	Output      []string           `json:"output"`
+	WidgetTree  *DebugWidgetNode   `json:"widget_tree"`
 }
 
 // DebugDiagnostic reports one diagnostic on the active editor (LSP or plugin),
@@ -50,9 +52,30 @@ type DebugCursor struct {
 }
 
 type DebugBuffer struct {
-	Path     string `json:"path"`
-	Lines    int    `json:"lines"`
-	Modified bool   `json:"modified"`
+	Path          string   `json:"path"`
+	Lines         int      `json:"lines"`
+	Modified      bool     `json:"modified"`
+	Text          []string `json:"text"`
+	TextTruncated bool     `json:"text_truncated,omitempty"`
+}
+
+// DebugViewport reports the visible region of the active editor, so
+// scripted tests can assert scroll position directly.
+type DebugViewport struct {
+	TopLine int `json:"top_line"`
+	LeftCol int `json:"left_col"`
+	Width   int `json:"width"`
+	Height  int `json:"height"`
+}
+
+// DebugMultiCursor reports one cursor of the multicursor set, so scripted
+// tests can observe secondary cursors that the primary cursor/selection
+// fields can't show.
+type DebugMultiCursor struct {
+	Line    int       `json:"line"`
+	Col     int       `json:"col"`
+	Primary bool      `json:"primary,omitempty"`
+	SelFrom *DebugPos `json:"sel_from,omitempty"`
 }
 
 type DebugPanel struct {
@@ -107,13 +130,28 @@ func (a *App) BuildDebugState() *DebugState {
 	if a.EditorGroup.Editor != nil {
 		line, col := a.EditorGroup.ActiveCursor()
 		state.Cursor = DebugCursor{Line: line, Col: col}
+		if vp := a.EditorGroup.Editor.Viewport; vp != nil {
+			state.Viewport = &DebugViewport{
+				TopLine: vp.TopLine, LeftCol: vp.LeftCol,
+				Width: vp.Width, Height: vp.Height,
+			}
+		}
 	}
 
 	if buf := a.EditorGroup.ActiveBuffer(); buf != nil {
+		const maxTextLines = 1000
+		text := buf.Lines
+		truncated := false
+		if len(text) > maxTextLines {
+			text = text[:maxTextLines]
+			truncated = true
+		}
 		state.Buffer = &DebugBuffer{
-			Path:     a.EditorGroup.ActiveFilePath(),
-			Lines:    len(buf.Lines),
-			Modified: buf.Dirty,
+			Path:          a.EditorGroup.ActiveFilePath(),
+			Lines:         len(buf.Lines),
+			Modified:      buf.Dirty,
+			Text:          text,
+			TextTruncated: truncated,
 		}
 	}
 
@@ -151,6 +189,20 @@ func (a *App) BuildDebugState() *DebugState {
 	if len(a.Root.Overlays) > 0 {
 		top := a.Root.Overlays[len(a.Root.Overlays)-1]
 		state.Overlay = describeOverlay(top.Widget)
+	}
+
+	if ed := a.EditorGroup.Editor; ed != nil && ed.Multi != nil && ed.Multi.IsMulti() {
+		for i, c := range ed.Multi.Cursors {
+			mc := DebugMultiCursor{
+				Line:    c.Line,
+				Col:     c.Col,
+				Primary: i == ed.Multi.Primary,
+			}
+			if c.Sel.Active {
+				mc.SelFrom = &DebugPos{Line: c.Sel.Anchor.Line, Col: c.Sel.Anchor.Col}
+			}
+			state.MultiCursor = append(state.MultiCursor, mc)
+		}
 	}
 
 	if active, sl, sc, el, ec := a.EditorGroup.ActiveSelection(); active {
