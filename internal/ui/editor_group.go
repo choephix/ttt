@@ -195,9 +195,17 @@ func (g *EditorGroupWidget) PinActiveTab() {
 }
 
 func (g *EditorGroupWidget) OpenFile(path string) {
+	g.openFile(path, true)
+}
+
+func (g *EditorGroupWidget) PreviewFile(path string) {
+	g.openFile(path, false)
+}
+
+func (g *EditorGroupWidget) openFile(path string, pinned bool) {
 	for i := range g.tabs {
 		if g.tabs[i].FilePath == path {
-			g.tabs[i].Pinned = true
+			g.tabs[i].Pinned = g.tabs[i].Pinned || pinned
 			if g.tabs[i].Buf != nil && !g.tabs[i].Buf.Dirty {
 				g.tabs[i].Buf.LoadFile(path)
 			}
@@ -247,11 +255,15 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 		Folds:    folds,
 		TabSize:  tabSize,
 		UseTabs:  useTabs,
+		Pinned:   pinned,
 	}
 	if g.SyntaxHighlight {
 		newTab.Highlighter = highlight.New(path)
 	}
 	if t := g.activeTab(); t != nil && !t.Pinned && t.Content == nil && t.Buf != nil && !t.Buf.Dirty {
+		if g.OnFileClose != nil && t.Highlighter != nil && !t.Virtual {
+			g.OnFileClose(t.FilePath, t.Highlighter.Language())
+		}
 		g.tabs[g.active] = newTab
 		g.syncTabs()
 	} else {
@@ -551,18 +563,22 @@ func (g *EditorGroupWidget) PrevTab() {
 	}
 }
 
-func (g *EditorGroupWidget) CloseTab() {
-	if len(g.tabs) == 0 {
+func (g *EditorGroupWidget) IsTabDirty(index int) bool {
+	return index >= 0 && index < len(g.tabs) && g.tabs[index].Buf != nil && g.tabs[index].Buf.Dirty
+}
+
+func (g *EditorGroupWidget) CloseTabAt(index int) {
+	if index < 0 || index >= len(g.tabs) {
 		return
 	}
-	closing := g.tabs[g.active]
+	closing := g.tabs[index]
 	if g.OnFileClose != nil && closing.Highlighter != nil && !closing.Virtual {
 		g.OnFileClose(closing.FilePath, closing.Highlighter.Language())
 	}
 	if closing.Content != nil && g.OnContentTabClose != nil {
 		g.OnContentTabClose(closing.FilePath)
 	}
-	g.tabs = append(g.tabs[:g.active], g.tabs[g.active+1:]...)
+	g.tabs = append(g.tabs[:index], g.tabs[index+1:]...)
 	if len(g.tabs) == 0 {
 		g.tabs = []editorTab{{
 			FilePath: "untitled",
@@ -574,10 +590,16 @@ func (g *EditorGroupWidget) CloseTab() {
 			Virtual:  true,
 		}}
 		g.active = 0
+	} else if index < g.active {
+		g.active--
 	} else if g.active >= len(g.tabs) {
 		g.active = len(g.tabs) - 1
 	}
 	g.syncTabs()
+}
+
+func (g *EditorGroupWidget) CloseTab() {
+	g.CloseTabAt(g.active)
 }
 
 func (g *EditorGroupWidget) CloseOtherTabs() {
@@ -1352,10 +1374,11 @@ func (g *EditorGroupWidget) syncTabs() {
 		g.Editor.UseTabs = t.UseTabs
 	}
 	var uiTabs []Tab
-	for i, ts := range g.tabs {
-		dirty := false
-		if ts.Buf != nil {
-			dirty = ts.Buf.Dirty
+	for i := range g.tabs {
+		ts := &g.tabs[i]
+		dirty := ts.Buf != nil && ts.Buf.Dirty
+		if dirty {
+			ts.Pinned = true
 		}
 		isEmptyUntitledTab := ts.Virtual && ts.Buf != nil && !ts.Buf.Dirty &&
 			len(ts.Buf.Lines) <= 1 && (len(ts.Buf.Lines) == 0 || ts.Buf.Lines[0] == "")
@@ -1369,6 +1392,7 @@ func (g *EditorGroupWidget) syncTabs() {
 			Active:   i == g.active,
 			Dirty:    dirty,
 			Closable: closable,
+			Preview:  !ts.Pinned && !ts.Virtual && ts.Content == nil,
 		})
 	}
 	g.TabBar.SetTabs(uiTabs)

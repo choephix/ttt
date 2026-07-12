@@ -1443,3 +1443,30 @@ func TestTreeRenderItemCallback(t *testing.T) {
 		t.Errorf("RenderItem should be called for each visible item, got %v", rendered)
 	}
 }
+
+func TestTreeSingleAndDoubleClickCallbacks(t *testing.T) {
+	var events []string
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{{ID: "file", Label: "File"}},
+		OnClick: func(node *TreeNode) {
+			events = append(events, "preview:"+node.ID)
+		},
+		OnDoubleClick: func(node *TreeNode) {
+			events = append(events, "open:"+node.ID)
+		},
+	})
+	renderWidget(tree, 0, 0, 20, 5)
+
+	tree.HandleEvent(tcell.NewEventMouse(2, 0, tcell.Button1, 0))
+	tree.HandleEvent(tcell.NewEventMouse(2, 0, tcell.Button1, 0))
+
+	want := []string{"preview:file", "open:file"}
+	if len(events) != len(want) {
+		t.Fatalf("events = %v, want %v", events, want)
+	}
+	for i := range want {
+		if events[i] != want[i] {
+			t.Fatalf("events = %v, want %v", events, want)
+		}
+	}
+}

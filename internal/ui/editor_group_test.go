@@ -111,6 +111,91 @@ func TestEditorGroupOpenFileSuccess(t *testing.T) {
 	}
 }
 
+func TestEditorGroupPreviewReusesUnpinnedTab(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.txt")
+	second := filepath.Join(dir, "second.txt")
+	if err := os.WriteFile(first, []byte("first"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte("second"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.PreviewFile(first)
+	g.PreviewFile(second)
+
+	if len(g.tabs) != 1 {
+		t.Fatalf("preview should reuse one tab, got %d", len(g.tabs))
+	}
+	if g.tabs[0].FilePath != second || g.tabs[0].Pinned {
+		t.Fatalf("active preview = %#v, want unpinned %q", g.tabs[0], second)
+	}
+}
+
+func TestEditorGroupCommittedOpenPinsTab(t *testing.T) {
+	dir := t.TempDir()
+	preview := filepath.Join(dir, "preview.txt")
+	next := filepath.Join(dir, "next.txt")
+	for _, path := range []string{preview, next} {
+		if err := os.WriteFile(path, []byte(path), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.PreviewFile(preview)
+	g.OpenFile(preview)
+	g.PreviewFile(next)
+
+	if len(g.tabs) != 2 {
+		t.Fatalf("preview after committed tab should create a second tab, got %d", len(g.tabs))
+	}
+	if !g.tabs[0].Pinned || g.tabs[0].FilePath != preview {
+		t.Fatal("committed file was not preserved as a pinned tab")
+	}
+	if g.tabs[1].Pinned || g.tabs[1].FilePath != next {
+		t.Fatal("new preview should remain unpinned")
+	}
+}
+
+func TestEditorGroupDirtyPreviewBecomesPinned(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "preview.txt")
+	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.PreviewFile(path)
+	g.tabs[g.active].Buf.Dirty = true
+	g.syncTabs()
+
+	if !g.tabs[g.active].Pinned {
+		t.Fatal("editing a preview should pin it")
+	}
+	if g.TabBar.Tabs[g.active].Preview {
+		t.Fatal("edited tab should no longer render as a preview")
+	}
+}
+
+func TestEditorGroupCloseBackgroundTabKeepsActiveTab(t *testing.T) {
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.NewFile()
+	g.NewFile()
+	g.SwitchTab(2)
+	activePath := g.tabs[g.active].FilePath
+
+	g.CloseTabAt(0)
+
+	if len(g.tabs) != 2 {
+		t.Fatalf("expected 2 tabs, got %d", len(g.tabs))
+	}
+	if g.tabs[g.active].FilePath != activePath {
+		t.Fatalf("closing a background tab activated %q, want %q", g.tabs[g.active].FilePath, activePath)
+	}
+}
+
 func TestEditorGroupSaveError(t *testing.T) {
 	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	var errMsg string

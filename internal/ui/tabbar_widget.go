@@ -20,6 +20,7 @@ type Tab struct {
 	Dirty    bool
 	Active   bool
 	Closable bool
+	Preview  bool
 }
 
 type TabBarWidget struct {
@@ -180,7 +181,7 @@ func (t *TabBarWidget) Render(surface Surface) {
 				}
 				x := sx + 1 + ci
 				if x >= innerLeft && x < innerRight {
-					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style})
+					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style, Italic: t.Tabs[i].Preview})
 				}
 			}
 			if ex-1 >= innerLeft && ex-1 < innerRight {
@@ -194,7 +195,7 @@ func (t *TabBarWidget) Render(surface Surface) {
 				}
 				x := sx + ci
 				if x >= innerLeft && x < innerRight {
-					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style})
+					surface.SetCell(x, 1, term.Cell{Ch: ch, Style: style, Italic: t.Tabs[i].Preview})
 				}
 			}
 		}
@@ -277,6 +278,16 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		for i, s := range t.tabSpans {
 			if localX >= s.start && localX < s.end {
 				t.OnTabRightClick(i, mx, my)
+				return EventConsumed
+			}
+		}
+	}
+
+	if btn&tcell.ButtonMiddle != 0 && t.OnTabClose != nil {
+		localX := mx - r.X - arrowW + t.ScrollOffset
+		for i, s := range t.tabSpans {
+			if localX >= s.start && localX < s.end {
+				t.OnTabClose(i)
 				return EventConsumed
 			}
 		}

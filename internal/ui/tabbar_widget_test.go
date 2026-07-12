@@ -40,6 +40,42 @@ func TestTabBarRender(t *testing.T) {
 	}
 }
 
+func TestTabBarPreviewLabelIsItalic(t *testing.T) {
+	tb := NewTabBarWidget()
+	tb.SetTabs([]Tab{{Name: "preview.go", Active: true, Preview: true}})
+	tb.SetRect(Rect{X: 0, Y: 0, W: 30, H: 3})
+	grid := makeGrid(30, 3)
+	tb.Render(NewRenderSurface(grid, Rect{X: 0, Y: 0, W: 30, H: 3}))
+
+	if !grid[1][2].Italic {
+		t.Fatal("preview tab label should be italic")
+	}
+}
+
+func TestTabBarMiddleClickClosesTargetWithoutActivating(t *testing.T) {
+	tb := NewTabBarWidget()
+	tb.SetTabs([]Tab{
+		{Name: "first.go", Active: true},
+		{Name: "second.go"},
+	})
+	tb.SetRect(Rect{X: 0, Y: 0, W: 40, H: 3})
+	tb.Render(NewRenderSurface(makeGrid(40, 3), Rect{X: 0, Y: 0, W: 40, H: 3}))
+
+	closed, activated := -1, -1
+	tb.OnTabClose = func(index int) { closed = index }
+	tb.OnTabClick = func(index int) { activated = index }
+	second := tb.tabSpans[1]
+	x := second.start + (second.end-second.start)/2
+	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.ButtonMiddle, 0))
+
+	if closed != 1 {
+		t.Fatalf("middle click closed tab %d, want 1", closed)
+	}
+	if activated != -1 {
+		t.Fatalf("middle click activated tab %d before closing", activated)
+	}
+}
+
 func TestTabBarOverflowArrows(t *testing.T) {
 	tb := NewTabBarWidget()
 	tb.SetTabs([]Tab{

@@ -70,6 +70,15 @@ func (a *App) FormatSelection() {
 	a.RequestRangeFormatting(path, lang, start.Line, start.Col, end.Line, end.Col)
 }
 
+func (a *App) CloseTabAt(index int) {
+	if a.EditorGroup.IsTabDirty(index) {
+		a.EditorGroup.SwitchTab(index)
+		a.CloseTab()
+		return
+	}
+	a.EditorGroup.CloseTabAt(index)
+}
+
 func (a *App) CloseTab() {
 	if !a.EditorGroup.IsDirty() {
 		a.EditorGroup.CloseTab()

@@ -106,6 +106,9 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	if c.Bold {
 		s = s.Bold(true)
 	}
+	if c.Italic {
+		s = s.Italic(true)
+	}
 	t.scr.SetContent(x, y, c.Ch, nil, s)
 }
 

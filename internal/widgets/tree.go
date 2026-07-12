@@ -3,6 +3,7 @@ package widgets
 import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v2"
+	"time"
 )
 
 type TreeNode struct {
@@ -44,12 +45,14 @@ type TreeConfig struct {
 	SelectOnClick  bool        `json:"-"`
 	TruncateLeft   bool        `json:"truncateLeft,omitempty"` // truncate labels from the left (…tail) so the end stays visible
 
-	OnCommand  func(command string, node *TreeNode)
-	OnMenu     func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
-	OnExpand   func(node *TreeNode)
-	OnSelect   func(node *TreeNode)
-	OnKey      func(ev *tcell.EventKey, node *TreeNode) bool
-	RenderItem func(surface Surface, node *TreeNode, idx, y, w int, selected bool)
+	OnCommand     func(command string, node *TreeNode)
+	OnMenu        func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
+	OnExpand      func(node *TreeNode)
+	OnSelect      func(node *TreeNode)
+	OnClick       func(node *TreeNode)
+	OnDoubleClick func(node *TreeNode)
+	OnKey         func(ev *tcell.EventKey, node *TreeNode) bool
+	RenderItem    func(surface Surface, node *TreeNode, idx, y, w int, selected bool)
 }
 
 type TreeWidget struct {
@@ -57,10 +60,12 @@ type TreeWidget struct {
 	Config   TreeConfig
 	flatList []*TreeNode
 
-	selected  int
-	scrollTop int
-	lastSel   int
-	focused   bool
+	selected      int
+	scrollTop     int
+	lastSel       int
+	focused       bool
+	lastClickTime time.Time
+	lastClickID   string
 
 	scrollbar scrollbar
 	contentX  int
@@ -567,8 +572,23 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 			}
 		}
 
-		if !t.Config.SelectOnClick {
-			t.ActivateSelected()
+		if t.Config.OnClick == nil && t.Config.OnDoubleClick == nil {
+			if !t.Config.SelectOnClick {
+				t.ActivateSelected()
+			}
+			return EventConsumed
+		}
+
+		now := time.Now()
+		isDoubleClick := node.ID == t.lastClickID && now.Sub(t.lastClickTime) < 500*time.Millisecond
+		t.lastClickTime = now
+		t.lastClickID = node.ID
+		if isDoubleClick && t.Config.OnDoubleClick != nil {
+			t.Config.OnDoubleClick(node)
+			t.lastClickTime = time.Time{}
+			t.lastClickID = ""
+		} else if t.Config.OnClick != nil {
+			t.Config.OnClick(node)
 		}
 		return EventConsumed
 	}

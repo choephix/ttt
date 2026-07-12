@@ -16,9 +16,10 @@ type NavigationPanel struct {
 	Settings config.ExplorerSettings
 	Roots    []string
 
-	OnOpenFile   func(path string)
-	OnRightClick func(node *widgets.TreeNode, sx, sy int)
-	OnRootMenu   func(node *widgets.TreeNode, sx, sy int)
+	OnPreviewFile func(path string)
+	OnOpenFile    func(path string)
+	OnRightClick  func(node *widgets.TreeNode, sx, sy int)
+	OnRootMenu    func(node *widgets.TreeNode, sx, sy int)
 }
 
 func NewNavigationPanel(settings config.ExplorerSettings, paths ...string) *NavigationPanel {
@@ -43,6 +44,18 @@ func NewNavigationPanel(settings config.ExplorerSettings, paths ...string) *Navi
 		Items: items,
 		OnExpand: func(node *widgets.TreeNode) {
 			n.loadChildren(node)
+		},
+		OnClick: func(node *widgets.TreeNode) {
+			if node.Expandable {
+				n.Tree.ActivateSelected()
+			} else if n.OnPreviewFile != nil {
+				n.OnPreviewFile(node.ID)
+			}
+		},
+		OnDoubleClick: func(node *widgets.TreeNode) {
+			if !node.Expandable && n.OnOpenFile != nil {
+				n.OnOpenFile(node.ID)
+			}
 		},
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			if cmd == "activate" && n.OnOpenFile != nil {

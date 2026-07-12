@@ -480,10 +480,7 @@ func registerWidgetCallbacks(app *App) {
 		app.Root.SetFocus(app.EditorGroup)
 	}
 
-	app.EditorGroup.TabBar.OnTabClose = func(index int) {
-		app.EditorGroup.SwitchTab(index)
-		reg.Execute("tab.close")
-	}
+	app.EditorGroup.TabBar.OnTabClose = app.CloseTabAt
 
 	app.EditorGroup.TabBar.MoreButton.OnClick = func(sx, sy int) {
 		moreMenu := []ui.ContextMenuItem{
@@ -519,6 +516,10 @@ func registerWidgetCallbacks(app *App) {
 		openContextMenu(app, tabContextMenu, sx, sy)
 	}
 
+	app.Explorer.OnPreviewFile = func(path string) {
+		app.EditorGroup.PreviewFile(path)
+		app.FocusEditorIfEnabled()
+	}
 	app.Explorer.OnOpenFile = func(path string) {
 		app.EditorGroup.OpenFile(path)
 		app.FocusEditorIfEnabled()

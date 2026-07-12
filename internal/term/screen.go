@@ -92,6 +92,7 @@ type Cell struct {
 	UlStyle   Style // when non-zero, underline style+color comes from this style
 	Underline bool  // when true, applies underline to styled (non-Direct) cells
 	Bold      bool  // when true, applies bold to styled (non-Direct) cells
+	Italic    bool  // when true, applies italic to styled (non-Direct) cells
 
 	// Direct-style fields for terminal emulator cells.
 	// When Direct is true, Fg/Bg/Attrs are used instead of Style.
