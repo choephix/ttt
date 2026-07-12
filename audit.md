@@ -8,7 +8,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 
 | Area | Status | Findings |
 |---|---|---|
-| Editing commands × selection | in progress | |
+| Editing commands × selection | swept (4 findings) | BUG-001..004 |
 | Multicursor interactions | pending | |
 | Undo/redo semantics | pending | |
 | Code folding × editing | pending | |
@@ -54,6 +54,18 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** per the project convention ("line-based commands operate on the selected lines"), with lines 1–2 selected: Duplicate Line duplicates the block; Delete Line deletes it
 - **Actual:** `DuplicateLine()`/`DeleteLine()` (`internal/ui/editor_widget_lines.go:56-83`) never consult the selection — both act only on the cursor's line (line3, not even part of the selection per the col-0 convention). Delete Line additionally leaves a stale selection range pointing past the shifted buffer.
 - **Test:** `tests/functional/audit-selection-bugs.test.js` (`it.fails`, 2 cases)
+
+### BUG-004: Outdent (Backtab) with selection ending at col 0 outdents one line too many
+- **Area:** Editing commands × selection
+- **Severity:** medium
+- **Status:** confirmed (agent code-inspection suspicion, orchestrator confirmed at runtime via e2e)
+- **Repro:** not drivable via `--exec` (`key shift+tab` synthesizes `KeyTab+ModShift`, not `KeyBacktab` — harness gap, see below); e2e test injects `tcell.KeyBacktab` directly
+- **Expected:** selection line0→line1-col0 covers only line0 → only line0 outdented
+- **Actual:** line1 outdented as well — `KeyBacktab` handler (`internal/ui/editor_widget_keyboard.go:201-232`) iterates `start.Line..end.Line` with no col-0 exclusion, same defect as BUG-002
+- **Test:** `tests/e2e/audit_selection_bugs_test.go` (`t.Skip`-marked; verified failing when unskipped)
+
+### Harness gap (not a product bug): `--exec key shift+tab` cannot produce `KeyBacktab`
+`comboToTcell("shift+tab")` yields `(KeyTab, ModShift)`; there is no `backtab` keyword in the key parser, so the `KeyBacktab` code path is unreachable from `--exec`/functional tests. Real terminals send Backtab as CSI Z. Consider adding a `backtab` keyword when convenient — until then, Backtab behavior is only testable via e2e event injection.
 
 <!-- Template:
 ### BUG-NNN: <one-line summary>
