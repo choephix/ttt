@@ -548,14 +548,12 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 - **Actual:** `internal/widgets/tree.go` (~lines 298, 556) sizes rows via `len([]rune(...))`, undercounting each wide glyph by one cell
 - **Test:** none — misalignment is invisible in the char-grid screenshot; would need a display-width-aware render assertion (noted for a rendering-specific harness)
 
-### BUG-034: New File honors `/` in the name, silently creating nested subdirectories
+### BUG-034: New File honors `/` in the name, creating nested subdirectories — ❌ REJECTED (intended)
 - **Area:** Explorer
-- **Severity:** low
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `Explorer: New File` named `sub/dir/deep.txt` → `os.MkdirAll` creates the whole path with no distinct confirmation
-- **Expected:** reject `/` in a filename field, or clearly signal path creation
-- **Actual:** slashes silently create directories
-- **Test:** none — behavior may be intended-as-feature; ledger-only pending an owner decision
+- **Severity:** ~~low~~ — n/a (not a bug)
+- **Curation (2026-07-12, REJECTED — intended feature):** this is exactly VS Code's New File behavior — typing `sub/dir/deep.txt` creates the intermediate folders (`os.MkdirAll(filepath.Dir(newPath))`) and the file. It's an established convenience, no data loss, no confusing outcome. Not a defect.
+- **Status:** REJECTED — intended feature (VS Code parity)
+- **Test:** none (was ledger-only)
 
 ### BUG-035: Quick Open does not sync the Explorer keyboard-selection to the opened file
 - **Area:** Explorer
