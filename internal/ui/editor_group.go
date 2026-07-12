@@ -1271,6 +1271,11 @@ func (g *EditorGroupWidget) Copy() {
 		return
 	}
 	if t.Sel == nil || !t.Sel.Active {
+		// No selection: copy the whole current line, including a trailing
+		// newline so a paste inserts it as a full line.
+		if t.Cur.Line >= 0 && t.Cur.Line < len(t.Buf.Lines) {
+			clipboard.Set(t.Buf.Lines[t.Cur.Line] + "\n")
+		}
 		return
 	}
 	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
@@ -1279,7 +1284,15 @@ func (g *EditorGroupWidget) Copy() {
 
 func (g *EditorGroupWidget) Cut() {
 	t := g.activeTab()
-	if t == nil || t.Content != nil || t.Sel == nil || !t.Sel.Active {
+	if t == nil || t.Content != nil {
+		return
+	}
+	if t.Sel == nil || !t.Sel.Active {
+		// No selection: cut the whole current line.
+		if t.Cur.Line >= 0 && t.Cur.Line < len(t.Buf.Lines) {
+			clipboard.Set(t.Buf.Lines[t.Cur.Line] + "\n")
+			g.Editor.DeleteLine()
+		}
 		return
 	}
 	text := t.Sel.Text(t.Buf.Lines, t.Cur.Line, t.Cur.Col)
