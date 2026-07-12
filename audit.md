@@ -15,9 +15,10 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
 | Explorer (file tree) | pending | |
-| Mouse targets / click offsets | pending | |
+| Mouse targets / click offsets | in progress | |
 | Resize & layout | pending | |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
+| Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
 | Themes & rendering | pending | |
 | Settings & options | pending | |
 | Workspace (multi-folder) | pending | |
@@ -172,6 +173,15 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** chevrons scroll the tab strip to reveal hidden tabs without changing the active file (the code's own comment in `internal/ui/tabbar_widget.go` says "Scroll only when there is something hidden in that direction")
 - **Actual:** chevron click calls `g.PrevTab()`/`g.NextTab()` (`internal/ui/editor_group.go:127-128`) — it changes the open file by one per click
 - **Test:** `tests/functional/audit-tabbar-bugs.test.js` (`it.fails`)
+
+### BUG-017: Ctrl+Home / Ctrl+End (document start/end) do nothing
+- **Area:** Keyboard navigation parity
+- **Severity:** medium
+- **Status:** confirmed (orchestrator, found while validating the viewport dump field)
+- **Repro:** 100-line file; `bin/ttt --size 80x20 --exec 'wait 200; key ctrl+end; debug /tmp/d.json; quit'` → cursor stays at 0,0
+- **Expected:** Ctrl+End jumps to end of document, Ctrl+Home to start (plus shift variants for selection) — universal editor behavior, VS Code parity
+- **Actual:** the `KeyHome`/`KeyEnd` handlers (`internal/ui/editor_widget_keyboard.go:125-151`) never check ModCtrl, no document start/end command exists in the registry, and nothing is bound — the keypress is silently dropped (not even line home/end fires)
+- **Test:** `tests/functional/audit-navigation-bugs.test.js` (`it.fails`)
 
 ### Tabs area notes (clean probes)
 Per-tab cursor/selection/scroll/multicursor/fold restoration, undo isolation, dirty-flag lifecycle, close-with-unsaved-changes dialog, duplicate-open reuse, new-file/save-as, overflow hit-testing on tab labels, wrap-around switching, and widget-tree leak checks all passed. **Editor split panes do not exist** in the codebase (`SplitPanelWidget`/`ContentSplitWidget` are the sidebar/bottom layout splits) — that sub-area is N/A until the feature exists.
