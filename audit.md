@@ -19,10 +19,10 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Explorer (file tree) | swept (9 findings) | BUG-028..035 |
 | Global search (sidebar, rg-based) | pending | |
 | Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
-| Resize & layout | in progress | |
+| Resize & layout | swept (5 findings) | BUG-036..040 |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
 | Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
-| Themes & rendering | pending | |
+| Themes & rendering | in progress | |
 | Settings & options | pending | |
 | Workspace (multi-folder) | pending | |
 | Integrated terminal panel | pending (do last) | |
@@ -242,6 +242,49 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### BUG-036: Status bar text invisible at width <= 50 (editor box border overwrites it)
+- **Area:** Resize & layout
+- **Severity:** medium (50 cols is a realistic split-pane width)
+- **Status:** confirmed (agent-reported, orchestrator re-verified — present at 51/60/70/80, gone at <=50)
+- **Repro:** `bin/ttt --size 50x20 --exec 'wait 200; screenshot /tmp/s.txt; quit' file.txt` → last row is the editor box border `╰──╯`, no status text; at 51 the status bar shows "Ln 1, Col 1 ...". StatusBar rect is valid (`y:19 w:50 h:1`) but nothing renders there — a debug/screenshot disagreement.
+- **Expected:** status bar renders or truncates gracefully at <=50 cols
+- **Test:** `tests/functional/audit-resize-bugs.test.js` (`it.fails`)
+
+### BUG-037: Sidebar crushes the editor pane to 1 column at small terminal sizes
+- **Area:** Resize & layout
+- **Severity:** low (only at very small sizes: <=30 cols)
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `--size 30x15`, toggle sidebar → `Sidebar {w:26}` next to `EditorGroup {w:1}` (no line numbers/text). Same at 20x10; clamps at w:1, never negative, no crash.
+- **Expected:** sidebar yields width (auto-collapse or shrink) so the editor keeps a usable minimum
+- **Test:** none — small-size degradation; rect-invariant repro in the debug dump
+
+### BUG-038: Bottom panel overlaps and fully hides the editor pane at small sizes (overlapping rects)
+- **Area:** Resize & layout
+- **Severity:** medium (genuine overlapping-rect invariant violation)
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `--size 30x15`, toggle bottom panel → `EditorGroup {y:1,h:12}` (rows 1-12) and `BottomPanel {y:2,h:11}` (rows 2-12) overlap; screenshot shows only the panel, zero editor content. Same at 20x10. Non-overlapping at 40x20/80x24 (though editor crushed to h:1 at 40x20).
+- **Expected:** editor and bottom panel split height without overlapping rects
+- **Test:** none — small-size; overlapping-rect repro in the debug dump (candidate for an e2e rect-overlap assertion)
+
+### BUG-039: Discard button vanishes from the unsaved-changes dialog at narrow widths (<=26 cols)
+- **Area:** Resize & layout
+- **Severity:** medium (silently removes a user action)
+- **Status:** confirmed (agent-reported, orchestrator re-verified — present at 40, gone at <=26)
+- **Repro:** `--size 26x15`, edit + `ctrl+w` → dialog shows only "Cancel"/"Save"; "Discard" label shrinks ("Di" at 28) then disappears entirely at <=26, while "Save" is never truncated
+- **Expected:** all three actions stay visible/reachable (grow/wrap/truncate gracefully)
+- **Test:** `tests/functional/audit-resize-bugs.test.js` (`it.fails`)
+
+### BUG-040: Menu dropdown clips off-screen with no scroll affordance at tiny sizes
+- **Area:** Resize & layout
+- **Severity:** low (only at ~20x10)
+- **Status:** confirmed (agent-reported, orchestrator re-verified — "Quit" not visible at 20x10)
+- **Repro:** `--size 20x10`, `click 2 0` (File menu) → dropdown clipped horizontally (no right border/shortcuts) and vertically (Save Workspace/Review PR/Quit absent), no closing border, no scroll indicator
+- **Expected:** dropdown scrolls/shrinks/repositions to fit; hidden items discoverable
+- **Test:** none — tiny-size; screenshot-only repro
+
+### Resize area notes
+Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at 50 cols — a realistic split width). No crashes/panics at any size down to 10x5 (rects clamp at w:1/h:1, never negative). **DUMP GAP:** `overlay.type` is always `"unknown"` and overlays (palette/dialog/menu) are NOT in `widget_tree` — no rect data for overlays, so BUG-039/040 are screenshot-only. Adding overlay rects to the dump would make dialog/menu layout testable non-visually. Adjacent note: tab-bar decorative border truncates mid-glyph at ~20 cols even with no overlay (likely normal chrome degradation; a tab-bar-rendering sweep could double-check).
 
 ### BUG-028: Explorer Delete/Rename with no selection targets the workspace ROOT (data loss)
 - **Area:** Explorer
