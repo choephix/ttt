@@ -71,6 +71,7 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 ### BUG-003: Duplicate Line and Delete Line ignore an active multi-line selection
 - **Area:** Editing commands × selection
 - **Severity:** medium
+- **Curation (2026-07-12, CONFIRMED, kept medium):** genuine — `DuplicateLine`/`DeleteLine` (`editor_widget_lines.go`) only read `e.Cursor.Line`, never `e.Selection` (a different flavor from the col-0 off-by-one: zero selection-awareness). With lines selected, Duplicate copies the cursor line and Delete removes the cursor line (not the selected block), leaving a stale selection — a DIFFERENT line than selected gets deleted, which is genuinely confusing (kept at medium). VS Code makes these selection-aware. Shared fix: route through the [[BUG-001]] `lineRange()` helper so they become selection-aware AND col-0-correct at once.
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key shift+down; key shift+down; exec \"Duplicate Line\"; screenshot /tmp/s.txt; quit" file.txt` (same shape with `exec "Delete Line"`)
 - **Expected:** per the project convention ("line-based commands operate on the selected lines"), with lines 1–2 selected: Duplicate Line duplicates the block; Delete Line deletes it
