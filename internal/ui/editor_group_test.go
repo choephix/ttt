@@ -160,6 +160,29 @@ func TestEditorGroupCommittedOpenPinsTab(t *testing.T) {
 	}
 }
 
+func TestEditorGroupDoubleClickPinsPreviewTab(t *testing.T) {
+	dir := t.TempDir()
+	preview := filepath.Join(dir, "preview.txt")
+	next := filepath.Join(dir, "next.txt")
+	for _, path := range []string{preview, next} {
+		if err := os.WriteFile(path, []byte(path), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.PreviewFile(preview)
+	g.TabBar.OnTabDoubleClick(0)
+
+	if !g.tabs[0].Pinned || g.TabBar.Tabs[0].Preview {
+		t.Fatal("double-clicked preview should become a pinned, non-preview tab")
+	}
+	g.PreviewFile(next)
+	if len(g.tabs) != 2 || g.tabs[0].FilePath != preview {
+		t.Fatal("next preview replaced the double-clicked tab")
+	}
+}
+
 func TestEditorGroupDirtyPreviewBecomesPinned(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "preview.txt")
 	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {

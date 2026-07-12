@@ -52,6 +52,30 @@ func TestTabBarPreviewLabelIsItalic(t *testing.T) {
 	}
 }
 
+func TestTabBarDoubleClickTargetsTab(t *testing.T) {
+	tb := NewTabBarWidget()
+	tb.SetTabs([]Tab{{Name: "preview.go", Active: true, Preview: true}})
+	tb.SetRect(Rect{X: 0, Y: 0, W: 30, H: 3})
+	tb.Render(NewRenderSurface(makeGrid(30, 3), Rect{X: 0, Y: 0, W: 30, H: 3}))
+
+	clicked, doubleClicked := -1, -1
+	tb.OnTabClick = func(index int) { clicked = index }
+	tb.OnTabDoubleClick = func(index int) { doubleClicked = index }
+	span := tb.tabSpans[0]
+	x := span.start + (span.end-span.start)/2
+	for range 2 {
+		tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.Button1, 0))
+		tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.ButtonNone, 0))
+	}
+
+	if clicked != 0 {
+		t.Fatalf("first click targeted tab %d, want 0", clicked)
+	}
+	if doubleClicked != 0 {
+		t.Fatalf("double-click targeted tab %d, want 0", doubleClicked)
+	}
+}
+
 func TestTabBarMiddleClickClosesTargetWithoutActivating(t *testing.T) {
 	tb := NewTabBarWidget()
 	tb.SetTabs([]Tab{

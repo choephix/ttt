@@ -124,6 +124,9 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	tabBar.OnTabClick = func(index int) {
 		g.SwitchTab(index)
 	}
+	tabBar.OnTabDoubleClick = func(index int) {
+		g.PinTabAt(index)
+	}
 	tabBar.OnNextTab = func() { g.NextTab() }
 	tabBar.OnPrevTab = func() { g.PrevTab() }
 	tabBar.OnDoubleClick = func() { g.NewFile() }
@@ -189,9 +192,15 @@ func (g *EditorGroupWidget) FlushNotifications() {
 }
 
 func (g *EditorGroupWidget) PinActiveTab() {
-	if t := g.activeTab(); t != nil {
-		t.Pinned = true
+	g.PinTabAt(g.active)
+}
+
+func (g *EditorGroupWidget) PinTabAt(index int) {
+	if index < 0 || index >= len(g.tabs) || g.tabs[index].Pinned {
+		return
 	}
+	g.tabs[index].Pinned = true
+	g.syncTabs()
 }
 
 func (g *EditorGroupWidget) OpenFile(path string) {

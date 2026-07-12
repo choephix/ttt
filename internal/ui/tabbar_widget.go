@@ -31,6 +31,7 @@ type TabBarWidget struct {
 	MoreButton       *MoreButtonWidget
 	OnTabClick       func(index int)
 	OnTabClose       func(index int)
+	OnTabDoubleClick func(index int)
 	OnTabRightClick  func(index, screenX, screenY int)
 	OnPrevTab        func()
 	OnNextTab        func()
@@ -45,10 +46,12 @@ type TabBarWidget struct {
 	closeDownY       int
 	wasPressed       bool
 	lastClickTime    int64
+	lastTabClickTime int64
+	lastTabClick     int
 }
 
 func NewTabBarWidget() *TabBarWidget {
-	return &TabBarWidget{closeDownX: -1}
+	return &TabBarWidget{closeDownX: -1, lastTabClick: -1}
 }
 
 func (t *TabBarWidget) SetTabs(tabs []Tab) {
@@ -351,6 +354,17 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 					return EventConsumed
 				}
 			}
+			now := time.Now().UnixMilli()
+			if i == t.lastTabClick && now-t.lastTabClickTime < DoubleClickMs {
+				t.lastTabClick = -1
+				t.lastTabClickTime = 0
+				if t.OnTabDoubleClick != nil {
+					t.OnTabDoubleClick(i)
+				}
+				return EventConsumed
+			}
+			t.lastTabClick = i
+			t.lastTabClickTime = now
 			if t.OnTabClick != nil {
 				t.OnTabClick(i)
 			}
