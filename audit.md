@@ -23,8 +23,8 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
 | Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
 | Themes & rendering | swept (2 findings) | BUG-041, BUG-042 |
-| Settings & options | in progress | |
-| Workspace (multi-folder) | pending | |
+| Settings & options | swept (clean) | — |
+| Workspace (multi-folder) | in progress | |
 | Integrated terminal panel | pending (do last) | |
 | Plugin widgets | pending | |
 
@@ -242,6 +242,9 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### Settings & options area notes (swept clean)
+Haiku mechanical sweep (26 cases) + orchestrator spot-check found no bugs. Verified: every Options-menu toggle (line numbers, word wrap, auto-dedent, bracket colorization, git gutter, LSP, syntax highlight — the last correctly shows "Restart to apply") takes effect and persists to settings.json; gutter/border-style pickers persist; malformed/empty/missing settings.json all fall back to defaults with no crash. **Keybindings robustness spot-checked by orchestrator** (highest risk per the past real-config-wipe incident): malformed keybindings.json → defaults still work; empty `{}` → defaults RETAINED (additive-override, not replace); valid custom rebind takes effect; binding to a nonexistent command ignored gracefully. Residual gaps (low risk, not chased): indentation-picker persistence, mid-session live-reload (covered by the existing `reload_settings` e2e test), and "Open Settings" opening settings.json in a tab.
 
 ### BUG-041: Theme picker cancel reverts colors but leaves the border charset stuck on the preview
 - **Area:** Themes & rendering
