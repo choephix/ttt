@@ -25,8 +25,8 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Themes & rendering | swept (2 findings) | BUG-041, BUG-042 |
 | Settings & options | swept (clean) | — |
 | Workspace (multi-folder) | swept (4 findings) | BUG-043..046 |
-| Plugin widgets | in progress | |
-| Integrated terminal panel | pending (do last) | |
+| Plugin widgets | swept (5 findings) | BUG-052..056 |
+| Integrated terminal panel | in progress (last) | |
 
 Status values: `pending` → `in progress` → `swept (N findings)` / `swept (clean)`.
 
@@ -254,6 +254,54 @@ No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be conf
 
 ### Keyboard-nav area notes
 Verified correct (Haiku sweep + orchestrator spot-check): word motions (ctrl+left/right) treat camelCase and snake_case as single words and `.`/punctuation as boundaries (matches VS Code); SmartHome toggles first-non-space ↔ col 0; PgUp/PgDn viewport + clamp; matching-bracket jump; go-to-line bounds; shift+ selection variants. The clean sweep MISSED BUG-051 (goal column) — caught only by the orchestrator's skeptical clamp-then-restore probe; single-move column tests pass, which is why a surface sweep reads clean.
+
+### BUG-052: Plugin `p:clear()` with large dimensions freezes the editor (no bound check)
+- **Area:** Plugin widgets
+- **Severity:** high (a plugin can hang the whole editor)
+- **Status:** confirmed (agent-reported; orchestrator re-verified at runtime AND in code — 12s timeout hit)
+- **Repro:** a plugin whose render calls `p:clear(0, 0, 100000, 100000)`; activate its panel (Ctrl+B → click `»` overflow → click the plugin) → UI frozen (killed at 12s timeout, agent measured ~19.5s single render)
+- **Expected:** `p:clear` clamps w/h to the panel/surface bounds (or is rejected)
+- **Actual:** `ClearRect` on both `virtualSurface` and `subVirtualSurface` (`internal/widgets/virtual_surface.go:60-66, 126-132`) loops `h*w` times with no clamp — 1e10 iterations block the render/event loop. Part of the always-available raw-cell API.
+- **Test:** `internal/widgets/audit_clearrect_bug_test.go` (`t.Skip`, goroutine+timeout — fails fast when unskipped)
+
+### BUG-053: Plugin scrollview/markdown always draws a spurious full-width horizontal scrollbar
+- **Area:** Plugin widgets
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified at runtime)
+- **Repro:** a plugin with `p:scrollview({render=function(c) c:label("hi") end})` → a full-width `▄` scrollbar row renders under the short label
+- **Expected:** no horizontal scrollbar when content fits
+- **Actual:** `ScrollViewWidget.Render` (`internal/widgets/scrollview.go:102`) calls `Child.ScrollSize()` before `SetRect`; `VStackWidget.ScrollSize()` (`internal/widgets/vstack.go:73-80`) falls back to `w=80` when rect is zero, then SetRect fixes W=80, so `contentW(80) > viewW` stays true forever — a feedback loop. Affects every `p:scrollview` and `p:markdown` (also scrollview-wrapped)
+- **Test:** none — ledger-only (visual; would need plugin-panel render assertions)
+
+### BUG-054: Plugin dropdown popup overlaps/corrupts the status bar near the screen bottom
+- **Area:** Plugin widgets
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator accepts — same overlay-clamp family as BUG-039/040)
+- **Repro:** a plugin dropdown opened near the bottom → popup's bottom border draws on the status-bar row, left border mangles the panel border
+- **Expected:** popup flips up / clamps above the status bar
+- **Actual:** `ContextMenuWidget.Render` (`internal/ui/contextmenu_widget.go:98-116`) clamps against full surface height `sh` (includes the status row); `if y+menuH > sh` never fires when the bottom lands exactly on `sh-1`
+- **Test:** none — ledger-only (overlay rects not in dump)
+
+### BUG-055: Disabled-after-errors plugin keeps rendering and erroring forever (Enabled never checked at render)
+- **Area:** Plugin widgets
+- **Severity:** medium
+- **Status:** confirmed (agent-reported; orchestrator re-verified at runtime — 1499 log lines — AND in code)
+- **Repro:** a plugin that `error()`s in render; activate it → output log floods with "render: boom" AND "disabled after N errors" for N well past the threshold of 10
+- **Expected:** after `maxPluginErrors` (10) the plugin stops being invoked
+- **Actual:** `plugin.go:192` sets `p.Enabled=false`, but `PluginPanelWidget.Render` (`internal/plugin/panel_widget.go:40`) calls `CallRenderWith` unconditionally — `Enabled` is only read for list display, never at the render call site
+- **Test:** none — ledger-only (needs plugin-panel activation; runtime repro in this entry)
+
+### BUG-056: Negative box-model margins silently drop a plugin widget (no clamp/validation)
+- **Area:** Plugin widgets
+- **Severity:** low
+- **Status:** confirmed (agent-reported, orchestrator re-verified at runtime — label absent)
+- **Repro:** `p:label({text="x", margin_top=-5, margin_left=-5})` → the label never appears (before/after abut)
+- **Expected:** clamp negative margins to 0 (or signal invalid); the content shouldn't vanish
+- **Actual:** `BoxOverheadH()` (`internal/widgets/surface.go:120-129`) sums margins unclamped → `Height()` = `1 + (-5)` = -4; `VStackWidget.Render` drops children with `ch <= 0`
+- **Test:** none — ledger-only
+
+### Plugin widgets area notes
+Robust where it counts: Lua syntax errors, errors thrown inside callbacks (vs render), malformed descriptors (wrong types, missing fields, nil), and wrong table column counts all degrade gracefully without crashing or dropping sibling widgets. Table `on_select`/`on_command` indices are correctly 1-based (no off-by-one); unicode/emoji input, prefix, clear_on_submit, deep nesting (10 levels), and focus routing in/out of plugin panels all work. `ttt.storage` does NOT exist (only `ttt.settings`) — calling it fails to register the plugin, contained safely. **The findings cluster in raw-cell bounds (BUG-052 freeze), scroll/overlay layout (053/054), the error-disable safety net (055), and box-model validation (056).** **Harness note:** activating a plugin's custom sidebar panel via `--exec` = Ctrl+B (show sidebar) → click the `»` overflow tab → click the plugin in the popup menu. **DUMP GAPS:** plugin panels render as an opaque `PluginPanel` leaf in `widget_tree` (no child widget rects); `focus` is `"other"` for plugin focus; `overlay.type` `"unknown"` for plugin dropdowns.
 
 ### BUG-047: Global-search navigation ignores the match column — cursor always lands at col 0
 - **Area:** Global search
