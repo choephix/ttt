@@ -18,6 +18,29 @@ afterEach(() => {
   if (dir) cleanupDir(dir);
 });
 
+describe("BUG-002: Tab indent with selection ending at col 0", () => {
+  it.fails("indents only lines the selection actually covers", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "indent.txt", FIVE_LINES);
+
+    tui.start(file);
+    tui.waitFor("line0");
+
+    // Select line1 only (selection ends at line2 col 0)
+    tui.press("arrow_down");
+    tui.press("shift+down");
+    tui.press("tab");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+    tui.run();
+
+    // Buggy behavior indents line2 as well.
+    expect(readFile(file)).toBe("line0\n    line1\nline2\nline3\nline4\n");
+  });
+});
+
 describe("BUG-001: Move Line with selection ending at col 0", () => {
   it.fails("moves only the selected block, not the trailing col-0 line", () => {
     dir = createTempDir();
