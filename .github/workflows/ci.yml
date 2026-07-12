@@ -143,19 +143,20 @@ jobs:
       - name: Install LSP servers
         run: |
           go install golang.org/x/tools/gopls@latest
-          npm install -g typescript typescript-language-server
+          npm install -g typescript@5 typescript-language-server
           npm install -g vscode-langservers-extracted
           npm install -g yaml-language-server
           npm install -g svelte-language-server
           pip install pyright
           sudo apt-get install -y clangd
 
-      # typescript-language-server resolves the "typescript" package via Node's
-      # module resolution. The temp fixture workspaces have no node_modules, so
-      # point NODE_PATH at the global install (inherited by the LSP subprocess)
-      # to avoid "Could not find a valid TypeScript installation".
-      - name: Expose global node_modules to language servers
-        run: echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+      # typescript-language-server needs classic TypeScript 5.x (with
+      # lib/tsserver.js); `typescript` latest is now the TS7 native rewrite,
+      # which lacks tsserver.js -> "Could not find a valid TypeScript
+      # installation". Install TS5 into the TS fixture so the harness copies it
+      # into each temp workspace, where the server resolves it.
+      - name: Provide typescript to the TS fixture workspace
+        run: npm install --prefix tests/integration/lsp/typescript --no-save typescript@5
 
       - name: Install test dependencies
         working-directory: tests/integration
