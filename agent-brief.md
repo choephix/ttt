@@ -28,6 +28,7 @@ You can interleave many act/snapshot pairs in one run. Start runs with `wait 200
 - `debug` = what the editor thinks: cursor, selection, buffer, focus, tabs, panels, full widget tree with rects. Inspect with `jq`.
 - **A disagreement between the two is a bug.** So is a violated invariant: cursor outside viewport, focus on a nonexistent widget, dirty flag not matching status bar, overlapping widget rects.
 - Command list: `internal/config/keybindings.go` (`DefaultKeybindings()`) and the command registry in `internal/app/commands.go`. Command palette titles work with `exec "..."`.
+- If the debug dump is **missing state you need** to confirm a finding, don't work around it blindly — note the gap in your report (`DUMP GAP: <what's missing>`); the orchestrator can extend the dump command.
 
 Create test files with edge content yourself in your temp dir (CJK, emoji, tabs, 10k-char lines, empty file, no trailing newline, CRLF) — don't rely on repo files.
 
