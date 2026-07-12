@@ -4,6 +4,8 @@ Started 2026-07-11 on branch `audit/bug-hunt`. Goal: **discover and document** U
 
 Process: one hunting agent at a time, scoped to an area from the coverage matrix. Orchestrator re-verifies every repro before it enters this file. LSP is out of scope.
 
+**Resuming this hunt?** See [`## Resume guide`](#resume-guide) at the bottom: the orchestration loop, harness state, standing dump gaps, and ready-to-paste agent prompts for every remaining area.
+
 ## Coverage matrix
 
 | Area | Status | Findings |
@@ -385,3 +387,71 @@ Per-tab cursor/selection/scroll/multicursor/fold restoration, undo isolation, di
 - **Actual:**
 - **Test:** <path or "none — reason">
 -->
+
+---
+
+## Resume guide
+
+Everything a fresh session needs to continue this audit without re-deriving it. As of the last commit: **35 confirmed findings (BUG-001..035), ~31 repro tests**, branch `audit/bug-hunt`.
+
+### The orchestration loop (what the orchestrator does per area)
+
+1. Mark the area `in progress` in the coverage matrix; commit.
+2. Spawn **exactly one** hunting agent (background) with the area prompt below. Sonnet for judgment-heavy areas, Haiku for mechanical sweeps. Agents are **read-only on the repo** and report structured findings per `agent-brief.md`.
+3. When it returns, **re-verify every repro yourself** by re-running the exact `bin/ttt --exec` command. Do not trust an agent finding until you reproduce it. A "clean" report from a mechanical sweep gets a **skeptical spot-check of its single hardest case** before the area is marked clean (this is how BUG-009 was caught after a clean report).
+4. For each confirmed finding: assign the next BUG-NNN, write a repro **test that asserts the CORRECT behavior**, marked expected-failure — `it.fails(...)` (vitest) or `t.Skip("BUG-NNN")` (Go e2e). It passes now, goes red when the bug is fixed. If untestable via the batch harness, record it ledger-only and say why.
+5. Add a ledger entry (use the template in the Findings section), update the matrix, **commit per finding** (message `audit: BUG-NNN <summary>`). Commit from the repo root — `git -C /home/enko/Documents/ttt ...` if cwd drifted.
+6. **Triage harness artifacts vs real bugs.** Some agent findings are `--exec` limitations, not product bugs (e.g. synchronous `exec "..."` skips a render pass → stale-looking clicks/status bar). Confirm through the real key-dispatch path before ledgering; record confirmed non-bugs in area notes so they aren't "fixed" later.
+7. If an agent stalls or comes back empty, stop it and re-brief with a different angle/model.
+
+Test verification trick: to confirm an `it.fails` test really captures the bug, temporarily flip it to `it(...)` (or comment the `t.Skip`) and confirm it FAILS with the bug present; then restore the marker. Never leave the suite red.
+
+### Harness state (already built on this branch — don't rebuild)
+
+Debug dump (`--exec "debug PATH"`, `internal/app/debug_dump.go`) now includes:
+- `buffer.text` (line contents, capped 1000 lines) + `text_truncated`
+- `multi_cursor[]` (per-cursor line/col/primary/sel_from) — only when multicursor is active
+- `viewport` (top_line/left_col/width/height)
+- plus the originals: `cursor`, `selection`, `tabs[]`, `active_tab`, `focus`, `sidebar`, `bottom_panel`, `overlay`, `diagnostics`, `output`, `widget_tree` (per-node rect/focused/props).
+
+### Standing dump/harness gaps (known — work around, or extend the dump if an area needs it)
+
+- No `search` block (query/options/matches/active index/bar-focus) — find/replace staleness had to be inferred from cursor moves.
+- No `folds` block (collapsed ranges) — fold state only visible via screenshot `▶`/`⋯` markers.
+- `overlay.type` reports `"unknown"` for menus/dialogs (can't distinguish kinds from JSON).
+- Top-level `focus` reports `"other"` for most real focus states — use per-node `focused` flags in `widget_tree` instead.
+- `--exec` clicks always carry `ModNone` → no Alt/Ctrl/Shift-click (Alt+Click add-cursor untestable).
+- No `drag` verb → drag-selection unprobed.
+- `key shift+tab` synthesizes `KeyTab+ModShift`, not `KeyBacktab` (BUG-004 needed an e2e event-injection test). No `backtab` keyword in the key parser.
+- Synchronous `exec "Command Name"` bypasses the event loop's `syncStatus()`/render → a `screenshot`/`debug` taken immediately after shows a stale status bar and can mis-resolve clicks. Drive via `key ctrl+p` + type + `enter` when this matters.
+- Screenshots carry no style/color info → theme/highlight/active-file-highlight checks are indirect.
+- Functional batch harness runs all commands at once → can't do mid-session external `rm`/`touch` (BUG-031 is ledger-only for this reason; use `--exec` with a backgrounded shell `rm`, or an integration/PTY test).
+
+### Cross-cutting root-cause clusters (for the eventual fix pass)
+
+- **Missing `BatchCommand` wrapping** → BUG-012, 021, 022 (multi-command ops not atomic under undo). `ToggleLineComment` already does it right — copy that pattern.
+- **Primary-cursor-only operations ignore `e.Multi`** → BUG-005, 006, 007, 008.
+- **Line-range commands lack the col-0 convention** used by JoinLines/ToggleLineComment → BUG-001, 002, 003, 004.
+- **Undo restores text but not the user's view** (cursor/viewport) → BUG-020, 023.
+- **File ops mutate disk without stat-guard or tab-model reconciliation** → BUG-028, 029, 030, 031.
+- **Fold state keyed by raw line number, no content anchor** → BUG-024, 026, 027.
+
+### Remaining areas — ready-to-paste agent prompts
+
+Every prompt below assumes the agent first reads `agent-brief.md`. Prepend to each: *"First, read /home/enko/Documents/ttt/agent-brief.md and follow it exactly."* and append the standard *"Already-known bugs (skip, see audit.md): BUG-001..NNN — don't re-report. Work in /tmp (mktemp -d) with files you create. Read-only on the repo; report findings in the exact format from the brief."* Bump the NNN to the current max as you go.
+
+**Resize & layout** — (was in progress at pause; re-run if that agent's results were lost). `--exec` can only set size at startup (`--size WxH`), not mid-session — compare the SAME state at several fixed sizes (20x10, 30x15, 40x20, 80x24, 120x40, 200x50). Scan `widget_tree` at each for rects with w<=0/h<=0, children overflowing parents, overlapping siblings, nodes pushed off-screen. Probe: base editor, sidebar-open split divider, bottom-panel split heights, overlays (palette/quick-open/confirm/help dialogs) fitting/centering at tiny AND huge sizes, menu dropdowns at 20x10, status/menu bar at 20 cols, 300-char line at 40 vs 200 cols, word-wrap column per size, tab bar at 20 cols (rendering/overlap, not the BUG-016 chevron). A panic at any size is high severity.
+
+**Themes & rendering** — Sonnet. Probe every built-in theme (list them from `internal/config/themes/*.json`): does each load without error and produce a complete style map (no missing StyleDef → default/black fallback)? Switch themes live (theme picker command) — stale cells or wrong colors after switch? Check the "never hardcode colors" rule holds — any widget rendering a literal color instead of a `term.Style*`? Diff-view background layering (syntax on top of diff bg via BgStyle). Cursor/selection visibility in each theme. Direct-color terminal rendering path. Rendering engine: double-buffer diff correctness — scroll a long file up/down and edit, look for stale/ghost cells not cleared; wide-char cell clearing (a CJK char deleted — does the second cell clear?); border/divider drawing at panel edges. Screenshots lack style info, so color-specific bugs need the widget_tree props or careful visual diffs; note where you can't confirm.
+
+**Settings & options** — Haiku ok. `settings.json` load/save roundtrip (change a setting via the Options menu, does it persist?); malformed/partial settings.json — graceful recovery or crash? Each toggle in the Options menu actually takes effect (word wrap, line numbers, whitespace render, insert-final-newline, etc. — enumerate from the menu). Debounce settings (`autocomplete.debounce`, `search.debounce`) honored. Live settings reload (`reload_settings` path exists — see e2e test). Custom `keybindings.json` — a rebind takes effect; a malformed one recovers. Defaults match `DefaultSettings()`. Use `TTT_CONFIG_DIR` religiously so the real config is never touched.
+
+**Workspace (multi-folder)** — Sonnet. Open 2+ folders (positional args and a `.ttt` workspace file via `--workspace`). `FolderForFile` longest-prefix match (open a file that could match two roots). Save/load a `.ttt` workspace file — roundtrip fidelity. Add/remove folder commands — tree + state update? git `IsRepo` detection per folder. File ops (new/rename/delete) targeting the correct folder when several are open. Open a workspace whose folder path no longer exists — graceful? Fallback to cwd when no folders given. Explorer showing multiple roots — per-root operations don't bleed across.
+
+**Global search (sidebar, rg-based)** — Sonnet. This shells out to `rg` with debounced input (`search.debounce`), a generation counter + mutex to prevent races. Probe: type a query fast (debounce + generation — stale results from a prior query appearing?); results across multiple workspace folders; clicking a result navigates to the exact file/line/col; the editor-search-highlight lifecycle (docs: "cleared when switching away, re-applied from existing results when switching back") — switch panels and back, are highlights correct/stale? Regex + case toggles. Empty query. Regex-special chars. A query with thousands of hits (rendering/scroll). Search while editing the file that has hits. Requires `rg` installed. NOTE: known blind spot — synthetic clicks don't activate Changes-panel rows; the search results panel may or may not share that limitation, verify with keyboard nav too.
+
+**Plugin widgets** — Sonnet. Use `--plugin FILE` with Lua scripts you write. Exercise each widget type from the PanelProxy API (label/title/tree/list/button/input/vstack/hstack/scrollview/box/divider/dropdown/progress/table/markdown/keyvalue) — does each render and respond to its callbacks (on_click/on_select/on_change/on_submit/on_command)? Box model (margins/padding) applied correctly. A plugin that throws a Lua error mid-render — does it crash the editor or contain the error? Plugin lifecycle, timers (`plugin-timers` test exists), `ttt.storage`. Raw cell API (cell/text/clear) mixed with widgets. Malformed widget descriptors. Focus routing into plugin panels. Report any editor crash from plugin misbehavior as high severity.
+
+**Integrated terminal panel** — do LAST, Sonnet. PTY-heavy, harder via `--exec` (output is async; repros flakier — lean on the integration/PTY harness `tui-use` if needed, and note where `--exec` can't reach). Probe: open/close/toggle the terminal (`ctrl+t` default; `ctrl+backtick` is unbound per CLAUDE.md); key routing when focused (RawKeyConsumer — all keys to PTY); force-keys bypass (`terminal.toggle` must work even when terminal focused); VT rendering of colored/256-color output (direct-color path); terminal fullscreen (`alt+t`); focus toggle between editor and terminal; resize behavior; async output waking the event loop. A hang or crash is high severity. Config isolation matters doubly here (spawns a real shell).
+
+**Keyboard navigation parity (complete the partial sweep)** — Haiku ok. BUG-017 (ctrl+home/end missing) was found incidentally; do the full systematic pass vs VS Code: word motions (ctrl+left/right) at line boundaries and across punctuation/underscores; Home/SmartHome behavior on indented lines; End; PgUp/PgDn (cursor + viewport, goal column); matching-bracket jump; go-to-line edge cases (0, negative, past EOF); select-variants (shift+ every motion) leave a correct selection; delete-word variants. Enumerate the movement bindings from `DefaultKeybindings()` and check each does what VS Code does.
