@@ -131,25 +131,6 @@ describe("BUG-030: New File / Rename silently clobber an existing file", () => {
 // external-delete --exec repro; an integration (PTY) test is the right
 // home for it if one is added.
 
-describe("BUG-032: opening a file from the explorer does not focus the editor", () => {
-  it.fails("typing after Enter-to-open reaches the buffer", () => {
-    dir = createTempDir();
-    writeFileSync(join(dir, "x.txt"), "abc");
-
-    tui.start(dir);
-    tui.waitStable(300);
-    tui.exec("Show Explorer");
-    tui.waitStable();
-    tui.press("arrow_down");
-    tui.press("enter"); // open x.txt
-    tui.waitStable();
-    tui.type("hello");
-    tui.press("ctrl+s");
-    tui.waitStable();
-    tui.run();
-
-    // Buggy: the Tree keeps focus (FocusOnOpen defaults false), so
-    // "hello" is swallowed and the file stays "abc".
-    expect(readFileSync(join(dir, "x.txt"), "utf8")).toBe("helloabc");
-  });
-});
+// BUG-032 (open-from-explorer doesn't focus editor) was REJECTED during
+// curation as intentional behavior (FocusOnOpen defaults false — keep
+// focus in the explorer for browsing). Test removed; see the audit ledger.

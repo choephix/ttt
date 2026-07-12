@@ -531,14 +531,12 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 - **Actual:** `HandleFileChanged` (`internal/app/watch.go`) returns early on `buf.DiskChanged(path)==false`, but `Buffer.DiskChanged` (`internal/core/buffer/io.go`) returns false when the file is missing — so the "was deleted on disk" branch is unreachable
 - **Test:** none — batch functional harness can't rm mid-session; ledger-only (integration/PTY test is the right home)
 
-### BUG-032: Opening a file from the Explorer does not focus the editor — keystrokes swallowed
+### BUG-032: Opening a file from the Explorer does not focus the editor — ❌ REJECTED (intentional)
 - **Area:** Explorer
-- **Severity:** medium
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `Show Explorer`, arrow to file, Enter, type → buffer unchanged (`text` still original, `modified:false`); the Tree keeps focus
-- **Expected:** Enter opens AND focuses the editor (standard UX)
-- **Actual:** `DefaultEditorSettings()` never sets `FocusOnOpen`, so it defaults false and `OnOpenFile` calls `FocusEditorIfEnabled()` (a no-op) instead of `FocusEditor()`. Note: this is a default-setting choice — but the default silently drops the user's first keystrokes.
-- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+- **Severity:** ~~medium~~ — n/a (not a bug)
+- **Curation (2026-07-12, REJECTED — intended behavior):** this is a deliberate, configurable default, not a defect. `FocusOnOpen` (settings.go:78) governs whether opening a file from the explorer moves focus to the editor; it defaults false (keep focus in the explorer for a browse-without-losing-focus workflow). Factual correction to the original finding: there is NO single-vs-double-click distinction — the tree has no double-click handling (`tree.go:541-573`: one Button1 click → `ActivateSelected` when `!SelectOnClick`, which the explorer leaves false), so a single click AND Enter take the identical path (`OnOpenFile` → `FocusEditorIfEnabled`, a no-op when `FocusOnOpen:false`). So both open without focusing — one global setting, intentionally defaulted. Optional future enhancement (NOT a bug): VS-Code-style Enter/double-click-focuses vs single-click-preview would need a click-vs-Enter distinction the tree doesn't have.
+- **Status:** REJECTED — behavior is intentional
+- **Test:** REMOVED (the `it.fails` case asserted the opposite of the intended default)
 
 ### BUG-033: CJK filenames break tree column alignment (rune-count vs display-width)
 - **Area:** Explorer / rendering
