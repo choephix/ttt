@@ -50,7 +50,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### BUG-001: Move Line Up/Down includes trailing col-0 selection line and swaps the invisible trailing empty line into the buffer
 - **Area:** Editing commands × selection
-- **Severity:** high
+- **Severity:** medium  *(was high — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded high→medium):** genuine — code-confirmed. `MoveLineUp/Down` (`editor_widget_lines.go`) iterate `start.Line..end.Line` with NO col-0 adjustment, unlike `JoinLines`/`ToggleLineComment` which do `if end.Col == 0 && endLine > start.Line { endLine-- }` (same file, 3 copies). Plus the EOF guard `end.Line >= len(Buf.Lines)-1` counts the invisible trailing `""` of a `\n`-terminated file, so it's off by one and swaps that phantom line into the buffer (injects a blank line). Downgraded to medium: real corruption but visible + undoable, triggered by the common select-lines-then-move workflow. **First of the col-0 cluster [[BUG-002]]/[[BUG-003]]/[[BUG-004]] — shared fix: a `lineRange()` helper applying the col-0 convention that ALL line commands call; 001 also needs the EOF guard to use the visible line count.**
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key down; key shift+down; key shift+down; exec \"Move Line Down\"; screenshot /tmp/s.txt; quit" file.txt`
 - **Expected:** selection line2→line4-col0 covers lines 2–3 (col-0 convention per JoinLines/ToggleLineComment); block swaps past line4 → `line0,line1,line4,line2,line3`
