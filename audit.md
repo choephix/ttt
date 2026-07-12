@@ -13,7 +13,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Undo/redo semantics | pending | |
 | Code folding × editing | pending | |
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
-| Tabs & split panes | pending | |
+| Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
 | Explorer (file tree) | pending | |
 | Mouse targets / click offsets | pending | |
 | Resize & layout | pending | |
@@ -163,6 +163,18 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** query box pre-filled with "world" (VS Code behavior; selection survives either way)
 - **Actual:** empty "Search" placeholder; selection does survive
 - **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### BUG-016: Tab-bar overflow chevron switches the active tab instead of scrolling the strip
+- **Area:** Tabs
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** open 5 files at `--size 50x20` (strip overflows); `click 2 2` on the `◀` chevron → `active_tab` goes 4→3
+- **Expected:** chevrons scroll the tab strip to reveal hidden tabs without changing the active file (the code's own comment in `internal/ui/tabbar_widget.go` says "Scroll only when there is something hidden in that direction")
+- **Actual:** chevron click calls `g.PrevTab()`/`g.NextTab()` (`internal/ui/editor_group.go:127-128`) — it changes the open file by one per click
+- **Test:** `tests/functional/audit-tabbar-bugs.test.js` (`it.fails`)
+
+### Tabs area notes (clean probes)
+Per-tab cursor/selection/scroll/multicursor/fold restoration, undo isolation, dirty-flag lifecycle, close-with-unsaved-changes dialog, duplicate-open reuse, new-file/save-as, overflow hit-testing on tab labels, wrap-around switching, and widget-tree leak checks all passed. **Editor split panes do not exist** in the codebase (`SplitPanelWidget`/`ContentSplitWidget` are the sidebar/bottom layout splits) — that sub-area is N/A until the feature exists.
 
 ### Harness gap from the find/replace sweep
 `debug` JSON has no `search` section (query, options, match list, active index, bar focus) — match staleness had to be inferred via cursor movement. Screenshot carries no style info, so highlight-artifact checks are only indirect. Consider a `search` block in the dump.
