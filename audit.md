@@ -9,7 +9,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Area | Status | Findings |
 |---|---|---|
 | Editing commands × selection | swept (4 findings) | BUG-001..004 |
-| Multicursor interactions | in progress | |
+| Multicursor interactions | swept (4 findings) | BUG-005..008 |
 | Undo/redo semantics | pending | |
 | Code folding × editing | pending | |
 | Find/replace + search highlights | pending | |
@@ -102,6 +102,12 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap (not a product bug): `--exec key shift+tab` cannot produce `KeyBacktab`
 `comboToTcell("shift+tab")` yields `(KeyTab, ModShift)`; there is no `backtab` keyword in the key parser, so the `KeyBacktab` code path is unreachable from `--exec`/functional tests. Real terminals send Backtab as CSI Z. Consider adding a `backtab` keyword when convenient — until then, Backtab behavior is only testable via e2e event injection.
+
+### Harness gaps from the multicursor sweep
+- ~~`debug` JSON lacked buffer text and multicursor state~~ — **fixed on this branch** (`buffer.text` capped at 1000 lines, `multi_cursor[]` with selection anchors).
+- `--exec click/hover` always post `ModNone` — Alt+Click (mouse add-cursor) cannot be exercised; that feature remains untested.
+- `exec "Command Name"` runs synchronously and bypasses the event loop's `syncStatus()`, so a screenshot taken immediately after shows a stale status bar (cursor pos, cursor count, dirty flag) until the next real key/click event. Affects harness observations only, not real palette usage.
+- "Add cursor above/below" does not exist as commands — cursor creation is `ctrl+d` / `ctrl+k l` / Alt+Click only. `editor.splitSelectionToLines` exists but was not deeply probed (budget).
 
 <!-- Template:
 ### BUG-NNN: <one-line summary>
