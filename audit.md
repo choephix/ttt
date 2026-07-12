@@ -15,7 +15,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
 | Explorer (file tree) | pending | |
-| Mouse targets / click offsets | in progress | |
+| Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
 | Resize & layout | pending | |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
 | Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
@@ -182,6 +182,29 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** Ctrl+End jumps to end of document, Ctrl+Home to start (plus shift variants for selection) — universal editor behavior, VS Code parity
 - **Actual:** the `KeyHome`/`KeyEnd` handlers (`internal/ui/editor_widget_keyboard.go:125-151`) never check ModCtrl, no document start/end command exists in the registry, and nothing is bound — the keypress is silently dropped (not even line home/end fires)
 - **Test:** `tests/functional/audit-navigation-bugs.test.js` (`it.fails`)
+
+### BUG-018: Clicking a second menu header closes the open menu instead of switching to it
+- **Area:** Mouse / menu bar
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `click 4 0` (File opens), `click 30 0` (View header) → `.overlay` becomes null, no menu open; a further click is needed to open View
+- **Expected:** standard menu-bar UX — clicking another header while a menu is open switches directly to that menu
+- **Actual:** the second click only dismisses the open menu
+- **Test:** `tests/functional/audit-mouse-bugs.test.js` (`it.fails`)
+
+### BUG-019: Rightmost column of explorer tree rows is click-dead
+- **Area:** Mouse / sidebar explorer
+- **Severity:** low
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** explorer tree rect `{x:1,w:30}`; `click 30 6` on a file row does nothing; `click 29 6` opens the file
+- **Expected:** the full row rect (x=1..30) is clickable
+- **Actual:** the last column is dead — off-by-one in the tree's hit test
+- **Test:** `tests/functional/audit-mouse-bugs.test.js` (`it.fails`)
+
+### Mouse-area notes
+- Core editor click mapping is clean: scrolled viewports (vertical + horizontal), tabs, CJK, clamping past line end/below last line, gutter, double-click word select (incl. CJK/punctuation), triple-click line select — no offset divergences found.
+- The reported "stale wrap-map click after Toggle Word Wrap" is a **harness artifact, not a product bug**: synchronous `exec "..."` doesn't trigger a render pass, so an immediately following `click` resolves against the pre-toggle wrap map. Through the real key-dispatch path (palette + Enter) the same click resolves correctly. Same root as the stale-status-bar gap below.
+- Additional dump gaps: `.overlay` reports `{"type":"unknown"}` for menus (can't distinguish overlay kinds); top-level `.focus` reports `"other"` for most real focus states (also seen in the first sweep) — per-widget `focused` flags in the widget tree are the workaround. `--exec` has no `drag` command, so drag-selection remains unprobed.
 
 ### Tabs area notes (clean probes)
 Per-tab cursor/selection/scroll/multicursor/fold restoration, undo isolation, dirty-flag lifecycle, close-with-unsaved-changes dialog, duplicate-open reuse, new-file/save-as, overflow hit-testing on tab labels, wrap-around switching, and widget-tree leak checks all passed. **Editor split panes do not exist** in the codebase (`SplitPanelWidget`/`ContentSplitWidget` are the sidebar/bottom layout splits) — that sub-area is N/A until the feature exists.
