@@ -9,7 +9,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Area | Status | Findings |
 |---|---|---|
 | Editing commands × selection | swept (4 findings) | BUG-001..004 |
-| Multicursor interactions | pending | |
+| Multicursor interactions | in progress | |
 | Undo/redo semantics | pending | |
 | Code folding × editing | pending | |
 | Find/replace + search highlights | pending | |
@@ -63,6 +63,15 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** selection line0→line1-col0 covers only line0 → only line0 outdented
 - **Actual:** line1 outdented as well — `KeyBacktab` handler (`internal/ui/editor_widget_keyboard.go:201-232`) iterates `start.Line..end.Line` with no col-0 exclusion, same defect as BUG-002
 - **Test:** `tests/e2e/audit_selection_bugs_test.go` (`t.Skip`-marked; verified failing when unskipped)
+
+### BUG-005: Line commands under multicursor leave `e.Multi` stale — next keystroke corrupts the buffer
+- **Area:** Multicursor interactions
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** file `foo bar foo baz\nfoo qux\nbar foo end\n`; `bin/ttt --size 120x40 --exec 'wait 200; key ctrl+k l; exec "Duplicate Line"; type Y; screenshot /tmp/s.txt; quit' foo.txt`
+- **Expected:** line commands while multicursor is active either shift `Multi.Cursors` consistently (like `multiExecEnter` does) or collapse multicursor mode; typing afterwards must not touch text no cursor covers
+- **Actual:** buffer corrupted — `Yar foo baz` / `foo Y` / `bar foo end` (characters clobbered in words that were never selected). Same pattern with Delete Line and Move Line Down. Root cause: `DuplicateLine`/`DeleteLine`/`MoveLineUp`/`MoveLineDown` (`internal/ui/editor_widget_lines.go`) never read or update `e.Multi.Cursors`.
+- **Test:** `tests/functional/audit-multicursor-bugs.test.js` (`it.fails`)
 
 ### Harness gap (not a product bug): `--exec key shift+tab` cannot produce `KeyBacktab`
 `comboToTcell("shift+tab")` yields `(KeyTab, ModShift)`; there is no `backtab` keyword in the key parser, so the `KeyBacktab` code path is unreachable from `--exec`/functional tests. Real terminals send Backtab as CSI Z. Consider adding a `backtab` keyword when convenient — until then, Backtab behavior is only testable via e2e event injection.
