@@ -116,6 +116,12 @@ func (e *EditorPaneWidget) MoveWordRight(shift bool) {
 }
 
 func (e *EditorPaneWidget) DeleteWordLeft() {
+	if e.Selection != nil && e.Selection.Active {
+		e.deleteSelection()
+		e.clampCursor()
+		e.scrollViewport()
+		return
+	}
 	if e.Cursor.Col == 0 {
 		return
 	}
@@ -132,6 +138,12 @@ func (e *EditorPaneWidget) DeleteWordLeft() {
 }
 
 func (e *EditorPaneWidget) DeleteWordRight() {
+	if e.Selection != nil && e.Selection.Active {
+		e.deleteSelection()
+		e.clampCursor()
+		e.scrollViewport()
+		return
+	}
 	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
 	runes := []rune(e.Buf.Lines[e.Cursor.Line])
 	if e.Cursor.Col >= len(runes) {
