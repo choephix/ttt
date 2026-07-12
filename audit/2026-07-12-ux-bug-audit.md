@@ -513,14 +513,13 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 - **Actual:** tab path never updated after rename
 - **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
 
-### BUG-030: New File / Rename silently clobbers an existing file (silent delete)
+### BUG-030: New File / Rename silently clobbers an existing file (silent delete) — ✅ FIXED
 - **Area:** Explorer
 - **Severity:** medium  *(was high — see Curation)*
-- **Curation (2026-07-12, CONFIRMED, downgraded high→medium):** genuine bug — worse than BUG-028 in that there is NO confirmation naming the destruction. `FileOpNewFile` writes with `os.WriteFile` (O_TRUNC, `fileops.go:25`) with no stat check, so a colliding "New File" name silently empties the existing file; `FileOpRename` `os.Rename` (`fileops.go:60`) silently replaces an existing target. Triggers via the legitimate in-context New File/Rename, so independent of BUG-028's palette exposure. Downgraded to medium: needs a name collision (a less-common action), though the outcome is silent irreversible content loss.
-- **Fix:** `os.Stat` the target before write/rename; if it exists, fail with `a.StatusError("... already exists")` (matches VS Code; `StatusError` already used in this function). Edge cases: rename-to-self (`newPath == path`) is a no-op, not an error; allow case-only rename on case-insensitive filesystems.
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `Explorer: New File` named `dup.txt` when dup.txt exists → truncated to empty. Rename onto an existing name → target replaced.
-- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+- **Curation (2026-07-12, CONFIRMED → FIXED, downgraded high→medium):** genuine bug — worse than BUG-028 in that there is NO confirmation naming the destruction. `FileOpNewFile` wrote with `os.WriteFile` (O_TRUNC) with no stat check, so a colliding "New File" name silently emptied the existing file; `FileOpRename` `os.Rename` silently replaced an existing target. Triggered via the legitimate in-context New File/Rename, so independent of BUG-028's palette exposure. Downgraded to medium: needs a name collision (a less-common action), though the outcome was silent irreversible content loss.
+- **Status:** ✅ **FIXED on `review` branch** — `os.Stat` guard added to both `FileOpNewFile` and `FileOpRename` (`internal/app/fileops.go`): existing target → `a.StatusError("<name> already exists")` and return, no write. Rename-to-self (`newPath == path`) is a no-op; `os.SameFile` allows case-only renames on case-insensitive filesystems while blocking genuine collisions. Orchestrator re-verified: `make build` clean, both repro tests pass as real `it`.
+- **Repro (now fixed):** `Explorer: New File` named `dup.txt` when dup.txt exists → status error, dup.txt untouched. Rename onto an existing name → status error, both files intact.
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` — flipped `it.fails`→`it`, 2 real passing cases (New File + Rename collision).
 
 ### BUG-031: Deleting an open file leaves a stale tab with no warning; the disk-deleted warning path is dead code
 - **Area:** Explorer × file watching
