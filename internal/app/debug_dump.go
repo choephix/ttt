@@ -14,6 +14,7 @@ type DebugState struct {
 	Screen      DebugScreen        `json:"screen"`
 	Cursor      DebugCursor        `json:"cursor"`
 	Buffer      *DebugBuffer       `json:"buffer"`
+	Viewport    *DebugViewport     `json:"viewport,omitempty"`
 	Focus       string             `json:"focus"`
 	Sidebar     DebugPanel         `json:"sidebar"`
 	BottomPanel DebugPanel         `json:"bottom_panel"`
@@ -56,6 +57,15 @@ type DebugBuffer struct {
 	Modified      bool     `json:"modified"`
 	Text          []string `json:"text"`
 	TextTruncated bool     `json:"text_truncated,omitempty"`
+}
+
+// DebugViewport reports the visible region of the active editor, so
+// scripted tests can assert scroll position directly.
+type DebugViewport struct {
+	TopLine int `json:"top_line"`
+	LeftCol int `json:"left_col"`
+	Width   int `json:"width"`
+	Height  int `json:"height"`
 }
 
 // DebugMultiCursor reports one cursor of the multicursor set, so scripted
@@ -120,6 +130,12 @@ func (a *App) BuildDebugState() *DebugState {
 	if a.EditorGroup.Editor != nil {
 		line, col := a.EditorGroup.ActiveCursor()
 		state.Cursor = DebugCursor{Line: line, Col: col}
+		if vp := a.EditorGroup.Editor.Viewport; vp != nil {
+			state.Viewport = &DebugViewport{
+				TopLine: vp.TopLine, LeftCol: vp.LeftCol,
+				Width: vp.Width, Height: vp.Height,
+			}
+		}
 	}
 
 	if buf := a.EditorGroup.ActiveBuffer(); buf != nil {
