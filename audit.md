@@ -21,12 +21,12 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
 | Resize & layout | swept (5 findings) | BUG-036..040 |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
-| Keyboard navigation parity | in progress | BUG-017 |
+| Keyboard navigation parity | swept (2 findings) | BUG-017, BUG-051 |
 | Themes & rendering | swept (2 findings) | BUG-041, BUG-042 |
 | Settings & options | swept (clean) | — |
 | Workspace (multi-folder) | swept (4 findings) | BUG-043..046 |
+| Plugin widgets | in progress | |
 | Integrated terminal panel | pending (do last) | |
-| Plugin widgets | pending | |
 
 Status values: `pending` → `in progress` → `swept (N findings)` / `swept (clean)`.
 
@@ -242,6 +242,18 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### BUG-051: Goal column not preserved through a shorter line (feature documented but unimplemented)
+- **Area:** Keyboard navigation parity
+- **Severity:** medium
+- **Status:** confirmed (orchestrator spot-check of a clean sweep — agent missed it; runtime + code confirmed)
+- **Repro:** col 12 on a 20-char line, `down` through a 5-char line, `down` to a 20-char line → cursor at col 5, not 12. Also down-through-short-then-up returns col 5. A single down to a long line (no intervening short) keeps col 12.
+- **Expected:** goal/preferred column survives passing through shorter lines (standard editor behavior; CLAUDE.md explicitly documents "cursor — Visual column cursor with goal-column preservation for vertical movement")
+- **Actual:** the `Cursor` struct (`internal/core/cursor/cursor.go`) has only `Line`/`Col` — NO goal field. KeyUp/KeyDown (`internal/ui/editor_widget_keyboard.go:52-55, 79-82`) do `e.Cursor.Col = lineLen` on a shorter line, permanently overwriting the column. The documented feature isn't implemented (or was removed).
+- **Test:** `tests/functional/audit-goalcolumn-bug.test.js` (`it.fails`, marker-based)
+
+### Keyboard-nav area notes
+Verified correct (Haiku sweep + orchestrator spot-check): word motions (ctrl+left/right) treat camelCase and snake_case as single words and `.`/punctuation as boundaries (matches VS Code); SmartHome toggles first-non-space ↔ col 0; PgUp/PgDn viewport + clamp; matching-bracket jump; go-to-line bounds; shift+ selection variants. The clean sweep MISSED BUG-051 (goal column) — caught only by the orchestrator's skeptical clamp-then-restore probe; single-move column tests pass, which is why a surface sweep reads clean.
 
 ### BUG-047: Global-search navigation ignores the match column — cursor always lands at col 0
 - **Area:** Global search
