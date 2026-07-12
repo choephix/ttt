@@ -12,7 +12,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Multicursor interactions | swept (4 findings) | BUG-005..008 |
 | Undo/redo semantics | pending | |
 | Code folding × editing | pending | |
-| Find/replace + search highlights | in progress | |
+| Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | pending | |
 | Explorer (file tree) | pending | |
 | Mouse targets / click offsets | pending | |
@@ -109,6 +109,63 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Actual:** cursor stops mid-cluster (rune col 2 after two rights); backspace deletes only the 👨 rune, leaving a dangling ZWJ in the buffer and the emoji rendering exploded as `a 👩 👧 👦b`. Movement/deletion is rune-based everywhere, with no grapheme-cluster segmentation. Combining accents (e + U+0301) are presumably the same family — not separately verified.
 - **Note:** rune-based `Col` is a documented design constraint, so the fix is a design decision (grapheme segmentation layer), not a one-liner. Plain CJK, skin-tone-free emoji, tabs, long lines, and boundary cases all passed the sweep — this is specifically about multi-rune clusters.
 - **Test:** `tests/functional/audit-grapheme-bugs.test.js` (`it.fails`)
+
+### BUG-010: Search matches go stale after buffer edits — Find Next jumps to non-matching lines
+- **Area:** Find/replace
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** open find (`ctrl+f`, query `alpha`), click into the editor, insert a line above the matches, press F3
+- **Expected:** matches shift with the edited text (or are recomputed); Find Next never lands on a non-matching line
+- **Actual:** F3 jumps to the stale line index — cursor lands on "beta". `SearchMatches` is never recomputed after buffer edits while the bar is open.
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### BUG-011: Replace All ignores the Case-Sensitive/Regex toggles the bar itself displays
+- **Area:** Find/replace
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** `ctrl+r`, query `Foo`, `alt+c` (bar shows 1/1), replacement `X`, `alt+r`
+- **Expected:** only the exact-case "Foo" replaced
+- **Actual:** all of "Foo"/"foo"/"FOO" replaced — `EditorGroupWidget.ReplaceAll` (`internal/ui/editor_group.go`) re-runs `FindInLines` with a fresh default `SearchOptions{}` instead of the bar's current options
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### BUG-012: Replace All is not atomic in undo — one Ctrl+Z leaves a never-seen garbled state
+- **Area:** Find/replace × undo
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** replace-all `cat`→`dog` over 4 matches, escape, one `ctrl+z`
+- **Expected:** single undo step reverts the whole replace-all (VS Code semantics)
+- **Actual:** every replacement pushes 2 ungrouped commands (DeleteSelection + InsertString) — 8 undos to fully revert; one undo yields `" dog dog"`, a state that never existed on screen
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### BUG-013: Search state survives tab switches — Find Next navigates a tab that has no matches
+- **Area:** Find/replace × tabs
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** find `alpha` in tab A (1 match), switch to tab B (no matches), press F3
+- **Expected:** bar clears or re-searches on tab switch; F3 in a matchless buffer is a no-op
+- **Actual:** tab A's matches persist ("1/1" still shown for tab B); F3 clamps the stale line-5 target into tab B's 2-line buffer and moves the cursor to line 1 — meaningless navigation (no crash; line is clamped)
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### BUG-014: Replace bar unconditionally swallows all keys — global bindings (tab-switch, tab-close) dead while open
+- **Area:** Find/replace × keybindings
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified with find-bar control run)
+- **Repro:** `ctrl+r` open, press `alt+.` (tab.next) — nothing happens; same key with only `ctrl+f` open switches tabs fine
+- **Expected:** keys the replace input doesn't handle fall through to global handling, matching the find bar's behavior
+- **Actual:** `ReplaceBarWidget.handleKey` (`internal/ui/replacebar_widget.go`) ends with an unconditional `return EventConsumed`
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### BUG-015: Find does not seed the query from the active selection
+- **Area:** Find/replace
+- **Severity:** low (VS Code parity)
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** select "world", `ctrl+f`
+- **Expected:** query box pre-filled with "world" (VS Code behavior; selection survives either way)
+- **Actual:** empty "Search" placeholder; selection does survive
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+
+### Harness gap from the find/replace sweep
+`debug` JSON has no `search` section (query, options, match list, active index, bar focus) — match staleness had to be inferred via cursor movement. Screenshot carries no style info, so highlight-artifact checks are only indirect. Consider a `search` block in the dump.
 
 ### Harness gap (not a product bug): `--exec key shift+tab` cannot produce `KeyBacktab`
 `comboToTcell("shift+tab")` yields `(KeyTab, ModShift)`; there is no `backtab` keyword in the key parser, so the `KeyBacktab` code path is unreachable from `--exec`/functional tests. Real terminals send Backtab as CSI Z. Consider adding a `backtab` keyword when convenient — until then, Backtab behavior is only testable via e2e event injection.
