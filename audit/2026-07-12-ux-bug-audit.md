@@ -60,7 +60,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### BUG-002: Indent (Tab) with selection ending at col 0 indents one line too many
 - **Area:** Editing commands × selection
-- **Severity:** medium
+- **Severity:** low  *(was medium — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded medium→low):** genuine, same root as [[BUG-001]] — KeyTab handler (`editor_widget_keyboard.go:239-243`) iterates `start.Line..end.Line` with no col-0 exclusion; `ToggleLineComment` with the identical selection is the correct control. Mildest of the cluster: a one-line over-indent, visible + undoable, no corruption. Shared fix: the `lineRange()` col-0 helper (see [[BUG-001]]).
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key shift+down; key tab; screenshot /tmp/s.txt; quit" file.txt`
 - **Expected:** selection line1→line2-col0 covers only line1 (control: `Toggle Line Comment` with the identical selection correctly comments only line1) → only line1 indented
