@@ -26,7 +26,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Settings & options | swept (clean) | — |
 | Workspace (multi-folder) | swept (4 findings) | BUG-043..046 |
 | Plugin widgets | swept (5 findings) | BUG-052..056 |
-| Integrated terminal panel | in progress (last) | |
+| Integrated terminal panel | swept (3 findings) | BUG-057..059 |
 
 Status values: `pending` → `in progress` → `swept (N findings)` / `swept (clean)`.
 
@@ -254,6 +254,36 @@ No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be conf
 
 ### Keyboard-nav area notes
 Verified correct (Haiku sweep + orchestrator spot-check): word motions (ctrl+left/right) treat camelCase and snake_case as single words and `.`/punctuation as boundaries (matches VS Code); SmartHome toggles first-non-space ↔ col 0; PgUp/PgDn viewport + clamp; matching-bracket jump; go-to-line bounds; shift+ selection variants. The clean sweep MISSED BUG-051 (goal column) — caught only by the orchestrator's skeptical clamp-then-restore probe; single-move column tests pass, which is why a surface sweep reads clean.
+
+### BUG-057: Dismissing a dialog while the terminal is focused steals focus to the editor — typing corrupts the file
+- **Area:** Integrated terminal × focus
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified via --exec — file corrupted, dirty)
+- **Repro:** `bin/ttt --exec 'wait 300; key ctrl+t; wait 500; key ctrl+p; wait 300; key escape; wait 200; type XY; ...' f.txt` (f.txt = "hello world") → buffer becomes "XYhello world", modified:true; the "XY" meant for the shell lands in the editor
+- **Expected:** dismissing a dialog returns focus to whatever was focused before (the terminal)
+- **Actual:** `App.DismissDialog()` (`internal/app/app.go:557`) unconditionally calls `FocusEditor()` regardless of prior focus
+- **Test:** none — the functional batch harness doesn't reproduce the terminal-focus timing (verified: test stayed green = bug absent there); `--exec` repro reliable, integration/PTY harness recommended
+
+### BUG-058: Force keys fire and mutate background panel state while a modal overlay is open
+- **Area:** Integrated terminal × overlays
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified — palette open AND terminal panel visible simultaneously)
+- **Repro:** `key ctrl+p` (palette open), `key ctrl+t` → overlay still open, `bottom_panel.visible:true` — the terminal panel flips on behind the still-open palette
+- **Expected:** force keys ignored (or handled consistently) while a modal overlay has focus
+- **Actual:** `Root.HandleEvent` checks `ForceKeys` before `handleOverlay` (`internal/ui/root.go:98-115`); combined with BUG-057, dismissing the palette then sends typing to the editor
+- **Test:** none — ledger-only (overlay+panel state; verified via --exec)
+
+### BUG-059: Ctrl+K never reaches the PTY when the terminal is focused (chord matcher runs first)
+- **Area:** Integrated terminal × keybindings
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified at runtime + code ordering)
+- **Repro:** focus terminal, type `foobar`, `ctrl+a`, `ctrl+k` (should kill-line in bash), enter → terminal runs `foobar` ("command not found") instead of an empty line; `^K` never reaches the shell. Ctrl+A (non-chord) passes through fine.
+- **Expected:** per CLAUDE.md, all keys route to the PTY when the terminal is focused, except force keys
+- **Actual:** `Root.HandleEvent` runs `handleChord(kev)` (`internal/ui/root.go:138`) BEFORE the RawKeyConsumer check (`:143-146`); since ~20 commands use `ctrl+k` as a chord prefix, the first Ctrl+K is always consumed by the chord matcher and never forwarded. Breaks readline Ctrl+K (kill-line) and any other chord-prefix key in the shell.
+- **Test:** none — needs real PTY shell processing; ledger-only, integration/PTY harness
+
+### Integrated terminal area notes
+Robust: open/close/fullscreen toggle, basic key routing (echo reaches shell), rapid toggling, PTY resize (`stty size` matches the rendered rect), dead-PTY handling (`exit` closes the tab gracefully, focus falls back, no crash), multiple terminal tabs with independent scrollback, high-volume output (`seq 1 10000` keeps up), Ctrl+C (SIGINT delivered), ANSI parsing (no literal escapes), `clear`, and click-based focus routing (the counter-case isolating BUG-057 to dialog-based focus transitions). **The 3 findings are all focus/key-ROUTING gaps, not terminal-emulation bugs.** **DUMP GAPS:** `describeFocus()` returns `"other"` for both terminal AND editor focus (it checks `EditorPaneWidget` but `Root.Focused` is `EditorGroupWidget`; no terminal cases) — add `*ui.TerminalPanelWidget`→"terminal", `*ui.EditorGroupWidget`→"editor"; `describeOverlay()` returns `"unknown"` for the command palette (`SelectDialogWidget`); no per-cell color in screen/screenshot so terminal direct-color rendering is unverifiable via --exec.
 
 ### BUG-052: Plugin `p:clear()` with large dimensions freezes the editor (no bound check)
 - **Area:** Plugin widgets
