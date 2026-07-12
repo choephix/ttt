@@ -46,6 +46,15 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Actual:** line1 AND line2 both indented — the KeyTab handler (`internal/ui/editor_widget_keyboard.go:238-247`) iterates `start.Line..end.Line` with no col-0 exclusion
 - **Test:** `tests/functional/audit-selection-bugs.test.js` (`it.fails`)
 
+### BUG-003: Duplicate Line and Delete Line ignore an active multi-line selection
+- **Area:** Editing commands × selection
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key shift+down; key shift+down; exec \"Duplicate Line\"; screenshot /tmp/s.txt; quit" file.txt` (same shape with `exec "Delete Line"`)
+- **Expected:** per the project convention ("line-based commands operate on the selected lines"), with lines 1–2 selected: Duplicate Line duplicates the block; Delete Line deletes it
+- **Actual:** `DuplicateLine()`/`DeleteLine()` (`internal/ui/editor_widget_lines.go:56-83`) never consult the selection — both act only on the cursor's line (line3, not even part of the selection per the col-0 convention). Delete Line additionally leaves a stale selection range pointing past the shifted buffer.
+- **Test:** `tests/functional/audit-selection-bugs.test.js` (`it.fails`, 2 cases)
+
 <!-- Template:
 ### BUG-NNN: <one-line summary>
 - **Area:**

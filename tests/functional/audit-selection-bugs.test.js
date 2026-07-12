@@ -18,6 +18,53 @@ afterEach(() => {
   if (dir) cleanupDir(dir);
 });
 
+describe("BUG-003: Duplicate/Delete Line ignore active multi-line selection", () => {
+  it.fails("Duplicate Line duplicates the selected block", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "dupblock.txt", FIVE_LINES);
+
+    tui.start(file);
+    tui.waitFor("line0");
+
+    // Select lines 1-2 (selection ends at line3 col 0)
+    tui.press("arrow_down");
+    tui.press("shift+down");
+    tui.press("shift+down");
+    tui.exec("Duplicate Line");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+    tui.run();
+
+    // Buggy behavior duplicates only the cursor's line (line3), which per
+    // the col-0 convention is not even part of the selection.
+    expect(readFile(file)).toBe("line0\nline1\nline2\nline1\nline2\nline3\nline4\n");
+  });
+
+  it.fails("Delete Line deletes the selected block", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "delblock.txt", FIVE_LINES);
+
+    tui.start(file);
+    tui.waitFor("line0");
+
+    tui.press("arrow_down");
+    tui.press("shift+down");
+    tui.press("shift+down");
+    tui.exec("Delete Line");
+    tui.waitStable();
+
+    tui.press("ctrl+s");
+    tui.waitStable();
+    tui.run();
+
+    // Buggy behavior deletes only the cursor's line (line3), leaving the
+    // selected lines untouched and the selection range stale.
+    expect(readFile(file)).toBe("line0\nline3\nline4\n");
+  });
+});
+
 describe("BUG-002: Tab indent with selection ending at col 0", () => {
   it.fails("indents only lines the selection actually covers", () => {
     dir = createTempDir();
