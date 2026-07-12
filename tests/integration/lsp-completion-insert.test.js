@@ -52,7 +52,9 @@ function lspServerAvailable() {
 
 const available = lspServerAvailable();
 
-describe("lsp completion insertion", () => {
+// Retry: tsserver can be slow to respond in CI; each retry re-runs setup for a
+// fresh server attempt.
+describe("lsp completion insertion", { retry: 2 }, () => {
   let dir;
 
   beforeEach(() => {

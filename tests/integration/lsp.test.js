@@ -73,7 +73,10 @@ const languages = readdirSync(LSP_DIR, { withFileTypes: true })
   .filter((d) => existsSync(resolve(LSP_DIR, d.name, "spec.json")))
   .map((d) => d.name);
 
-describe("lsp", () => {
+// Retry: language servers (notably tsserver) can be slow to start/respond in
+// CI, intermittently exceeding the wait windows. Each retry re-runs beforeEach,
+// giving a fresh server attempt.
+describe("lsp", { retry: 2 }, () => {
   let dir;
 
   beforeEach(() => {

@@ -52,7 +52,9 @@ function lspServerAvailable() {
 
 const available = lspServerAvailable();
 
-describe("lsp autocomplete trigger characters", () => {
+// Retry: tsserver can be slow to respond in CI; each retry re-runs setup for a
+// fresh server attempt.
+describe("lsp autocomplete trigger characters", { retry: 2 }, () => {
   let dir;
 
   beforeEach(() => {
