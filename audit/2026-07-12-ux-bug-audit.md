@@ -521,9 +521,10 @@ Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at
 - **Repro (now fixed):** `Explorer: New File` named `dup.txt` when dup.txt exists → status error, dup.txt untouched. Rename onto an existing name → status error, both files intact.
 - **Test:** `tests/functional/audit-explorer-bugs.test.js` — flipped `it.fails`→`it`, 2 real passing cases (New File + Rename collision).
 
-### BUG-031: Deleting an open file leaves a stale tab with no warning; the disk-deleted warning path is dead code
+### BUG-031: No notification when an open file is deleted on disk (the warning path is dead code)
 - **Area:** Explorer × file watching
 - **Severity:** medium
+- **Curation (2026-07-12, CONFIRMED, kept + reframed):** the defect is the **missing signal**, not the save behavior. Saving to recreate a deleted file is CORRECT and should stay (don't lose the user's buffer — matches VS Code); do NOT make save error on plain delete. The real bug: the user gets zero indication the file is gone — buffer stays `modified:false`, tab looks normal, and the intended "was deleted on disk" warning is unreachable dead code (confirmed: `Buffer.DiskChanged` at `io.go:76-79` returns false when `os.Stat` fails, so `HandleFileChanged` bails at the `DiskChanged` check before reaching the delete-warning branch). Fix = notification + mark the buffer diverged (dirty), leaving save-to-recreate intact. The separate parent-dir-gone case (save actually FAILS → stranded edit) belongs with [[BUG-029]] — warn + offer Save As there.
 - **Status:** confirmed (agent-reported, orchestrator re-verified via timed external rm)
 - **Repro:** open a file, `rm` it externally (or delete via Explorer), wait → tab shows old content, `modified:false`, no status message. Edit+save silently resurrects the file.
 - **Expected:** warn ("<file> was deleted on disk") and/or close/mark the tab
