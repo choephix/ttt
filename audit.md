@@ -10,11 +10,12 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 |---|---|---|
 | Editing commands × selection | swept (4 findings) | BUG-001..004 |
 | Multicursor interactions | swept (4 findings) | BUG-005..008 |
-| Undo/redo semantics | pending | |
-| Code folding × editing | pending | |
+| Undo/redo semantics | swept (6 findings) | BUG-020..025 |
+| Code folding × editing | in progress | |
 | Find/replace + search highlights | swept (6 findings) | BUG-010..015 |
 | Tabs & split panes | swept (1 finding; split panes N/A — feature doesn't exist) | BUG-016 |
 | Explorer (file tree) | pending | |
+| Global search (sidebar, rg-based) | pending | |
 | Mouse targets / click offsets | swept (2 findings) | BUG-018, BUG-019 |
 | Resize & layout | pending | |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
@@ -182,6 +183,63 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Expected:** Ctrl+End jumps to end of document, Ctrl+Home to start (plus shift variants for selection) — universal editor behavior, VS Code parity
 - **Actual:** the `KeyHome`/`KeyEnd` handlers (`internal/ui/editor_widget_keyboard.go:125-151`) never check ModCtrl, no document start/end command exists in the registry, and nothing is bound — the keypress is silently dropped (not even line home/end fires)
 - **Test:** `tests/functional/audit-navigation-bugs.test.js` (`it.fails`)
+
+### BUG-020: Undo of line commands never restores the cursor to the edit site
+- **Area:** Undo/redo
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** Delete Line at line 2, move away, `ctrl+z` → text restores but cursor stays put
+- **Expected:** undo returns the cursor to where the edit happened (as it does for typed text, paste, join lines)
+- **Actual:** `cursorAfterUndo`/`cursorAfterRedo` (`internal/core/undo/undo.go`) have no cases for `InsertLineCommand`/`DeleteLineCommand`/`SwapLineCommand`/`ReplaceLinesCommand`, so `Undo()` returns nil and `editor_group.go:816` skips the cursor update. Affects Delete/Duplicate/Move/Sort Lines.
+- **Test:** `tests/functional/audit-undo-bugs.test.js` (`it.fails`)
+
+### BUG-021: Multi-line indent/outdent is one undo step per line, not atomic
+- **Area:** Undo/redo
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** select 3 lines, Tab, one `ctrl+z` → only the last line un-indents
+- **Expected:** one undo reverts the whole indent (as Toggle Line Comment does via `BatchCommand`)
+- **Actual:** KeyTab/KeyBacktab loop issues one top-level `exec` per line with no batch (`internal/ui/editor_widget_keyboard.go:240-247`)
+- **Test:** `tests/functional/audit-undo-bugs.test.js` (`it.fails`)
+
+### BUG-022: Enter with auto-indent takes 2–4 undos to revert; first undo can be a no-op
+- **Area:** Undo/redo
+- **Severity:** high
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** Enter at end of an indented line, one `ctrl+z` → stray blank line remains (only the auto-indent whitespace was undone). Bracket-pair Enter (`{`|`}`) takes 4 undos, the first a visible no-op.
+- **Expected:** one undo fully reverts one keypress
+- **Actual:** `execEnter()` (`internal/ui/editor_widget_keyboard.go:259-301`) issues 2–4 separate top-level exec calls, unbatched
+- **Test:** `tests/functional/audit-undo-bugs.test.js` (`it.fails`)
+
+### BUG-023: Viewport does not scroll to an off-screen undo location
+- **Area:** Undo/redo
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** edit line 90, jump to line 1, `ctrl+z` → `cursor.line` 89, `viewport.top_line` 0 — cursor invisible
+- **Expected:** undo scrolls the restored cursor into view like every other cursor-moving path
+- **Actual:** `EditorGroupWidget.Undo()`/`Redo()` (`internal/ui/editor_group.go:810-842`) never call `scrollViewport()`
+- **Test:** `tests/functional/audit-undo-bugs.test.js` (`it.fails`)
+
+### BUG-024: Undoing an edit on a folded header line silently unfolds the region
+- **Area:** Undo/redo × folding
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** fold a function, type a char on the header line, `ctrl+z` → buffer byte-identical to pre-edit, fold expanded
+- **Expected:** fold state survives an undo that restores the exact pre-edit text
+- **Actual:** fold collapsed-state is dropped on the edit and not restored by undo
+- **Test:** `tests/functional/audit-undo-bugs.test.js` (`it.fails`)
+
+### BUG-025: Undo grouping only breaks on whitespace — punctuation runs undo as one blob
+- **Area:** Undo/redo
+- **Severity:** low (possibly intentional — design question)
+- **Status:** confirmed behavior; whether it's a bug needs an owner decision
+- **Repro:** type `a.b.c.d.e`, one `ctrl+z` → entire string removed
+- **Expected (VS Code-ish):** punctuation acts as a group delimiter like whitespace
+- **Actual:** `canGroup()` (`internal/core/undo/undo.go:73-96`) only breaks groups on space/tab
+- **Test:** none — behavior is a design choice; test would prescribe an undecided policy
+
+### Harness gap from the undo sweep
+No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
 
 ### BUG-018: Clicking a second menu header closes the open menu instead of switching to it
 - **Area:** Mouse / menu bar
