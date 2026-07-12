@@ -80,7 +80,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### BUG-004: Outdent (Backtab) with selection ending at col 0 outdents one line too many
 - **Area:** Editing commands × selection
-- **Severity:** medium
+- **Severity:** low  *(was medium — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded medium→low):** genuine, symmetric twin of [[BUG-002]] — KeyBacktab handler (`editor_widget_keyboard.go:208-219`) iterates `start.Line..end.Line`, clamps `end.Line`, but has no col-0 exclusion. Mild one-line over-outdent, visible + undoable. Only e2e-testable (`--exec` shift+tab → KeyTab+ModShift, not KeyBacktab). Completes the col-0 cluster (001-004, all genuine); shared `lineRange()` fix (see [[BUG-001]]).
 - **Status:** confirmed (agent code-inspection suspicion, orchestrator confirmed at runtime via e2e)
 - **Repro:** not drivable via `--exec` (`key shift+tab` synthesizes `KeyTab+ModShift`, not `KeyBacktab` — harness gap, see below); e2e test injects `tcell.KeyBacktab` directly
 - **Expected:** selection line0→line1-col0 covers only line0 → only line0 outdented
