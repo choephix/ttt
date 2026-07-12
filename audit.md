@@ -22,8 +22,8 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 | Resize & layout | swept (5 findings) | BUG-036..040 |
 | Wide-char / edge content (CJK, emoji, tabs, long lines) | swept (1 finding) | BUG-009 |
 | Keyboard navigation parity | partial (orchestrator probe, not a full sweep) | BUG-017 |
-| Themes & rendering | in progress | |
-| Settings & options | pending | |
+| Themes & rendering | swept (2 findings) | BUG-041, BUG-042 |
+| Settings & options | in progress | |
 | Workspace (multi-folder) | pending | |
 | Integrated terminal panel | pending (do last) | |
 | Plugin widgets | pending | |
@@ -242,6 +242,27 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### Harness gap from the undo sweep
 No `folds` field in the debug dump (collapsed ranges) — BUG-024 had to be confirmed via screenshot fold markers. Add fold state if the folding sweep needs it.
+
+### BUG-041: Theme picker cancel reverts colors but leaves the border charset stuck on the preview
+- **Area:** Themes & rendering
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Repro:** fresh config (default rounded borders); `exec "Switch Theme"`, type `turbo` (preview turbo-vision's double-line borders), `key escape` → border glyphs stay `╔═` instead of reverting to `╭─`
+- **Expected:** dismissing the picker after only previewing reverts everything — colors AND border glyphs — to the pre-picker theme
+- **Actual:** `ShowThemePicker` `OnDismiss` (`internal/app/commands_palette.go`) restores the style map and palette but never resets `*a.Borders` (which the preview's `applyTheme` set via `BuildBorderSet`), so preview borders persist until another theme is applied or restart
+- **Test:** `tests/functional/audit-theme-bugs.test.js` (`it.fails`)
+
+### BUG-042: Malformed theme JSON fails completely silently (no crash, no feedback)
+- **Area:** Themes & rendering
+- **Severity:** medium
+- **Status:** confirmed (agent-reported, orchestrator re-verified — byte-identical screen, `output:null`)
+- **Repro:** put a syntax-broken `themes/broken.json` in the config dir; either set `"theme":"broken"` in settings and launch, or `exec "Switch Theme"` + select it → nothing applies, no status/error, no crash
+- **Expected:** a visible status-bar error (consistent with other config error paths), or clear indication the theme didn't load
+- **Actual:** startup `config.Load()` discards the `json.Unmarshal` error entirely; runtime `ShowThemePicker` `OnSelect`/`OnChange` call `config.LoadTheme` and on error just `return` with no status message (and OnSelect doesn't persist the setting either) — the failure is invisible
+- **Test:** none — the fix defines the error-feedback signal (status text); ledger-only until then
+
+### Themes area notes
+Cycled all 18 built-in themes (`internal/config/themes/*.json`) — no crash, no stale characters, clean redraw each. Missing-StyleDef-field themes inherit `DefaultTheme()` defaults gracefully (not a gap). Long-file scroll returns to byte-identical state; gutter alignment across 999→1000 correct and shrinks back; selection extent across tabs/emoji correct; sidebar/bottom-panel border T-junctions clean. No whitespace-render toggle exists. **Adjacent-area follow-up (not ledgered):** "Git: Open Compact/Extended Diff" silently no-op unless a Changes-panel row was keyboard-selected first — belongs to a Changes-panel/git sweep (and the known synthetic-click blind spot); revisit there. **DUMP GAP:** no active-style-map/border-set field in the dump — pure color-only regressions remain unconfirmable (only character-level defects like BUG-041's border glyphs are visible).
 
 ### BUG-036: Status bar text invisible at width <= 50 (editor box border overwrites it)
 - **Area:** Resize & layout
