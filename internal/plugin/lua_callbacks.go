@@ -85,6 +85,12 @@ func luaTableToTreeNode(L *lua.LState, tbl *lua.LTable) *widgets.TreeNode {
 		node.Expandable = lua.LVAsBool(v)
 	}
 
+	if v := L.GetField(tbl, "icon_style"); v != lua.LNil {
+		if s, ok := StyleByName(v.String()); ok {
+			node.IconStyle = s
+		}
+	}
+
 	if children, ok := L.GetField(tbl, "children").(*lua.LTable); ok {
 		node.Children = LuaTableToTreeNodes(L, children)
 		if len(node.Children) > 0 {
