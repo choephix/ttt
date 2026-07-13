@@ -18,8 +18,8 @@ afterEach(() => {
   if (dir) cleanupDir(dir);
 });
 
-describe("BUG-028: Explorer delete/rename with no selection targets the workspace root", () => {
-  it.fails("Explorer: Delete with no selection does not remove the root folder", () => {
+describe("BUG-028: command-palette Explorer: Delete lacks the isRoot guard the right-click menu has", () => {
+  it.fails("Explorer: Delete with the root selected does not disk-remove the root folder", () => {
     dir = createTempDir();
     mkdirSync(join(dir, "sub"));
     writeFileSync(join(dir, "file.txt"), "hi\n");
@@ -77,7 +77,7 @@ describe("BUG-029: renaming an open file leaves the tab tracking the old path", 
 });
 
 describe("BUG-030: New File / Rename silently clobber an existing file", () => {
-  it.fails("New File with a colliding name does not truncate the existing file", () => {
+  it("New File with a colliding name does not truncate the existing file", () => {
     dir = createTempDir();
     writeFileSync(join(dir, "dup.txt"), "existing content - keep me");
 
@@ -92,10 +92,36 @@ describe("BUG-030: New File / Rename silently clobber an existing file", () => {
     tui.waitStable();
     tui.run();
 
-    // Buggy: FileOpNewFile os.WriteFile (O_TRUNC) empties the file with
-    // no confirm/error.
+    // Fixed: FileOpNewFile now checks for an existing file before writing
+    // and shows a status error instead of truncating it.
     expect(readFileSync(join(dir, "dup.txt"), "utf8")).toBe(
       "existing content - keep me",
+    );
+  });
+
+  it("Rename onto an existing file does not overwrite it", () => {
+    dir = createTempDir();
+    writeFileSync(join(dir, "aaa.txt"), "aaa content");
+    writeFileSync(join(dir, "bbb.txt"), "bbb content - keep me");
+
+    tui.start(dir);
+    tui.waitStable(300);
+    tui.exec("Show Explorer");
+    tui.waitStable();
+    tui.press("arrow_down"); // select aaa.txt (alphabetically first)
+    tui.exec("Explorer: Rename");
+    tui.waitStable();
+    tui.press("ctrl+a");
+    tui.type("bbb.txt");
+    tui.press("enter");
+    tui.waitStable();
+    tui.run();
+
+    // Fixed: FileOpRename now checks for an existing target before
+    // renaming and shows a status error instead of silently replacing it.
+    expect(readFileSync(join(dir, "aaa.txt"), "utf8")).toBe("aaa content");
+    expect(readFileSync(join(dir, "bbb.txt"), "utf8")).toBe(
+      "bbb content - keep me",
     );
   });
 });
@@ -105,25 +131,6 @@ describe("BUG-030: New File / Rename silently clobber an existing file", () => {
 // external-delete --exec repro; an integration (PTY) test is the right
 // home for it if one is added.
 
-describe("BUG-032: opening a file from the explorer does not focus the editor", () => {
-  it.fails("typing after Enter-to-open reaches the buffer", () => {
-    dir = createTempDir();
-    writeFileSync(join(dir, "x.txt"), "abc");
-
-    tui.start(dir);
-    tui.waitStable(300);
-    tui.exec("Show Explorer");
-    tui.waitStable();
-    tui.press("arrow_down");
-    tui.press("enter"); // open x.txt
-    tui.waitStable();
-    tui.type("hello");
-    tui.press("ctrl+s");
-    tui.waitStable();
-    tui.run();
-
-    // Buggy: the Tree keeps focus (FocusOnOpen defaults false), so
-    // "hello" is swallowed and the file stays "abc".
-    expect(readFileSync(join(dir, "x.txt"), "utf8")).toBe("helloabc");
-  });
-});
+// BUG-032 (open-from-explorer doesn't focus editor) was REJECTED during
+// curation as intentional behavior (FocusOnOpen defaults false — keep
+// focus in the explorer for browsing). Test removed; see the audit ledger.

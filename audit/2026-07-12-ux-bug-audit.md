@@ -8,7 +8,7 @@ Process: one hunting agent at a time, scoped to an area from the coverage matrix
 
 ## Status: discovery phase COMPLETE (all 19 areas swept)
 
-**59 confirmed findings (BUG-001..059)** — 20 high, 29 medium, 10 low. 37 have expected-failure repro tests (vitest `it.fails` / Go `t.Skip`); 22 are ledger-only (feedback signal undefined until fixed, tiny-size-only, PTY/timing-dependent, or design questions). Every repro was re-verified by the orchestrator before entry. No fixes on this branch.
+**59 confirmed findings (BUG-001..059)** — 20 high, 29 medium, 10 low (pre-curation counts; a **curation pass is in progress** — see per-entry `Curation:` lines for downgrades/rejections, recount at the end). 37 have expected-failure repro tests (vitest `it.fails` / Go `t.Skip`); 22 are ledger-only (feedback signal undefined until fixed, tiny-size-only, PTY/timing-dependent, or design questions). Every repro was re-verified by the orchestrator before entry. No fixes on this branch.
 
 **Recurring root-cause clusters** (fix these, not 59 individual bugs):
 - Line-range commands ignore the col-0 selection convention -> BUG-001..004
@@ -50,7 +50,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### BUG-001: Move Line Up/Down includes trailing col-0 selection line and swaps the invisible trailing empty line into the buffer
 - **Area:** Editing commands × selection
-- **Severity:** high
+- **Severity:** medium  *(was high — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded high→medium):** genuine — code-confirmed. `MoveLineUp/Down` (`editor_widget_lines.go`) iterate `start.Line..end.Line` with NO col-0 adjustment, unlike `JoinLines`/`ToggleLineComment` which do `if end.Col == 0 && endLine > start.Line { endLine-- }` (same file, 3 copies). Plus the EOF guard `end.Line >= len(Buf.Lines)-1` counts the invisible trailing `""` of a `\n`-terminated file, so it's off by one and swaps that phantom line into the buffer (injects a blank line). Downgraded to medium: real corruption but visible + undoable, triggered by the common select-lines-then-move workflow. **First of the col-0 cluster [[BUG-002]]/[[BUG-003]]/[[BUG-004]] — shared fix: a `lineRange()` helper applying the col-0 convention that ALL line commands call; 001 also needs the EOF guard to use the visible line count.**
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key down; key shift+down; key shift+down; exec \"Move Line Down\"; screenshot /tmp/s.txt; quit" file.txt`
 - **Expected:** selection line2→line4-col0 covers lines 2–3 (col-0 convention per JoinLines/ToggleLineComment); block swaps past line4 → `line0,line1,line4,line2,line3`
@@ -59,7 +60,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### BUG-002: Indent (Tab) with selection ending at col 0 indents one line too many
 - **Area:** Editing commands × selection
-- **Severity:** medium
+- **Severity:** low  *(was medium — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded medium→low):** genuine, same root as [[BUG-001]] — KeyTab handler (`editor_widget_keyboard.go:239-243`) iterates `start.Line..end.Line` with no col-0 exclusion; `ToggleLineComment` with the identical selection is the correct control. Mildest of the cluster: a one-line over-indent, visible + undoable, no corruption. Shared fix: the `lineRange()` col-0 helper (see [[BUG-001]]).
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key shift+down; key tab; screenshot /tmp/s.txt; quit" file.txt`
 - **Expected:** selection line1→line2-col0 covers only line1 (control: `Toggle Line Comment` with the identical selection correctly comments only line1) → only line1 indented
@@ -69,6 +71,7 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 ### BUG-003: Duplicate Line and Delete Line ignore an active multi-line selection
 - **Area:** Editing commands × selection
 - **Severity:** medium
+- **Curation (2026-07-12, CONFIRMED, kept medium):** genuine — `DuplicateLine`/`DeleteLine` (`editor_widget_lines.go`) only read `e.Cursor.Line`, never `e.Selection` (a different flavor from the col-0 off-by-one: zero selection-awareness). With lines selected, Duplicate copies the cursor line and Delete removes the cursor line (not the selected block), leaving a stale selection — a DIFFERENT line than selected gets deleted, which is genuinely confusing (kept at medium). VS Code makes these selection-aware. Shared fix: route through the [[BUG-001]] `lineRange()` helper so they become selection-aware AND col-0-correct at once.
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `line0\nline1\nline2\nline3\nline4\n`; `bin/ttt --size 120x40 --exec "wait 200; key down; key shift+down; key shift+down; exec \"Duplicate Line\"; screenshot /tmp/s.txt; quit" file.txt` (same shape with `exec "Delete Line"`)
 - **Expected:** per the project convention ("line-based commands operate on the selected lines"), with lines 1–2 selected: Duplicate Line duplicates the block; Delete Line deletes it
@@ -77,7 +80,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 
 ### BUG-004: Outdent (Backtab) with selection ending at col 0 outdents one line too many
 - **Area:** Editing commands × selection
-- **Severity:** medium
+- **Severity:** low  *(was medium — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded medium→low):** genuine, symmetric twin of [[BUG-002]] — KeyBacktab handler (`editor_widget_keyboard.go:208-219`) iterates `start.Line..end.Line`, clamps `end.Line`, but has no col-0 exclusion. Mild one-line over-outdent, visible + undoable. Only e2e-testable (`--exec` shift+tab → KeyTab+ModShift, not KeyBacktab). Completes the col-0 cluster (001-004, all genuine); shared `lineRange()` fix (see [[BUG-001]]).
 - **Status:** confirmed (agent code-inspection suspicion, orchestrator confirmed at runtime via e2e)
 - **Repro:** not drivable via `--exec` (`key shift+tab` synthesizes `KeyTab+ModShift`, not `KeyBacktab` — harness gap, see below); e2e test injects `tcell.KeyBacktab` directly
 - **Expected:** selection line0→line1-col0 covers only line0 → only line0 outdented
@@ -494,77 +498,73 @@ Cycled all 18 built-in themes (`internal/config/themes/*.json`) — no crash, no
 ### Resize area notes
 Findings cluster at small terminal sizes; the standout is BUG-036 (status bar at 50 cols — a realistic split width). No crashes/panics at any size down to 10x5 (rects clamp at w:1/h:1, never negative). **DUMP GAP:** `overlay.type` is always `"unknown"` and overlays (palette/dialog/menu) are NOT in `widget_tree` — no rect data for overlays, so BUG-039/040 are screenshot-only. Adding overlay rects to the dump would make dialog/menu layout testable non-visually. Adjacent note: tab-bar decorative border truncates mid-glyph at ~20 cols even with no overlay (likely normal chrome degradation; a tab-bar-rendering sweep could double-check).
 
-### BUG-028: Explorer Delete/Rename with no selection targets the workspace ROOT (data loss)
-- **Area:** Explorer
-- **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified — root dir actually removed from disk)
-- **Repro:** open a folder, `exec "Show Explorer"`, `exec "Explorer: Delete"` (no prior selection), confirm → `os.RemoveAll` wipes the whole workspace; dialog reads a plain "Delete <name>?" indistinguishable from a file. Rename variant renames the root and orphans the workspace (`Workspace.Folders[0].Path` not updated → tree renders permanently empty).
-- **Expected:** operate on an explicit selection; block or distinctly warn for the root (the right-click path already routes root to a delete-less menu via `isRoot()`)
-- **Actual:** `explorerNodePath()` (`internal/app/commands_explorer.go`) falls back to `Tree.Selected()`==0==root with no `isRoot` guard
-- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`, delete case)
+### BUG-028: Selection-dependent explorer commands are exposed in the command palette (no valid target there)
+- **Area:** Explorer / command palette
+- **Severity:** low  *(was high — see Curation)*
+- **Curation (2026-07-12, DOWNGRADED + REFRAMED):** original framing ("no selection", "silent data loss") was inaccurate — the tree's default selection IS the root (shown selected), and `FileOpDelete` shows a confirm dialog naming the folder. The real, general issue: `Explorer: Delete/Rename` (and other `explorer.*` context commands) operate on the explorer's selected node, but they are listed in the command palette (`commands_palette.go:14` = `a.Reg.List()`, unfiltered) where there is no meaningful selection — so from the palette they fall back to `Tree.Selected()` = root. **There are NO global keybindings for any `explorer.*` command** (confirmed: `keybindings.go` has none), so the palette is the ONLY context-free entry point; the right-click menu already guards the root (offers Refresh / Copy Path / Remove from Workspace via `isRoot()`, `callbacks.go:545`). Hiding these from the palette fully removes the bad path.
+- **Status:** confirmed behavior; reframed as a palette-exposure design gap, not data loss
+- **Fix (shared with the explorer-command-exposure cluster):** add a `Hidden bool` / `ShowInPalette` field to `command.Command`; filter it at the palette call site only (keep `Reg.List()` intact for the keybindings view / `exec` / tests). Mark selection-dependent commands hidden: `explorer.delete/rename/newFile/newFolder/open/removeRoot/copyAbsolutePath/copyRelativePath`. Keep `explorer.refresh/help` visible. This alone closes BUG-028 (no keybinding path remains); the residual bugs in BUG-029/030 are separate and still need their own fixes.
+- **Repro:** `exec "Explorer: Delete"` with root selected, confirm → `os.RemoveAll` root (palette-only path)
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`, delete case) — kept; note `exec`/`FindByTitle` bypasses the palette filter so the test still drives the command deliberately (real users lose only the palette route)
 
-### BUG-029: Renaming an open file leaves the tab tracking the old path (data loss)
+### BUG-029: Renaming an open file leaves the tab tracking the old path (misdirected save)
 - **Area:** Explorer
-- **Severity:** high
+- **Severity:** medium  *(was high — see Curation)*
+- **Curation (2026-07-12, CONFIRMED, downgraded high→medium):** genuine bug (not mis-framed like BUG-028) — `FileOpRename` (`fileops.go:54`) does `os.Rename` + explorer `reload()` and never updates open editor tabs (no `RenameTab`/`UpdateTabPath` mechanism exists). Triggers via the legitimate right-click Rename on an open file, so it's independent of the palette-exposure issue. Downgraded to medium: needs the rename-open-file-then-save sequence and the misdirected save is confusing-but-detectable (tab shows old name, tree shows new); the folder-rename-save-fails variant is nastier but rarer. **Shares one root cause and fix with [[BUG-031]]: reconcile the open-tab model when a file is renamed/deleted** — fix them together.
 - **Status:** confirmed (agent-reported, orchestrator re-verified with disk + tab-path dump)
 - **Repro:** open root.txt, `Explorer: Rename` → renamed.txt, edit, save → tab still `path: root.txt`, so save recreates root.txt with the edit while renamed.txt keeps stale content. Folder-rename variant makes save fail outright ("no such file or directory"), stranding the edit.
 - **Expected:** rename updates the open tab's path (or warns/blocks save)
 - **Actual:** tab path never updated after rename
 - **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
 
-### BUG-030: New File / Rename silently clobbers an existing file (data loss)
+### BUG-030: New File / Rename silently clobbers an existing file (silent delete) — ✅ FIXED
 - **Area:** Explorer
-- **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `Explorer: New File` named `dup.txt` when dup.txt exists → truncated to empty (O_TRUNC). Rename onto an existing name → `os.Rename` replaces the target outright.
-- **Expected:** error/warn/confirm on collision
-- **Actual:** `FileOpNewFile`/`FileOpRename` (`internal/app/fileops.go`) never `os.Stat` the target before writing
-- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+- **Severity:** medium  *(was high — see Curation)*
+- **Curation (2026-07-12, CONFIRMED → FIXED, downgraded high→medium):** genuine bug — worse than BUG-028 in that there is NO confirmation naming the destruction. `FileOpNewFile` wrote with `os.WriteFile` (O_TRUNC) with no stat check, so a colliding "New File" name silently emptied the existing file; `FileOpRename` `os.Rename` silently replaced an existing target. Triggered via the legitimate in-context New File/Rename, so independent of BUG-028's palette exposure. Downgraded to medium: needs a name collision (a less-common action), though the outcome was silent irreversible content loss.
+- **Status:** ✅ **FIXED on `review` branch** — `os.Stat` guard added to both `FileOpNewFile` and `FileOpRename` (`internal/app/fileops.go`): existing target → `a.StatusError("<name> already exists")` and return, no write. Rename-to-self (`newPath == path`) is a no-op; `os.SameFile` allows case-only renames on case-insensitive filesystems while blocking genuine collisions. Orchestrator re-verified: `make build` clean, both repro tests pass as real `it`.
+- **Repro (now fixed):** `Explorer: New File` named `dup.txt` when dup.txt exists → status error, dup.txt untouched. Rename onto an existing name → status error, both files intact.
+- **Test:** `tests/functional/audit-explorer-bugs.test.js` — flipped `it.fails`→`it`, 2 real passing cases (New File + Rename collision).
 
-### BUG-031: Deleting an open file leaves a stale tab with no warning; the disk-deleted warning path is dead code
+### BUG-031: No notification when an open file is deleted on disk (the warning path is dead code)
 - **Area:** Explorer × file watching
 - **Severity:** medium
+- **Curation (2026-07-12, CONFIRMED, kept + reframed):** the defect is the **missing signal**, not the save behavior. Saving to recreate a deleted file is CORRECT and should stay (don't lose the user's buffer — matches VS Code); do NOT make save error on plain delete. The real bug: the user gets zero indication the file is gone — buffer stays `modified:false`, tab looks normal, and the intended "was deleted on disk" warning is unreachable dead code (confirmed: `Buffer.DiskChanged` at `io.go:76-79` returns false when `os.Stat` fails, so `HandleFileChanged` bails at the `DiskChanged` check before reaching the delete-warning branch). Fix = notification + mark the buffer diverged (dirty), leaving save-to-recreate intact. The separate parent-dir-gone case (save actually FAILS → stranded edit) belongs with [[BUG-029]] — warn + offer Save As there.
 - **Status:** confirmed (agent-reported, orchestrator re-verified via timed external rm)
 - **Repro:** open a file, `rm` it externally (or delete via Explorer), wait → tab shows old content, `modified:false`, no status message. Edit+save silently resurrects the file.
 - **Expected:** warn ("<file> was deleted on disk") and/or close/mark the tab
 - **Actual:** `HandleFileChanged` (`internal/app/watch.go`) returns early on `buf.DiskChanged(path)==false`, but `Buffer.DiskChanged` (`internal/core/buffer/io.go`) returns false when the file is missing — so the "was deleted on disk" branch is unreachable
 - **Test:** none — batch functional harness can't rm mid-session; ledger-only (integration/PTY test is the right home)
 
-### BUG-032: Opening a file from the Explorer does not focus the editor — keystrokes swallowed
+### BUG-032: Opening a file from the Explorer does not focus the editor — ❌ REJECTED (intentional)
 - **Area:** Explorer
-- **Severity:** medium
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `Show Explorer`, arrow to file, Enter, type → buffer unchanged (`text` still original, `modified:false`); the Tree keeps focus
-- **Expected:** Enter opens AND focuses the editor (standard UX)
-- **Actual:** `DefaultEditorSettings()` never sets `FocusOnOpen`, so it defaults false and `OnOpenFile` calls `FocusEditorIfEnabled()` (a no-op) instead of `FocusEditor()`. Note: this is a default-setting choice — but the default silently drops the user's first keystrokes.
-- **Test:** `tests/functional/audit-explorer-bugs.test.js` (`it.fails`)
+- **Severity:** ~~medium~~ — n/a (not a bug)
+- **Curation (2026-07-12, REJECTED — intended behavior):** this is a deliberate, configurable default, not a defect. `FocusOnOpen` (settings.go:78) governs whether opening a file from the explorer moves focus to the editor; it defaults false (keep focus in the explorer for a browse-without-losing-focus workflow). Factual correction to the original finding: there is NO single-vs-double-click distinction — the tree has no double-click handling (`tree.go:541-573`: one Button1 click → `ActivateSelected` when `!SelectOnClick`, which the explorer leaves false), so a single click AND Enter take the identical path (`OnOpenFile` → `FocusEditorIfEnabled`, a no-op when `FocusOnOpen:false`). So both open without focusing — one global setting, intentionally defaulted. Optional future enhancement (NOT a bug): VS-Code-style Enter/double-click-focuses vs single-click-preview would need a click-vs-Enter distinction the tree doesn't have.
+- **Status:** REJECTED — behavior is intentional
+- **Test:** REMOVED (the `it.fails` case asserted the opposite of the intended default)
 
 ### BUG-033: CJK filenames break tree column alignment (rune-count vs display-width)
 - **Area:** Explorer / rendering
-- **Severity:** medium
+- **Severity:** low  *(cosmetic divider misalignment; was medium)*
+- **Curation (2026-07-12, CONFIRMED, downgraded medium→low):** real but cosmetic. **Fix requires a NEW display-width helper — there is none in the codebase.** Checked: `editor.byte_to_col`/`col_to_byte` (the Lua-exposed converters) count UTF-8 lead bytes = RUNE count, not display width (a CJK char → 1), so they reproduce the bug rather than fix it; `bufColToVisualCol` only expands tabs (CJK → width 1); no `runewidth` usage anywhere. The editor is rune-width throughout, not cell-width — SAME root cause as [[BUG-009]] (ZWJ). Fix = wrap `uniseg.StringWidth` (already an indirect dep — `go mod tidy` promotes it) into a `DisplayWidth(string) int` helper and use it in `tree.go` (~298, 556) instead of `len([]rune())`; that helper is the reusable foundation for BUG-009 and could back a real Lua `str_width`. **Recommend a small foundational task: add `DisplayWidth`, then BUG-033 + BUG-009 both consume it.**
 - **Status:** confirmed (agent-reported; orchestrator confirmed the code path — the internal screenshot grid masks it because it uses the same 1-cell-per-rune model, but a real terminal renders wide glyphs at 2 cols → 3-col overflow for a 3-glyph name)
 - **Repro:** a workspace with `日本語.txt` and `root.txt`; the sidebar/editor divider shifts right by the CJK glyphs' extra display width on that row
 - **Expected:** the divider sits at the same display column on every row
 - **Actual:** `internal/widgets/tree.go` (~lines 298, 556) sizes rows via `len([]rune(...))`, undercounting each wide glyph by one cell
 - **Test:** none — misalignment is invisible in the char-grid screenshot; would need a display-width-aware render assertion (noted for a rendering-specific harness)
 
-### BUG-034: New File honors `/` in the name, silently creating nested subdirectories
+### BUG-034: New File honors `/` in the name, creating nested subdirectories — ❌ REJECTED (intended)
 - **Area:** Explorer
-- **Severity:** low
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `Explorer: New File` named `sub/dir/deep.txt` → `os.MkdirAll` creates the whole path with no distinct confirmation
-- **Expected:** reject `/` in a filename field, or clearly signal path creation
-- **Actual:** slashes silently create directories
-- **Test:** none — behavior may be intended-as-feature; ledger-only pending an owner decision
+- **Severity:** ~~low~~ — n/a (not a bug)
+- **Curation (2026-07-12, REJECTED — intended feature):** this is exactly VS Code's New File behavior — typing `sub/dir/deep.txt` creates the intermediate folders (`os.MkdirAll(filepath.Dir(newPath))`) and the file. It's an established convenience, no data loss, no confusing outcome. Not a defect.
+- **Status:** REJECTED — intended feature (VS Code parity)
+- **Test:** none (was ledger-only)
 
-### BUG-035: Quick Open does not sync the Explorer keyboard-selection to the opened file
+### BUG-035: Quick Open does not sync the Explorer keyboard-selection to the opened file — ❌ REJECTED (mostly works)
 - **Area:** Explorer
-- **Severity:** low
-- **Status:** confirmed (agent-reported, orchestrator re-verified — `Tree.selected` stays 0)
-- **Repro:** Quick Open beta.txt → tab opens but `Tree.props.selected` stays 0 (root), not beta's index
-- **Expected:** reveal/select the opened file in the tree (VS Code "reveal in explorer")
-- **Actual:** keyboard selection not moved. (A separate active-file *highlight* may exist but couldn't be confirmed — no style info in the dump.)
-- **Test:** none — low priority; keyboard-selection sync only observable via widget-tree props, covered by the ledger note
+- **Severity:** ~~low~~ — n/a (agent over-reported)
+- **Curation (2026-07-12, REJECTED — reveal actually works):** the agent under-observed because screenshots carry no color info. The active file IS revealed/highlighted on Quick Open: `SetActiveFile` fires in the event-loop sync (`eventloop.go:60`) → `Tree.SetActiveID`, and the active node renders with `StyleSidebarSelected` (`tree.go:315`). The only residual is that the keyboard-nav `selected` INDEX isn't synced to the active file (so arrowing after focusing the tree doesn't continue from it, and the `selected` highlight overrides the active-file one when the tree is focused). Trivial nit, arguably by-design. **Optional enhancement (not a bug):** on reveal, also set `selected` to the active node for exact VS Code parity.
+- **Status:** REJECTED — reveal works; selection-index sync is a trivial optional enhancement
+- **Test:** none (was ledger-only)
 
 ### Explorer area notes (clean probes)
 Nested-dir navigation, create-in-selected-dir, empty-dir handling, keyboard expand/collapse, arrow nav through a 50-file dir, tree re-sort after create, collapse-state preservation across ops, and CJK/space filenames opening correctly all worked. Data-loss findings clustered in the rename/delete/collision paths and the file-watch teardown.
