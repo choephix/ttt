@@ -428,8 +428,8 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
 		a.ShowInfoDialog(title, entries)
 	}
-	p.ShowConfirmDialog = func(message string, onConfirm func()) {
-		a.ShowConfirmDialogEx("Confirm", message, []string{"Cancel", "OK"}, []func(){
+	p.ShowConfirmDialog = func(message string, confirmLabel string, cancelLabel string, onConfirm func()) {
+		a.ShowConfirmDialogEx("Confirm", message, []string{cancelLabel, confirmLabel}, []func(){
 			func() { a.DismissDialog() },
 			func() {
 				a.DismissDialog()
