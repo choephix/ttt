@@ -12,14 +12,15 @@ Implemented behavior:
 
 ## 2. Preview-open tab mode — resolved
 
-The explorer now opens files in a reusable preview tab on single-click and commits them on double-click.
+The explorer opens files in a reusable preview tab on single-click and commits them by editing or pressing Enter.
 
 Implemented behavior:
 
 - Single-clicking a file opens it in a reusable preview tab.
 - Preview labels are italic.
 - Single-clicking another file reuses the clean preview tab.
-- Double-clicking commits the file as a normal tab.
+- Pressing Enter commits the file as a normal tab.
+- Double-clicking starts a filesystem rename.
 - Editing a preview tab converts it into a normal tab.
 
 ## Summary

@@ -232,6 +232,11 @@ func RunEventLoop(
 				app.DismissHover()
 			}
 			app.Root.HandleEvent(tev)
+			if btn == tcell.ButtonNone && app.pendingExplorerRename != "" {
+				path := app.pendingExplorerRename
+				app.pendingExplorerRename = ""
+				app.FileOpRename(path, app.explorerReload)
+			}
 			app.FlushEditorOnChange()
 			syncStatus()
 			redraw()

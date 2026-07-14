@@ -69,6 +69,7 @@ type App struct {
 	Keybindings            []config.KeyBinding
 	LspNotified            map[string]bool
 	Explorer               *NavigationPanel
+	pendingExplorerRename  string
 	ExplorerContextNode    *widgets.TreeNode
 	Changes                *ChangesPanel
 	Symbols                *SymbolsPanel

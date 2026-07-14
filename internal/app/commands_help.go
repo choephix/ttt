@@ -8,7 +8,7 @@ import (
 
 var explorerHelpEntries = []widgets.KeyValueEntry{
 	{Key: "Click", Value: "Open file in preview"},
-	{Key: "Double-click", Value: "Open file permanently"},
+	{Key: "Double-click", Value: "Rename file or folder"},
 	{Key: "Enter", Value: "Open file or toggle folder"},
 	{Key: "Space", Value: "Open file or toggle folder"},
 	{Key: "Shift+Enter", Value: "Open context menu"},
