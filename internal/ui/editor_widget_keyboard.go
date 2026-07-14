@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/eugenioenko/ttt/internal/core/fold"
 	"github.com/eugenioenko/ttt/internal/core/multicursor"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/gdamore/tcell/v2"
@@ -204,14 +205,21 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 		}
 		tabSize := e.resolveTabSize()
 		if startLine, endLine, ok := e.selectedLineRange(); ok {
+			var cmds []undo.EditCommand
 			for line := startLine; line <= endLine; line++ {
 				remove := leadingIndentWidth(e.Buf.Lines[line], tabSize)
 				if remove > 0 {
-					e.exec(&undo.DeleteSelectionCommand{
+					cmd := &undo.DeleteSelectionCommand{
 						StartLine: line, StartCol: 0,
 						EndLine: line, EndCol: remove,
-					})
+					}
+					cmd.Apply(e.Buf)
+					cmds = append(cmds, cmd)
 				}
+			}
+			if len(cmds) > 0 && e.Undo != nil {
+				e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+				e.bufferDirty = true
 			}
 		} else {
 			remove := leadingIndentWidth(e.Buf.Lines[e.Cursor.Line], tabSize)
@@ -233,8 +241,15 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 		}
 		indent := e.indentUnit()
 		if startLine, endLine, ok := e.selectedLineRange(); ok {
+			var cmds []undo.EditCommand
 			for line := startLine; line <= endLine; line++ {
-				e.exec(&undo.InsertStringCommand{Line: line, Col: 0, Text: indent})
+				cmd := &undo.InsertStringCommand{Line: line, Col: 0, Text: indent}
+				cmd.Apply(e.Buf)
+				cmds = append(cmds, cmd)
+			}
+			if len(cmds) > 0 && e.Undo != nil {
+				e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+				e.bufferDirty = true
 			}
 		} else {
 			e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: e.Cursor.Col, Text: indent})
@@ -264,13 +279,14 @@ func (e *EditorPaneWidget) execEnter() {
 		col = lineLen
 	}
 	line := e.Buf.Lines[e.Cursor.Line]
-	e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: col})
+
+	var cmds []undo.EditCommand
+	splitCmd := &undo.SplitLineCommand{Line: e.Cursor.Line, Col: col}
+	splitCmd.Apply(e.Buf)
+	cmds = append(cmds, splitCmd)
 	e.Cursor.Line++
 	e.Cursor.Col = 0
 
-	// Indentation inheritance and the bracket-aware extra level both always
-	// apply on Enter. Only the closing-bracket dedent (see execRune) is
-	// gated, behind the AutoDedent flag.
 	indent := leadingWhitespace(line)
 	newIndent := indent
 	runes := []rune(line)
@@ -287,12 +303,25 @@ func (e *EditorPaneWidget) execEnter() {
 		newIndent += e.indentUnit()
 	}
 	if len(newIndent) > 0 {
-		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent})
+		indentCmd := &undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent}
+		indentCmd.Apply(e.Buf)
+		cmds = append(cmds, indentCmd)
 		e.Cursor.Col = len([]rune(newIndent))
 	}
 	if extraIndent && closingBrackets[charAfter] {
-		e.exec(&undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col})
-		e.exec(&undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent})
+		bracketSplit := &undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col}
+		bracketSplit.Apply(e.Buf)
+		cmds = append(cmds, bracketSplit)
+		bracketIndent := &undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent}
+		bracketIndent.Apply(e.Buf)
+		cmds = append(cmds, bracketIndent)
+	}
+	if e.Undo != nil {
+		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
+	}
+	e.bufferDirty = true
+	if e.Folds != nil {
+		e.Folds.SetRanges(fold.ComputeIndentRanges(e.Buf.Lines))
 	}
 }
 
