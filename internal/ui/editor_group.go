@@ -1070,11 +1070,11 @@ func (g *EditorGroupWidget) ReplaceMatch(match FindMatch, replacement string) {
 	g.Editor.scrollViewport()
 }
 
-func (g *EditorGroupWidget) ReplaceAll(query, replacement string) {
+func (g *EditorGroupWidget) ReplaceAll(query, replacement string, opts SearchOptions) {
 	if !g.IsEditorActive() || query == "" {
 		return
 	}
-	matches, _ := FindInLines(g.Editor.Buf.Lines, query, SearchOptions{})
+	matches, _ := FindInLines(g.Editor.Buf.Lines, query, opts)
 	for i := len(matches) - 1; i >= 0; i-- {
 		g.ReplaceMatch(matches[i], replacement)
 	}

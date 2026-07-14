@@ -144,14 +144,12 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 - **Actual:** F3 jumps to the stale line index — cursor lands on "beta". `SearchMatches` is never recomputed after buffer edits while the bar is open.
 - **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
 
-### BUG-011: Replace All ignores the Case-Sensitive/Regex toggles the bar itself displays
+### BUG-011: Replace All ignores the Case-Sensitive/Regex toggles the bar itself displays — ✅ FIXED
 - **Area:** Find/replace
 - **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
-- **Repro:** `ctrl+r`, query `Foo`, `alt+c` (bar shows 1/1), replacement `X`, `alt+r`
-- **Expected:** only the exact-case "Foo" replaced
-- **Actual:** all of "Foo"/"foo"/"FOO" replaced — `EditorGroupWidget.ReplaceAll` (`internal/ui/editor_group.go`) re-runs `FindInLines` with a fresh default `SearchOptions{}` instead of the bar's current options
-- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (`it.fails`)
+- **Status:** ✅ **FIXED** — `ReplaceBarWidget.OnReplaceAll` now carries the bar's current `Options` (case/regex), threaded through the `commands_search.go` callback into `EditorGroupWidget.ReplaceAll(query, replacement, opts)`, which passes them to `FindInLines` instead of a fresh `SearchOptions{}`. (The sidebar global-search path already did this; only the in-editor replace bar was broken.) Verified: full functional suite green, repro test flipped `it.fails`→`it`.
+- **Repro (now fixed):** `ctrl+r`, query `Foo`, `alt+c` (bar shows 1/1), replacement `X`, `alt+r` → only "Foo" replaced
+- **Test:** `tests/functional/audit-findreplace-bugs.test.js` (now real `it`)
 
 ### BUG-012: Replace All is not atomic in undo — one Ctrl+Z leaves a never-seen garbled state
 - **Area:** Find/replace × undo

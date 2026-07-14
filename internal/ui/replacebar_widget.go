@@ -18,7 +18,7 @@ type ReplaceBarWidget struct {
 	OnSearch     func(query string, opts SearchOptions) []FindMatch
 	OnNavigate   func(match FindMatch)
 	OnReplace    func(match FindMatch, replacement string)
-	OnReplaceAll func(query, replacement string)
+	OnReplaceAll func(query, replacement string, opts SearchOptions)
 	OnDismiss    func()
 	focusRow     int
 	btnPrev      HitRegion
@@ -60,7 +60,7 @@ func NewReplaceBarWidget() *ReplaceBarWidget {
 		}},
 		{Label: "All", OnClick: func() {
 			if r.OnReplaceAll != nil {
-				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text)
+				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text, r.Options)
 				r.search()
 			}
 		}},
@@ -283,7 +283,7 @@ func (r *ReplaceBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 		switch kev.Rune() {
 		case 'r':
 			if r.OnReplaceAll != nil {
-				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text)
+				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text, r.Options)
 				r.search()
 			}
 			return EventConsumed
