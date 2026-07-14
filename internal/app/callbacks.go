@@ -524,6 +524,9 @@ func registerWidgetCallbacks(app *App) {
 		app.EditorGroup.OpenFile(path)
 		app.FocusEditorIfEnabled()
 	}
+	app.Explorer.OnRename = func(path string) {
+		app.pendingExplorerRename = path
+	}
 	app.Explorer.OnRightClick = func(node *widgets.TreeNode, sx, sy int) {
 		app.ExplorerContextNode = node
 		items := []ui.ContextMenuItem{

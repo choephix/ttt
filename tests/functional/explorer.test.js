@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import * as tui from "./tui.js";
-import { createTempDir, createTempFile, cleanupDir } from "./helpers.js";
+import { createTempDir, createTempFile, cleanupDir, fileExists } from "./helpers.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -50,6 +50,29 @@ describe("explorer", () => {
     const { snapshots } = tui.run();
 
     expect(snapshots[s0]).toContain("HELLO WORLD");
+  });
+
+  it("should rename a file by double-clicking it", () => {
+    dir = createTempDir();
+    createTempFile(dir, "before.txt", "content");
+
+    tui.start(dir);
+    tui.waitFor("before.txt");
+
+    tui.click(5, 5);
+    tui.click(5, 5);
+    tui.waitFor("Rename");
+    tui.press("ctrl+a");
+    tui.type("after.txt");
+    tui.press("enter");
+    tui.waitFor("after.txt");
+
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("after.txt");
+    expect(fileExists(join(dir, "after.txt"))).toBe(true);
+    expect(fileExists(join(dir, "before.txt"))).toBe(false);
   });
 
   it("should show subdirectories", () => {

@@ -18,6 +18,7 @@ type NavigationPanel struct {
 
 	OnPreviewFile func(path string)
 	OnOpenFile    func(path string)
+	OnRename      func(path string)
 	OnRightClick  func(node *widgets.TreeNode, sx, sy int)
 	OnRootMenu    func(node *widgets.TreeNode, sx, sy int)
 }
@@ -53,8 +54,8 @@ func NewNavigationPanel(settings config.ExplorerSettings, paths ...string) *Navi
 			}
 		},
 		OnDoubleClick: func(node *widgets.TreeNode) {
-			if !node.Expandable && n.OnOpenFile != nil {
-				n.OnOpenFile(node.ID)
+			if !n.isRoot(node) && n.OnRename != nil {
+				n.OnRename(node.ID)
 			}
 		},
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
