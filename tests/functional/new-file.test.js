@@ -27,6 +27,22 @@ describe("new file", () => {
     expect(snapshots[s0]).toContain("untitled");
   });
 
+  it("should create a new untitled tab by clicking empty tab-bar space", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "existing.txt", "Existing content");
+
+    tui.start(file);
+    tui.waitFor("existing.txt");
+
+    tui.click(40, 2);
+    tui.waitFor("untitled");
+
+    const s0 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s0]).toContain("untitled");
+  });
+
   it("should create a distinct tab when current untitled has content", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "existing.txt", "Existing content");

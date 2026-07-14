@@ -25,29 +25,28 @@ type Tab struct {
 
 type TabBarWidget struct {
 	BaseWidget
-	Tabs             []Tab
-	Borders          *term.BorderSet
-	ScrollOffset     int
-	MoreButton       *MoreButtonWidget
-	OnTabClick       func(index int)
-	OnTabClose       func(index int)
-	OnTabDoubleClick func(index int)
-	OnTabRightClick  func(index, screenX, screenY int)
-	OnPrevTab        func()
-	OnNextTab        func()
-	OnDoubleClick    func()
-	tabSpans         []tabSpan
-	renderArrowW     int // arrow-gutter width from the last Render, reused by HandleEvent
-	renderInnerRight int // right edge of the tab zone from the last Render, reused by HandleEvent
-	hasOverflowLeft  bool
-	hasOverflowRight bool
-	totalTabWidth    int
-	closeDownX       int // screen X where mouse-down hit a close button, -1 if none
-	closeDownY       int
-	wasPressed       bool
-	lastClickTime    int64
-	lastTabClickTime int64
-	lastTabClick     int
+	Tabs              []Tab
+	Borders           *term.BorderSet
+	ScrollOffset      int
+	MoreButton        *MoreButtonWidget
+	OnTabClick        func(index int)
+	OnTabClose        func(index int)
+	OnTabDoubleClick  func(index int)
+	OnTabRightClick   func(index, screenX, screenY int)
+	OnPrevTab         func()
+	OnNextTab         func()
+	OnEmptySpaceClick func()
+	tabSpans          []tabSpan
+	renderArrowW      int // arrow-gutter width from the last Render, reused by HandleEvent
+	renderInnerRight  int // right edge of the tab zone from the last Render, reused by HandleEvent
+	hasOverflowLeft   bool
+	hasOverflowRight  bool
+	totalTabWidth     int
+	closeDownX        int // screen X where mouse-down hit a close button, -1 if none
+	closeDownY        int
+	wasPressed        bool
+	lastTabClickTime  int64
+	lastTabClick      int
 }
 
 func NewTabBarWidget() *TabBarWidget {
@@ -324,8 +323,8 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 
 	// Clicks in the reserved ◀/▶ arrow columns are consumed here so they never
-	// fall through to the empty-space double-click handler (which would spawn a
-	// tab — the "jump to the other side" bug when clicking a hidden chevron).
+	// fall through to the empty-space click handler and spawn a tab (the
+	// "jumping to the other side" bug when clicking a hidden chevron).
 	// Scroll only when there is something hidden in that direction; the overflow
 	// flag is set only when the active tab isn't already at that end, so it can't
 	// wrap.
@@ -372,12 +371,8 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	now := time.Now().UnixMilli()
-	if now-t.lastClickTime < DoubleClickMs && t.OnDoubleClick != nil {
-		t.OnDoubleClick()
-		t.lastClickTime = 0
-	} else {
-		t.lastClickTime = now
+	if t.OnEmptySpaceClick != nil {
+		t.OnEmptySpaceClick()
 	}
 	return EventConsumed
 }
