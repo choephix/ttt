@@ -66,7 +66,7 @@ type Plugin struct {
 	Log                func(level, message string)
 	ShowContextMenu    func(entries []widgets.MenuEntry, x, y int, onCommand func(cmd string))
 	ShowInfoDialog     func(title string, entries []widgets.KeyValueEntry)
-	ShowConfirmDialog  func(message string, onConfirm func())
+	ShowConfirmDialog  func(message string, confirmLabel string, cancelLabel string, onConfirm func())
 	OpenDrawer         func(panel *PluginPanelWidget, width, minWidth int, side string)
 	CloseDrawer        func()
 	OpenTab            func(id string, panel *PluginPanelWidget)

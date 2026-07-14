@@ -8,13 +8,11 @@ import (
 )
 
 func (e *EditorPaneWidget) MoveLineUp() {
-	hasSel := e.Selection != nil && e.Selection.Active
-	if hasSel {
-		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-		if start.Line <= 0 {
+	if startLine, endLine, ok := e.selectedLineRange(); ok {
+		if startLine <= 0 {
 			return
 		}
-		for line := start.Line; line <= end.Line; line++ {
+		for line := startLine; line <= endLine; line++ {
 			e.exec(&undo.SwapLineCommand{Line1: line, Line2: line - 1})
 		}
 		e.Cursor.Line--
@@ -31,13 +29,11 @@ func (e *EditorPaneWidget) MoveLineUp() {
 }
 
 func (e *EditorPaneWidget) MoveLineDown() {
-	hasSel := e.Selection != nil && e.Selection.Active
-	if hasSel {
-		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-		if end.Line >= len(e.Buf.Lines)-1 {
+	if startLine, endLine, ok := e.selectedLineRange(); ok {
+		if endLine >= len(e.Buf.Lines)-1 {
 			return
 		}
-		for line := end.Line; line >= start.Line; line-- {
+		for line := endLine; line >= startLine; line-- {
 			e.exec(&undo.SwapLineCommand{Line1: line, Line2: line + 1})
 		}
 		e.Cursor.Line++
@@ -54,30 +50,45 @@ func (e *EditorPaneWidget) MoveLineDown() {
 }
 
 func (e *EditorPaneWidget) DuplicateLine() {
-	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
-	text := e.Buf.Lines[e.Cursor.Line]
-	e.exec(&undo.InsertLineCommand{Idx: e.Cursor.Line + 1, Text: text})
-	e.Cursor.Line++
+	startLine, endLine, hasSel := e.selectedLineRange()
+	if !hasSel {
+		startLine = e.Buf.ClampLine(e.Cursor.Line)
+		endLine = startLine
+	}
+	texts := e.copyLines(startLine, endLine)
+	for i, text := range texts {
+		e.exec(&undo.InsertLineCommand{Idx: endLine + 1 + i, Text: text})
+	}
+	blockSize := endLine - startLine + 1
+	e.Cursor.Line += blockSize
+	if hasSel {
+		e.Selection.Anchor.Line += blockSize
+	}
 	e.clampCursor()
 	e.scrollViewport()
 }
 
 func (e *EditorPaneWidget) DeleteLine() {
-	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
-	if len(e.Buf.Lines) <= 1 {
-		e.exec(&undo.DeleteSelectionCommand{
-			StartLine: 0, StartCol: 0,
-			EndLine: 0, EndCol: len([]rune(e.Buf.Lines[0])),
-		})
-		e.Cursor.Col = 0
-	} else {
-		e.exec(&undo.DeleteLineCommand{Idx: e.Cursor.Line})
-		e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
+	startLine, endLine, hasSel := e.selectedLineRange()
+	if !hasSel {
+		startLine = e.Buf.ClampLine(e.Cursor.Line)
+		endLine = startLine
 	}
-	lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-	if e.Cursor.Col > lineLen {
-		e.Cursor.Col = lineLen
+	for i := endLine; i >= startLine; i-- {
+		if len(e.Buf.Lines) <= 1 {
+			e.exec(&undo.DeleteSelectionCommand{
+				StartLine: 0, StartCol: 0,
+				EndLine: 0, EndCol: len([]rune(e.Buf.Lines[0])),
+			})
+			break
+		}
+		e.exec(&undo.DeleteLineCommand{Idx: i})
 	}
+	if hasSel {
+		e.Selection.Active = false
+	}
+	e.Cursor.Line = e.Buf.ClampLine(startLine)
+	e.Cursor.Col = 0
 	e.clampCursor()
 	e.scrollViewport()
 }
@@ -223,16 +234,26 @@ func (e *EditorPaneWidget) ToggleLineComment() {
 	e.scrollViewport()
 }
 
-// lineRange returns the start and end line indices for the current selection,
-// or the full buffer range if no selection is active.
-func (e *EditorPaneWidget) lineRange() (int, int) {
+// selectedLineRange returns the start and end line indices for the current
+// selection applying the col-0 convention, and true. If no selection is
+// active it returns (0, 0, false).
+func (e *EditorPaneWidget) selectedLineRange() (int, int, bool) {
 	if e.Selection != nil && e.Selection.Active {
 		start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
 		endLine := end.Line
 		if end.Col == 0 && endLine > start.Line {
 			endLine--
 		}
-		return e.Buf.ClampLine(start.Line), e.Buf.ClampLine(endLine)
+		return e.Buf.ClampLine(start.Line), e.Buf.ClampLine(endLine), true
+	}
+	return 0, 0, false
+}
+
+// lineRange returns the start and end line indices for the current selection,
+// or the full buffer range if no selection is active.
+func (e *EditorPaneWidget) lineRange() (int, int) {
+	if start, end, ok := e.selectedLineRange(); ok {
+		return start, end
 	}
 	end := len(e.Buf.Lines) - 1
 	if end > 0 && e.Buf.Lines[end] == "" {

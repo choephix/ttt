@@ -285,8 +285,10 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		L.SetField(mod, "confirm", L.NewFunction(func(L *lua.LState) int {
 			message := L.CheckString(1)
 			callback := L.CheckFunction(2)
+			confirmLabel := L.OptString(3, "OK")
+			cancelLabel := L.OptString(4, "Cancel")
 			if p.ShowConfirmDialog != nil {
-				p.ShowConfirmDialog(message, func() {
+				p.ShowConfirmDialog(message, confirmLabel, cancelLabel, func() {
 					if err := p.CallLuaFunc(callback); err != nil {
 						p.logError("confirm callback", err)
 					}
