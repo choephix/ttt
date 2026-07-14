@@ -23,8 +23,6 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 	}
 
 	shift := mods&tcell.ModShift != 0
-	hasSel := e.Selection != nil && e.Selection.Active
-
 	multi := e.isMultiActive()
 
 	switch kev.Key() {
@@ -205,10 +203,8 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 			break
 		}
 		tabSize := e.resolveTabSize()
-		if hasSel {
-			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-			end.Line = e.Buf.ClampLine(end.Line)
-			for line := start.Line; line <= end.Line; line++ {
+		if startLine, endLine, ok := e.selectedLineRange(); ok {
+			for line := startLine; line <= endLine; line++ {
 				remove := leadingIndentWidth(e.Buf.Lines[line], tabSize)
 				if remove > 0 {
 					e.exec(&undo.DeleteSelectionCommand{
@@ -236,9 +232,8 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 			break
 		}
 		indent := e.indentUnit()
-		if hasSel {
-			start, end := e.Selection.Range(e.Cursor.Line, e.Cursor.Col)
-			for line := start.Line; line <= end.Line; line++ {
+		if startLine, endLine, ok := e.selectedLineRange(); ok {
+			for line := startLine; line <= endLine; line++ {
 				e.exec(&undo.InsertStringCommand{Line: line, Col: 0, Text: indent})
 			}
 		} else {

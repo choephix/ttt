@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("BUG-003: Duplicate/Delete Line ignore active multi-line selection", () => {
-  it.fails("Duplicate Line duplicates the selected block", () => {
+  it("Duplicate Line duplicates the selected block", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "dupblock.txt", FIVE_LINES);
 
@@ -42,7 +42,7 @@ describe("BUG-003: Duplicate/Delete Line ignore active multi-line selection", ()
     expect(readFile(file)).toBe("line0\nline1\nline2\nline1\nline2\nline3\nline4\n");
   });
 
-  it.fails("Delete Line deletes the selected block", () => {
+  it("Delete Line deletes the selected block", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "delblock.txt", FIVE_LINES);
 
@@ -66,7 +66,7 @@ describe("BUG-003: Duplicate/Delete Line ignore active multi-line selection", ()
 });
 
 describe("BUG-002: Tab indent with selection ending at col 0", () => {
-  it.fails("indents only lines the selection actually covers", () => {
+  it("indents only lines the selection actually covers", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "indent.txt", FIVE_LINES);
 
@@ -89,7 +89,7 @@ describe("BUG-002: Tab indent with selection ending at col 0", () => {
 });
 
 describe("BUG-001: Move Line with selection ending at col 0", () => {
-  it.fails("moves only the selected block, not the trailing col-0 line", () => {
+  it("moves only the selected block, not the trailing col-0 line", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "moveblock.txt", FIVE_LINES);
 

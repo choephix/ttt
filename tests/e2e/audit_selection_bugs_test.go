@@ -16,7 +16,7 @@ import (
 // synthesize tcell.KeyBacktab; only direct event injection reaches
 // the KeyBacktab branch in editor_widget_keyboard.go.
 func TestBacktabExcludesColZeroSelectionLine(t *testing.T) {
-	t.Skip("BUG-004, see audit/2026-07-12-ux-bug-audit.md — outdent includes line past col-0 selection end")
+	// BUG-004 fixed: outdent now applies col-0 convention via selectedLineRange()
 
 	h := newTestHarness(t, 80, 24)
 	defer h.stop()
