@@ -42,7 +42,7 @@ describe("BUG-020: undo of line commands does not restore the cursor", () => {
 });
 
 describe("BUG-021: multi-line indent is not one undo step", () => {
-  it.fails("one undo reverts a selection indent completely", () => {
+  it("one undo reverts a selection indent completely", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "atom.txt", "one\ntwo\nthree\n");
 
@@ -67,7 +67,7 @@ describe("BUG-021: multi-line indent is not one undo step", () => {
 });
 
 describe("BUG-022: Enter with auto-indent is not one undo step", () => {
-  it.fails("one undo fully reverts an auto-indented line split", () => {
+  it("one undo fully reverts an auto-indented line split", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "enter.go", "func foo() {\n\tx := 1\n}\n");
 
