@@ -67,8 +67,8 @@ func (a *App) OpenFindReplace() {
 	bar.OnReplace = func(match ui.FindMatch, replacement string) {
 		a.EditorGroup.ReplaceMatch(match, replacement)
 	}
-	bar.OnReplaceAll = func(query, replacement string) {
-		a.EditorGroup.ReplaceAll(query, replacement)
+	bar.OnReplaceAll = func(query, replacement string, opts ui.SearchOptions) {
+		a.EditorGroup.ReplaceAll(query, replacement, opts)
 	}
 	bar.OnDismiss = func() {
 		a.DismissDialog()

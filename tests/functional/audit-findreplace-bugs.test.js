@@ -50,7 +50,7 @@ describe("BUG-010: search matches go stale after buffer edits", () => {
 });
 
 describe("BUG-011: Replace All ignores case-sensitive toggle", () => {
-  it.fails("replace-all with case-sensitive on replaces only exact matches", () => {
+  it("replace-all with case-sensitive on replaces only exact matches", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "case.txt", "Foo\nfoo\nFOO\nbar\n");
 
@@ -72,8 +72,8 @@ describe("BUG-011: Replace All ignores case-sensitive toggle", () => {
     tui.waitStable();
     tui.run();
 
-    // Buggy behavior: ReplaceAll re-runs the search with default options,
-    // replacing all three case variants.
+    // Fixed: ReplaceAll now threads the bar's current Options (case/regex)
+    // into FindInLines, so case-sensitive replaces only the exact match.
     expect(readFile(file)).toBe("X\nfoo\nFOO\nbar\n");
   });
 });
