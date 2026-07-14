@@ -61,16 +61,19 @@ describe("explorer", () => {
 
     tui.click(5, 5);
     tui.click(5, 5);
-    tui.waitFor("Rename");
     tui.press("ctrl+a");
     tui.type("after.txt");
+    const editing = tui.snapshot();
+
     tui.press("enter");
     tui.waitFor("after.txt");
 
-    const s0 = tui.snapshot();
+    const renamed = tui.snapshot();
     const { snapshots } = tui.run();
 
-    expect(snapshots[s0]).toContain("after.txt");
+    expect(snapshots[editing]).toContain("after.txt");
+    expect(snapshots[editing]).not.toContain("Cancel   Save");
+    expect(snapshots[renamed]).toContain("after.txt");
     expect(fileExists(join(dir, "after.txt"))).toBe(true);
     expect(fileExists(join(dir, "before.txt"))).toBe(false);
   });

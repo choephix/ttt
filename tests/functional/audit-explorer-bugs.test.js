@@ -117,8 +117,8 @@ describe("BUG-030: New File / Rename silently clobber an existing file", () => {
     tui.waitStable();
     tui.run();
 
-    // Fixed: FileOpRename now checks for an existing target before
-    // renaming and shows a status error instead of silently replacing it.
+    // Fixed: the inline rename path checks for an existing target and shows a
+    // status error instead of silently replacing it.
     expect(readFileSync(join(dir, "aaa.txt"), "utf8")).toBe("aaa content");
     expect(readFileSync(join(dir, "bbb.txt"), "utf8")).toBe(
       "bbb content - keep me",

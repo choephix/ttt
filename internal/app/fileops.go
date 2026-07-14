@@ -55,28 +55,27 @@ func (a *App) FileOpNewFolder(path string, reload func()) {
 	})
 }
 
-func (a *App) FileOpRename(path string, reload func()) {
-	if path == "" {
-		return
+func (a *App) renamePath(path, newName string, reload func()) bool {
+	if path == "" || newName == "" {
+		return false
 	}
-	a.ShowInputDialog("Rename", "New name", filepath.Base(path), func(newName string) {
-		newPath := filepath.Join(filepath.Dir(path), newName)
-		if newPath == path {
-			return
+	newPath := filepath.Join(filepath.Dir(path), newName)
+	if newPath == path {
+		return true
+	}
+	if newInfo, err := os.Stat(newPath); err == nil {
+		oldInfo, oldErr := os.Stat(path)
+		if oldErr != nil || !os.SameFile(newInfo, oldInfo) {
+			a.StatusError(newName + " already exists")
+			return false
 		}
-		if newInfo, err := os.Stat(newPath); err == nil {
-			oldInfo, oldErr := os.Stat(path)
-			if oldErr != nil || !os.SameFile(newInfo, oldInfo) {
-				a.StatusError(newName + " already exists")
-				return
-			}
-		}
-		if err := os.Rename(path, newPath); err != nil {
-			a.StatusError("Error: " + err.Error())
-			return
-		}
-		reload()
-	})
+	}
+	if err := os.Rename(path, newPath); err != nil {
+		a.StatusError("Error: " + err.Error())
+		return false
+	}
+	reload()
+	return true
 }
 
 func (a *App) FileOpDelete(path string, reload func()) {

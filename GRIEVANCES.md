@@ -20,7 +20,7 @@ Implemented behavior:
 - Preview labels are italic.
 - Single-clicking another file reuses the clean preview tab.
 - Pressing Enter commits the file as a normal tab.
-- Double-clicking starts a filesystem rename.
+- Double-clicking starts an inline filesystem rename.
 - Editing a preview tab converts it into a normal tab.
 
 ## Summary

@@ -1470,3 +1470,68 @@ func TestTreeSingleAndDoubleClickCallbacks(t *testing.T) {
 		}
 	}
 }
+
+func TestTreeInlineEditRendersAndSubmits(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{{
+			ID:       "root",
+			Label:    "Root",
+			Expanded: true,
+			Children: []*TreeNode{{ID: "file", Label: "before.txt"}},
+		}},
+	})
+	tree.SetFocused(true)
+
+	submitted := ""
+	if !tree.BeginInlineEdit("file", func(value string) bool {
+		submitted = value
+		return true
+	}) {
+		t.Fatal("BeginInlineEdit returned false for a visible default-rendered node")
+	}
+
+	s := renderWidget(tree, 0, 0, 30, 5)
+	if got := s.cells[1][2]; got.Ch != 'b' || got.Style != term.StyleSelection {
+		t.Fatalf("inline input first cell = %+v, want selected 'b'", got)
+	}
+	if _, y, visible := tree.CursorPosition(); !visible || y != 1 {
+		t.Fatalf("inline input cursor = (_, %d, %v), want visible on row 1", y, visible)
+	}
+
+	pressRune(tree, 'x')
+	pressKey(tree, tcell.KeyEnter)
+	if submitted != "x" {
+		t.Fatalf("submitted value = %q, want %q", submitted, "x")
+	}
+	if _, _, visible := tree.CursorPosition(); visible {
+		t.Fatal("inline input remained active after successful submit")
+	}
+}
+
+func TestTreeInlineEditFailureRemainsActiveUntilEscape(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{Items: makeTreeItems("before.txt")})
+	tree.SetFocused(true)
+
+	submits := 0
+	if !tree.BeginInlineEdit("before.txt", func(string) bool {
+		submits++
+		return false
+	}) {
+		t.Fatal("BeginInlineEdit returned false")
+	}
+	renderWidget(tree, 0, 0, 30, 5)
+
+	pressRune(tree, 'x')
+	pressKey(tree, tcell.KeyEnter)
+	if submits != 1 {
+		t.Fatalf("submit callback count = %d, want 1", submits)
+	}
+	if _, _, visible := tree.CursorPosition(); !visible {
+		t.Fatal("inline input closed after rejected submit")
+	}
+
+	pressKey(tree, tcell.KeyEscape)
+	if _, _, visible := tree.CursorPosition(); visible {
+		t.Fatal("inline input remained active after Escape")
+	}
+}

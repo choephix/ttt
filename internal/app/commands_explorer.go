@@ -21,7 +21,7 @@ func (a *App) ExplorerNewFolder() {
 }
 
 func (a *App) ExplorerRename() {
-	a.FileOpRename(a.explorerNodePath(), a.explorerReload)
+	a.Explorer.BeginRename(a.explorerNodePath())
 }
 
 func (a *App) ExplorerDelete() {
