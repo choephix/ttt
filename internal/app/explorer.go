@@ -18,7 +18,7 @@ type NavigationPanel struct {
 
 	OnPreviewFile func(path string)
 	OnOpenFile    func(path string)
-	OnRename      func(path string)
+	OnRename      func(path, newName string) bool
 	OnRightClick  func(node *widgets.TreeNode, sx, sy int)
 	OnRootMenu    func(node *widgets.TreeNode, sx, sy int)
 }
@@ -54,9 +54,7 @@ func NewNavigationPanel(settings config.ExplorerSettings, paths ...string) *Navi
 			}
 		},
 		OnDoubleClick: func(node *widgets.TreeNode) {
-			if !n.isRoot(node) && n.OnRename != nil {
-				n.OnRename(node.ID)
-			}
+			n.BeginRename(node.ID)
 		},
 		OnCommand: func(cmd string, node *widgets.TreeNode) {
 			if cmd == "activate" && n.OnOpenFile != nil {
@@ -84,6 +82,15 @@ func NewNavigationPanel(settings config.ExplorerSettings, paths ...string) *Navi
 
 	n.Adapter = ui.NewWidgetAdapter(tree)
 	return n
+}
+
+func (n *NavigationPanel) BeginRename(path string) bool {
+	if path == "" || slices.Contains(n.Roots, path) || n.OnRename == nil {
+		return false
+	}
+	return n.Tree.BeginInlineEdit(path, func(newName string) bool {
+		return n.OnRename(path, newName)
+	})
 }
 
 func (n *NavigationPanel) isRoot(node *widgets.TreeNode) bool {

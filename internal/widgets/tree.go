@@ -55,6 +55,12 @@ type TreeConfig struct {
 	RenderItem    func(surface Surface, node *TreeNode, idx, y, w int, selected bool)
 }
 
+type treeInlineEdit struct {
+	nodeID   string
+	input    *InputWidget
+	onSubmit func(string) bool
+}
+
 type TreeWidget struct {
 	BaseWidget
 	Config   TreeConfig
@@ -66,6 +72,7 @@ type TreeWidget struct {
 	focused       bool
 	lastClickTime time.Time
 	lastClickID   string
+	inlineEdit    *treeInlineEdit
 
 	scrollbar scrollbar
 	contentX  int
@@ -90,9 +97,77 @@ func (t *TreeWidget) Width() int  { return 0 }
 // ContentHeight reports visible rows so scroll views can measure the tree.
 func (t *TreeWidget) ContentHeight() int { return len(t.flatList) + t.BoxOverheadH() }
 
-func (t *TreeWidget) Focusable() bool   { return true }
-func (t *TreeWidget) SetFocused(f bool) { t.focused = f }
-func (t *TreeWidget) IsFocused() bool   { return t.focused }
+func (t *TreeWidget) Focusable() bool { return true }
+func (t *TreeWidget) SetFocused(f bool) {
+	t.focused = f
+	if t.inlineEdit != nil {
+		t.inlineEdit.input.SetFocused(f)
+	}
+}
+func (t *TreeWidget) IsFocused() bool { return t.focused }
+
+func (t *TreeWidget) CursorPosition() (int, int, bool) {
+	if t.inlineEdit == nil {
+		return 0, 0, false
+	}
+	return t.inlineEdit.input.CursorPosition()
+}
+
+// BeginInlineEdit replaces a visible node's label with a focused one-line
+// editor. Returning false from onSubmit keeps the editor active for correction.
+func (t *TreeWidget) BeginInlineEdit(id string, onSubmit func(string) bool) bool {
+	if onSubmit == nil || t.Config.RenderItem != nil {
+		return false
+	}
+	for i, node := range t.flatList {
+		if node.ID != id {
+			continue
+		}
+		input := NewInputWidget(InputConfig{
+			Prefix: " ",
+			Style:  term.StyleSidebarSelected,
+		})
+		input.SetText(node.Label)
+		input.selectAll()
+		input.SetFocused(t.focused)
+		t.selected = i
+		t.inlineEdit = &treeInlineEdit{
+			nodeID:   id,
+			input:    input,
+			onSubmit: onSubmit,
+		}
+		input.Config.OnSubmit = func(string) { t.submitInlineEdit() }
+		return true
+	}
+	return false
+}
+
+func (t *TreeWidget) cancelInlineEdit() {
+	t.inlineEdit = nil
+}
+
+func (t *TreeWidget) submitInlineEdit() bool {
+	edit := t.inlineEdit
+	if edit == nil {
+		return true
+	}
+	var node *TreeNode
+	for _, candidate := range t.flatList {
+		if candidate.ID == edit.nodeID {
+			node = candidate
+			break
+		}
+	}
+	if node == nil || edit.input.Text() == node.Label {
+		t.cancelInlineEdit()
+		return true
+	}
+	if edit.input.Text() == "" || !edit.onSubmit(edit.input.Text()) {
+		return false
+	}
+	t.cancelInlineEdit()
+	return true
+}
 
 func (t *TreeWidget) Selected() *TreeNode {
 	if t.selected >= 0 && t.selected < len(t.flatList) {
@@ -373,54 +448,72 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		}
 	}
 
-	labelStyle := style
-	if node.Muted && idx != t.selected {
-		labelStyle = term.StyleMuted
-	}
-	labelRunes := []rune(node.Label)
-	if t.Config.TruncateLeft {
-		if avail := maxX - x; avail > 0 && len(labelRunes) > avail {
-			// Keep the tail visible: leading … then the last avail-1 runes.
-			tail := labelRunes[len(labelRunes)-(avail-1):]
-			labelRunes = append([]rune{'…'}, tail...)
+	if edit := t.inlineEdit; edit != nil && edit.nodeID == node.ID {
+		editX := x
+		if editX > 0 {
+			editX--
 		}
-	}
-	labelFits := x+len(labelRunes) <= maxX
-	for i, ch := range labelRunes {
-		if x >= maxX {
-			break
+		editW := maxX - editX
+		if editW > 0 {
+			edit.input.SetRect(Rect{
+				X: t.contentX + editX,
+				Y: t.contentY + y,
+				W: editW,
+				H: 1,
+			})
+			edit.input.Render(surface.Sub(Rect{X: editX, Y: y, W: editW, H: 1}))
 		}
-		if !labelFits && x == maxX-1 && i < len(labelRunes)-1 {
-			surface.SetCell(x, y, term.Cell{Ch: '…', Style: labelStyle})
-			x++
-			break
+		x = maxX
+	} else {
+		labelStyle := style
+		if node.Muted && idx != t.selected {
+			labelStyle = term.StyleMuted
 		}
-		surface.SetCell(x, y, term.Cell{Ch: ch, Style: labelStyle})
-		x++
-	}
-
-	if node.Badge != "" {
-		badgeStyle := node.BadgeStyle
-		if badgeStyle == term.StyleDefault {
-			badgeStyle = term.StyleMuted
+		labelRunes := []rune(node.Label)
+		if t.Config.TruncateLeft {
+			if avail := maxX - x; avail > 0 && len(labelRunes) > avail {
+				// Keep the tail visible: leading … then the last avail-1 runes.
+				tail := labelRunes[len(labelRunes)-(avail-1):]
+				labelRunes = append([]rune{'…'}, tail...)
+			}
 		}
-		if idx == t.selected {
-			badgeStyle = style
-		}
-		x++
-		badgeRunes := []rune(node.Badge)
-		badgeFits := x+len(badgeRunes) <= maxX
-		for i, ch := range badgeRunes {
+		labelFits := x+len(labelRunes) <= maxX
+		for i, ch := range labelRunes {
 			if x >= maxX {
 				break
 			}
-			if !badgeFits && x == maxX-1 && i < len(badgeRunes)-1 {
-				surface.SetCell(x, y, term.Cell{Ch: '…', Style: badgeStyle})
+			if !labelFits && x == maxX-1 && i < len(labelRunes)-1 {
+				surface.SetCell(x, y, term.Cell{Ch: '…', Style: labelStyle})
 				x++
 				break
 			}
-			surface.SetCell(x, y, term.Cell{Ch: ch, Style: badgeStyle})
+			surface.SetCell(x, y, term.Cell{Ch: ch, Style: labelStyle})
 			x++
+		}
+
+		if node.Badge != "" {
+			badgeStyle := node.BadgeStyle
+			if badgeStyle == term.StyleDefault {
+				badgeStyle = term.StyleMuted
+			}
+			if idx == t.selected {
+				badgeStyle = style
+			}
+			x++
+			badgeRunes := []rune(node.Badge)
+			badgeFits := x+len(badgeRunes) <= maxX
+			for i, ch := range badgeRunes {
+				if x >= maxX {
+					break
+				}
+				if !badgeFits && x == maxX-1 && i < len(badgeRunes)-1 {
+					surface.SetCell(x, y, term.Cell{Ch: '…', Style: badgeStyle})
+					x++
+					break
+				}
+				surface.SetCell(x, y, term.Cell{Ch: ch, Style: badgeStyle})
+				x++
+			}
 		}
 	}
 
@@ -478,7 +571,39 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 }
 
+func (t *TreeWidget) handleInlineEditEvent(ev tcell.Event) (EventResult, bool) {
+	if t.inlineEdit == nil {
+		return EventIgnored, false
+	}
+	switch tev := ev.(type) {
+	case *tcell.EventKey:
+		if tev.Key() == tcell.KeyEscape {
+			t.cancelInlineEdit()
+			return EventConsumed, true
+		}
+		if result := t.inlineEdit.input.HandleEvent(ev); result != EventIgnored {
+			return result, true
+		}
+		return EventConsumed, true
+	case *tcell.EventMouse:
+		mx, my := tev.Position()
+		r := t.inlineEdit.input.GetRect()
+		if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+			return t.inlineEdit.input.HandleEvent(ev), true
+		}
+		if tev.Buttons()&(tcell.Button1|tcell.Button2) != 0 {
+			if !t.submitInlineEdit() {
+				return EventConsumed, true
+			}
+		}
+	}
+	return EventIgnored, false
+}
+
 func (t *TreeWidget) HandleEvent(ev tcell.Event) EventResult {
+	if result, handled := t.handleInlineEditEvent(ev); handled {
+		return result
+	}
 	if newTop, consumed := t.scrollbar.HandleEvent(ev); consumed {
 		t.scrollTop = newTop
 		if t.scrollbar.isDragging() {
