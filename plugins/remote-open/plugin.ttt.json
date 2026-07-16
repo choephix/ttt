@@ -1,0 +1,14 @@
+{
+  "name": "remote-open",
+  "displayName": "Remote Open",
+  "description": "Open files in a specific running TTT instance from another process.",
+  "version": "0.1.0",
+  "author": "choephix",
+  "entry": "init.lua",
+  "api": 1,
+  "permissions": {
+    "fs.read": true,
+    "fs.write": true,
+    "system.env": true
+  }
+}
