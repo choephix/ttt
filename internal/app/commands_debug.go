@@ -86,10 +86,14 @@ func (a *App) debugSimulateClick() {
 	dialog.Title = "Simulate Click"
 	dialog.Borders = *a.Borders
 	dialog.Buttons = []widgets.DialogButton{
-		{Label: "Click", Handler: func() { submit(input.Text()) }},
+		{Label: "&Click", Handler: func() { submit(input.Text()) }},
 	}
+	dialog.OnDismiss = func() { a.DismissDialog() }
 	dialog.SetContent(input)
-	a.ShowDialog(dialog)
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) debugRunPlugin() {
