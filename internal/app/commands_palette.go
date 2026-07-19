@@ -175,6 +175,24 @@ func registerPaletteCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "settings.openUI", Title: "Settings: Open Editor Settings",
+		Keywords: []string{"preferences", "settings", "configuration", "options", "ui"},
+		Handler:  app.ShowSettings,
+	})
+
+	reg.Register(command.Command{
+		ID: "settings.apply", Title: "Settings: Apply Changes",
+		Keywords: []string{"preferences", "settings", "save"},
+		Handler:  app.ApplySettingsView,
+	})
+
+	reg.Register(command.Command{
+		ID: "settings.reset", Title: "Settings: Discard Changes",
+		Keywords: []string{"preferences", "settings", "revert"},
+		Handler:  app.ResetSettingsView,
+	})
+
+	reg.Register(command.Command{
 		ID: "settings.open", Title: "Settings: Open settings.json",
 		Keywords: []string{"preferences", "settings", "configuration", "options"},
 		Handler: func() {

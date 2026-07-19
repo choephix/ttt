@@ -85,6 +85,7 @@ type App struct {
 	Output                 *ui.OutputWidget
 	pluginDetailWidgets    map[string]*pluginDetailState
 	pluginDrawer           ui.Widget
+	settingsView           *settingsView
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -407,6 +408,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	}
 	a.EditorGroup.OnContentTabClose = func(id string) {
 		a.cleanupPluginDetailTab(id)
+		a.cleanupSettingsTab(id)
 	}
 	if path := a.EditorGroup.ActiveFilePath(); path != "" {
 		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {

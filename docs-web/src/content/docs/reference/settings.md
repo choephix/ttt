@@ -7,7 +7,16 @@ sidebar:
 
 Settings are stored in `~/.config/ttt/settings.json`. A complete example is available at [`config/settings.json`](https://github.com/eugenioenko/ttt/blob/main/config/settings.json) in the repository.
 
-You can open your settings file directly from the command palette (**Ctrl+P**) with **Preferences: Open Settings**.
+## Editing settings
+
+There are two ways to change settings:
+
+- **Settings editor** — **View → Settings**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). Opens a form in an editor tab covering most settings. Edits are held until you press **Apply** (also available as **Settings: Apply Changes**), which writes `settings.json` and live-applies everything that does not require a restart. **Reset** (**Settings: Discard Changes**) throws them away. Rows marked *(restart)* only take effect on next launch.
+- **Raw JSON** — **Settings: Open settings.json** opens the file itself. Needed for the `lsp` settings and `formatters`, neither of which is exposed in the form.
+
+Closing the settings tab with unapplied edits discards them.
+
+Both write the same file, so you can move between them freely.
 
 ## Top-level
 

@@ -22,6 +22,7 @@ type InputConfig struct {
 
 type InputWidget struct {
 	BaseWidget
+	FixedWidth    int
 	Config        InputConfig
 	text          string
 	cursorPos     int
@@ -52,7 +53,7 @@ func (inp *InputWidget) Height() int {
 	return h
 }
 
-func (inp *InputWidget) Width() int { return 0 }
+func (inp *InputWidget) Width() int { return inp.FixedWidth }
 
 func (inp *InputWidget) Focusable() bool   { return true }
 func (inp *InputWidget) SetFocused(f bool) { inp.focused = f }
@@ -132,22 +133,11 @@ func (inp *InputWidget) renderBordered(surface Surface) {
 	if inp.focused {
 		borderStyle = term.StyleBorderActive
 	}
-	bs := inp.borders()
+	bs := widgetBorders(inp.Box)
 
 	inner.DrawBorder(0, 0, w, h, bs, borderStyle)
 
 	inp.renderText(inner, 2, 1, w-4)
-}
-
-func (inp *InputWidget) borders() term.BorderSet {
-	if inp.Box.Borders.Horizontal != 0 {
-		return inp.Box.Borders
-	}
-	return term.BorderSet{
-		Horizontal: '─', Vertical: '│',
-		TopLeft: '╭', TopRight: '╮',
-		BottomLeft: '╰', BottomRight: '╯',
-	}
 }
 
 func (inp *InputWidget) renderBorderless(surface Surface) {
