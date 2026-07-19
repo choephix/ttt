@@ -107,7 +107,7 @@ func (s *SelectWidget) syncSelectedToCurrent() {
 	}
 }
 
-func (s *SelectWidget) SelectedID() string {
+func (s *SelectWidget) selectedID() string {
 	if s.selected >= 0 && s.selected < len(s.filtered) {
 		return s.Config.Items[s.filtered[s.selected]].ID
 	}

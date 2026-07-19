@@ -53,8 +53,8 @@ func TestSelectSetSelectedIDShowsCurrentValue(t *testing.T) {
 	})
 	sel.SetSelectedID("b")
 
-	if got := sel.SelectedID(); got != "b" {
-		t.Errorf("SelectedID() = %q, want \"b\"", got)
+	if got := sel.selectedID(); got != "b" {
+		t.Errorf("selectedID() = %q, want \"b\"", got)
 	}
 	if sel.Config.Placeholder != "Beta" {
 		t.Errorf("placeholder = %q, want \"Beta\"", sel.Config.Placeholder)
@@ -77,8 +77,8 @@ func TestCollapsedSelectOpensAndCloses(t *testing.T) {
 	if !sel.HasPopup() {
 		t.Fatal("Down should open the list")
 	}
-	if sel.SelectedID() != "a" {
-		t.Errorf("opening should not move the selection, got %q", sel.SelectedID())
+	if sel.selectedID() != "a" {
+		t.Errorf("opening should not move the selection, got %q", sel.selectedID())
 	}
 
 	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
@@ -86,8 +86,8 @@ func TestCollapsedSelectOpensAndCloses(t *testing.T) {
 	if sel.HasPopup() {
 		t.Error("Enter should close the list")
 	}
-	if sel.SelectedID() != "b" {
-		t.Errorf("SelectedID = %q, want \"b\"", sel.SelectedID())
+	if sel.selectedID() != "b" {
+		t.Errorf("selectedID = %q, want \"b\"", sel.selectedID())
 	}
 
 	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
@@ -126,14 +126,14 @@ func TestSelectKeepsValueAfterFilteringAndClosing(t *testing.T) {
 	}
 	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
 
-	if got := sel.SelectedID(); got != "zenburn" {
+	if got := sel.selectedID(); got != "zenburn" {
 		t.Fatalf("SelectedID after picking = %q, want \"zenburn\"", got)
 	}
 
 	// Reopening and confirming without typing must keep the same value.
 	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
 	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
-	if got := sel.SelectedID(); got != "zenburn" {
+	if got := sel.selectedID(); got != "zenburn" {
 		t.Errorf("value reverted after reopen+confirm: %q, want \"zenburn\"", got)
 	}
 }

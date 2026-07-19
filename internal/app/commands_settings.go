@@ -15,6 +15,10 @@ func (a *App) ReloadSettings() {
 // ApplySettings is the single live-apply path: anything that can take effect
 // without a restart belongs here, so every caller produces identical results.
 func (a *App) ApplySettings(s config.Settings) {
+	// Side effects below are keyed off what actually changed: ApplySettings runs
+	// on every option toggle, and refetching git blame or rebuilding bracket
+	// colors each time would be wasted work.
+	prev := *a.Settings
 	*a.Settings = s
 
 	// Apply editor settings to the editor group and active editor
@@ -34,7 +38,9 @@ func (a *App) ApplySettings(s config.Settings) {
 		a.EditorGroup.Editor.AutoDedent = s.Editor.IsAutoDedentEnabled()
 		a.EditorGroup.Editor.WordWrap = s.Editor.WordWrap
 		a.EditorGroup.Editor.BracketPairColorization = s.Editor.BracketPairColorization
-		a.EditorGroup.Editor.InvalidateBracketColors()
+		if s.Editor.BracketPairColorization != prev.Editor.BracketPairColorization {
+			a.EditorGroup.Editor.InvalidateBracketColors()
+		}
 	}
 
 	// Apply cursor style
@@ -45,10 +51,12 @@ func (a *App) ApplySettings(s config.Settings) {
 	// Apply search debounce
 	a.Search.Debounce.DelayMs = s.Search.Debounce
 
-	if s.Editor.IsGitGutterEnabled() {
-		a.RequestGitGutterForActiveFile()
-	} else if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.LineChanges = nil
+	if s.Editor.IsGitGutterEnabled() != prev.Editor.IsGitGutterEnabled() {
+		if s.Editor.IsGitGutterEnabled() {
+			a.RequestGitGutterForActiveFile()
+		} else if a.EditorGroup.Editor != nil {
+			a.EditorGroup.Editor.LineChanges = nil
+		}
 	}
 
 	if a.Explorer != nil && a.Explorer.Settings != s.Explorer {

@@ -1,8 +1,6 @@
 package app
 
 import (
-	"strings"
-
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
@@ -60,29 +58,29 @@ func (a *App) SetGutterStyle(style string) {
 	a.SaveAndApplySettings()
 }
 
+// Display labels for the gutter and border style values in config.
 var styleLabels = map[string]string{
-	"ascii": "ASCII",
+	"minimal":  "Minimal",
+	"compact":  "Compact",
+	"extended": "Extended",
+	"default":  "Default",
+	"rounded":  "Rounded",
+	"sharp":    "Sharp",
+	"double":   "Double",
+	"bold":     "Bold",
+	"ascii":    "ASCII",
+	"none":     "None",
 }
 
-func styleLabel(id string) string {
-	if label, ok := styleLabels[id]; ok {
-		return label
-	}
-	if id == "" {
-		return ""
-	}
-	return strings.ToUpper(id[:1]) + id[1:]
-}
-
-func GutterStyleItems() []widgets.SelectItem {
+func gutterStyleItems() []widgets.SelectItem {
 	items := make([]widgets.SelectItem, 0, len(config.GutterStyles))
 	for _, id := range config.GutterStyles {
-		items = append(items, widgets.SelectItem{ID: id, Label: styleLabel(id)})
+		items = append(items, widgets.SelectItem{ID: id, Label: styleLabels[id]})
 	}
 	return items
 }
 
-func BorderStyleItems() []widgets.SelectItem {
+func borderStyleItems() []widgets.SelectItem {
 	items := make([]widgets.SelectItem, 0, len(config.BorderStyles))
 	for _, id := range config.BorderStyles {
 		// "theme" is accepted in settings.json but behaves identically to
@@ -90,13 +88,13 @@ func BorderStyleItems() []widgets.SelectItem {
 		if id == "theme" {
 			continue
 		}
-		items = append(items, widgets.SelectItem{ID: id, Label: styleLabel(id)})
+		items = append(items, widgets.SelectItem{ID: id, Label: styleLabels[id]})
 	}
 	return items
 }
 
 func (a *App) ShowGutterStylePicker() {
-	a.ShowSelectDialog("Gutter Style", GutterStyleItems(), func(id string) {
+	a.ShowSelectDialog("Gutter Style", gutterStyleItems(), func(id string) {
 		a.SetGutterStyle(id)
 	}, nil)
 }
@@ -140,7 +138,7 @@ func (a *App) applyBorderStyle(themeBorders *term.BorderSet) {
 }
 
 func (a *App) ShowBorderStylePicker() {
-	a.ShowSelectDialog("Border Style", BorderStyleItems(), func(id string) {
+	a.ShowSelectDialog("Border Style", borderStyleItems(), func(id string) {
 		a.SetBorderStyle(id)
 	}, nil)
 }
