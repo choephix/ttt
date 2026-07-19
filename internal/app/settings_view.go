@@ -12,7 +12,8 @@ import (
 
 const (
 	settingsTabID       = "settings"
-	settingsControlCols = 42
+	settingsLabelCols   = 30
+	settingsControlCols = 34
 )
 
 type settingKind int
@@ -253,7 +254,6 @@ func (v *settingsView) buildPane(cat settingsCategory) widgets.Widget {
 		rows = append(rows, v.buildRow(cat.Title, f))
 	}
 	stack := widgets.NewVStackWidget(rows...)
-	stack.Gap = 1 // exactly one blank row between every field
 	stack.MeasureGrow = true
 	stack.Box.PaddingLeft = 1
 	stack.Box.PaddingTop = 1
@@ -266,40 +266,38 @@ func (v *settingsView) buildPane(cat settingsCategory) widgets.Widget {
 	)
 }
 
-// Rows are a single column: booleans are a self-labelled bordered checkbox,
-// everything else is a label with its bordered control underneath. Checkboxes
-// stack without a gap since their borders already separate them.
+// One row per setting: label in a fixed left column, control on the right.
+// Each control keeps its own shape — a checkbox is a checkbox, not a boxed one —
+// so the kind of control is readable at a glance.
 func (v *settingsView) buildRow(category string, f settingField) widgets.Widget {
 	label := f.Label
 	if f.Restart {
 		label += " (restart)"
 	}
-
-	if f.Kind == settingBool {
-		return widgets.NewCheckboxWidget(widgets.CheckboxConfig{
-			Label:    label,
-			Bordered: true,
-			Checked:  f.GetBool(&v.working),
-			OnChange: func(checked bool) { f.SetBool(&v.working, checked) },
-		})
-	}
+	name := widgets.NewLabelWidget(widgets.LabelConfig{Text: label})
+	name.FixedWidth = settingsLabelCols
 
 	var control widgets.Widget
-	if f.Kind == settingEnum {
+	switch f.Kind {
+	case settingBool:
+		control = v.boolControl(f)
+	case settingEnum:
 		control = v.enumControl(f)
-	} else {
+	default:
 		control = v.textControl(category, f)
 	}
 
-	// The HStack constrains the control to its fixed width; inside a VStack it
-	// would otherwise stretch across the whole pane.
-	sized := widgets.NewHStackWidget(control)
-	sized.FixedHeight = 3
+	row := widgets.NewHStackWidget(name, control)
+	row.Gap = 2
+	row.FixedHeight = 1
+	return row
+}
 
-	return widgets.NewVStackWidget(
-		widgets.NewLabelWidget(widgets.LabelConfig{Text: label}),
-		sized,
-	)
+func (v *settingsView) boolControl(f settingField) widgets.Widget {
+	return widgets.NewCheckboxWidget(widgets.CheckboxConfig{
+		Checked:  f.GetBool(&v.working),
+		OnChange: func(checked bool) { f.SetBool(&v.working, checked) },
+	})
 }
 
 func (v *settingsView) enumControl(f settingField) widgets.Widget {
@@ -307,7 +305,6 @@ func (v *settingsView) enumControl(f settingField) widgets.Widget {
 	sel = widgets.NewSelectWidget(widgets.SelectConfig{
 		Items:       f.Options(),
 		Collapsible: true,
-		Bordered:    true,
 		OnOpen:      func() { v.closeSelectsExcept(sel) },
 		OnSelect: func(id string) {
 			f.SetString(&v.working, id)
@@ -330,8 +327,9 @@ func (v *settingsView) textControl(category string, f settingField) widgets.Widg
 		current = f.GetString(&v.working)
 	}
 
-	inp := widgets.NewInputWidget(widgets.InputConfig{Bordered: true})
-	inp.FixedWidth = settingsControlCols
+	// Borderless: InputWidget draws a "❯" prefix and recolours it on focus, which
+	// is affordance enough for a one-line field.
+	inp := widgets.NewInputWidget(widgets.InputConfig{})
 	inp.SetText(current)
 
 	// Returns a description of the offending field, or "" when the value is good.

@@ -17,8 +17,6 @@ type SelectConfig struct {
 	Placeholder string
 	ShowDivider bool
 	Collapsible bool
-	// Bordered draws a collapsed select as a 3-row bordered box.
-	Bordered bool
 	// OnOpen fires when the list opens, letting an owner close sibling selects.
 	OnOpen    func()
 	OnSelect  func(id string)
@@ -28,6 +26,8 @@ type SelectConfig struct {
 
 type SelectWidget struct {
 	BaseWidget
+	// FixedWidth bounds a collapsed select so its right-aligned chevron stays
+	// next to the value instead of drifting to the far edge of the pane.
 	FixedWidth int
 	Config     SelectConfig
 	input      *InputWidget
@@ -49,14 +49,8 @@ func NewSelectWidget(config SelectConfig) *SelectWidget {
 		Config:  config,
 		divider: NewDividerWidget(DividerConfig{}),
 	}
-	prefix := ""
-	if config.Collapsible && !config.Bordered {
-		prefix = " "
-	}
 	s.input = NewInputWidget(InputConfig{
 		Placeholder: config.Placeholder,
-		Prefix:      prefix,
-		Bordered:    config.Collapsible && config.Bordered,
 		OnChange: func(_ string) {
 			if s.suppress {
 				return
@@ -114,17 +108,9 @@ func (s *SelectWidget) selectedID() string {
 	return ""
 }
 
-// controlHeight is the height of the collapsed control itself, excluding any popup.
-func (s *SelectWidget) controlHeight() int {
-	if s.Config.Bordered {
-		return 3
-	}
-	return 1
-}
-
 func (s *SelectWidget) Height() int {
 	if s.Config.Collapsible {
-		return s.controlHeight()
+		return 1
 	}
 	h := len(s.Config.Items) + 1
 	if s.Config.ShowDivider {
@@ -202,7 +188,7 @@ func (s *SelectWidget) SetPopupBounds(r Rect) {
 func (s *SelectWidget) PopupRect() Rect {
 	r := s.GetRect()
 	h := s.popupHeight() + 2 // border top and bottom
-	below := r.Y + s.controlHeight()
+	below := r.Y + 1
 	y := below
 
 	if b := s.popupBounds; b.H > 0 {
@@ -323,40 +309,22 @@ func (s *SelectWidget) Render(surface Surface) {
 		y++
 	}
 
-	if s.Config.Collapsible {
-		ch := s.controlHeight()
-		// A bordered select fills the full width and puts the chevron inside its
-		// border; a bare one leaves the last columns free for it.
-		inputW := w
-		chevronY := y + 1
-		chevronX := w - 3 // one space clear of the right border
-		if !s.Config.Bordered {
-			inputW = w - 2
-			chevronY = y
-			chevronX = w - 2
-		}
-		s.input.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: inputW, H: ch})
-		s.input.Render(surface.Sub(Rect{X: 0, Y: y, W: inputW, H: ch}))
-
-		chevron := '▼'
-		if s.open {
-			chevron = '▲'
-		}
-		surface.SetCell(chevronX, chevronY, term.Cell{Ch: chevron, Style: term.StyleMuted})
-		return
-	}
-
 	inputW := w - 2
 	s.input.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: inputW, H: 1})
 	inputSurface := surface.Sub(Rect{X: 0, Y: y, W: inputW, H: 1})
 	s.input.Render(inputSurface)
 
 	chevron := '▼'
-	if s.focused {
+	if (s.Config.Collapsible && s.open) || (!s.Config.Collapsible && s.focused) {
 		chevron = '▲'
 	}
 	surface.SetCell(w-2, y, term.Cell{Ch: chevron, Style: term.StyleMuted})
 	y++
+
+	// A collapsed select is just the one-line control; its list lives in a popup.
+	if s.Config.Collapsible {
+		return
+	}
 
 	if s.Config.ShowDivider {
 		s.divider.SetRect(Rect{X: s.rect.X, Y: s.rect.Y + y, W: s.rect.W, H: 1})
@@ -506,7 +474,7 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 				}
 			}
 			// Clicking the control itself toggles the list.
-			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+s.controlHeight() {
+			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+1 {
 				s.setOpen(!s.open)
 				return EventConsumed
 			}

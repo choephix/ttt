@@ -5,17 +5,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// Bordered checkbox geometry: left border, padding, mark, padding, right border.
-const (
-	checkboxPad  = 1
-	checkboxBoxW = 1 + checkboxPad + 1 + checkboxPad + 1
-)
-
 type CheckboxConfig struct {
-	Label string
-	// Bordered draws the box as a 3x3 bordered square with the label to its
-	// right, so it lines up with bordered inputs and selects in a form.
-	Bordered bool
+	Label    string
 	Checked  bool
 	Style    term.Style `json:"-"`
 	OnChange func(checked bool)
@@ -31,47 +22,8 @@ func NewCheckboxWidget(config CheckboxConfig) *CheckboxWidget {
 	return &CheckboxWidget{Config: config}
 }
 
-func (c *CheckboxWidget) Height() int {
-	if c.Config.Bordered {
-		return 3 + c.BoxOverheadH()
-	}
-	return 1 + c.BoxOverheadH()
-}
-
-// Only the border reflects focus, matching InputWidget; the mark and label keep
-// default styling so the row does not flash a highlighted background.
-func (c *CheckboxWidget) renderBordered(inner Surface) {
-	w, h := inner.Size()
-	if w < checkboxBoxW+2 || h < 3 {
-		return
-	}
-
-	borderStyle := term.StyleBorder
-	if c.focused {
-		borderStyle = term.StyleBorderActive
-	}
-	textStyle := c.Config.Style
-	if textStyle == 0 {
-		textStyle = term.StyleDefault
-	}
-
-	mark := ' '
-	if c.Config.Checked {
-		mark = 'x'
-	}
-	inner.DrawBorder(0, 0, checkboxBoxW, 3, widgetBorders(c.Box), borderStyle)
-	inner.SetCell(1+checkboxPad, 1, term.Cell{Ch: mark, Style: textStyle})
-
-	x := checkboxBoxW + 1
-	for _, ch := range c.Config.Label {
-		if x >= w {
-			break
-		}
-		inner.SetCell(x, 1, term.Cell{Ch: ch, Style: textStyle})
-		x++
-	}
-}
-func (c *CheckboxWidget) Width() int { return 0 }
+func (c *CheckboxWidget) Height() int { return 1 + c.BoxOverheadH() }
+func (c *CheckboxWidget) Width() int  { return 0 }
 
 func (c *CheckboxWidget) Focusable() bool   { return true }
 func (c *CheckboxWidget) SetFocused(f bool) { c.focused = f }
@@ -81,11 +33,6 @@ func (c *CheckboxWidget) Render(surface Surface) {
 	inner := c.RenderBox(surface)
 	w, _ := inner.Size()
 	if w < 4 {
-		return
-	}
-
-	if c.Config.Bordered {
-		c.renderBordered(inner)
 		return
 	}
 

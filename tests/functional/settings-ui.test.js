@@ -52,13 +52,11 @@ describe("settings editor", () => {
     const s0 = tui.snapshot();
 
     const { snapshots } = tui.run();
-    // Booleans are bordered checkboxes with the label to the right;
-    // defaults are spaces on, wrap off.
-    expect(snapshots[s0]).toContain("│ x │ Insert spaces");
-    expect(snapshots[s0]).toContain("│   │ Word wrap");
-    // Text fields sit in a bordered box under their label.
+    // One row per setting: label left, control right.
+    expect(snapshots[s0]).toMatch(/Insert spaces\s+\[x\]/);
+    expect(snapshots[s0]).toMatch(/Word wrap\s+\[ \]/);
     expect(snapshots[s0]).toContain("Tab size");
-    expect(snapshots[s0]).toMatch(/│ 4\s+│/);
+    expect(snapshots[s0]).toMatch(/Tab size\s+❯ 4/);
   });
 
   it("defers edits until Apply, then live-applies them", () => {

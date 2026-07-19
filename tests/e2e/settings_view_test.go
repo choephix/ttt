@@ -45,8 +45,8 @@ func TestSettingsViewReflectsCurrentValues(t *testing.T) {
 }
 
 const (
-	checkedBox   = "│ x │"
-	uncheckedBox = "│   │"
+	checkedBox   = "[x]"
+	uncheckedBox = "[ ]"
 )
 
 // rowHas reports whether a single rendered row contains both the setting label
@@ -194,7 +194,7 @@ func focusTabSizeInput(t *testing.T, h *testHarness) {
 	for range 10 {
 		h.pressKey(tcell.KeyTab, tcell.ModNone)
 		h.pressRune('9')
-		if rowHas(h, "49", "│") {
+		if rowHas(h, "Tab size", "❯ 49") {
 			h.pressKey(tcell.KeyBackspace2, tcell.ModNone)
 			return
 		}
@@ -223,7 +223,7 @@ func TestSettingsInvalidIntRevertsAndBlocksApply(t *testing.T) {
 		t.Errorf("message should name the category and field:\n%s", screen)
 	}
 	// The field snaps back to the last good value rather than keeping "0".
-	if !rowHas(h, "│ 4", "│") {
+	if !rowHas(h, "Tab size", "❯ 4") {
 		t.Errorf("field did not revert to %d:\n%s", before, screen)
 	}
 }

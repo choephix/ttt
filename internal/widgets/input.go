@@ -22,7 +22,6 @@ type InputConfig struct {
 
 type InputWidget struct {
 	BaseWidget
-	FixedWidth    int
 	Config        InputConfig
 	text          string
 	cursorPos     int
@@ -53,7 +52,7 @@ func (inp *InputWidget) Height() int {
 	return h
 }
 
-func (inp *InputWidget) Width() int { return inp.FixedWidth }
+func (inp *InputWidget) Width() int { return 0 }
 
 func (inp *InputWidget) Focusable() bool   { return true }
 func (inp *InputWidget) SetFocused(f bool) { inp.focused = f }
