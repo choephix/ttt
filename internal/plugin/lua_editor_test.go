@@ -38,7 +38,8 @@ type mockEditorAPI struct {
 	setSelEL int
 	setSelEC int
 
-	selCleared bool
+	selCleared   bool
+	extraCursors []CursorPosition
 }
 
 func (m *mockEditorAPI) BufferText() string { return m.bufText }
@@ -100,6 +101,17 @@ func (m *mockEditorAPI) ClearSelection() {
 }
 func (m *mockEditorAPI) BeginUndoGroup() {}
 func (m *mockEditorAPI) EndUndoGroup()   {}
+func (m *mockEditorAPI) AddCursor(line, col int) {
+	m.extraCursors = append(m.extraCursors, CursorPosition{Line: line, Col: col})
+}
+func (m *mockEditorAPI) GetCursors() []CursorPosition {
+	result := []CursorPosition{{Line: m.cursorLine, Col: m.cursorCol}}
+	result = append(result, m.extraCursors...)
+	return result
+}
+func (m *mockEditorAPI) ClearCursors() {
+	m.extraCursors = nil
+}
 
 func setupTestPluginWithEditor(perms PermissionSet, editor *mockEditorAPI) (*Plugin, func()) {
 	p, cleanup := newTestPluginBase(perms)

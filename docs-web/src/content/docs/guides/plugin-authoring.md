@@ -1349,6 +1349,7 @@ Require the `editor.read` permission.
 | `editor.language()`    | string                                                    | Detected language (e.g. `"go"`, `"lua"`). |
 | `editor.byte_to_col(text, byte)` | number                                          | Convert a 1-based **byte** offset in `text` to a 1-based **rune column**. |
 | `editor.col_to_byte(text, col)`  | number                                          | Convert a 1-based **rune column** in `text` to a 1-based **byte** offset. |
+| `editor.get_cursors()`           | table of `{line, col}`                          | All cursor positions (1-based). Returns a single-element table when no extra cursors are active. |
 
 > **Columns are runes, not bytes.** The editor — and every position in the
 > `editor.replace` and diagnostics APIs — uses 1-based **rune (visual) columns**.
@@ -1382,6 +1383,8 @@ Require the `editor.write` permission.
 | `editor.clear_selection()`                        | Clear the current selection.                   |
 | `editor.begin_undo_group()`                       | Start grouping subsequent edits into a single undo step. |
 | `editor.end_undo_group()`                         | Close the group; all edits since `begin` undo/redo as one operation. |
+| `editor.add_cursor(line, col)`                    | Add a cursor at position (1-based). Duplicates are ignored. |
+| `editor.clear_cursors()`                          | Collapse back to a single cursor (the primary). |
 
 All write operations go through the undo system — they can be undone with Ctrl+Z.
 

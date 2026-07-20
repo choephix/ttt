@@ -277,6 +277,27 @@ func (e *PluginEditorAPI) EndUndoGroup() {
 	ed.Undo.EndTransaction()
 }
 
+func (e *PluginEditorAPI) AddCursor(line, col int) {
+	e.eg.AddCursor(line, col)
+}
+
+func (e *PluginEditorAPI) GetCursors() []plugin.CursorPosition {
+	states := e.eg.GetCursors()
+	if states == nil {
+		line, col := e.eg.ActiveCursor()
+		return []plugin.CursorPosition{{Line: line, Col: col}}
+	}
+	result := make([]plugin.CursorPosition, len(states))
+	for i, cs := range states {
+		result[i] = plugin.CursorPosition{Line: cs.Line, Col: cs.Col}
+	}
+	return result
+}
+
+func (e *PluginEditorAPI) ClearCursors() {
+	e.eg.CollapseMultiCursor()
+}
+
 // PluginFilesystemAPI implements plugin.FilesystemAPI with path restrictions.
 type PluginFilesystemAPI struct {
 	allowedRoots []string

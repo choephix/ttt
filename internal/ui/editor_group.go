@@ -1266,6 +1266,24 @@ func (g *EditorGroupWidget) CollapseMultiCursor() {
 	}
 }
 
+func (g *EditorGroupWidget) AddCursor(line, col int) {
+	if !g.IsEditorActive() {
+		return
+	}
+	g.Editor.ensureMulti()
+	g.Editor.syncToMulti()
+	g.Editor.Multi.Add(line, col)
+	g.Editor.syncFromMulti()
+	g.saveMultiState()
+}
+
+func (g *EditorGroupWidget) GetCursors() []multicursor.CursorState {
+	if !g.IsEditorActive() || g.Editor.Multi == nil {
+		return nil
+	}
+	return g.Editor.Multi.Cursors
+}
+
 func (g *EditorGroupWidget) Copy() {
 	t := g.activeTab()
 	if t == nil {

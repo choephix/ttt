@@ -57,11 +57,10 @@ In Vim Normal mode, pressing `j` must be a motion, not insert a character.
 - `editor.end_undo_group()` — close the group; all edits since `begin` undo/redo as one operation. Gated on `editor.write`.
 - Backed by `UndoStack.BeginTransaction()` / `EndTransaction()` which wraps accumulated commands in a `BatchCommand`.
 
-### 7. Multi-Cursor API (nice-to-have)
+### 7. Multi-Cursor API ✅
 
-Internal multi-cursor support exists but is not exposed to plugins. Would enable Vim visual-block mode.
+**Done.** Plugins can now add, query, and clear multiple cursors.
 
-**What to add (later):**
-- `editor.add_cursor(line, col)`
-- `editor.get_cursors()` — returns list of `{line, col}` tables.
-- `editor.clear_cursors()` — back to single cursor.
+- `editor.add_cursor(line, col)` — add a cursor at position (1-based). Duplicates ignored. Gated on `editor.write`.
+- `editor.get_cursors()` — returns list of `{line, col}` tables (1-based). Gated on `editor.read`.
+- `editor.clear_cursors()` — collapse back to single cursor. Gated on `editor.write`.
