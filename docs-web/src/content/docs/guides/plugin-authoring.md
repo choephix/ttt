@@ -1338,6 +1338,8 @@ Require the `editor.read` permission.
 | `editor.buffer_text()` | string                                                    | Full buffer content as a single string. |
 | `editor.buffer_lines()`| table of strings                                          | Array of lines.                      |
 | `editor.current_line()`| string                                                    | Text of the line at cursor.          |
+| `editor.get_line(n)`   | string                                                    | Text of line `n` (1-based).          |
+| `editor.line_count()`  | number                                                    | Total number of lines in the buffer. |
 | `editor.cursor()`      | `{line, col}`                                             | Current cursor position (1-based).   |
 | `editor.selection()`   | `{active, start_line, start_col, end_line, end_col}`     | Selection state (1-based). `active` is boolean. |
 | `editor.selection_text()` | string                                                 | Selected text (empty if no selection).|
@@ -1370,6 +1372,7 @@ Require the `editor.write` permission.
 | Function                                          | Description                                    |
 |---------------------------------------------------|------------------------------------------------|
 | `editor.insert(line, col, text)`                  | Insert text at position (1-based).             |
+| `editor.set_line(line, text)`                     | Replace the entire content of line `line` (1-based). |
 | `editor.replace(start_line, start_col, end_line, end_col, text)` | Replace a range with text (1-based). |
 | `editor.set_cursor(line, col)`                    | Move the cursor (1-based).                     |
 | `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range (1-based).     |

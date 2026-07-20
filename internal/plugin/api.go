@@ -30,6 +30,8 @@ type EditorAPI interface {
 	BufferText() string
 	BufferLines() []string
 	CurrentLine() string
+	GetLine(n int) string
+	LineCount() int
 	CursorPos() (line, col int)
 	Selection() (active bool, startLine, startCol, endLine, endCol int)
 	SelectionText() string
@@ -38,6 +40,7 @@ type EditorAPI interface {
 	Language() string
 
 	Insert(line, col int, text string)
+	SetLine(line int, text string)
 	Replace(startLine, startCol, endLine, endCol int, text string)
 	SetCursor(line, col int)
 	SetSelection(startLine, startCol, endLine, endCol int)
