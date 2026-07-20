@@ -74,3 +74,40 @@ describe("ttt.exec_command plugin API", () => {
     expect(lastLine).toContain("NOT_FOUND");
   });
 });
+
+describe("ttt.list_commands plugin API", () => {
+  it("returns a table of command entries with id and title", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "test.txt", "hello\n");
+    const plugin = writePlugin(dir, "test.lua", `
+      local ttt = require("ttt")
+      ttt.register({
+        commands = {
+          { id = "test.list", title = "Test List", handler = function()
+              local cmds = ttt.list_commands()
+              local found = false
+              for _, cmd in ipairs(cmds) do
+                if cmd.id == "editor.undo" then
+                  found = true
+                  break
+                end
+              end
+              ttt.set_status_item("left", "result",
+                found and "HAS_UNDO:" .. #cmds or "MISSING", { priority = 10 })
+            end
+          }
+        }
+      })
+    `);
+
+    tui.start("--plugin", plugin, file);
+    tui.waitStable(300);
+    tui.exec("Test List");
+    tui.waitStable();
+    const s = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    const lastLine = snapshots[s].split("\n").pop();
+    expect(lastLine).toContain("HAS_UNDO:");
+  });
+});

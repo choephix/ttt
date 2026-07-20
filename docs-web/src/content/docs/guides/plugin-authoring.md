@@ -278,6 +278,71 @@ Use `notify` for lightweight, non-blocking feedback (a linter's "binary missing"
 hint, "added to dictionary", and so on). For anything the user must respond to,
 use [`ttt.confirm`](#ttt-confirm) or [`ttt.show_info`](#ttt-show_info) instead.
 
+### `ttt.set_status_item(side, id, text, [opts])`
+
+Add or update a status bar segment. Requires the `commands` permission.
+
+| Parameter | Type   | Required | Description                                                        |
+|-----------|--------|----------|--------------------------------------------------------------------|
+| `side`    | string | yes      | `"left"` or `"right"` — which side of the status bar.              |
+| `id`      | string | yes      | Unique segment identifier (scoped per plugin: stored as `pluginName:id`). |
+| `text`    | string | yes      | Text to display in the segment.                                    |
+| `opts`    | table  | no       | Options table (see below).                                         |
+
+**Options:**
+
+| Field      | Type     | Default | Description                                      |
+|------------|----------|---------|--------------------------------------------------|
+| `priority` | number   | `1000`  | Lower = closer to the edge. Core segments use 100–500. |
+| `on_click` | function | nil     | Callback when the segment is clicked.            |
+
+```lua
+-- Simple status item
+ttt.set_status_item("left", "mode", "NORMAL")
+
+-- With priority and click handler
+ttt.set_status_item("right", "stats", "Ln 42", {
+  priority = 50,
+  on_click = function()
+    ttt.exec_command("editor.goToLine")
+  end,
+})
+```
+
+### `ttt.remove_status_item(id)`
+
+Remove a status bar segment previously added with `set_status_item`. The `id` is scoped per plugin (same `id` used when creating). Requires the `commands` permission.
+
+```lua
+ttt.remove_status_item("mode")
+```
+
+### `ttt.exec_command(id)`
+
+Execute any registered command by its ID (the same IDs shown in the command palette). Requires the `commands` permission.
+
+**Returns:** `true` if the command was found and executed, `false` otherwise.
+
+```lua
+local ok = ttt.exec_command("editor.undo")
+if not ok then
+  ttt.log("warn", "command not found")
+end
+```
+
+### `ttt.list_commands()`
+
+Return a list of all registered commands. Requires the `commands` permission.
+
+**Returns:** An array of tables, each with `id` (string) and `title` (string) fields.
+
+```lua
+local cmds = ttt.list_commands()
+for _, cmd in ipairs(cmds) do
+  ttt.log(cmd.id .. " — " .. cmd.title)
+end
+```
+
 ### `ttt.open_drawer(config)`
 
 Open a drawer panel anchored to the left or right side of the editor. Requires `panel.drawer` permission.
@@ -1932,7 +1997,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `set_status_item`, `remove_status_item`, `exec_command`, `list_commands`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.diagnostics` | Publish editor diagnostics (squiggles) |

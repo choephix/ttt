@@ -308,6 +308,24 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 1
 		}))
 
+		L.SetField(mod, "list_commands", L.NewFunction(func(L *lua.LState) int {
+			if err := p.Granted.Check("commands"); err != nil {
+				L.ArgError(1, "commands permission not granted")
+				return 0
+			}
+			tbl := L.NewTable()
+			if p.ListCommands != nil {
+				for _, cmd := range p.ListCommands() {
+					entry := L.NewTable()
+					L.SetField(entry, "id", lua.LString(cmd.ID))
+					L.SetField(entry, "title", lua.LString(cmd.Title))
+					tbl.Append(entry)
+				}
+			}
+			L.Push(tbl)
+			return 1
+		}))
+
 		L.SetField(mod, "show_info", L.NewFunction(func(L *lua.LState) int {
 			title := L.CheckString(1)
 			tbl := L.CheckTable(2)
