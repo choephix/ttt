@@ -5,7 +5,7 @@ Tracks [issue #386](https://github.com/eugenioenko/ttt/issues/386).
 
 ## Status
 
-Under construction, built in phases. Currently at **Phase 4**.
+Under construction, built in phases. Currently at **Phase 5**.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -14,7 +14,7 @@ Under construction, built in phases. Currently at **Phase 4**.
 | 2 | Insert mode and simple edits | ✅ |
 | 3 | Operators and text objects | ✅ |
 | 4 | Visual modes | ✅ |
-| 5 | Registers, marks, macros, `.` repeat | ⬜ |
+| 5 | Registers, marks, macros, `.` repeat | ✅ |
 | 6 | Ex command line, search, editor integration | ⬜ |
 | 7 | Settings, docs, handoff to `ttt-plugins` | ⬜ |
 
@@ -182,10 +182,72 @@ left edge are skipped rather than padded.
 
 ### Registers
 
-Phase 3 keeps exactly one register: the unnamed `"`. `d`, `c`, `y`, `x`, `X`,
-`s`, `S`, `D`, `C` and `Y` all fill it, and `p` / `P` read it. A linewise yank
-pastes onto a new line below / above; a charwise one pastes after / before the
-cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
+A register holds text plus a *kind* — charwise, linewise or blockwise. `d`, `c`,
+`y`, `x`, `X`, `s`, `S`, `D`, `C` and `Y` fill registers, and `p` / `P` read
+them. A linewise register pastes onto a new line below / above, a charwise one
+after / before the cursor, and a blockwise one re-inserts its rectangle
+(padding short rows with spaces and creating lines past the end of the buffer).
+
+`"{register}` prefixes an operator, a `p` / `P`, or a visual-mode operator.
+
+| Register | Meaning |
+|---|---|
+| `""` | Unnamed — every yank and delete lands here |
+| `"a`–`"z` | Named. `"A`–`"Z` *append* to the same slot. |
+| `"0` | The last yank, untouched by deletes |
+| `"1`–`"9` | The delete ring: each linewise or multi-line delete shifts it down |
+| `"-` | The last small (single-line, charwise) delete |
+| `"_` | Blackhole — writes are discarded and the unnamed register is left alone |
+| `"+` `"*` | System clipboard (see the gaps below) |
+
+### Marks
+
+| Key | Action |
+|---|---|
+| `m{a-zA-Z}` | Set a mark at the cursor |
+| `` `{mark} `` | Jump to the exact position |
+| `'{mark}` | Jump to the first non-blank of the marked line |
+| ``` `` ``` `''` | Jump back to the position before the last jump |
+| `` `. `` `'.` | The position of the last change |
+| ``d`a`` `d'a` | Marks are operator targets — backtick exclusive charwise, `'` linewise |
+
+Marks are also settable and jumpable from visual mode, where a jump extends the
+selection. Line numbers are kept correct across edits: an insert or delete above
+a mark shifts it, and a mark inside a deleted span collapses onto the start of
+that span.
+
+### Macros
+
+| Key | Action |
+|---|---|
+| `q{a-z}` | Start recording into a register |
+| `q{A-Z}` | Append to an existing macro |
+| `q` | Stop recording (the status bar shows `recording @q` while it runs) |
+| `@{a-z}` | Replay |
+| `@@` | Replay the last macro played |
+| `{count}@{reg}` | Replay `{count}` times |
+
+Recording captures canonical *tokens*, the same normalized form `token_of()`
+produces, so a replay is literally "feed the tokens back through the dispatcher".
+A replay is not itself recorded, recursion is capped at a depth of 10, and a
+20000-key budget stops a macro that loops without recursing. Each operation in a
+replay is its own undo step, as in Vim.
+
+### Dot repeat
+
+`.` repeats the last buffer-changing command, and `{count}.` re-runs it with a
+new count. It replays a *resolved payload* — operator, target (motion, text
+object, find, mark or doubled key), count, register and any text typed in insert
+mode — rather than replaying keystrokes, so `.` is always exactly one undo step.
+
+Covered: every operator with every target, the single-key edits (`x`, `X`, `D`,
+`~`, `J`, `p`, `P`, `Ctrl-A`, `Ctrl-X`), `r{char}`, every insert-entry command
+with its typed text (`i`, `I`, `a`, `A`, `o`, `O`, `s`, `S`, `C`, `c{motion}`),
+and `R`. A yank changes nothing, so it leaves `.` armed with the previous change
+rather than disarming it.
+
+Counts on insert-entry commands work off the same change log: `3i`, `5a` and
+`3o` type their text once and repeat it on `Esc`, all inside one undo step.
 
 ### Known gaps in Phase 4
 
@@ -202,9 +264,6 @@ cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
   line highlights, and blockwise draws its rows with `add_cursor`. The true Vim
   cursor is kept in Lua, so motions and operators are correct; only the status
   bar reading differs.
-- **A blockwise yank is stored charwise**, rows joined with newlines, because
-  the register model has no blockwise flag yet. `p` therefore pastes the rows as
-  lines rather than re-inserting a column. Blockwise paste is Phase 5.
 - **Blockwise `A` does not pad short rows.** Vim fills with spaces out to the
   block's right edge; here the append clamps to the end of the row.
 - **Text objects replace the selection rather than growing it.** `viw` selects
@@ -214,15 +273,35 @@ cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
   ordinary binding, not a force key, so the plugin interceptor wins. Paste stays
   reachable from insert mode, the Edit menu and the command palette.
 
+### Known gaps in Phase 5
+
+- **`"+` / `"*` cannot read or write text directly.** There is no clipboard
+  binding in the plugin Lua API (`internal/core/clipboard` exists on the Go side
+  but is not exposed), so `"+y` selects the range and runs `editor.copy`, and
+  `"+p` positions the cursor and runs `editor.paste`. Two consequences: the
+  clipboard carries no register kind, so `"+p` pastes whatever core makes of the
+  text rather than honouring linewise/blockwise; and `{count}"+p` is one undo
+  step per repetition, because core opens its own transaction and undo groups do
+  not nest.
+- **`.` does not repeat a visual-mode operator.** Vim re-applies it to a
+  same-sized region from the cursor; here a visual operator records no payload,
+  so `.` keeps repeating the last normal-mode change instead.
+- **A macro only replays keys the plugin owns.** Pass-through keys (arrows,
+  `Ctrl-S`, chords) are recorded but do nothing on replay, because the replay
+  feeds tokens to the plugin dispatcher rather than to the terminal. Text typed
+  in insert mode *is* replayed — the dispatcher inserts it directly.
+- **An insert session containing an unrepeatable key is not repeatable.** Arrow
+  keys or a paste inside insert mode mark the session dirty, and `.` then keeps
+  the previous change rather than repeating a half-known one.
+- **Marks are not per-buffer and uppercase marks are not global.** `m{A-Z}` sets
+  a mark in the same table as `m{a-z}`; switching tabs does not switch marks.
+- **A mark inside deleted text collapses rather than being invalidated.** Vim
+  drops such a mark; here it moves to the start of the deleted span.
+
 ### Known gaps in Phases 2-3
 
-- **Counts on insert-entry commands are ignored.** `3o` / `3i` repeat the typed
-  text on `Esc`, which needs the per-keystroke change log that arrives with `.`
-  repeat in Phase 5.
 - **`o` / `O` do not autoindent.** They open a column-1 line, matching vanilla
   Vim without `autoindent`.
-- **Backspace in `R` only walks left.** Vim restores the overwritten character;
-  that also needs the Phase 5 change log.
 - **`==` is a heuristic, not an indent engine.** ttt has none, so `==` copies
   the previous non-blank line's (space) indent, adds one shiftwidth if that line
   ends with `{`/`(`/`[`/`:`, and removes one if this line starts with a closing
@@ -239,7 +318,6 @@ cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
 - **`is` / `as` are scoped to the paragraph** around the cursor, and recognise
   `.`/`!`/`?` (plus trailing quotes and brackets) as sentence ends. Vim's
   abbreviation handling is not reproduced.
-- **No registers, marks, macros or `.`** — Phase 5.
 
 Commands: `Vim: Toggle Vim Mode`, `Vim: Enable Vim Mode`, `Vim: Disable Vim Mode`.
 
@@ -284,6 +362,13 @@ group themselves and let `leave_insert()` close it on `Esc`, which is what makes
 one. It appends `"\n"` at the end of the current line instead, which produces
 the same buffer.
 
+**Marks ride on an editor shim.** There is no buffer-change event to hang mark
+adjustment off, so `init.lua` wraps `editor.insert`, `editor.replace` and
+`editor.set_line` in a table that forwards everything else to the real module
+through `__index`. The wrappers shift mark line numbers by the newline delta of
+the edit and record the `.` mark. The module itself is never mutated, so no
+other plugin sees the override.
+
 **Cursor writes scroll.** `set_cursor` calls `EnsureCursorVisible` on the Go
 side, so every scrolling routine moves the cursor *first* and calls `scroll_to`
 *last* — the other order gets silently undone.
@@ -322,5 +407,5 @@ Tests:
 ```sh
 cd tests/functional && npx vitest run vim-mode.test.js vim-motions.test.js \
   vim-edits.test.js vim-operators.test.js vim-textobjects.test.js \
-  vim-visual.test.js
+  vim-visual.test.js vim-registers.test.js vim-macros.test.js
 ```

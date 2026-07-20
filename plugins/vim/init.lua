@@ -9,10 +9,11 @@
 -- Phase 2: insert-mode entry points and single-key edits.
 -- Phase 3: operators, motion ranges and text objects.
 -- Phase 4: visual, visual-line and visual-block modes.
+-- Phase 5: registers, marks, macros and `.` repeat.
 
 local ttt = require("ttt")
 local events = require("ttt.events")
-local editor = require("ttt.editor")
+local raw_editor = require("ttt.editor")
 
 -- ---------------------------------------------------------------------------
 -- State
@@ -26,10 +27,18 @@ local state = {
 	operator = nil, -- pending operator, { op = "d", count = n }
 	textobj = nil, -- "i" or "a" awaiting its object key
 	register = nil, -- pending "x register prefix
+	await_register = false, -- `"` typed, waiting for the register name
 	last_change = nil, -- replay payload for `.`
-	registers = {},
-	marks = {},
-	macro = { recording = nil, keys = {}, playing = false },
+	registers = {}, -- name -> { text = s, kind = "char"|"line"|"block" }
+	marks = {}, -- name -> { line = n, col = n }
+	mark_pending = nil, -- "m" (set) | "`" (exact) | "'" (line) awaiting its name
+	macros = {}, -- name -> array of canonical tokens
+	macro = { recording = nil, keys = {}, playing = 0, last = nil },
+	await_macro = nil, -- "q" (record) | "@" (replay) awaiting its register name
+	insert_ctx = nil, -- per-keystroke log for the insert session in flight
+	replace_stack = nil, -- overwritten characters, so `R` + backspace restores
+	replaying = false, -- inside `.`, so the replay does not re-record itself
+	probing = false, -- inside probe_motion, so jump marks are not disturbed
 	find_pending = nil, -- "f" | "F" | "t" | "T" awaiting its target char
 	last_find = nil, -- { op = "f", ch = "x" } for `;` and `,`
 	goal = nil, -- sticky column for j/k
@@ -39,6 +48,56 @@ local state = {
 	last_visual = nil, -- the range `gv` reselects
 	block_insert = false, -- blockwise I/A/c is holding multi-cursors open
 }
+
+-- ---------------------------------------------------------------------------
+-- Editor shim
+--
+-- Marks have to survive edits, and there is no buffer-change event to hang that
+-- off, so the three mutating entry points are wrapped. `editor` is a fresh table
+-- that forwards everything else to the real module via __index -- the module
+-- itself is left untouched, so no other plugin sees the override.
+-- ---------------------------------------------------------------------------
+
+local function count_newlines(s)
+	local n = 0
+	for _ in string.gmatch(s or "", "\n") do
+		n = n + 1
+	end
+	return n
+end
+
+-- Only lines strictly below the edit move; a mark inside a deleted span
+-- collapses onto the start of that span, which is what Vim does too.
+local function shift_marks(after, delta, collapse_from, collapse_to, collapse_col)
+	if delta == 0 and collapse_from == nil then
+		return
+	end
+	for _, m in pairs(state.marks) do
+		if m.line > after then
+			m.line = m.line + delta
+		elseif collapse_from and m.line > collapse_from and m.line <= collapse_to then
+			m.line = collapse_from
+			m.col = collapse_col
+		end
+	end
+end
+
+local editor = setmetatable({
+	insert = function(l, c, text)
+		state.marks["."] = { line = l, col = c }
+		shift_marks(l, count_newlines(text))
+		return raw_editor.insert(l, c, text)
+	end,
+	replace = function(sl, sc, el, ec, text)
+		state.marks["."] = { line = sl, col = sc }
+		shift_marks(el, count_newlines(text) - (el - sl), sl, el, sc)
+		return raw_editor.replace(sl, sc, el, ec, text)
+	end,
+	set_line = function(l, text)
+		state.marks["."] = { line = l, col = 1 }
+		return raw_editor.set_line(l, text)
+	end,
+}, { __index = raw_editor })
 
 local MODE_LABELS = {
 	normal = "-- NORMAL --",
@@ -56,9 +115,15 @@ local MODE_LABELS = {
 local function render_status()
 	if not state.enabled then
 		ttt.remove_status_item("mode")
+		ttt.remove_status_item("macro")
 		return
 	end
 	ttt.set_status_item("left", "mode", MODE_LABELS[state.mode] or state.mode, { priority = 10 })
+	if state.macro.recording then
+		ttt.set_status_item("left", "macro", "recording @" .. state.macro.recording, { priority = 11 })
+	else
+		ttt.remove_status_item("macro")
+	end
 end
 
 local function set_mode(mode)
@@ -68,6 +133,9 @@ local function set_mode(mode)
 	state.operator = nil
 	state.textobj = nil
 	state.register = nil
+	state.await_register = false
+	state.await_macro = nil
+	state.mark_pending = nil
 	state.find_pending = nil
 	state.replace_pending = nil
 	state.goal = nil
@@ -143,6 +211,9 @@ local function has_pending()
 		or state.operator ~= nil
 		or state.textobj ~= nil
 		or state.register ~= nil
+		or state.await_register
+		or state.await_macro ~= nil
+		or state.mark_pending ~= nil
 		or state.find_pending ~= nil
 		or state.replace_pending ~= nil
 end
@@ -485,6 +556,60 @@ local function repeat_find(count, reverse)
 end
 
 -- ---------------------------------------------------------------------------
+-- Marks
+--
+-- state.marks maps a name to { line, col }. Line numbers are kept correct
+-- across edits by the editor shim at the top of this file. Three names are
+-- special and never set by `m`: `'` is the position before the last jump (what
+-- `''` and ``` `` ``` return to), `.` is the position of the last change (set by
+-- the shim), and backtick reads the same slot as `'`.
+-- ---------------------------------------------------------------------------
+
+local function mark_slot(name)
+	if name == "`" or name == "'" then
+		return "'"
+	end
+	return name
+end
+
+local function set_jump_mark()
+	if state.probing then
+		return
+	end
+	local cur = editor.cursor()
+	state.marks["'"] = { line = cur.line, col = cur.col }
+end
+
+local function mark_set(name, line, col)
+	state.marks[mark_slot(name)] = { line = line, col = col }
+end
+
+-- Where a mark points, clamped onto the buffer as it is now. `linewise` is the
+-- `'{mark}` form, which lands on the first non-blank of the line.
+local function mark_target(name, linewise)
+	local m = state.marks[mark_slot(name)]
+	if not m then
+		return nil
+	end
+	local l = clamp(m.line, 1, line_count())
+	if linewise then
+		return l, first_non_blank(l)
+	end
+	return l, clamp(m.col, 1, max_col(line_runes(l)))
+end
+
+local function goto_mark(name, linewise)
+	local l, c = mark_target(name, linewise)
+	if not l then
+		return
+	end
+	set_jump_mark()
+	move_to(l, c)
+end
+
+local MARK_NAME = "^[%a'`%.]$"
+
+-- ---------------------------------------------------------------------------
 -- Screen position and scrolling
 --
 -- SetCursor calls EnsureCursorVisible on the Go side, so every routine here
@@ -613,6 +738,7 @@ local MOTIONS = {
 		word_end(n, true, false)
 	end,
 	["G"] = function(n, had_count)
+		set_jump_mark()
 		goto_line(had_count and n or line_count())
 	end,
 	["{"] = function(n)
@@ -672,6 +798,7 @@ local MOTIONS = {
 -- Second key of a `g`-prefixed sequence.
 local G_MOTIONS = {
 	["g"] = function(n, had_count)
+		set_jump_mark()
 		goto_line(had_count and n or 1)
 	end,
 	["_"] = function(n)
@@ -713,21 +840,126 @@ local function line_len(l)
 	return #line_runes(l)
 end
 
--- The caller must already have opened the undo group.
-local function begin_insert()
+-- ---------------------------------------------------------------------------
+-- The change log
+--
+-- `.` replays a *resolved payload*, not keystrokes: the operator, its target,
+-- the count, the register and (for anything that ends in insert mode) the text
+-- that was typed. The typed text is the one part that cannot be known when the
+-- command starts, so an insert session carries a per-keystroke log
+-- (state.insert_ctx) that is folded into the payload when Esc is pressed. That
+-- same log is what makes `3i` repeat its text and backspace in `R` restore the
+-- character it overwrote.
+-- ---------------------------------------------------------------------------
+
+-- A nil payload means "this command is not repeatable"; the previous `.` target
+-- is kept rather than cleared, so a stray yank or visual operator does not
+-- silently disarm `.`.
+local function record_change(payload)
+	if state.replaying or payload == nil then
+		return
+	end
+	state.last_change = payload
+end
+
+-- One typed key as the text it produced, or nil when it is not something that
+-- can be replayed as plain text (arrows, Ctrl chords, ...).
+local function token_text(t)
+	if t == "enter" then
+		return "\n"
+	end
+	if t == "tab" then
+		return "\t"
+	end
+	local b = t:byte(1)
+	if b == nil then
+		return nil
+	end
+	if #t == 1 then
+		if b >= 0x20 and b <= 0x7e then
+			return t
+		end
+		return nil
+	end
+	if b >= 0xc0 then
+		return t
+	end
+	return nil
+end
+
+-- Insert `text` at (l, c) and return the position just past it.
+local function insert_and_advance(l, c, text)
+	editor.insert(l, c, text)
+	local k = count_newlines(text)
+	if k == 0 then
+		return l, c + #runes_of(text)
+	end
+	return l + k, #runes_of(text:match("[^\n]*$") or "") + 1
+end
+
+local function insert_text_of(ctx)
+	if not ctx or ctx.dirty then
+		return nil
+	end
+	return table.concat(ctx.keys)
+end
+
+-- `{count}i`, `{count}o`, `{count}a`: Vim types the text once and repeats it
+-- count-1 more times when insert mode is left. `o`/`O` repeat onto fresh lines.
+local function repeat_insert(ctx, text)
+	local cur = editor.cursor()
+	local l, c = cur.line, cur.col
+	local open_line = (ctx.tok == "o" or ctx.tok == "O")
+	for _ = 2, ctx.count do
+		if open_line then
+			l, c = insert_and_advance(l, line_len(l) + 1, "\n" .. text)
+		else
+			l, c = insert_and_advance(l, c, text)
+		end
+	end
+	editor.set_cursor(l, c)
+end
+
+-- The caller must already have opened the undo group. `ctx` describes how the
+-- session was entered so it can be counted and repeated; pass nil for sessions
+-- that are neither (blockwise multi-cursor insert).
+local function begin_insert(ctx)
 	set_mode("insert")
+	if ctx then
+		ctx.keys = {}
+		ctx.count = ctx.count or 1
+		state.insert_ctx = ctx
+	end
+	state.replace_stack = {}
 end
 
 -- Leaving insert/replace mode. Vim steps the cursor one column left and drops
 -- it back onto a character; the position *before* that step is what `gi`
 -- resumes from.
 local function leave_insert()
+	local ctx = state.insert_ctx
+	state.insert_ctx = nil
+	state.replace_stack = nil
+
 	-- Blockwise I/A/c parked a cursor on every row; collapse them before reading
 	-- the cursor back, so the position recorded for `gi` is the primary one.
 	if state.block_insert then
 		state.block_insert = false
 		editor.clear_cursors()
+		ctx = nil
 	end
+
+	if ctx then
+		local text = insert_text_of(ctx)
+		if text and text ~= "" and ctx.count > 1 then
+			repeat_insert(ctx, text)
+		end
+		if ctx.change then
+			ctx.change.text = text
+			record_change(text and ctx.change or nil)
+		end
+	end
+
 	local cur = editor.cursor()
 	state.last_insert = { line = cur.line, col = cur.col }
 	set_mode("normal")
@@ -739,12 +971,18 @@ local function leave_insert()
 end
 
 -- ---------------------------------------------------------------------------
--- Text extraction and the unnamed register
+-- Text extraction and registers
 --
--- Phase 3 keeps exactly one register: the unnamed `"`. Named registers, the
--- numbered ring and `"x` prefixes arrive in Phase 5. A register entry is
--- { text, linewise }; linewise text always carries its trailing newline so a
--- paste can be replayed verbatim.
+-- A register entry is { text, kind }, kind being "char", "line" or "block".
+-- Linewise text always carries its trailing newline so a paste can be replayed
+-- verbatim; blockwise text is the rows joined by newlines, and only the kind
+-- distinguishes it from a multi-line charwise yank.
+--
+-- Names: `"` unnamed, `"0` last yank, `"1`-`"9` the delete ring, `"-` small
+-- delete, `"a`-`"z` named (uppercase appends), `"_` blackhole, `"+`/`"*` the
+-- system clipboard. See the README for what the clipboard registers can and
+-- cannot do -- there is no clipboard binding in the plugin Lua API, so they are
+-- routed through the `editor.copy` / `editor.paste` commands.
 -- ---------------------------------------------------------------------------
 
 -- table.concat errors when j runs past the array, so clamp both ends here
@@ -780,16 +1018,129 @@ local function linewise_text(sl, el)
 	return table.concat(parts, "\n") .. "\n"
 end
 
-local function set_register(text, linewise)
-	state.registers['"'] = { text = text, linewise = linewise and true or false }
+local CLIPBOARD_REGISTERS = { ["+"] = true, ["*"] = true }
+
+local function take_register()
+	local r = state.register
+	state.register = nil
+	return r
 end
 
-local function yank_charwise(sl, sc, el, ec)
-	set_register(charwise_text(sl, sc, el, ec), false)
+-- There is no clipboard binding in the plugin Lua API, so `"+y` borrows
+-- editor.copy: select the range, copy, drop the selection, put the cursor back.
+-- set_selection parks the cursor at the end of the range, which is exactly what
+-- Selection.Text reads, so `ec` stays the usual exclusive end column.
+local function clipboard_copy(sl, sc, el, ec)
+	local cur = editor.cursor()
+	local sel = editor.selection()
+	editor.set_selection(sl, sc, el, ec)
+	ttt.exec_command("editor.copy")
+	editor.clear_selection()
+	editor.set_cursor(cur.line, cur.col)
+	if sel and sel.active then
+		editor.set_selection(sel.start_line, sel.start_col, cur.line, cur.col)
+	end
 end
 
-local function yank_linewise(sl, el)
-	set_register(linewise_text(sl, el), true)
+local function reg_store(name, text, kind)
+	if name == "_" then
+		return
+	end
+	local upper = name:match("^(%u)$")
+	if upper then
+		local lower = upper:lower()
+		local prev = state.registers[lower]
+		if prev then
+			local joined
+			if prev.kind == "line" then
+				joined = prev.text .. text
+				if kind ~= "line" then
+					joined = joined .. "\n"
+				end
+			elseif kind == "line" then
+				joined = prev.text .. "\n" .. text
+			else
+				joined = prev.text .. text
+			end
+			state.registers[lower] = { text = joined, kind = prev.kind == "line" and "line" or kind }
+		else
+			state.registers[lower] = { text = text, kind = kind }
+		end
+		state.registers['"'] = state.registers[lower]
+		return
+	end
+	state.registers[name] = { text = text, kind = kind }
+	state.registers['"'] = state.registers[name]
+end
+
+-- Shift "1-"9 down one slot and drop the new text into "1.
+local function shift_delete_ring(text, kind)
+	for i = 9, 2, -1 do
+		state.registers[tostring(i)] = state.registers[tostring(i - 1)]
+	end
+	state.registers["1"] = { text = text, kind = kind }
+end
+
+-- The single write path for every yank and delete. `range` is optional and only
+-- used by the clipboard registers, which need buffer coordinates rather than
+-- text. Vim's defaults: a yank fills "0, a multi-line delete rotates the ring,
+-- a small delete fills "-, and everything also lands in the unnamed register.
+local function set_register(text, kind, is_delete, range)
+	local name = take_register()
+
+	if name and CLIPBOARD_REGISTERS[name] then
+		state.registers[name] = { text = text, kind = kind }
+		state.registers['"'] = state.registers[name]
+		if range then
+			clipboard_copy(range[1], range[2], range[3], range[4])
+		end
+		return
+	end
+
+	if name then
+		reg_store(name, text, kind)
+		return
+	end
+
+	if is_delete then
+		if kind == "line" or text:find("\n", 1, true) then
+			shift_delete_ring(text, kind)
+			state.registers['"'] = state.registers["1"]
+		else
+			state.registers["-"] = { text = text, kind = kind }
+			state.registers['"'] = state.registers["-"]
+		end
+		return
+	end
+
+	state.registers["0"] = { text = text, kind = kind }
+	state.registers['"'] = state.registers["0"]
+end
+
+-- Resolve a register for reading. Uppercase reads the lowercase slot.
+local function get_register(name)
+	name = name or '"'
+	local upper = name:match("^(%u)$")
+	if upper then
+		name = upper:lower()
+	end
+	return state.registers[name]
+end
+
+local function yank_charwise(sl, sc, el, ec, is_delete)
+	set_register(charwise_text(sl, sc, el, ec), "char", is_delete, { sl, sc, el, ec })
+end
+
+local function yank_linewise(sl, el, is_delete)
+	local n = line_count()
+	local ec_line = math.min(el, n)
+	local range
+	if ec_line < n then
+		range = { sl, 1, ec_line + 1, 1 }
+	else
+		range = { sl, 1, ec_line, line_len(ec_line) + 1 }
+	end
+	set_register(linewise_text(sl, el), "line", is_delete, range)
 end
 
 -- Delete whole lines sl..el. Three cases, because the newline that has to go
@@ -812,15 +1163,15 @@ end
 -- Linewise change (`cc`, `S`, `c` with a linewise motion): collapse lines
 -- sl..el to a single line that keeps sl's indent, then enter insert mode. The
 -- caller has already opened the undo group; leave_insert() closes it.
-local function change_lines(sl, el)
+local function change_lines(sl, el, ctx)
 	local n = line_count()
 	sl = clamp(sl, 1, n)
 	el = clamp(el, sl, n)
 	local indent = (editor.get_line(sl) or ""):match("^[ \t]*") or ""
-	yank_linewise(sl, el)
+	yank_linewise(sl, el, true)
 	editor.replace(sl, 1, el, line_len(el) + 1, indent)
 	editor.set_cursor(sl, #runes_of(indent) + 1)
-	begin_insert()
+	begin_insert(ctx)
 end
 
 -- Delete from the cursor to the end of line (cur.line + n - 1), joining the
@@ -828,21 +1179,93 @@ end
 local function delete_to_end(n)
 	local cur = editor.cursor()
 	local last = clamp(cur.line + n - 1, 1, line_count())
-	yank_charwise(cur.line, cur.col, last, line_len(last) + 1)
+	yank_charwise(cur.line, cur.col, last, line_len(last) + 1, true)
 	editor.replace(cur.line, cur.col, last, line_len(last) + 1, "")
 end
 
 -- p / P. A linewise register lands on a new line below/above; a charwise one
 -- lands after/before the cursor. Multi-line charwise text leaves the cursor at
 -- the first pasted character, single-line text on its last, both as in Vim.
+local function split_lines(s)
+	local out = {}
+	local from = 1
+	while true do
+		local at = s:find("\n", from, true)
+		if not at then
+			out[#out + 1] = s:sub(from)
+			break
+		end
+		out[#out + 1] = s:sub(from, at - 1)
+		from = at + 1
+	end
+	return out
+end
+
+-- Blockwise paste re-inserts a rectangle: row i of the register goes onto line
+-- cursor+i-1 at the paste column, padding short lines with spaces and appending
+-- new lines when the block runs past the end of the buffer. `count` repeats each
+-- row horizontally, as in Vim.
+local function paste_block(reg, count, after)
+	local cur = editor.cursor()
+	local rows = split_lines(reg.text)
+	local col = cur.col
+	if after and line_len(cur.line) > 0 then
+		col = math.min(cur.col + 1, line_len(cur.line) + 1)
+	end
+	editor.begin_undo_group()
+	for i = 1, #rows do
+		local l = cur.line + i - 1
+		while line_count() < l do
+			local n = line_count()
+			editor.insert(n, line_len(n) + 1, "\n")
+		end
+		local chunk = rows[i]:rep(count)
+		local len = line_len(l)
+		if len < col - 1 then
+			editor.insert(l, len + 1, string.rep(" ", col - 1 - len) .. chunk)
+		else
+			editor.insert(l, col, chunk)
+		end
+	end
+	editor.end_undo_group()
+	move_to(cur.line, col)
+end
+
+-- `"+p` / `"*p`. The clipboard cannot be read from Lua, so this positions the
+-- cursor and delegates to the core paste command. Consequences: the register
+-- kind is whatever core makes of the text (there is no linewise flag to carry),
+-- and each repetition is its own undo step because core opens its own
+-- transaction and undo groups do not nest.
+local function paste_clipboard(count, after)
+	local cur = editor.cursor()
+	local col = cur.col
+	if after and line_len(cur.line) > 0 then
+		col = math.min(cur.col + 1, line_len(cur.line) + 1)
+	end
+	editor.set_cursor(cur.line, col)
+	for _ = 1, count do
+		ttt.exec_command("editor.paste")
+	end
+	clamp_cursor()
+end
+
 local function paste(count, after)
-	local reg = state.registers['"']
+	local name = take_register()
+	if name and CLIPBOARD_REGISTERS[name] then
+		paste_clipboard(count, after)
+		return
+	end
+	local reg = get_register(name)
 	if not reg or reg.text == "" then
+		return
+	end
+	if reg.kind == "block" then
+		paste_block(reg, count, after)
 		return
 	end
 	local cur = editor.cursor()
 	editor.begin_undo_group()
-	if reg.linewise then
+	if reg.kind == "line" then
 		local body = (reg.text:gsub("\n$", ""))
 		local chunk = body
 		for _ = 2, count do
@@ -1036,46 +1459,58 @@ local function bump(count, dir)
 	editor.set_cursor(cur.line, scol + #out - 1)
 end
 
+-- Context for an insert session opened by a normal-mode command. `text_count`
+-- is how many times the typed text is repeated on Esc (`3i`), `cmd_count` is
+-- the count `.` should re-run the command with (`3s` deletes three characters
+-- but types its text once).
+local function entry_ctx(tok, cmd_count, text_count)
+	return {
+		tok = tok,
+		count = text_count or 1,
+		change = { kind = "insert", tok = tok, count = cmd_count or 1 },
+	}
+end
+
 -- Single-key normal-mode edits. Called as fn(count, had_count).
 local EDITS = {
-	["i"] = function()
+	["i"] = function(n)
 		editor.begin_undo_group()
-		begin_insert()
+		begin_insert(entry_ctx("i", n, n))
 	end,
-	["I"] = function()
+	["I"] = function(n)
 		local l = editor.cursor().line
 		move_to(l, first_non_blank(l))
 		editor.begin_undo_group()
-		begin_insert()
+		begin_insert(entry_ctx("I", n, n))
 	end,
-	["a"] = function()
+	["a"] = function(n)
 		local cur = editor.cursor()
 		editor.set_cursor(cur.line, math.min(cur.col + 1, line_len(cur.line) + 1))
 		editor.begin_undo_group()
-		begin_insert()
+		begin_insert(entry_ctx("a", n, n))
 	end,
-	["A"] = function()
+	["A"] = function(n)
 		local cur = editor.cursor()
 		editor.set_cursor(cur.line, line_len(cur.line) + 1)
 		editor.begin_undo_group()
-		begin_insert()
+		begin_insert(entry_ctx("A", n, n))
 	end,
 	-- Insert rejects line >= #Lines (internal/app/plugin_api.go), so `o` on the
 	-- last line appends the newline to the *end* of that line rather than
 	-- addressing the line after it.
-	["o"] = function()
+	["o"] = function(n)
 		local l = editor.cursor().line
 		editor.begin_undo_group()
 		editor.insert(l, line_len(l) + 1, "\n")
 		editor.set_cursor(l + 1, 1)
-		begin_insert()
+		begin_insert(entry_ctx("o", n, n))
 	end,
-	["O"] = function()
+	["O"] = function(n)
 		local l = editor.cursor().line
 		editor.begin_undo_group()
 		editor.insert(l, 1, "\n")
 		editor.set_cursor(l, 1)
-		begin_insert()
+		begin_insert(entry_ctx("O", n, n))
 	end,
 
 	["x"] = function(n)
@@ -1085,7 +1520,7 @@ local EDITS = {
 			return
 		end
 		editor.begin_undo_group()
-		yank_charwise(cur.line, cur.col, cur.line, last)
+		yank_charwise(cur.line, cur.col, cur.line, last, true)
 		editor.replace(cur.line, cur.col, cur.line, last, "")
 		editor.end_undo_group()
 		clamp_cursor()
@@ -1097,7 +1532,7 @@ local EDITS = {
 			return
 		end
 		editor.begin_undo_group()
-		yank_charwise(cur.line, start, cur.line, cur.col)
+		yank_charwise(cur.line, start, cur.line, cur.col, true)
 		editor.replace(cur.line, start, cur.line, cur.col, "")
 		editor.end_undo_group()
 		editor.set_cursor(cur.line, start)
@@ -1111,22 +1546,22 @@ local EDITS = {
 	["C"] = function(n)
 		editor.begin_undo_group()
 		delete_to_end(n)
-		begin_insert()
+		begin_insert(entry_ctx("C", n, 1))
 	end,
 	["s"] = function(n)
 		local cur = editor.cursor()
 		local last = math.min(cur.col + n, line_len(cur.line) + 1)
 		editor.begin_undo_group()
 		if last > cur.col then
-			yank_charwise(cur.line, cur.col, cur.line, last)
+			yank_charwise(cur.line, cur.col, cur.line, last, true)
 			editor.replace(cur.line, cur.col, cur.line, last, "")
 		end
-		begin_insert()
+		begin_insert(entry_ctx("s", n, 1))
 	end,
 	["S"] = function(n)
 		local cur = editor.cursor()
 		editor.begin_undo_group()
-		change_lines(cur.line, cur.line + n - 1)
+		change_lines(cur.line, cur.line + n - 1, entry_ctx("S", n, 1))
 	end,
 	-- Vim's `Y` is a synonym for `yy`; ttt follows Neovim's default of `y$`,
 	-- which is what the other shorthands (`D`, `C`) do.
@@ -1141,6 +1576,7 @@ local EDITS = {
 	end,
 	["R"] = function()
 		editor.begin_undo_group()
+		begin_insert({ tok = "R", count = 1, change = { kind = "replace_mode" } })
 		set_mode("replace")
 	end,
 
@@ -1277,10 +1713,17 @@ end
 -- editor.replace. Only `c` leaves the undo group open, because it hands off to
 -- insert mode and leave_insert() closes it -- that is what makes `cwfoo<Esc>`
 -- one undo step.
-local function apply_operator(op, sl, sc, el, ec, linewise)
+local function apply_operator(op, sl, sc, el, ec, linewise, payload)
 	local n = line_count()
 	sl = clamp(sl, 1, n)
 	el = clamp(el, 1, n)
+
+	-- `c` hands off to insert mode, so its payload is only complete once the
+	-- typed text is known; leave_insert() records it. Everything else is done
+	-- editing by the time this returns.
+	if op ~= "c" then
+		record_change(payload)
+	end
 
 	if op == "y" then
 		if linewise then
@@ -1298,12 +1741,12 @@ local function apply_operator(op, sl, sc, el, ec, linewise)
 
 	if op == "d" then
 		if linewise then
-			yank_linewise(sl, el)
+			yank_linewise(sl, el, true)
 			delete_lines(sl, el)
 			local l = math.min(sl, line_count())
 			move_to(l, first_non_blank(l))
 		else
-			yank_charwise(sl, sc, el, ec)
+			yank_charwise(sl, sc, el, ec, true)
 			editor.replace(sl, sc, el, ec, "")
 			editor.set_cursor(sl, sc)
 			clamp_cursor()
@@ -1313,13 +1756,14 @@ local function apply_operator(op, sl, sc, el, ec, linewise)
 	end
 
 	if op == "c" then
+		local ctx = { tok = "c", count = 1, change = payload }
 		if linewise then
-			change_lines(sl, el)
+			change_lines(sl, el, ctx)
 		else
-			yank_charwise(sl, sc, el, ec)
+			yank_charwise(sl, sc, el, ec, true)
 			editor.replace(sl, sc, el, ec, "")
 			editor.set_cursor(sl, sc)
-			begin_insert()
+			begin_insert(ctx)
 		end
 		-- Undo group deliberately left open for leave_insert().
 		return
@@ -1366,7 +1810,9 @@ end
 local function probe_motion(fn, n, had_count)
 	local start = editor.cursor()
 	local saved_goal = state.goal
+	state.probing = true
 	fn(n, had_count)
+	state.probing = false
 	local dest = editor.cursor()
 	editor.set_cursor(start.line, start.col)
 	state.goal = saved_goal
@@ -1961,20 +2407,32 @@ local function operator_count()
 	return total, (opc ~= nil or mc ~= nil)
 end
 
+-- The `.` payload for an operator. A yank changes nothing, so it is not
+-- repeatable. state.register is still pending here -- the yank inside
+-- apply_operator is what consumes it -- so the payload can capture it.
+local function op_payload(op, n, target)
+	if op == "y" then
+		return nil
+	end
+	return { kind = "operator", op = op, count = n, register = state.register, target = target }
+end
+
 -- Doubled key: `dd`, `>>`, `guu`. Operates on `count` whole lines from the
 -- cursor down.
 local function run_linewise_operator()
 	local op = state.operator.op
 	local n = operator_count()
+	local payload = op_payload(op, n, { t = "linewise" })
 	local sl = editor.cursor().line
 	local el = clamp(sl + n - 1, 1, line_count())
 	clear_operator()
-	apply_operator(op, sl, 1, el, 1, true)
+	apply_operator(op, sl, 1, el, 1, true, payload)
 end
 
 local function run_motion_operator(tok, gprefix)
 	local op = state.operator.op
 	local n, had = operator_count()
+	local payload = op_payload(op, n, { t = "motion", tok = tok, gprefix = gprefix })
 	local fn, kind
 	if gprefix then
 		kind = G_MOTION_KIND[tok]
@@ -2008,12 +2466,13 @@ local function run_motion_operator(tok, gprefix)
 	if sl == nil then
 		return
 	end
-	apply_operator(op, sl, sc, el, ec, linewise)
+	apply_operator(op, sl, sc, el, ec, linewise, payload)
 end
 
 local function run_find_operator(op_char, ch)
 	local op = state.operator.op
 	local n = operator_count()
+	local payload = op_payload(op, n, { t = "find", op = op_char, ch = ch })
 	local start = editor.cursor()
 	local saved_goal = state.goal
 	find_char(op_char, ch, n, false)
@@ -2032,12 +2491,13 @@ local function run_find_operator(op_char, ch)
 	if sl == nil then
 		return
 	end
-	apply_operator(op, sl, sc, el, ec, linewise)
+	apply_operator(op, sl, sc, el, ec, linewise, payload)
 end
 
 local function run_textobject(inner, tok)
 	local op = state.operator.op
 	local n = operator_count()
+	local payload = op_payload(op, n, { t = "textobj", inner = inner, tok = tok })
 	local fn = TEXT_OBJECTS[tok]
 	clear_operator()
 	if not fn then
@@ -2050,7 +2510,26 @@ local function run_textobject(inner, tok)
 	if not linewise and sl == el and ec <= sc then
 		return
 	end
-	apply_operator(op, sl, sc, el, ec, linewise)
+	apply_operator(op, sl, sc, el, ec, linewise, payload)
+end
+
+-- `d'a` / ``d`a``. Backtick is an exclusive charwise motion, `'` a linewise one.
+local function run_mark_operator(name, linewise_mark)
+	local op = state.operator.op
+	local n = operator_count()
+	local payload = op_payload(op, n, { t = "mark", name = name, linewise = linewise_mark })
+	local start = editor.cursor()
+	local ml, mc = mark_target(name, linewise_mark)
+	clear_operator()
+	if not ml then
+		return
+	end
+	local kind = linewise_mark and "linewise" or "exclusive"
+	local sl, sc, el, ec, lw = motion_to_range(start, { line = ml, col = mc }, kind)
+	if sl == nil then
+		return
+	end
+	apply_operator(op, sl, sc, el, ec, lw, payload)
 end
 
 -- g-prefixed edits, appended to the Phase 1 motion table.
@@ -2205,6 +2684,9 @@ end
 -- Tear down the visual chrome and return to normal mode *without* touching the
 -- cursor. Operators call this before they edit; Esc uses exit_visual().
 local function end_visual()
+	-- set_mode clears the pending `"x` prefix, but a visual operator types its
+	-- register *before* the operator key, so it has to survive this teardown.
+	local reg = state.register
 	save_last_visual()
 	if state.mode == "visual_block" then
 		editor.clear_cursors()
@@ -2212,6 +2694,7 @@ local function end_visual()
 	editor.clear_selection()
 	state.visual = nil
 	set_mode("normal")
+	state.register = reg
 end
 
 local function exit_visual()
@@ -2405,7 +2888,7 @@ end
 -- Visual `p`: the selection is replaced by the register, and the text that was
 -- there becomes the new unnamed register, as in Vim.
 local function visual_paste()
-	local reg = state.registers['"']
+	local reg = get_register(take_register())
 	local sl, sc, el, ec, linewise = visual_range()
 	if state.mode == "visual_block" or not reg or reg.text == "" then
 		return
@@ -2422,16 +2905,16 @@ local function visual_paste()
 
 	editor.begin_undo_group()
 	if linewise then
-		yank_linewise(sl, el)
+		yank_linewise(sl, el, true)
 	else
-		yank_charwise(sl, sc, el, ec)
+		yank_charwise(sl, sc, el, ec, true)
 	end
 
 	local repl
 	if linewise then
-		repl = reg.linewise and body or text
+		repl = (reg.kind == "line") and body or text
 	else
-		repl = reg.linewise and ("\n" .. body .. "\n") or text
+		repl = (reg.kind == "line") and ("\n" .. body .. "\n") or text
 	end
 	editor.replace(sl, a, el, b, repl)
 	editor.end_undo_group()
@@ -2471,12 +2954,12 @@ local function visual_operator(op, force_linewise)
 		local top, bot, left, right = block_rect()
 		local dollar = state.visual.dollar
 		if op == "y" then
-			set_register(block_text(top, bot, left, right, dollar), false)
+			set_register(block_text(top, bot, left, right, dollar), "block", false)
 			end_visual()
 			move_to(top, math.min(left, max_col(line_runes(top))))
 			return
 		end
-		set_register(block_text(top, bot, left, right, dollar), false)
+		set_register(block_text(top, bot, left, right, dollar), "block", true)
 		end_visual()
 		editor.begin_undo_group()
 		block_delete(top, bot, left, right, dollar)
@@ -2547,6 +3030,34 @@ local VISUAL_LINEWISE_OPS = { X = "d", D = "d", R = "c", S = "c", C = "c", Y = "
 local function handle_visual(tok)
 	if ESCAPE_TOKENS[tok] then
 		exit_visual()
+		return true
+	end
+
+	if state.await_register then
+		state.await_register = false
+		if is_printable(tok) then
+			state.register = tok
+		end
+		return true
+	end
+
+	if state.mark_pending then
+		local what = state.mark_pending
+		state.mark_pending = nil
+		if tok:match(MARK_NAME) then
+			if what == "m" then
+				visual_sync()
+				local cur = editor.cursor()
+				mark_set(tok, cur.line, cur.col)
+			else
+				local ml, mc = mark_target(tok, what == "'")
+				if ml then
+					visual_motion(function()
+						move_to(ml, mc)
+					end, 1, false)
+				end
+			end
+		end
 		return true
 	end
 
@@ -2628,6 +3139,16 @@ local function handle_visual(tok)
 		else
 			switch_visual(vm)
 		end
+		return true
+	end
+
+	if tok == '"' then
+		state.await_register = true
+		return true
+	end
+
+	if tok == "m" or tok == "`" or tok == "'" then
+		state.mark_pending = tok
 		return true
 	end
 
@@ -2756,6 +3277,201 @@ local function handle_visual(tok)
 end
 
 -- ---------------------------------------------------------------------------
+-- Dot repeat
+--
+-- `.` replays the resolved payload recorded by the last buffer-changing
+-- command, not the keystrokes that produced it. Everything below re-enters the
+-- very same code paths the original command took, which is what keeps `.` a
+-- single undo step: each of those paths opens exactly one undo group.
+-- ---------------------------------------------------------------------------
+
+local function do_replace_char(n, ch)
+	local cur = editor.cursor()
+	-- Vim refuses the whole operation when the count runs past the end of the
+	-- line rather than replacing fewer characters.
+	if cur.col + n - 1 > line_len(cur.line) then
+		return
+	end
+	editor.begin_undo_group()
+	editor.replace(cur.line, cur.col, cur.line, cur.col + n, ch:rep(n))
+	editor.end_undo_group()
+	editor.set_cursor(cur.line, cur.col + n - 1)
+end
+
+-- Overtype `text` from the cursor, the way `R` does.
+local function overtype(text)
+	for _, ch in ipairs(runes_of(text)) do
+		local cur = editor.cursor()
+		if ch == "\n" then
+			editor.insert(cur.line, cur.col, "\n")
+			editor.set_cursor(cur.line + 1, 1)
+		elseif cur.col <= line_len(cur.line) then
+			editor.replace(cur.line, cur.col, cur.line, cur.col + 1, ch)
+			editor.set_cursor(cur.line, cur.col + 1)
+		else
+			editor.insert(cur.line, cur.col, ch)
+			editor.set_cursor(cur.line, cur.col + 1)
+		end
+	end
+end
+
+-- Finish an insert session that a replay opened: the recorded text has to be
+-- typed by hand, because there is no editor to type it.
+local function replay_insert(tok, text, count)
+	local ctx = state.insert_ctx
+	if ctx then
+		-- The repetition is done here, so leave_insert() must not do it again.
+		ctx.count = 1
+	end
+	if text and text ~= "" then
+		local cur = editor.cursor()
+		local l, c = cur.line, cur.col
+		local open_line = (tok == "o" or tok == "O")
+		for i = 1, math.max(1, count or 1) do
+			if open_line and i > 1 then
+				l, c = insert_and_advance(l, line_len(l) + 1, "\n" .. text)
+			else
+				l, c = insert_and_advance(l, c, text)
+			end
+		end
+		editor.set_cursor(l, c)
+	end
+	leave_insert()
+end
+
+-- The entry commands whose count multiplies the typed text rather than the
+-- amount of buffer they consume (`3i` types three copies, `3s` does not).
+local REPEAT_TEXT = { i = true, I = true, a = true, A = true, o = true, O = true }
+
+local function run_operator_payload(p, count)
+	local n = count or p.count or 1
+	state.operator = { op = p.op, count = n }
+	state.count = nil
+	state.register = p.register
+	local t = p.target or {}
+	if t.t == "linewise" then
+		run_linewise_operator()
+	elseif t.t == "motion" then
+		run_motion_operator(t.tok, t.gprefix)
+	elseif t.t == "textobj" then
+		run_textobject(t.inner, t.tok)
+	elseif t.t == "find" then
+		run_find_operator(t.op, t.ch)
+	elseif t.t == "mark" then
+		run_mark_operator(t.name, t.linewise)
+	else
+		clear_operator()
+	end
+	if p.op == "c" and state.mode == "insert" then
+		replay_insert("c", p.text, 1)
+	end
+	state.register = nil
+end
+
+local function run_change(p, count)
+	if not p then
+		return
+	end
+	state.replaying = true
+	pcall(function()
+		if p.kind == "edit" then
+			state.register = p.register
+			local fn = EDITS[p.tok]
+			if fn then
+				fn(count or p.count or 1, true)
+			end
+			state.register = nil
+		elseif p.kind == "replace_char" then
+			do_replace_char(count or p.count or 1, p.ch)
+		elseif p.kind == "replace_mode" then
+			EDITS["R"](1)
+			overtype(p.text or "")
+			leave_insert()
+		elseif p.kind == "insert" then
+			local n = count or p.count or 1
+			local fn = EDITS[p.tok]
+			if fn then
+				fn(n, true)
+				replay_insert(p.tok, p.text, REPEAT_TEXT[p.tok] and n or 1)
+			end
+		elseif p.kind == "operator" then
+			run_operator_payload(p, count)
+		end
+	end)
+	state.replaying = false
+end
+
+-- ---------------------------------------------------------------------------
+-- Macros
+--
+-- Recording captures canonical tokens, not raw events, so a replay is literally
+-- "feed the tokens back through dispatch()". state.macro.playing is a depth
+-- counter: it stops a replay from being recorded into the macro being recorded,
+-- and caps `@a` calling itself. A key budget caps the other runaway shape, a
+-- macro that loops forever without recursing.
+-- ---------------------------------------------------------------------------
+
+local MACRO_MAX_DEPTH = 10
+local MACRO_MAX_KEYS = 20000
+
+local HANDLERS -- assigned once the mode handlers exist
+local dispatch -- forward declaration; play_macro re-enters it
+
+local function start_recording(name)
+	state.macro.recording = name
+	state.macro.keys = {}
+	render_status()
+end
+
+local function stop_recording()
+	local name = state.macro.recording
+	if not name then
+		return
+	end
+	local slot = name:lower()
+	if name:match("^%u$") and state.macros[slot] then
+		local dst = state.macros[slot]
+		for _, t in ipairs(state.macro.keys) do
+			dst[#dst + 1] = t
+		end
+	else
+		state.macros[slot] = state.macro.keys
+	end
+	state.macro.recording = nil
+	state.macro.keys = {}
+	render_status()
+end
+
+local function play_macro(name, count)
+	local keys = state.macros[name:lower()]
+	if not keys or #keys == 0 then
+		return
+	end
+	if state.macro.playing >= MACRO_MAX_DEPTH then
+		return
+	end
+	state.macro.last = name:lower()
+	if state.macro.playing == 0 then
+		state.macro.budget = MACRO_MAX_KEYS
+	end
+	state.macro.playing = state.macro.playing + 1
+	-- A Lua error mid-replay would otherwise be swallowed by the key.press
+	-- listener and leave the depth counter stuck.
+	pcall(function()
+		for _ = 1, count do
+			for _, tok in ipairs(keys) do
+				state.macro.budget = state.macro.budget - 1
+				if state.macro.budget <= 0 then
+					error("vim: macro key budget exhausted")
+				end
+				dispatch(tok)
+			end
+		end
+	end)
+	state.macro.playing = state.macro.playing - 1
+end
+
+-- ---------------------------------------------------------------------------
 -- Mode handlers
 -- ---------------------------------------------------------------------------
 
@@ -2767,15 +3483,27 @@ local function handle_insert(tok)
 	return false
 end
 
--- R: overtype until Esc. Backspace only walks left -- Vim restores the
--- overwritten characters, which needs the per-keystroke change log that arrives
--- with `.` repeat in Phase 5.
+-- R: overtype until Esc. state.replace_stack remembers what each keystroke
+-- overwrote, so backspace restores the original character the way Vim does --
+-- and, past the start of the session, just walks left.
 local function handle_replace(tok)
 	if ESCAPE_TOKENS[tok] then
 		leave_insert()
 		return true
 	end
 	if tok == "backspace" or tok == "backspace2" then
+		local stack = state.replace_stack
+		local top = stack and stack[#stack] or nil
+		if top then
+			table.remove(stack)
+			if top.orig then
+				editor.replace(top.line, top.col, top.line, top.col + 1, top.orig)
+			else
+				editor.replace(top.line, top.col, top.line, top.col + 1, "")
+			end
+			editor.set_cursor(top.line, top.col)
+			return true
+		end
 		local cur = editor.cursor()
 		if cur.col > 1 then
 			editor.set_cursor(cur.line, cur.col - 1)
@@ -2784,9 +3512,16 @@ local function handle_replace(tok)
 	end
 	if is_printable(tok) then
 		local cur = editor.cursor()
+		local stack = state.replace_stack
 		if cur.col <= line_len(cur.line) then
+			if stack then
+				stack[#stack + 1] = { line = cur.line, col = cur.col, orig = line_runes(cur.line)[cur.col] }
+			end
 			editor.replace(cur.line, cur.col, cur.line, cur.col + 1, tok)
 		else
+			if stack then
+				stack[#stack + 1] = { line = cur.line, col = cur.col, orig = nil }
+			end
 			editor.insert(cur.line, cur.col, tok)
 		end
 		editor.set_cursor(cur.line, cur.col + 1)
@@ -2794,6 +3529,20 @@ local function handle_replace(tok)
 	end
 	return false
 end
+
+-- Single-key edits that change the buffer without entering insert mode, so
+-- their `.` payload is complete the moment they run.
+local SIMPLE_CHANGES = {
+	["x"] = true,
+	["X"] = true,
+	["D"] = true,
+	["~"] = true,
+	["J"] = true,
+	["p"] = true,
+	["P"] = true,
+	["ctrl-a"] = true,
+	["ctrl-x"] = true,
+}
 
 local function handle_normal(tok)
 	if ESCAPE_TOKENS[tok] then
@@ -2804,19 +3553,61 @@ local function handle_normal(tok)
 		return true
 	end
 
-	-- r{char} consumes the next key. Vim refuses the whole operation when the
-	-- count runs past the end of the line rather than replacing fewer chars.
+	-- r{char} consumes the next key.
 	if state.replace_pending then
 		local n = state.replace_pending
 		state.replace_pending = nil
 		if is_printable(tok) then
-			local cur = editor.cursor()
-			if cur.col + n - 1 <= line_len(cur.line) then
-				editor.begin_undo_group()
-				editor.replace(cur.line, cur.col, cur.line, cur.col + n, tok:rep(n))
-				editor.end_undo_group()
-				editor.set_cursor(cur.line, cur.col + n - 1)
+			record_change({ kind = "replace_char", count = n, ch = tok })
+			do_replace_char(n, tok)
+		end
+		return true
+	end
+
+	if state.await_register then
+		state.await_register = false
+		if is_printable(tok) then
+			state.register = tok
+		end
+		return true
+	end
+
+	-- q{a-z} / @{a-z} / @@ consume the next key as a register name.
+	if state.await_macro then
+		local what = state.await_macro
+		state.await_macro = nil
+		local n = take_count()
+		if what == "q" then
+			if tok:match("^%a$") then
+				start_recording(tok)
 			end
+		elseif tok == "@" then
+			if state.macro.last then
+				play_macro(state.macro.last, n)
+			end
+		elseif tok:match("^%a$") then
+			play_macro(tok, n)
+		end
+		return true
+	end
+
+	-- m{name} sets a mark; `{name} and '{name} jump to one, and are valid
+	-- operator targets.
+	if state.mark_pending then
+		local what = state.mark_pending
+		state.mark_pending = nil
+		if not tok:match(MARK_NAME) then
+			clear_operator()
+			return true
+		end
+		if what == "m" then
+			local cur = editor.cursor()
+			mark_set(tok, cur.line, cur.col)
+		elseif state.operator then
+			run_mark_operator(tok, what == "'")
+		else
+			state.count = nil
+			goto_mark(tok, what == "'")
 		end
 		return true
 	end
@@ -2887,6 +3678,40 @@ local function handle_normal(tok)
 		return true
 	end
 
+	if tok == '"' then
+		state.await_register = true
+		return true
+	end
+
+	if tok == "`" or tok == "'" then
+		state.mark_pending = tok
+		return true
+	end
+
+	if not state.operator then
+		if tok == "m" then
+			state.mark_pending = "m"
+			return true
+		end
+		if tok == "q" then
+			if state.macro.recording then
+				stop_recording()
+			else
+				state.await_macro = "q"
+			end
+			return true
+		end
+		if tok == "@" then
+			state.await_macro = "@"
+			return true
+		end
+		if tok == "." then
+			local n, had = take_count()
+			run_change(state.last_change, had and n or nil)
+			return true
+		end
+	end
+
 	-- Operator-pending. This has to precede the motion and edit tables: `d` then
 	-- `i` is "inner text object", not "enter insert mode".
 	if state.operator then
@@ -2934,7 +3759,13 @@ local function handle_normal(tok)
 
 	local edit = EDITS[tok]
 	if edit then
+		local reg = state.register
 		local n, had = take_count()
+		-- Insert-entry edits record their payload in leave_insert() instead,
+		-- once the typed text is known.
+		if SIMPLE_CHANGES[tok] then
+			record_change({ kind = "edit", tok = tok, count = n, register = reg })
+		end
 		edit(n, had)
 		return true
 	end
@@ -2965,7 +3796,7 @@ G_MOTIONS["v"] = function()
 	reselect_visual()
 end
 
-local HANDLERS = {
+HANDLERS = {
 	normal = handle_normal,
 	insert = handle_insert,
 	replace = handle_replace,
@@ -2974,15 +3805,74 @@ local HANDLERS = {
 	visual_block = handle_visual,
 }
 
-local function on_key(ev)
-	if not state.enabled then
-		return false
-	end
+-- The single entry point for a canonical token, whether it came from a real
+-- keystroke or from a macro replay. Everything that needs to observe keys --
+-- macro recording, the insert-mode change log -- hangs off here rather than off
+-- the individual handlers.
+dispatch = function(tok)
 	local handler = HANDLERS[state.mode]
 	if not handler then
 		return false
 	end
-	return handler(token_of(ev))
+
+	-- `q` stops recording, and must not be recorded as part of the macro.
+	if state.macro.recording and state.mode == "normal" and tok == "q" and not has_pending() then
+		stop_recording()
+		return true
+	end
+
+	local ctx = state.insert_ctx
+	local typing = (state.mode == "insert" or state.mode == "replace")
+	-- Sampled before the handler runs: the `a` of `qa` starts the recording and
+	-- must not become the macro's first key.
+	local was_recording = state.macro.recording
+
+	local handled = handler(tok)
+
+	-- Insert mode passes printable keys through to the editor, which types them.
+	-- During a macro replay there is no editor doing that, so this does it.
+	if not handled and typing and state.macro.playing > 0 then
+		local txt = token_text(tok)
+		if txt then
+			local cur = editor.cursor()
+			local l, c = insert_and_advance(cur.line, cur.col, txt)
+			editor.set_cursor(l, c)
+			handled = true
+		end
+	end
+
+	-- Log the typed text for `.` and for `{count}i`. A key that cannot be
+	-- rendered as text makes the session non-repeatable rather than wrong.
+	if ctx and typing and not ESCAPE_TOKENS[tok] then
+		if tok == "backspace" or tok == "backspace2" then
+			if #ctx.keys > 0 then
+				table.remove(ctx.keys)
+			else
+				ctx.dirty = true
+			end
+		else
+			local txt = token_text(tok)
+			if txt then
+				ctx.keys[#ctx.keys + 1] = txt
+			else
+				ctx.dirty = true
+			end
+		end
+	end
+
+	if was_recording and state.macro.recording and state.macro.playing == 0 and (handled or typing) then
+		local keys = state.macro.keys
+		keys[#keys + 1] = tok
+	end
+
+	return handled
+end
+
+local function on_key(ev)
+	if not state.enabled then
+		return false
+	end
+	return dispatch(token_of(ev))
 end
 
 -- ---------------------------------------------------------------------------
