@@ -16,9 +16,12 @@ func (a *App) ReloadSettings() {
 // without a restart belongs here, so every caller produces identical results.
 func (a *App) ApplySettings(s config.Settings) {
 	// Side effects below are keyed off what actually changed: ApplySettings runs
-	// on every option toggle, and refetching git blame or rebuilding bracket
-	// colors each time would be wasted work.
-	prev := *a.Settings
+	// on every option toggle, and refetching the git gutter or rebuilding bracket
+	// colors each time would be wasted work. The baseline is the last applied
+	// value, not *a.Settings — callers such as the Options toggles mutate that
+	// before calling in, so reading it here would always compare s against itself.
+	prev := a.appliedSettings
+	a.appliedSettings = s
 	*a.Settings = s
 
 	// Apply editor settings to the editor group and active editor

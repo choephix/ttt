@@ -56,8 +56,8 @@ func TestSelectSetSelectedIDShowsCurrentValue(t *testing.T) {
 	if got := sel.selectedID(); got != "b" {
 		t.Errorf("selectedID() = %q, want \"b\"", got)
 	}
-	if sel.Config.Placeholder != "Beta" {
-		t.Errorf("placeholder = %q, want \"Beta\"", sel.Config.Placeholder)
+	if sel.input.Config.Placeholder != "Beta" {
+		t.Errorf("placeholder = %q, want \"Beta\"", sel.input.Config.Placeholder)
 	}
 }
 
@@ -147,8 +147,8 @@ func TestSelectShowsUnknownValue(t *testing.T) {
 	})
 	sel.SetSelectedID("handwritten")
 
-	if sel.Config.Placeholder != "handwritten" {
-		t.Errorf("placeholder = %q, want the raw value shown", sel.Config.Placeholder)
+	if sel.input.Config.Placeholder != "handwritten" {
+		t.Errorf("placeholder = %q, want the raw value shown", sel.input.Config.Placeholder)
 	}
 }
 

@@ -495,7 +495,7 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 | [`keybindings.json`](config/keybindings.json) | Custom keybindings (VS Code key format) |
 | `themes/*.json` | Custom color themes |
 
-Most settings can be edited from a form instead of by hand: **View → Settings**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). Changes are held until you press **Apply** (also **Settings: Apply Changes**), which writes `settings.json` and applies everything that does not need a restart; **Reset** (**Settings: Discard Changes**) drops them. Settings marked *(restart)* take effect on next launch. LSP settings and external formatters are not exposed in the form — those stay JSON-only.
+Most settings can be edited from a form instead of by hand: **View → Settings**, **Ctrl+K ,**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). The form is grouped into **Editor**, **Appearance**, **Completion** and **Advanced** (explorer, terminal, search and plugin options live under Advanced). Changes are held until you press **Apply** (also **Settings: Apply Changes**), which writes `settings.json` and applies everything that does not need a restart; **Cancel** (also **Settings: Discard Changes**) closes the tab and drops them. Settings marked *(restart)* take effect on next launch. LSP settings and external formatters are not exposed in the form — those stay JSON-only.
 
 To edit the raw files, use **Settings: Open settings.json** and **Settings: Open keybindings.json**.
 

@@ -62,9 +62,9 @@ describe("settings editor", () => {
     tui.exec("Settings: Open Editor Settings");
     tui.waitStable();
 
-    // Tab past the tab strip and scroll view onto the first controls, then
-    // flip Word wrap.
-    tui.press("tab");
+    // Tab past the tab strip and scroll view onto Word wrap.
+    // The assertions below name that row, so if the traversal ever lands
+    // somewhere else this fails loudly instead of passing on a no-op.
     tui.press("tab");
     tui.press("tab");
     tui.press("tab");
@@ -77,7 +77,10 @@ describe("settings editor", () => {
     const afterApply = tui.snapshot();
 
     const { snapshots } = tui.run();
-    expect(snapshots[beforeApply]).not.toBe(snapshots[afterApply]);
+    // Toggled in the form...
+    expect(snapshots[beforeApply]).toMatch(/Word wrap\s+\[x\]/);
+    // ...and still set after Apply wrote and re-read settings.json.
+    expect(snapshots[afterApply]).toMatch(/Word wrap\s+\[x\]/);
     expect(snapshots[afterApply]).toContain("Settings applied");
   });
 

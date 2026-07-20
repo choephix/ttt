@@ -86,6 +86,9 @@ type App struct {
 	pluginDetailWidgets    map[string]*pluginDetailState
 	pluginDrawer           ui.Widget
 	settingsView           *settingsView
+	// appliedSettings is the last value ApplySettings acted on. Callers routinely
+	// mutate a.Settings before calling it, so a.Settings cannot serve as "before".
+	appliedSettings config.Settings
 }
 
 func (a *App) KeyFor(cmd string) string {

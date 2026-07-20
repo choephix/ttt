@@ -9,8 +9,8 @@ type TabbedWidget struct {
 	Tabs     *TabsWidget
 	Children []Widget
 	OnChange func(index int)
-	// Fill makes the container grow when its active child grows, instead of
-	// measuring as just the tab strip.
+	// Fill propagates a flexible (zero) height from the active child, so an
+	// enclosing stack treats this container as greedy rather than fixed.
 	Fill   bool
 	active int
 }
@@ -54,8 +54,8 @@ func (t *TabbedWidget) SetActive(index int) {
 }
 
 func (t *TabbedWidget) Height() int {
-	// Opt-in: without Fill, a tabbed container keeps reporting tab-strip height
-	// even when its active child grows, which is what existing callers expect.
+	// Opt-in: existing callers want a concrete height, so only a Fill container
+	// forwards its child's "grow to fit" request upward.
 	if t.Fill && t.active < len(t.Children) && t.Children[t.active].Height() == 0 {
 		return 0
 	}

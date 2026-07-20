@@ -179,12 +179,33 @@ func cursorStyleItems() []widgets.SelectItem {
 }
 
 type settingsView struct {
-	app     *App
-	working config.Settings
-	adapter *ui.WidgetAdapter
-	status  *widgets.LabelWidget
-	inputs  []func() string
-	selects []*widgets.SelectWidget
+	app        *App
+	working    config.Settings
+	categories []settingsCategory
+	adapter    *ui.WidgetAdapter
+	status     *widgets.LabelWidget
+	inputs     []func() string
+	selects    []*widgets.SelectWidget
+}
+
+// commitTo copies the fields this form owns out of the working copy and onto s,
+// leaving everything else on s untouched. Assigning the whole working struct
+// would also write back its snapshot of settings the form never shows, undoing
+// anything changed elsewhere — a theme picked from the palette, an Options
+// toggle — while the tab sat open.
+func (v *settingsView) commitTo(s *config.Settings) {
+	for _, cat := range v.categories {
+		for _, f := range cat.Fields {
+			switch f.Kind {
+			case settingBool:
+				f.SetBool(s, f.GetBool(&v.working))
+			case settingInt:
+				f.SetInt(s, f.GetInt(&v.working))
+			default:
+				f.SetString(s, f.GetString(&v.working))
+			}
+		}
+	}
 }
 
 func (v *settingsView) closeSelectsExcept(keep *widgets.SelectWidget) {
@@ -204,13 +225,12 @@ func (a *App) ShowSettings() {
 		return
 	}
 
-	v := &settingsView{app: a, working: *a.Settings}
+	v := &settingsView{app: a, working: *a.Settings, categories: settingsCategories()}
 	a.settingsView = v
 
-	categories := settingsCategories()
-	tabItems := make([]widgets.TabItem, 0, len(categories))
-	panes := make([]widgets.Widget, 0, len(categories))
-	for _, cat := range categories {
+	tabItems := make([]widgets.TabItem, 0, len(v.categories))
+	panes := make([]widgets.Widget, 0, len(v.categories))
+	for _, cat := range v.categories {
 		tabItems = append(tabItems, widgets.TabItem{ID: cat.Title, Label: cat.Title})
 		panes = append(panes, v.buildPane(cat))
 	}
@@ -261,8 +281,7 @@ func (v *settingsView) buildPane(cat settingsCategory) widgets.Widget {
 }
 
 // One row per setting: label in a fixed left column, control on the right.
-// Each control keeps its own shape — a checkbox is a checkbox, not a boxed one —
-// so the kind of control is readable at a glance.
+// Each control keeps its native shape, so its type is readable at a glance.
 func (v *settingsView) buildRow(category string, f settingField) widgets.Widget {
 	label := f.Label
 	if f.Restart {
@@ -357,7 +376,7 @@ func (v *settingsView) apply() {
 		v.setStatus("Invalid value for " + strings.Join(bad, ", "))
 		return
 	}
-	*v.app.Settings = v.working
+	v.commitTo(v.app.Settings)
 	v.app.SaveAndApplySettings()
 	v.working = *v.app.Settings
 	v.setStatus("Settings applied")

@@ -83,7 +83,6 @@ func (s *SelectWidget) SetSelectedID(id string) {
 			break
 		}
 	}
-	s.Config.Placeholder = label
 	s.input.Config.Placeholder = label
 	s.syncSelectedToCurrent()
 }
@@ -135,8 +134,8 @@ func (s *SelectWidget) popupHeight() int {
 	return h
 }
 
-// Keyed off open rather than focused: a container may render popups for the
-// focus-indexed widget without having marked it focused.
+// Keyed off open rather than focused, so a container can decide independently
+// whether to paint the popup.
 func (s *SelectWidget) HasPopup() bool {
 	return s.Config.Collapsible && s.open
 }

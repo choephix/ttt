@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -61,8 +62,15 @@ func rowHas(h *testHarness, label, state string) bool {
 }
 
 func TestSettingsViewReopenReusesTab(t *testing.T) {
-	h := openSettings(t)
+	h := newTestHarness(t, 120, 40)
+	base := h.app.EditorGroup.TabCount()
+
+	h.exec("settings.openUI")
 	before := h.app.EditorGroup.TabCount()
+	if before != base+1 {
+		t.Fatalf("opening settings did not add a tab: %d -> %d", base, before)
+	}
+
 	h.exec("settings.openUI")
 	if after := h.app.EditorGroup.TabCount(); after != before {
 		t.Errorf("reopening settings created a new tab: %d -> %d", before, after)
@@ -221,7 +229,7 @@ func TestSettingsInvalidIntRevertsAndBlocksApply(t *testing.T) {
 		t.Errorf("message should name the category and field:\n%s", screen)
 	}
 	// The field snaps back to the last good value rather than keeping "0".
-	if !rowHas(h, "Tab size", "❯ 4") {
+	if !rowHas(h, "Tab size", fmt.Sprintf("❯ %d ", before)) {
 		t.Errorf("field did not revert to %d:\n%s", before, screen)
 	}
 }
@@ -255,5 +263,24 @@ func TestSettingsCommandsWithoutOpenTab(t *testing.T) {
 	h.exec("settings.cancel")
 	if !strings.Contains(h.screenText(), "No settings editor open") {
 		t.Errorf("expected a notice when no settings tab is open:\n%s", h.screenText())
+	}
+}
+
+// EditorGroup.CursorPosition delegates to content tabs; without it the text
+// inputs in the settings form render with no cursor and look inert.
+func TestSettingsInputShowsCursor(t *testing.T) {
+	h := openSettings(t)
+	focusTabSizeInput(t, h)
+
+	x, y, visible := h.app.Root.CursorPosition()
+	if !visible {
+		t.Fatalf("no cursor while a settings input is focused:\n%s", h.screenText())
+	}
+	line := strings.Split(h.screenText(), "\n")[y]
+	if runeIndex(line, "Tab size") < 0 {
+		t.Errorf("cursor on row %d, which is not the Tab size row:\n%s", y, h.screenText())
+	}
+	if x <= runeIndex(line, "❯") {
+		t.Errorf("cursor at col %d is not inside the input:\n%s", x, h.screenText())
 	}
 }

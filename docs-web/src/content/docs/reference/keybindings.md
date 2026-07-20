@@ -101,6 +101,7 @@ In find/replace dialogs, use Alt+C to toggle case sensitivity and Alt+R (or Alt+
 | Ctrl+K R | `sidebar.searchReplace` | Search and replace in files |
 | Ctrl+K C | `sidebar.changes` | Show changes |
 | Ctrl+K Y | `view.keybindings` | Open keybindings |
+| Ctrl+K , | `settings.openUI` | Open the settings editor |
 | Ctrl+0 | `sidebar.focus` | Focus sidebar |
 | Alt+Shift+Left | `sidebar.narrower` | Decrease sidebar width |
 | Alt+Shift+Right | `sidebar.wider` | Increase sidebar width |
