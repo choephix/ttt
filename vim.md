@@ -5,15 +5,14 @@ The core needs several plugin API additions first — all general-purpose, not V
 
 ## Core Plugin API Additions
 
-### 1. Key Interception Hook
+### 1. Key Interception Hook ✅
 
-Plugins currently cannot intercept key events before the editor processes them.
-In Vim Normal mode, pressing `j` must be a motion, not insert a character.
+**Done.** Plugins can now intercept key events before the editor processes them.
 
-**What to add:**
-- `ttt.events.on("key.press", fn)` event where the callback receives the key event and returns `true` to suppress default handling.
-- Hook point in `Root.HandleEvent` (`internal/ui/root.go`) — after ForceKeys and overlays, before the editor widget consumes the key.
-- Must only intercept when the editor pane is focused (not terminal, not plugin panels).
+- `ttt.events.on("key.press", fn)` — callback receives a key event table (`{type, key, rune, mod}`) and returns `true` to suppress default handling.
+- Hook point in `Root.HandleEvent` (`internal/ui/root.go`) via `KeyInterceptor` — after ForceKeys, overlays, escape, chords, and RawKeyConsumer check, before the editor widget consumes the key.
+- Only intercepts when the editor pane is focused (not terminal, not plugin panels).
+- Gated on the existing `keybindings` permission.
 
 ### 2. Persistent Status Bar Section ✅
 

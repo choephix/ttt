@@ -41,6 +41,7 @@ type Root struct {
 	ForceKeys        []GlobalKeyBinding // checked even when focused widget wants raw keys
 	ChordKeys        []ChordKeyBinding
 	chord            *chordState
+	KeyInterceptor   func(ev *tcell.EventKey) bool
 	OnRightClick     func(mx, my int)
 	EscapeDismissers []func() bool
 	EscapeFallback   func()
@@ -143,6 +144,10 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		if rk, ok := r.Focused.(RawKeyConsumer); ok && rk.WantsRawKeys() {
 			return r.handleRawKeyConsumer(kev)
 		}
+	}
+
+	if r.KeyInterceptor != nil && r.KeyInterceptor(kev) {
+		return EventConsumed
 	}
 
 	if r.Focused != nil {

@@ -255,6 +255,7 @@ func LoadPluginFromFile(a *App, path string) {
 
 	a.PluginManager.RegisterDebugPlugin(p)
 	a.WirePlugin(p)
+	a.ensureKeyInterceptor()
 
 	slog.Info("plugin loaded from file", "path", path, "name", name)
 }

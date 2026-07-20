@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -258,6 +259,19 @@ func (m *Manager) wireAPIs(p *Plugin) {
 	if m.logFactory != nil {
 		p.Log = m.logFactory(p.Name)
 	}
+}
+
+func (m *Manager) DispatchKeyEvent(ev *tcell.EventKey) bool {
+	for _, p := range m.plugins {
+		if p.State == nil || len(p.EventListeners["key.press"]) == 0 {
+			continue
+		}
+		tbl := keyEventToLua(p.State, ev)
+		if p.DispatchKeyEvent(tbl) {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Manager) DispatchEvent(name string, args ...interface{}) {
