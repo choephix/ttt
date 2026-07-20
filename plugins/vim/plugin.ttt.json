@@ -1,0 +1,15 @@
+{
+  "name": "vim",
+  "displayName": "Vim Mode",
+  "description": "Vim compatibility layer: modal editing, motions, operators, text objects, registers, marks and macros.",
+  "version": "0.1.0",
+  "author": "ttt",
+  "entry": "init.lua",
+  "api": 1,
+  "permissions": {
+    "keybindings": true,
+    "editor.read": true,
+    "editor.write": true,
+    "commands": true
+  }
+}
