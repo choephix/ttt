@@ -261,6 +261,22 @@ func (e *PluginEditorAPI) ClearSelection() {
 	ed.Selection.Clear()
 }
 
+func (e *PluginEditorAPI) BeginUndoGroup() {
+	ed := e.eg.Editor
+	if ed == nil || ed.Undo == nil {
+		return
+	}
+	ed.Undo.BeginTransaction()
+}
+
+func (e *PluginEditorAPI) EndUndoGroup() {
+	ed := e.eg.Editor
+	if ed == nil || ed.Undo == nil {
+		return
+	}
+	ed.Undo.EndTransaction()
+}
+
 // PluginFilesystemAPI implements plugin.FilesystemAPI with path restrictions.
 type PluginFilesystemAPI struct {
 	allowedRoots []string

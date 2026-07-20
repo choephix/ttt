@@ -98,6 +98,8 @@ func (m *mockEditorAPI) SetSelection(sl, sc, el, ec int) {
 func (m *mockEditorAPI) ClearSelection() {
 	m.selCleared = true
 }
+func (m *mockEditorAPI) BeginUndoGroup() {}
+func (m *mockEditorAPI) EndUndoGroup()   {}
 
 func setupTestPluginWithEditor(perms PermissionSet, editor *mockEditorAPI) (*Plugin, func()) {
 	p, cleanup := newTestPluginBase(perms)

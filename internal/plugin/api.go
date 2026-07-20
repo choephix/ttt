@@ -49,6 +49,8 @@ type EditorAPI interface {
 	SetCursor(line, col int)
 	SetSelection(startLine, startCol, endLine, endCol int)
 	ClearSelection()
+	BeginUndoGroup()
+	EndUndoGroup()
 }
 
 type FileEntry struct {

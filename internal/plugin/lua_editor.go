@@ -38,6 +38,8 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "set_cursor", L.NewFunction(editorSetCursor(p)))
 			L.SetField(mod, "set_selection", L.NewFunction(editorSetSelection(p)))
 			L.SetField(mod, "clear_selection", L.NewFunction(editorClearSelection(p)))
+			L.SetField(mod, "begin_undo_group", L.NewFunction(editorBeginUndoGroup(p)))
+			L.SetField(mod, "end_undo_group", L.NewFunction(editorEndUndoGroup(p)))
 		}
 
 		L.Push(mod)
@@ -448,6 +450,26 @@ func editorClearSelection(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		p.Editor.ClearSelection()
+		return 0
+	}
+}
+
+func editorBeginUndoGroup(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.BeginUndoGroup()
+		return 0
+	}
+}
+
+func editorEndUndoGroup(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.EndUndoGroup()
 		return 0
 	}
 }

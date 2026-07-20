@@ -49,13 +49,13 @@ In Vim Normal mode, pressing `j` must be a motion, not insert a character.
 - `editor.scroll_to(line)` — scroll so that `line` (1-based) is at the top of the viewport. Gated on `editor.write`.
 - `editor.scroll_by(delta)` — scroll up/down by `delta` lines. Gated on `editor.write`.
 
-### 6. Undo Transaction Grouping
+### 6. Undo Transaction Grouping ✅
 
-Plugin edits push individual undo entries. A Vim `cw` (delete word + enter insert mode) should undo as one step.
+**Done.** Plugins can group multiple edits into a single undo/redo step.
 
-**What to add:**
-- `editor.begin_undo_group()` — start grouping subsequent edits.
-- `editor.end_undo_group()` — close the group; all edits since `begin` undo/redo as one operation.
+- `editor.begin_undo_group()` — start grouping subsequent edits. Gated on `editor.write`.
+- `editor.end_undo_group()` — close the group; all edits since `begin` undo/redo as one operation. Gated on `editor.write`.
+- Backed by `UndoStack.BeginTransaction()` / `EndTransaction()` which wraps accumulated commands in a `BatchCommand`.
 
 ### 7. Multi-Cursor API (nice-to-have)
 

@@ -1380,6 +1380,8 @@ Require the `editor.write` permission.
 | `editor.set_cursor(line, col)`                    | Move the cursor (1-based).                     |
 | `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range (1-based).     |
 | `editor.clear_selection()`                        | Clear the current selection.                   |
+| `editor.begin_undo_group()`                       | Start grouping subsequent edits into a single undo step. |
+| `editor.end_undo_group()`                         | Close the group; all edits since `begin` undo/redo as one operation. |
 
 All write operations go through the undo system — they can be undone with Ctrl+Z.
 

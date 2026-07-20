@@ -16,10 +16,36 @@ type EditCommand interface {
 // UndoStack manages undo and redo stacks with automatic grouping of
 // consecutive character inserts and deletes.
 type UndoStack struct {
-	undo      []EditCommand
-	redo      []EditCommand
-	grouping  bool
-	savePoint int
+	undo           []EditCommand
+	redo           []EditCommand
+	grouping       bool
+	savePoint      int
+	inTransaction  bool
+	transactionIdx int
+}
+
+func (s *UndoStack) BeginTransaction() {
+	s.grouping = false
+	s.inTransaction = true
+	s.transactionIdx = len(s.undo)
+}
+
+func (s *UndoStack) EndTransaction() {
+	if !s.inTransaction {
+		return
+	}
+	idx := s.transactionIdx
+	s.inTransaction = false
+	s.grouping = false
+
+	if idx >= len(s.undo) {
+		return
+	}
+
+	cmds := make([]EditCommand, len(s.undo)-idx)
+	copy(cmds, s.undo[idx:])
+	s.undo = s.undo[:idx]
+	s.undo = append(s.undo, &BatchCommand{Commands: cmds})
 }
 
 func (s *UndoStack) MarkSaved() {

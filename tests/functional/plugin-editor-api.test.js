@@ -168,3 +168,45 @@ describe("editor.viewport plugin API", () => {
     expect(lastLine).toContain("T:20");
   });
 });
+
+describe("editor.begin_undo_group / end_undo_group plugin API", () => {
+  it("groups multiple edits into a single undo step", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "test.txt", "aaa\nbbb\nccc\n");
+    const plugin = writePlugin(dir, "test.lua", `
+      local ttt = require("ttt")
+      local editor = require("ttt.editor")
+      ttt.register({
+        commands = {
+          { id = "test.group", title = "Test Group", handler = function()
+              editor.begin_undo_group()
+              editor.set_line(1, "AAA")
+              editor.set_line(2, "BBB")
+              editor.set_line(3, "CCC")
+              editor.end_undo_group()
+            end
+          }
+        }
+      })
+    `);
+
+    tui.start("--plugin", plugin, file);
+    tui.waitStable(300);
+    tui.exec("Test Group");
+    tui.waitStable();
+    const s1 = tui.snapshot();
+    // Single undo should revert all three changes
+    tui.exec("Undo");
+    tui.waitStable();
+    const s2 = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[s1]).toContain("AAA");
+    expect(snapshots[s1]).toContain("BBB");
+    expect(snapshots[s1]).toContain("CCC");
+    // After single undo, original content restored
+    expect(snapshots[s2]).toContain("aaa");
+    expect(snapshots[s2]).toContain("bbb");
+    expect(snapshots[s2]).toContain("ccc");
+  });
+});
