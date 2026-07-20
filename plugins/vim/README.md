@@ -5,7 +5,7 @@ Tracks [issue #386](https://github.com/eugenioenko/ttt/issues/386).
 
 ## Status
 
-Under construction, built in phases. Currently at **Phase 5**.
+Under construction, built in phases. Currently at **Phase 6**.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -15,7 +15,7 @@ Under construction, built in phases. Currently at **Phase 5**.
 | 3 | Operators and text objects | ✅ |
 | 4 | Visual modes | ✅ |
 | 5 | Registers, marks, macros, `.` repeat | ✅ |
-| 6 | Ex command line, search, editor integration | ⬜ |
+| 6 | Ex command line, search, editor integration | ✅ |
 | 7 | Settings, docs, handoff to `ttt-plugins` | ⬜ |
 
 `cheatsheet.md` is a vendored copy of [ibhagwan/vim-cheatsheet](https://github.com/ibhagwan/vim-cheatsheet),
@@ -249,6 +249,162 @@ rather than disarming it.
 Counts on insert-entry commands work off the same change log: `3i`, `5a` and
 `3o` type their text once and repeat it on `Esc`, all inside one undo step.
 
+### Search
+
+| Key | Action |
+|---|---|
+| `/{pattern}` `?{pattern}` | Search forward / backward. The cursor previews the first match as you type; `Enter` confirms, `Esc` restores the position you started from. |
+| `n` `N` | Next / previous match, in the direction of the original search and reversed. Wraps, and says so (`search hit BOTTOM, continuing at TOP`). |
+| `{count}n` | Skip `{count}` matches. |
+| `*` `#` | Search forward / backward for the whole word under the cursor. |
+| `d/pat` `c/pat` `y/pat` | A search is an ordinary exclusive charwise motion, so it is a valid operator target. `.` repeats it against the *next* match, as in Vim. |
+
+The preview only moves the cursor and scrolls; it never edits the buffer.
+Search is case sensitive by default; `\c` anywhere in the pattern makes that
+one search case insensitive, `\C` forces it back on.
+
+### Ex commands
+
+| Command | Action |
+|---|---|
+| `:{n}` `:$` `:.` | Jump to line *n* / the last line / the current line. A bare range lands on its last address, so `:1,5` goes to line 5. |
+| `:w` | Save (`file.save`) |
+| `:w {file}` | Write the buffer to another path (see the gaps below) |
+| `:q` | Quit (`editor.quit`), which prompts when anything is unsaved |
+| `:q!` | Quit immediately, discarding changes |
+| `:wq` `:x` | Save, then quit |
+| `:e {file}` | Open a file in a new tab |
+| `:noh` | Clear the find highlights (`search.clearFind`) |
+| `:reg` | Show the registers |
+| `:marks` | Show the marks |
+| `:s/…` | Substitute (below) |
+
+Relative paths in `:w` and `:e` are resolved against the **directory of the file
+being edited**, not the process working directory — ttt is normally launched
+from somewhere else entirely.
+
+### Substitution
+
+`:[range]s{delim}{pattern}{delim}{replacement}{delim}[flags]`. The delimiter is
+whatever character follows the `s`, so `:s#a#b#` works as well as `:s/a/b/`.
+
+| Range | Meaning |
+|---|---|
+| *(none)* | The current line |
+| `%` | The whole file |
+| `{n}` | Line *n* |
+| `{n},{m}` | Lines *n* to *m* |
+| `.,$` | The cursor line to the end |
+
+| Flag | Meaning |
+|---|---|
+| `g` | Every match on the line, not just the first |
+| `i` | Ignore case |
+| `c` | Confirm each match. The command line becomes the prompt, and a single `y`, `n`, `a` or `q` answers it — no Enter needed. |
+
+A whole run is **one undo step**, however many lines it touched: `:%s/a/b/g`
+across a thousand lines undoes with a single `u`. With `c`, every match is
+located up front and nothing is written until the last answer is in, so the
+confirmed run is atomic too.
+
+In the replacement, `&` and `\0` stand for the whole match, `\1`–`\9` for the
+groups, and `\&` `\\` for literal `&` and `\`.
+
+#### Which regex subset is supported
+
+**Vim regexes are not Lua patterns, and Lua patterns are not a regex engine.**
+Rather than silently misreading a pattern, anything that cannot be represented
+is *rejected* with a message. What is translated:
+
+| Vim | Meaning |
+|---|---|
+| `.` `*` `^` `$` | Any character, zero-or-more, start-of-line, end-of-line |
+| `[abc]` `[^abc]` `[a-z]` | Character class, including `\d`-style escapes inside it |
+| `\+` | One or more |
+| `\?` `\=` | Zero or one |
+| `\( \)` | Capture group — but a Lua group **cannot be quantified**, so it is only useful for capturing, never as `\(ab\)\+` |
+| `\d \D \s \S \a \A \l \L \u \U \x \X \o` | Character classes |
+| `\w \W` | Word character, Vim's definition (`[A-Za-z0-9_]`) |
+| `\n \t \e` | Literal control characters |
+| `\c` `\C` | Force case insensitive / sensitive for this pattern |
+| `\< \>` | Word boundary, **only at the very start / end of the pattern** |
+| `( ) + ? { } \| ~ &` | Literal, as in Vim's default "magic" mode |
+
+Rejected with an error, never guessed at:
+
+- `\|` alternation
+- `\{n,m}` counted repeats
+- `\@=` `\@!` and the rest of the lookaround family
+- `\%(` groups, `\zs`, `\ze`
+- `\<` or `\>` anywhere except the pattern edges
+- a replacement containing `
+` or `
+` (a substitution cannot split a line)
+
+Two further deviations worth knowing:
+
+- **`\<` / `\>` are not compiled into the pattern.** gopher-lua has no `%f`
+  frontier pattern, so the boundary is checked against the neighbouring byte
+  after a match is found. That is why they only work at the edges. `*` and `#`
+  use the same mechanism, so they are reliably whole-word.
+- **Empty matches are skipped.** Vim would accept them; here they are useless
+  for `n` and dangerous for `:s`.
+
+### Editor integration
+
+| Key | Command |
+|---|---|
+| `gt` `gT` | `tab.next` / `tab.prev` |
+| `za` | `fold.toggle` |
+| `zR` `zM` | `fold.expandAll` / `fold.collapseAll` |
+| `Ctrl-W w` `Ctrl-W W` | `focus.nextGroup` / `focus.prevGroup` |
+
+Everything here delegates to a core command. Keys with **no core equivalent are
+deliberately absent** rather than approximated:
+
+- **`]c` / `[c` (next/previous changed hunk) and `]f` / `[f` (next/previous
+  changed file) are not implemented.** ttt has no hunk- or changed-file
+  navigation commands at all — only `changes.refresh` and `sidebar.changes`.
+  They need Go-side commands first.
+- **`zo` / `zc` are not implemented.** Core registers `fold.toggle`,
+  `fold.expandAll` and `fold.collapseAll`, but no open-only or close-only
+  command, and mapping both `zo` and `zc` onto a toggle would be wrong.
+- **`Ctrl-W` splits are not implemented.** ttt has no editor split or window
+  model; `ContentSplit` is a fixed editor/bottom-panel layout. Only the two
+  focus-cycling commands have a genuine analogue, so only `Ctrl-W w` and
+  `Ctrl-W W` are bound.
+
+**`Ctrl-W` is a prefix in normal mode**, which overrides core's `tab.close`
+binding — the same trade as `Ctrl-V`, `Ctrl-D` and the rest. Close-tab stays
+reachable from the tab bar, the File menu and the command palette.
+
+### Known gaps in Phase 6
+
+- **`:w {file}` is scoped to the workspace roots.** It goes through
+  `ttt.fs.write`, and `PluginFilesystemAPI` refuses any path outside a workspace
+  folder (`internal/app/plugin_api.go`). Opening a bare *file* rather than a
+  folder therefore leaves `:w {file}` with nowhere to write. There is no core
+  command that saves to a supplied path — `file.saveAs` opens its own dialog and
+  cannot be given one, because `command.Command.Handler` is `func()` and takes
+  no arguments.
+- **`:q` quits the editor rather than closing a window.** ttt has no window
+  model, and `editor.quit` is the command that already prompts on unsaved
+  changes. `:q!` goes through `ttt.quit()`, since no force-quit command is
+  registered.
+- **Search matches are not highlighted.** There is no plugin API for adding
+  editor highlights, so `/` moves the cursor and nothing more. `:noh` delegates
+  to `search.clearFind`, which clears core's own find highlights.
+- **`:s` cannot add or remove lines.** The replacement is applied with
+  `editor.set_line`, so `\r` in a replacement is rejected rather than splitting
+  the line.
+- **`:s` with an empty pattern reuses the last *search* pattern**, not the last
+  *substitute* pattern, and `~` in a replacement is a literal tilde rather than
+  the previous replacement.
+- **`/`, `?`, `n`, `N` and `:` are normal-mode only.** In visual mode they fall
+  through; Vim would extend the selection to the match and prefill `:'<,'>`.
+- **Only `{n}`, `.`, `$` and `%` are valid addresses.** `:/pat/`, `:'a,'b`,
+  `:+3` and `:-2` are not parsed.
+
 ### Known gaps in Phase 4
 
 - **The character under the cursor is not painted in a forward charwise
@@ -380,6 +536,15 @@ register-allocation bug, not a Lua semantic — real Lua 5.1 swaps correctly. Ev
 swap in `init.lua` therefore goes through explicit temporaries. It is a silent
 wrong-answer bug, so treat any `x, y = y, x` in a ttt plugin as broken.
 
+**200 locals per function.** The main chunk is a single Lua function, and Lua
+5.1 allows at most 200 local variables in one — `init.lua` is now within a
+handful of slots of that ceiling. Phase 6 is therefore wrapped in a `do ... end`
+block, which releases its registers at `end`, and re-exports the handful of
+names the dispatcher needs through one `vim6` table. Without it the whole file
+fails to load with `compile error: too many local variables`, which surfaces as
+the plugin simply not being there — no status indicator, every key passed
+through. Future phases should follow the same pattern.
+
 **Lua 5.1.** gopher-lua implements 5.1 — no `%g` character class, no `goto`.
 Errors thrown inside a `key.press` listener are swallowed and the key falls
 through, which reads exactly like "the plugin ignored my key". Suspect a Lua
@@ -407,5 +572,6 @@ Tests:
 ```sh
 cd tests/functional && npx vitest run vim-mode.test.js vim-motions.test.js \
   vim-edits.test.js vim-operators.test.js vim-textobjects.test.js \
-  vim-visual.test.js vim-registers.test.js vim-macros.test.js
+  vim-visual.test.js vim-registers.test.js vim-macros.test.js \
+  vim-search.test.js vim-ex.test.js
 ```

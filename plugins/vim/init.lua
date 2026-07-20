@@ -10,6 +10,7 @@
 -- Phase 3: operators, motion ranges and text objects.
 -- Phase 4: visual, visual-line and visual-block modes.
 -- Phase 5: registers, marks, macros and `.` repeat.
+-- Phase 6: search, the ex command line, substitution, editor integration.
 
 local ttt = require("ttt")
 local events = require("ttt.events")
@@ -3343,6 +3344,1114 @@ end
 -- amount of buffer they consume (`3i` types three copies, `3s` does not).
 local REPEAT_TEXT = { i = true, I = true, a = true, A = true, o = true, O = true }
 
+-- ---------------------------------------------------------------------------
+-- Phase 6: search, ex command line, substitution, editor integration
+--
+-- The command line is a modal overlay, handled *above* the plugin key
+-- interceptor: while it is open `key.press` delivers nothing here at all. So
+-- there is no cmdline mode and no focus flag -- `/`, `?` and `:` call
+-- ttt.command_line.show() and do every bit of their work in the callbacks.
+--
+-- on_change is a preview only. It moves the cursor (which scrolls the view) and
+-- never touches the buffer; a buffer edit from an incremental preview would be
+-- unundoable and would invalidate the very offsets it is searching.
+-- ---------------------------------------------------------------------------
+
+-- Phase 6 lives inside a `do` block on purpose. The main chunk is within a
+-- handful of slots of Lua's 200-locals-per-function ceiling, and a block scope
+-- releases its registers at `end`; without it the whole file fails to compile
+-- with "too many local variables". Everything the dispatcher needs is re-exported
+-- through the single `vim6` table below.
+local vim6 = {}
+
+do
+	local fs_ok, fs = pcall(require, "ttt.fs")
+	if not fs_ok then
+		fs = nil
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Byte <-> rune column conversion
+	--
+	-- The editor API speaks rune columns; Lua's pattern matcher speaks bytes. Every
+	-- match crosses that boundary exactly twice, here.
+	-- ---------------------------------------------------------------------------
+
+	local function rune_len(b)
+		if b >= 0xf0 then
+			return 4
+		elseif b >= 0xe0 then
+			return 3
+		elseif b >= 0xc0 then
+			return 2
+		end
+		return 1
+	end
+
+	-- 1-based byte index at which rune column `col` starts. A col past the end of
+	-- the line yields #s + 1.
+	local function byte_of_col(s, col)
+		local i, k, n = 1, 1, #s
+		while i <= n and k < col do
+			i = i + rune_len(s:byte(i))
+			k = k + 1
+		end
+		return i
+	end
+
+	-- 1-based rune column containing byte index `bi`.
+	local function col_of_byte(s, bi)
+		local i, k, n = 1, 1, #s
+		while i <= n and i < bi do
+			i = i + rune_len(s:byte(i))
+			k = k + 1
+		end
+		return k
+	end
+
+	local function is_word_byte(b)
+		if b == nil then
+			return false
+		end
+		return (b >= 0x30 and b <= 0x39)
+			or (b >= 0x41 and b <= 0x5a)
+			or (b >= 0x61 and b <= 0x7a)
+			or b == 0x5f
+			or b >= 0x80
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Vim regex -> Lua pattern
+	--
+	-- Lua 5.1 patterns are NOT a regex engine: there is no alternation, no
+	-- grouping-with-quantifier, no counted repeat and no lookaround, and gopher-lua
+	-- additionally lacks the %f frontier pattern. Rather than silently
+	-- misinterpreting a pattern, anything that cannot be represented is rejected
+	-- with a message. The supported subset is documented in README.md.
+	--
+	-- Translated:
+	--   .  *  ^  $  [...]        pass through (same meaning in both)
+	--   \+ \? \=                 -> +  ?  ?
+	--   \( \)                    -> capture group (Lua groups cannot be quantified)
+	--   \d \D \s \S \a \l \u \x  -> %d %D %s %S %a %l %u %x  (and their complements)
+	--   \w \W                    -> [%w_] / [^%w_]  (Vim's \w includes underscore)
+	--   \n \t \e                 -> the literal control character
+	--   \c                       -> anywhere in the pattern: ignore case
+	--   \< \>                    -> word boundary, but only at the very start/end
+	--                               of the pattern (there is no %f to compile to),
+	--                               checked against the neighbouring byte instead
+	--   ( ) + ? { } | ~ &        literal, as in Vim's default "magic" mode
+	-- Rejected: \| \{n,m} \@ \% \zs \ze and any other \-escape with a regex meaning.
+	-- ---------------------------------------------------------------------------
+
+	local VIM_CLASS = {
+		d = "%d",
+		D = "%D",
+		s = "%s",
+		S = "%S",
+		w = "[%w_]",
+		W = "[^%w_]",
+		a = "%a",
+		A = "%A",
+		l = "%l",
+		L = "%L",
+		u = "%u",
+		U = "%U",
+		x = "%x",
+		X = "%X",
+		o = "[0-7]",
+		n = "\n",
+		t = "\t",
+		e = "\27",
+	}
+
+	-- \-escapes that mean something in Vim which Lua patterns cannot express.
+	local VIM_UNSUPPORTED = {
+		["|"] = "alternation (\\|)",
+		["{"] = "counted repeats (\\{n,m})",
+		["}"] = "counted repeats (\\{n,m})",
+		["@"] = "lookaround (\\@=, \\@!)",
+		["%"] = "\\%( groups",
+		["z"] = "\\zs / \\ze",
+	}
+
+	local LUA_MAGIC = "^$*+?.([%])-"
+
+	local function lua_escape(ch)
+		if #ch == 1 and LUA_MAGIC:find(ch, 1, true) then
+			return "%" .. ch
+		end
+		return ch
+	end
+
+	-- A literal character, doubled into a set when the match must ignore case.
+	local function emit_literal(out, ch, ic)
+		if ic and ch:match("^%a$") then
+			out[#out + 1] = "[" .. ch:lower() .. ch:upper() .. "]"
+		else
+			out[#out + 1] = lua_escape(ch)
+		end
+	end
+
+	-- Copy a [...] class through, translating \d-style escapes and escaping the
+	-- Lua-only metacharacter `%`. Returns the class text and the index just past
+	-- the closing bracket, or nil when the class is unterminated.
+	local function convert_class(pat, i, ic)
+		local n = #pat
+		local cls = { "[" }
+		local j = i + 1
+		if pat:sub(j, j) == "^" then
+			cls[#cls + 1] = "^"
+			j = j + 1
+		end
+		if pat:sub(j, j) == "]" then
+			cls[#cls + 1] = "%]"
+			j = j + 1
+		end
+		local closed = false
+		while j <= n do
+			local c = pat:sub(j, j)
+			if c == "]" then
+				closed = true
+				j = j + 1
+				break
+			elseif c == "\\" then
+				local nx = pat:sub(j + 1, j + 1)
+				local m = VIM_CLASS[nx]
+				-- Only single %-classes and control characters compose inside a set.
+				if m and (#m == 2 or #m == 1) then
+					cls[#cls + 1] = m
+				elseif nx == "" then
+					cls[#cls + 1] = "%\\"
+				else
+					cls[#cls + 1] = lua_escape(nx)
+				end
+				j = j + 2
+			elseif c == "%" then
+				cls[#cls + 1] = "%%"
+				j = j + 1
+			else
+				if ic and c:match("^%a$") then
+					cls[#cls + 1] = c:lower() .. c:upper()
+				else
+					cls[#cls + 1] = c
+				end
+				j = j + 1
+			end
+		end
+		if not closed then
+			return nil
+		end
+		cls[#cls + 1] = "]"
+		return table.concat(cls), j
+	end
+
+	-- Returns a compiled pattern { lua, word_start, word_end, ic } or nil + message.
+	local function compile_vim_pattern(pat, ignorecase)
+		local ic = ignorecase and true or false
+		if pat:find("\\c", 1, true) then
+			ic = true
+			pat = pat:gsub("\\c", "")
+		end
+		if pat:find("\\C", 1, true) then
+			ic = false
+			pat = pat:gsub("\\C", "")
+		end
+
+		local out = {}
+		local ws, we = false, false
+		local i, n = 1, #pat
+
+		while i <= n do
+			local c = pat:sub(i, i)
+			if c == "\\" then
+				local nx = pat:sub(i + 1, i + 1)
+				i = i + 2
+				if nx == "" then
+					out[#out + 1] = "%\\"
+				elseif nx == "<" then
+					if #out > 0 then
+						return nil, "\\< is only supported at the start of a pattern"
+					end
+					ws = true
+				elseif nx == ">" then
+					if i <= n then
+						return nil, "\\> is only supported at the end of a pattern"
+					end
+					we = true
+				elseif nx == "+" then
+					out[#out + 1] = "+"
+				elseif nx == "?" or nx == "=" then
+					out[#out + 1] = "?"
+				elseif nx == "(" then
+					out[#out + 1] = "("
+				elseif nx == ")" then
+					out[#out + 1] = ")"
+				elseif VIM_UNSUPPORTED[nx] then
+					return nil, VIM_UNSUPPORTED[nx] .. " is not supported"
+				elseif VIM_CLASS[nx] then
+					out[#out + 1] = VIM_CLASS[nx]
+				else
+					emit_literal(out, nx, ic)
+				end
+			elseif c == "[" then
+				local cls, j = convert_class(pat, i, ic)
+				if not cls then
+					return nil, "unterminated [ ] in pattern"
+				end
+				out[#out + 1] = cls
+				i = j
+			elseif c == "." or c == "*" or c == "^" or c == "$" then
+				out[#out + 1] = c
+				i = i + 1
+			elseif c == "%" then
+				out[#out + 1] = "%%"
+				i = i + 1
+			else
+				local b = c:byte(1)
+				if b >= 0x80 then
+					local len = rune_len(b)
+					out[#out + 1] = pat:sub(i, i + len - 1)
+					i = i + len
+				else
+					emit_literal(out, c, ic)
+					i = i + 1
+				end
+			end
+		end
+
+		return { lua = table.concat(out), word_start = ws, word_end = we, ic = ic }
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Replacement text
+	--
+	-- Vim's `&` and `\0`-`\9` become Lua's `%0`-`%9`, which `expand()` below
+	-- substitutes by hand -- string.gsub is not used, because the word-boundary
+	-- flags cannot be expressed as a pattern and have to be checked per match.
+	-- ---------------------------------------------------------------------------
+
+	local function compile_replacement(rep)
+		local out = {}
+		local i, n = 1, #rep
+		while i <= n do
+			local c = rep:sub(i, i)
+			if c == "\\" then
+				local nx = rep:sub(i + 1, i + 1)
+				i = i + 2
+				if nx == "" then
+					out[#out + 1] = "\\"
+				elseif nx == "r" or nx == "n" then
+					return nil, "a replacement cannot contain a line break"
+				elseif nx:match("^%d$") then
+					out[#out + 1] = "%" .. nx
+				elseif nx == "t" then
+					out[#out + 1] = "\t"
+				elseif nx == "%" then
+					out[#out + 1] = "%%"
+				else
+					out[#out + 1] = nx
+				end
+			elseif c == "&" then
+				out[#out + 1] = "%0"
+				i = i + 1
+			elseif c == "%" then
+				out[#out + 1] = "%%"
+				i = i + 1
+			else
+				out[#out + 1] = c
+				i = i + 1
+			end
+		end
+		return table.concat(out)
+	end
+
+	local function expand(rep, whole, caps)
+		local out = {}
+		local i, n = 1, #rep
+		while i <= n do
+			local c = rep:sub(i, i)
+			if c == "%" then
+				local d = rep:sub(i + 1, i + 1)
+				if d == "0" then
+					out[#out + 1] = whole
+				elseif d:match("^%d$") then
+					out[#out + 1] = tostring(caps[tonumber(d)] or "")
+				elseif d == "%" then
+					out[#out + 1] = "%"
+				else
+					out[#out + 1] = d
+				end
+				i = i + 2
+			else
+				out[#out + 1] = c
+				i = i + 1
+			end
+		end
+		return table.concat(out)
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Matching
+	-- ---------------------------------------------------------------------------
+
+	-- Every match of `c` in one line, as { sb, eb, text } with inclusive byte
+	-- bounds and the expanded replacement. Empty matches are skipped: Vim would
+	-- accept them, but they are useless for `n` and dangerous for `:s`.
+	local function line_matches(text, c, rep)
+		local out = {}
+		local anchored = c.lua:sub(1, 1) == "^"
+		local init = 1
+		while init <= #text + 1 do
+			local res = { string.find(text, c.lua, init) }
+			local sb, eb = res[1], res[2]
+			if not sb then
+				break
+			end
+			if eb < sb then
+				init = sb + 1
+			else
+				local ok = true
+				if c.word_start and is_word_byte(text:byte(sb - 1)) then
+					ok = false
+				end
+				if c.word_end and is_word_byte(text:byte(eb + 1)) then
+					ok = false
+				end
+				if ok then
+					local caps = {}
+					for k = 3, #res do
+						caps[k - 2] = res[k]
+					end
+					out[#out + 1] = { sb = sb, eb = eb, text = expand(rep or "", text:sub(sb, eb), caps) }
+				end
+				init = eb + 1
+			end
+			if anchored then
+				break
+			end
+		end
+		return out
+	end
+
+	-- The whole-buffer scan. Deliberately one pass per search rather than per
+	-- keystroke of a motion. Returns line, start col, end col (exclusive), wrapped.
+	local function search_from(c, line, col, dir)
+		local n = line_count()
+		for step = 0, n do
+			local l = line + dir * step
+			local wrapped = false
+			while l > n do
+				l = l - n
+				wrapped = true
+			end
+			while l < 1 do
+				l = l + n
+				wrapped = true
+			end
+			local text = editor.get_line(l) or ""
+			local ms = line_matches(text, c)
+			if #ms > 0 then
+				if step == 0 then
+					local cb = byte_of_col(text, col)
+					if dir > 0 then
+						for _, m in ipairs(ms) do
+							if m.sb > cb then
+								return l, col_of_byte(text, m.sb), col_of_byte(text, m.eb + 1), false
+							end
+						end
+					else
+						for k = #ms, 1, -1 do
+							if ms[k].sb < cb then
+								return l, col_of_byte(text, ms[k].sb), col_of_byte(text, ms[k].eb + 1), false
+							end
+						end
+					end
+				else
+					local m = ms[1]
+					if dir < 0 then
+						m = ms[#ms]
+					end
+					return l, col_of_byte(text, m.sb), col_of_byte(text, m.eb + 1), wrapped
+				end
+			end
+		end
+		return nil
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Search state and the `/`, `?`, `n`, `N`, `*`, `#` commands
+	-- ---------------------------------------------------------------------------
+
+	local search = { pat = nil, compiled = nil, dir = 1 }
+
+	local function set_search(pat, compiled, dir)
+		search.pat = pat
+		search.compiled = compiled
+		search.dir = dir
+	end
+
+	local function report_wrap(dir)
+		if dir > 0 then
+			ttt.notify("search hit BOTTOM, continuing at TOP")
+		else
+			ttt.notify("search hit TOP, continuing at BOTTOM")
+		end
+	end
+
+	local function not_found(pat)
+		ttt.notify("E486: Pattern not found: " .. (pat or ""), "error")
+	end
+
+	-- Jump to the next match of the stored pattern. `dir` is already resolved
+	-- against `n` vs `N`.
+	local function search_step(dir, count)
+		if not search.compiled then
+			ttt.notify("E35: No previous regular expression", "error")
+			return
+		end
+		local wrapped_any = false
+		for _ = 1, count do
+			local cur = editor.cursor()
+			local l, c1, _, wrapped = search_from(search.compiled, cur.line, cur.col, dir)
+			if not l then
+				not_found(search.pat)
+				return
+			end
+			if wrapped then
+				wrapped_any = true
+			end
+			set_jump_mark()
+			move_to(l, c1)
+		end
+		if wrapped_any then
+			report_wrap(dir)
+		end
+	end
+
+	-- The word under (or after) the cursor, for `*` and `#`.
+	local function word_under_cursor()
+		local cur = editor.cursor()
+		local r = line_runes(cur.line)
+		local i = cur.col
+		while i <= #r and class_of(r[i], false) ~= 1 do
+			i = i + 1
+		end
+		if i > #r then
+			return nil
+		end
+		local s = i
+		while s > 1 and class_of(r[s - 1], false) == 1 do
+			s = s - 1
+		end
+		local e = i
+		while e < #r and class_of(r[e + 1], false) == 1 do
+			e = e + 1
+		end
+		return table.concat(r, "", s, e)
+	end
+
+	-- `*` / `#`: search for the word under the cursor, whole-word.
+	local function search_word(dir)
+		local word = word_under_cursor()
+		if not word then
+			ttt.notify("E348: No string under cursor", "error")
+			return
+		end
+		-- The word is matched literally; only the boundaries are pattern-ish, and
+		-- those ride on the word_start/word_end flags rather than on \< and \>,
+		-- which gopher-lua has no %f to compile to.
+		local c = compile_vim_pattern(word)
+		if not c then
+			return
+		end
+		c.word_start = true
+		c.word_end = true
+		set_search("\\<" .. word .. "\\>", c, dir)
+		local cur = editor.cursor()
+		-- Vim starts `*` from the start of the word, so the current one is skipped.
+		local r = line_runes(cur.line)
+		local s = cur.col
+		while s > 1 and class_of(r[s - 1], false) == 1 do
+			s = s - 1
+		end
+		local l, c1, _, wrapped = search_from(c, cur.line, s, dir)
+		if not l then
+			not_found(search.pat)
+			return
+		end
+		set_jump_mark()
+		move_to(l, c1)
+		if wrapped then
+			report_wrap(dir)
+		end
+	end
+
+	-- `d/foo<CR>`: the match position is an exclusive charwise motion target.
+	local function run_search_operator(start, l, c)
+		local op = state.operator.op
+		local payload = op_payload(op, 1, { t = "search", pat = search.pat, dir = search.dir })
+		clear_operator()
+		local sl, sc, el, ec, lw = motion_to_range(start, { line = l, col = c }, "exclusive")
+		if sl == nil then
+			return
+		end
+		apply_operator(op, sl, sc, el, ec, lw, payload)
+	end
+
+	local function open_search(dir)
+		local origin = editor.cursor()
+		local had_operator = state.operator ~= nil
+		local prefix = "/"
+		if dir < 0 then
+			prefix = "?"
+		end
+
+		local function restore()
+			editor.set_cursor(origin.line, origin.col)
+		end
+
+		ttt.command_line.show({
+			prefix = prefix,
+			-- Preview only: cursor and scroll, never the buffer.
+			on_change = function(text)
+				if text == "" then
+					restore()
+					return
+				end
+				local c = compile_vim_pattern(text)
+				if not c then
+					restore()
+					return
+				end
+				local l, c1 = search_from(c, origin.line, origin.col, dir)
+				if l then
+					editor.set_cursor(l, c1)
+				else
+					restore()
+				end
+			end,
+			on_submit = function(text)
+				restore()
+				if text ~= "" then
+					local c, err = compile_vim_pattern(text)
+					if not c then
+						ttt.notify("vim: " .. (err or "bad pattern"), "error")
+						clear_operator()
+						return
+					end
+					set_search(text, c, dir)
+				end
+				if not search.compiled then
+					ttt.notify("E35: No previous regular expression", "error")
+					clear_operator()
+					return
+				end
+				search.dir = dir
+				local l, c1, _, wrapped = search_from(search.compiled, origin.line, origin.col, dir)
+				if not l then
+					not_found(search.pat)
+					clear_operator()
+					return
+				end
+				if had_operator and state.operator then
+					run_search_operator(origin, l, c1)
+				else
+					set_jump_mark()
+					move_to(l, c1)
+				end
+				if wrapped then
+					report_wrap(dir)
+				end
+			end,
+			on_cancel = function()
+				restore()
+				clamp_cursor()
+				clear_operator()
+			end,
+		})
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Substitution
+	-- ---------------------------------------------------------------------------
+
+	-- Rebuild a line from the accepted match spans.
+	local function apply_spans(text, spans)
+		local out, prev = {}, 1
+		for _, s in ipairs(spans) do
+			out[#out + 1] = text:sub(prev, s.sb - 1)
+			out[#out + 1] = s.text
+			prev = s.eb + 1
+		end
+		out[#out + 1] = text:sub(prev)
+		return table.concat(out)
+	end
+
+	-- One undo group for the whole run, however many lines it touched: `:%s/a/b/g`
+	-- across the file is a single `u`.
+	local function apply_work(work)
+		local count, lines, last_line = 0, 0, nil
+		editor.begin_undo_group()
+		for _, w in ipairs(work) do
+			if #w.spans > 0 then
+				local new = apply_spans(w.text, w.spans)
+				if new ~= w.text then
+					editor.set_line(w.line, new)
+					count = count + #w.spans
+					lines = lines + 1
+					last_line = w.line
+				end
+			end
+		end
+		editor.end_undo_group()
+
+		if last_line then
+			move_to(last_line, first_non_blank(last_line))
+		end
+		if count > 0 then
+			local s1 = "s"
+			if count == 1 then
+				s1 = ""
+			end
+			local s2 = "s"
+			if lines == 1 then
+				s2 = ""
+			end
+			ttt.notify(count .. " substitution" .. s1 .. " on " .. lines .. " line" .. s2)
+		end
+	end
+
+	-- The `c` flag. Every match is located up front and nothing is edited until the
+	-- last answer is in, so the positions stay valid and the whole run is still one
+	-- undo step. The prompt is the command line itself, and on_change fires on the
+	-- first keystroke -- which is how a single-key y/n/a/q answer works.
+	local confirm_walk
+
+	confirm_walk = function(work, flat, i)
+		if i > #flat then
+			for _, w in ipairs(work) do
+				local keep = {}
+				for _, s in ipairs(w.spans) do
+					if not s.skip then
+						keep[#keep + 1] = s
+					end
+				end
+				w.spans = keep
+			end
+			apply_work(work)
+			return
+		end
+
+		local item = flat[i]
+		editor.set_cursor(item.line, col_of_byte(item.text, item.span.sb))
+
+		local function skip_rest()
+			for k = i, #flat do
+				flat[k].span.skip = true
+			end
+			ttt.set_timeout(0, function()
+				confirm_walk(work, flat, #flat + 1)
+			end)
+		end
+
+		local answered = false
+		ttt.command_line.show({
+			prefix = "replace with " .. item.span.text .. " (y/n/a/q)? ",
+			on_change = function(text)
+				if answered or text == "" then
+					return
+				end
+				answered = true
+				local ch = text:sub(1, 1):lower()
+				ttt.command_line.hide()
+				if ch == "q" then
+					skip_rest()
+					return
+				end
+				if ch == "a" then
+					ttt.set_timeout(0, function()
+						confirm_walk(work, flat, #flat + 1)
+					end)
+					return
+				end
+				if ch ~= "y" then
+					item.span.skip = true
+				end
+				ttt.set_timeout(0, function()
+					confirm_walk(work, flat, i + 1)
+				end)
+			end,
+			on_cancel = skip_rest,
+		})
+	end
+
+	-- Split `/pat/rep/flags` on its delimiter, honouring `\` escapes. The delimiter
+	-- is whatever character follows the `s`, so `:s#a#b#` works too.
+	local function split_spec(spec)
+		local delim = spec:sub(1, 1)
+		local parts, cur = {}, {}
+		local i, n = 2, #spec
+		while i <= n do
+			local c = spec:sub(i, i)
+			if c == "\\" then
+				local nx = spec:sub(i + 1, i + 1)
+				if nx == delim then
+					cur[#cur + 1] = delim
+				else
+					cur[#cur + 1] = spec:sub(i, i + 1)
+				end
+				i = i + 2
+			elseif c == delim then
+				parts[#parts + 1] = table.concat(cur)
+				cur = {}
+				i = i + 1
+			else
+				cur[#cur + 1] = c
+				i = i + 1
+			end
+		end
+		parts[#parts + 1] = table.concat(cur)
+		return parts
+	end
+
+	local function do_substitute(first, last, spec)
+		local parts = split_spec(spec)
+		local pat = parts[1] or ""
+		local rep = parts[2] or ""
+		local flags = parts[3] or ""
+
+		if pat == "" then
+			if not search.pat then
+				ttt.notify("E35: No previous regular expression", "error")
+				return
+			end
+			pat = search.pat
+		end
+
+		local all = flags:find("g", 1, true) ~= nil
+		local ic = flags:find("i", 1, true) ~= nil
+		local confirm = flags:find("c", 1, true) ~= nil
+
+		local c, perr = compile_vim_pattern(pat, ic)
+		if not c then
+			ttt.notify("vim: " .. (perr or "bad pattern"), "error")
+			return
+		end
+		-- `*` and `#` store their pattern with \< \>, which compile_vim_pattern only
+		-- accepts at the edges; re-applying the flags keeps `:s//x/` after a `*`.
+		if search.pat == pat and search.compiled then
+			c.word_start = search.compiled.word_start
+			c.word_end = search.compiled.word_end
+		end
+		local lrep, rerr = compile_replacement(rep)
+		if lrep == nil then
+			ttt.notify("vim: " .. (rerr or "bad replacement"), "error")
+			return
+		end
+		set_search(pat, c, 1)
+
+		local n = line_count()
+		first = clamp(first, 1, n)
+		last = clamp(last, 1, n)
+		if first > last then
+			local t = first
+			first = last
+			last = t
+		end
+
+		local work = {}
+		for l = first, last do
+			local text = editor.get_line(l) or ""
+			local spans = line_matches(text, c, lrep)
+			if #spans > 0 then
+				if not all then
+					while #spans > 1 do
+						table.remove(spans)
+					end
+				end
+				work[#work + 1] = { line = l, text = text, spans = spans }
+			end
+		end
+
+		if #work == 0 then
+			not_found(pat)
+			return
+		end
+
+		if not confirm then
+			apply_work(work)
+			return
+		end
+
+		local flat = {}
+		for _, w in ipairs(work) do
+			for _, s in ipairs(w.spans) do
+				flat[#flat + 1] = { line = w.line, text = w.text, span = s }
+			end
+		end
+		-- Deferred by a tick: this runs inside the ex command line's own on_submit,
+		-- and show() is a no-op while another overlay is still on screen.
+		ttt.set_timeout(0, function()
+			confirm_walk(work, flat, 1)
+		end)
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Ex commands
+	-- ---------------------------------------------------------------------------
+
+	-- One address: {n}, `.`, `$`. Returns the line and the unconsumed rest, or nil.
+	local function ex_address(s)
+		local d = s:match("^%d+")
+		if d then
+			return tonumber(d), s:sub(#d + 1)
+		end
+		local c = s:sub(1, 1)
+		if c == "$" then
+			return line_count(), s:sub(2)
+		end
+		if c == "." then
+			return editor.cursor().line, s:sub(2)
+		end
+		return nil, s
+	end
+
+	-- A leading range: `%`, `{n}`, `{n},{m}`, `.,$`, ... Returns first, last, rest.
+	-- first is nil when the command had no range of its own.
+	local function parse_range(s)
+		if s:sub(1, 1) == "%" then
+			return 1, line_count(), s:sub(2)
+		end
+		local a, rest = ex_address(s)
+		if not a then
+			return nil, nil, s
+		end
+		if rest:sub(1, 1) == "," then
+			local b, rest2 = ex_address(rest:sub(2))
+			if not b then
+				b = editor.cursor().line
+			end
+			return a, b, rest2
+		end
+		return a, a, rest
+	end
+
+	-- Relative paths are anchored to the directory of the file being edited, not
+	-- to the process cwd: ttt is normally launched from somewhere else entirely,
+	-- and the plugin filesystem API is scoped to the workspace roots anyway.
+	local function resolve_path(path)
+		if path:sub(1, 1) == "/" then
+			return path
+		end
+		local here = editor.file_path()
+		local dir = nil
+		if here then
+			dir = here:match("^(.*)/[^/]*$")
+		end
+		if dir then
+			return dir .. "/" .. path
+		end
+		return path
+	end
+
+	local function ex_write(args)
+		if args == "" then
+			if not ttt.exec_command("file.save") then
+				ttt.notify("vim: file.save is not available", "error")
+			end
+			return
+		end
+		if not fs or not fs.write then
+			ttt.notify("vim: :w {file} needs the fs.write permission", "error")
+			return
+		end
+		local path = resolve_path(args)
+		local ok, err = fs.write(path, editor.buffer_text() or "")
+		if ok then
+			ttt.notify('"' .. path .. '" written')
+		else
+			ttt.notify("vim: " .. tostring(err or "write failed"), "error")
+		end
+	end
+
+	local function ex_registers()
+		local entries = {}
+		local function add(name)
+			local r = state.registers[name]
+			if not r then
+				return
+			end
+			local text = (r.text or ""):gsub("\n", "\\n")
+			entries[#entries + 1] = { key = '"' .. name, value = (r.kind or "char") .. "  " .. text }
+		end
+		add('"')
+		for i = 0, 9 do
+			add(tostring(i))
+		end
+		add("-")
+		local named = {}
+		for name in pairs(state.registers) do
+			if name:match("^%l$") then
+				named[#named + 1] = name
+			end
+		end
+		table.sort(named)
+		for _, name in ipairs(named) do
+			add(name)
+		end
+		if #entries == 0 then
+			entries[#entries + 1] = { key = "", value = "no registers set" }
+		end
+		ttt.show_info("Registers", entries)
+	end
+
+	local function ex_marks()
+		local names = {}
+		for name in pairs(state.marks) do
+			names[#names + 1] = name
+		end
+		table.sort(names)
+		local entries = {}
+		for _, name in ipairs(names) do
+			local m = state.marks[name]
+			local text = editor.get_line(clamp(m.line, 1, line_count())) or ""
+			entries[#entries + 1] = { key = name, value = m.line .. "," .. m.col .. "  " .. text }
+		end
+		if #entries == 0 then
+			entries[#entries + 1] = { key = "", value = "no marks set" }
+		end
+		ttt.show_info("Marks", entries)
+	end
+
+	local function exec_or_warn(id)
+		if not ttt.exec_command(id) then
+			ttt.notify("vim: " .. id .. " is not available", "error")
+		end
+	end
+
+	local function run_ex(text)
+		local cmd = text:gsub("^%s+", ""):gsub("%s+$", "")
+		if cmd == "" then
+			return
+		end
+
+		local first, last, rest = parse_range(cmd)
+		rest = rest:gsub("^%s+", "")
+
+		-- A bare range is a jump: `:12`, `:$`, `:1,5` lands on the last address.
+		if rest == "" then
+			if first then
+				set_jump_mark()
+				goto_line(last)
+			end
+			return
+		end
+
+		-- Substitution has to be recognised before the command-name match, because
+		-- its delimiter can be any punctuation: `s/a/b/`, `s#a#b#`.
+		if rest:sub(1, 1) == "s" then
+			local delim = rest:sub(2, 2)
+			if delim ~= "" and not delim:match("[%w%s]") then
+				local cur = editor.cursor().line
+				return do_substitute(first or cur, last or cur, rest:sub(2))
+			end
+		end
+
+		local name, args = rest:match("^(%a+!?)%s*(.*)$")
+		if not name then
+			name = rest
+			args = ""
+		end
+		local bang = false
+		if name:sub(-1) == "!" then
+			bang = true
+			name = name:sub(1, -2)
+		end
+
+		if name == "w" or name == "write" then
+			ex_write(args)
+		elseif name == "q" or name == "quit" then
+			if bang then
+				ttt.quit()
+			else
+				exec_or_warn("editor.quit")
+			end
+		elseif name == "wq" or name == "x" or name == "xit" then
+			ex_write(args)
+			if bang then
+				ttt.quit()
+			else
+				exec_or_warn("editor.quit")
+			end
+		elseif name == "e" or name == "edit" then
+			if args == "" then
+				ttt.notify("vim: :e needs a file name", "error")
+			else
+				ttt.open_file(resolve_path(args))
+			end
+		elseif name == "noh" or name == "nohl" or name == "nohlsearch" then
+			exec_or_warn("search.clearFind")
+		elseif name == "reg" or name == "registers" or name == "display" then
+			ex_registers()
+		elseif name == "marks" then
+			ex_marks()
+		else
+			ttt.notify("E492: Not an editor command: " .. name, "error")
+		end
+	end
+
+	local function open_ex()
+		ttt.command_line.show({
+			prefix = ":",
+			on_submit = run_ex,
+		})
+	end
+
+	-- ---------------------------------------------------------------------------
+	-- Editor integration
+	--
+	-- Everything here delegates to a core command. Keys with no core equivalent
+	-- (]c, [c, ]f, [f, zo, zc, Ctrl-W splits) are deliberately absent rather than
+	-- approximated -- see README.md.
+	-- ---------------------------------------------------------------------------
+
+	local Z_FOLDS = {
+		["a"] = "fold.toggle",
+		["R"] = "fold.expandAll",
+		["M"] = "fold.collapseAll",
+	}
+
+	local CTRL_W_COMMANDS = {
+		["w"] = "focus.nextGroup",
+		["W"] = "focus.prevGroup",
+		["ctrl-w"] = "focus.nextGroup",
+	}
+
+	G_MOTIONS["t"] = function(n)
+		for _ = 1, n do
+			exec_or_warn("tab.next")
+		end
+	end
+
+	G_MOTIONS["T"] = function(n)
+		for _ = 1, n do
+			exec_or_warn("tab.prev")
+		end
+	end
+
+	vim6.search = search
+	vim6.search_from = search_from
+	vim6.search_step = search_step
+	vim6.search_word = search_word
+	vim6.open_search = open_search
+	vim6.run_search_operator = run_search_operator
+	vim6.open_ex = open_ex
+	vim6.exec_or_warn = exec_or_warn
+	vim6.Z_FOLDS = Z_FOLDS
+	vim6.CTRL_W_COMMANDS = CTRL_W_COMMANDS
+end
+
 local function run_operator_payload(p, count)
 	local n = count or p.count or 1
 	state.operator = { op = p.op, count = n }
@@ -3359,6 +4468,19 @@ local function run_operator_payload(p, count)
 		run_find_operator(t.op, t.ch)
 	elseif t.t == "mark" then
 		run_mark_operator(t.name, t.linewise)
+	elseif t.t == "search" then
+		-- `.` after `d/foo` re-runs the search from wherever the cursor is now,
+		-- which is what Vim does too.
+		local start = editor.cursor()
+		local l, c1
+		if vim6.search.compiled then
+			l, c1 = vim6.search_from(vim6.search.compiled, start.line, start.col, t.dir or 1)
+		end
+		if l then
+			vim6.run_search_operator(start, l, c1)
+		else
+			clear_operator()
+		end
 	else
 		clear_operator()
 	end
@@ -3668,6 +4790,19 @@ local function handle_normal(tok)
 		state.count = nil
 		if Z_COMMANDS[tok] then
 			reposition(tok)
+		elseif vim6.Z_FOLDS[tok] then
+			vim6.exec_or_warn(vim6.Z_FOLDS[tok])
+		end
+		return true
+	end
+
+	-- Ctrl-W is a prefix in normal mode, so core's `tab.close` binding for it is
+	-- overridden -- documented in the README alongside Ctrl-V and friends.
+	if state.pending == "ctrl-w" then
+		state.pending = ""
+		state.count = nil
+		if vim6.CTRL_W_COMMANDS[tok] then
+			vim6.exec_or_warn(vim6.CTRL_W_COMMANDS[tok])
 		end
 		return true
 	end
@@ -3710,6 +4845,45 @@ local function handle_normal(tok)
 			run_change(state.last_change, had and n or nil)
 			return true
 		end
+		if tok == "n" or tok == "N" then
+			local n = take_count()
+			local dir = vim6.search.dir
+			if tok == "N" then
+				dir = -dir
+			end
+			vim6.search_step(dir, n)
+			return true
+		end
+		if tok == "*" or tok == "#" then
+			state.count = nil
+			local dir = 1
+			if tok == "#" then
+				dir = -1
+			end
+			vim6.search_word(dir)
+			return true
+		end
+		if tok == ":" then
+			state.count = nil
+			vim6.open_ex()
+			return true
+		end
+		if tok == "ctrl-w" then
+			state.pending = "ctrl-w"
+			return true
+		end
+	end
+
+	-- `/` and `?` are motions, so they are also operator targets: `d/foo<CR>`
+	-- deletes up to the match. The operator stays pending across the modal
+	-- command line -- no keys reach the plugin while it is open.
+	if tok == "/" or tok == "?" then
+		local dir = 1
+		if tok == "?" then
+			dir = -1
+		end
+		vim6.open_search(dir)
+		return true
 	end
 
 	-- Operator-pending. This has to precede the motion and edit tables: `d` then

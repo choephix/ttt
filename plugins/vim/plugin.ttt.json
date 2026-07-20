@@ -10,6 +10,7 @@
     "keybindings": true,
     "editor.read": true,
     "editor.write": true,
-    "commands": true
+    "commands": true,
+    "fs.write": true
   }
 }
