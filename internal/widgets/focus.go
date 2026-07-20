@@ -81,13 +81,19 @@ func (fm *FocusManager) FocusPrev() {
 	fm.setFocus(next)
 }
 
+// Items are collected pre-order, so a click inside a focusable container (a
+// scroll view, say) matches the container before the control the user aimed at.
+// The last match is the innermost one.
 func (fm *FocusManager) FocusByClick(mx, my int) {
+	hit := -1
 	for i, fw := range fm.items {
 		r := VisibleRect(fm.root, fw)
 		if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
-			fm.setFocus(i)
-			return
+			hit = i
 		}
+	}
+	if hit >= 0 {
+		fm.setFocus(hit)
 	}
 }
 

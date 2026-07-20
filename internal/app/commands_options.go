@@ -8,98 +8,120 @@ import (
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
+func (a *App) SaveAndApplySettings() {
+	config.SaveSettings(*a.Settings)
+	a.ApplySettings(*a.Settings)
+}
+
 func (a *App) ToggleLineNumbers() {
 	a.Settings.Editor.LineNumbers = !a.Settings.Editor.LineNumbers
-	a.EditorGroup.LineNumbers = a.Settings.Editor.LineNumbers
-	if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.LineNumbers = a.Settings.Editor.LineNumbers
-	}
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 }
 
 func (a *App) ToggleWordWrap() {
 	a.Settings.Editor.WordWrap = !a.Settings.Editor.WordWrap
-	a.EditorGroup.WordWrap = a.Settings.Editor.WordWrap
-	if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.WordWrap = a.Settings.Editor.WordWrap
-	}
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 }
 
 func (a *App) ToggleAutoDedent() {
 	enabled := !a.Settings.Editor.IsAutoDedentEnabled()
 	a.Settings.Editor.AutoDedent = &enabled
-	if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.AutoDedent = enabled
-	}
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 }
 
 func (a *App) ToggleSyntaxHighlight() {
 	enabled := !a.Settings.Editor.IsSyntaxHighlightEnabled()
 	a.Settings.Editor.SyntaxHighlight = &enabled
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 	a.StatusNotify("Restart to apply syntax highlight changes")
 }
 
 func (a *App) ToggleBracketPairColorization() {
 	a.Settings.Editor.BracketPairColorization = !a.Settings.Editor.BracketPairColorization
-	a.EditorGroup.BracketPairColorization = a.Settings.Editor.BracketPairColorization
-	if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.BracketPairColorization = a.Settings.Editor.BracketPairColorization
-		a.EditorGroup.Editor.InvalidateBracketColors()
-	}
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 }
 
 func (a *App) ToggleLSP() {
 	enabled := !a.Settings.LSP.IsEnabled()
 	a.Settings.LSP.Enabled = &enabled
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 }
 
 func (a *App) ToggleGitGutter() {
 	enabled := !a.Settings.Editor.IsGitGutterEnabled()
 	a.Settings.Editor.GitGutter = &enabled
-	config.SaveSettings(*a.Settings)
-	if enabled {
-		a.RequestGitGutterForActiveFile()
-	} else if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.LineChanges = nil
-	}
+	a.SaveAndApplySettings()
 }
 
 func (a *App) SetGutterStyle(style string) {
 	a.Settings.Editor.GutterStyle = style
-	a.EditorGroup.GutterStyle = style
-	if a.EditorGroup.Editor != nil {
-		a.EditorGroup.Editor.GutterStyle = style
+	a.SaveAndApplySettings()
+}
+
+// Display labels for the gutter and border style values in config.
+var styleLabels = map[string]string{
+	"minimal":  "Minimal",
+	"compact":  "Compact",
+	"extended": "Extended",
+	"default":  "Default",
+	"rounded":  "Rounded",
+	"sharp":    "Sharp",
+	"double":   "Double",
+	"bold":     "Bold",
+	"ascii":    "ASCII",
+	"none":     "None",
+}
+
+func gutterStyleItems() []widgets.SelectItem {
+	items := make([]widgets.SelectItem, 0, len(config.GutterStyles))
+	for _, id := range config.GutterStyles {
+		items = append(items, widgets.SelectItem{ID: id, Label: styleLabels[id]})
 	}
-	config.SaveSettings(*a.Settings)
+	return items
+}
+
+func borderStyleItems() []widgets.SelectItem {
+	items := make([]widgets.SelectItem, 0, len(config.BorderStyles))
+	for _, id := range config.BorderStyles {
+		// "theme" is accepted in settings.json but behaves identically to
+		// "default", so it is not offered as a separate choice.
+		if id == "theme" {
+			continue
+		}
+		items = append(items, widgets.SelectItem{ID: id, Label: styleLabels[id]})
+	}
+	return items
 }
 
 func (a *App) ShowGutterStylePicker() {
-	items := []widgets.SelectItem{
-		{ID: "minimal", Label: "Minimal"},
-		{ID: "compact", Label: "Compact"},
-		{ID: "extended", Label: "Extended"},
-	}
-	a.ShowSelectDialog("Gutter Style", items, func(id string) {
+	a.ShowSelectDialog("Gutter Style", gutterStyleItems(), func(id string) {
 		a.SetGutterStyle(id)
 	}, nil)
 }
 
 func (a *App) SetBorderStyle(style string) {
 	a.Settings.Editor.BorderStyle = style
-	a.ApplyBorderStyle()
-	config.SaveSettings(*a.Settings)
+	a.SaveAndApplySettings()
 }
 
-func (a *App) ApplyBorderStyle() {
+func (a *App) ApplyBorderStyle() { a.applyBorderStyle(nil) }
+
+// themeBorders, when non-nil, is the border set already resolved from the
+// current theme, so the theme need not be reloaded from disk.
+func (a *App) applyBorderStyle(themeBorders *term.BorderSet) {
 	style := a.Settings.Editor.BorderStyle
 	switch style {
 	case "default", "theme", "":
-		// use whatever BuildBorderSet resolved from the theme (defaults to rounded)
+		// Fall back to the theme's border set. Rebuilding it here (rather than
+		// relying on whatever is currently in a.Borders) is what makes switching
+		// from an explicit style back to "default" actually take effect.
+		if themeBorders != nil {
+			*a.Borders = *themeBorders
+		} else if a.Settings.Theme != "" {
+			if theme, err := config.LoadTheme(a.Settings.Theme); err == nil {
+				*a.Borders = BuildBorderSet(theme.Borders)
+			}
+		}
 	case "rounded":
 		*a.Borders = term.RoundedBorderSet()
 	case "sharp":
@@ -116,16 +138,7 @@ func (a *App) ApplyBorderStyle() {
 }
 
 func (a *App) ShowBorderStylePicker() {
-	items := []widgets.SelectItem{
-		{ID: "default", Label: "Default"},
-		{ID: "rounded", Label: "Rounded"},
-		{ID: "sharp", Label: "Sharp"},
-		{ID: "double", Label: "Double"},
-		{ID: "bold", Label: "Bold"},
-		{ID: "ascii", Label: "ASCII"},
-		{ID: "none", Label: "None"},
-	}
-	a.ShowSelectDialog("Border Style", items, func(id string) {
+	a.ShowSelectDialog("Border Style", borderStyleItems(), func(id string) {
 		a.SetBorderStyle(id)
 	}, nil)
 }
@@ -181,7 +194,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		ui.MenuSep(),
 		{Label: "Switch Theme", Command: "theme.switch"},
 		ui.MenuSep(),
-		{Label: "Open Settings", Command: "settings.open"},
+		{Label: "Open Settings", Command: "settings.openUI"},
 	}
 	return items
 }

@@ -3,6 +3,13 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"slices"
+)
+
+// Validated by normalizeSettings and used to populate the settings UI pickers.
+var (
+	GutterStyles = []string{"minimal", "compact", "extended"}
+	BorderStyles = []string{"default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none"}
 )
 
 type TerminalSettings struct {
@@ -149,18 +156,23 @@ func DefaultMarkdownSettings() MarkdownSettings {
 }
 
 type Settings struct {
-	Version      int                  `json:"version"`
-	Theme        string               `json:"theme,omitempty"`
-	DebugMode    bool                 `json:"debugMode,omitempty"`
-	Editor       EditorSettings       `json:"editor,omitzero"`
-	Search       SearchSettings       `json:"search,omitzero"`
-	Explorer     ExplorerSettings     `json:"explorer,omitzero"`
-	Terminal     TerminalSettings     `json:"terminal,omitzero"`
-	LSP          LSPSettings          `json:"lsp,omitzero"`
-	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
-	Plugins      PluginSettings       `json:"plugins,omitzero"`
-	Markdown     MarkdownSettings     `json:"markdown,omitzero"`
-	Formatters   map[string]string    `json:"formatters,omitempty"`
+	Version   int    `json:"version"`
+	Theme     string `json:"theme,omitempty"`
+	DebugMode bool   `json:"debugMode,omitempty"`
+	// These sections must NOT use omitzero: their defaults are non-zero, so an
+	// all-false/all-zero section would be omitted on save and silently revert to
+	// the defaults on the next load.
+	Editor       EditorSettings       `json:"editor"`
+	Search       SearchSettings       `json:"search"`
+	Explorer     ExplorerSettings     `json:"explorer"`
+	Terminal     TerminalSettings     `json:"terminal"`
+	LSP          LSPSettings          `json:"lsp"`
+	Autocomplete AutocompleteSettings `json:"autocomplete"`
+	Markdown     MarkdownSettings     `json:"markdown"`
+	// Plugins is safe: its only field is a tri-state *bool where nil means the
+	// default, so the zero value and "unset" mean the same thing.
+	Plugins    PluginSettings    `json:"plugins,omitzero"`
+	Formatters map[string]string `json:"formatters,omitempty"`
 }
 
 func DefaultSettings() Settings {
@@ -184,14 +196,10 @@ func (s Settings) FormatterForExt(ext string) string {
 }
 
 func normalizeSettings(s *Settings) {
-	switch s.Editor.GutterStyle {
-	case "minimal", "compact", "extended":
-	default:
+	if !slices.Contains(GutterStyles, s.Editor.GutterStyle) {
 		s.Editor.GutterStyle = "compact"
 	}
-	switch s.Editor.BorderStyle {
-	case "default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none":
-	default:
+	if !slices.Contains(BorderStyles, s.Editor.BorderStyle) {
 		s.Editor.BorderStyle = "default"
 	}
 }

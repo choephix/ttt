@@ -15,6 +15,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -490,6 +491,12 @@ func (g *EditorGroupWidget) DiffTabSources() []DiffSearchSource {
 }
 
 func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
+	// Content tabs (settings, plugin panels) own their own cursor.
+	if t := g.activeTab(); t != nil && t.Content != nil {
+		if cp, ok := t.Content.(widgets.CursorPositioner); ok {
+			return cp.CursorPosition()
+		}
+	}
 	if g.IsEditorActive() {
 		if g.Editor.isMultiActive() {
 			return 0, 0, false

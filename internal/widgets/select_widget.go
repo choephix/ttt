@@ -17,22 +17,31 @@ type SelectConfig struct {
 	Placeholder string
 	ShowDivider bool
 	Collapsible bool
-	OnSelect    func(id string)
-	OnChange    func(id string)
-	OnDismiss   func()
+	// OnOpen fires when the list opens, letting an owner close sibling selects.
+	OnOpen    func()
+	OnSelect  func(id string)
+	OnChange  func(id string)
+	OnDismiss func()
 }
 
 type SelectWidget struct {
 	BaseWidget
-	Config   SelectConfig
-	input    *InputWidget
-	divider  *DividerWidget
-	filtered []int
-	selected int
-	focused  bool
+	// FixedWidth bounds a collapsed select so its right-aligned chevron stays
+	// next to the value instead of drifting to the far edge of the pane.
+	FixedWidth int
+	Config     SelectConfig
+	input      *InputWidget
+	divider    *DividerWidget
+	filtered   []int
+	selected   int
+	focused    bool
 
-	scrollTop int
-	scrollbar scrollbar
+	scrollTop   int
+	scrollbar   scrollbar
+	popupBounds Rect
+	open        bool
+	suppress    bool
+	currentID   string
 }
 
 func NewSelectWidget(config SelectConfig) *SelectWidget {
@@ -43,6 +52,12 @@ func NewSelectWidget(config SelectConfig) *SelectWidget {
 	s.input = NewInputWidget(InputConfig{
 		Placeholder: config.Placeholder,
 		OnChange: func(_ string) {
+			if s.suppress {
+				return
+			}
+			if s.Config.Collapsible && !s.open {
+				s.setOpen(true)
+			}
 			s.filter()
 			s.selected = 0
 			s.scrollTop = 0
@@ -53,6 +68,43 @@ func NewSelectWidget(config SelectConfig) *SelectWidget {
 	})
 	s.filter()
 	return s
+}
+
+// SetSelectedID preselects an item and shows its label as the placeholder, so a
+// collapsed select displays its current value while the text field stays free
+// for filtering. An id with no matching item is still shown, so a value written
+// by hand into settings.json does not render as blank.
+func (s *SelectWidget) SetSelectedID(id string) {
+	s.currentID = id
+	label := id
+	for _, item := range s.Config.Items {
+		if item.ID == id {
+			label = item.Label
+			break
+		}
+	}
+	s.input.Config.Placeholder = label
+	s.syncSelectedToCurrent()
+}
+
+// syncSelectedToCurrent points the highlighted row at currentID within the
+// filtered list. Without this the index survives a filter change and ends up
+// referring to a different item.
+func (s *SelectWidget) syncSelectedToCurrent() {
+	s.selected = 0
+	for fi, idx := range s.filtered {
+		if s.Config.Items[idx].ID == s.currentID {
+			s.selected = fi
+			return
+		}
+	}
+}
+
+func (s *SelectWidget) selectedID() string {
+	if s.selected >= 0 && s.selected < len(s.filtered) {
+		return s.Config.Items[s.filtered[s.selected]].ID
+	}
+	return ""
 }
 
 func (s *SelectWidget) Height() int {
@@ -82,28 +134,100 @@ func (s *SelectWidget) popupHeight() int {
 	return h
 }
 
+// Keyed off open rather than focused, so a container can decide independently
+// whether to paint the popup.
 func (s *SelectWidget) HasPopup() bool {
-	return s.Config.Collapsible && s.focused
+	return s.Config.Collapsible && s.open
+}
+
+func (s *SelectWidget) setOpen(open bool) {
+	wasOpen := s.open
+	s.open = open
+	if !open {
+		s.suppress = true
+		s.input.SetText("")
+		s.suppress = false
+		s.filter()
+		// The filter query is gone, so the highlighted row must be re-resolved
+		// against the restored full list.
+		s.syncSelectedToCurrent()
+		return
+	}
+	if !wasOpen && s.Config.OnOpen != nil {
+		s.Config.OnOpen()
+	}
+}
+
+// commitSelection records the highlighted item as the current value and
+// notifies the owner. Recording it is what lets the highlight survive the
+// filter being cleared when the list closes.
+func (s *SelectWidget) commitSelection() {
+	if s.selected < 0 || s.selected >= len(s.filtered) {
+		return
+	}
+	id := s.Config.Items[s.filtered[s.selected]].ID
+	s.currentID = id
+	if s.Config.OnSelect != nil {
+		s.Config.OnSelect(id)
+	}
+}
+
+// ClosePopup collapses the list without touching the selected value.
+func (s *SelectWidget) ClosePopup() {
+	if s.open {
+		s.setOpen(false)
+	}
+}
+
+// Zero-height bounds means unconstrained.
+func (s *SelectWidget) SetPopupBounds(r Rect) {
+	s.popupBounds = r
 }
 
 func (s *SelectWidget) PopupRect() Rect {
 	r := s.GetRect()
-	return Rect{X: r.X, Y: r.Y + 1, W: r.W, H: s.popupHeight()}
+	h := s.popupHeight() + 2 // border top and bottom
+	below := r.Y + 1
+	y := below
+
+	if b := s.popupBounds; b.H > 0 {
+		if y+h > b.Y+b.H {
+			above := r.Y - h
+			if above >= b.Y && r.Y-b.Y > (b.Y+b.H)-below {
+				y = above
+			}
+		}
+	}
+	// Full control width, so the popup also covers the chevron column of any
+	// control it overlaps.
+	return Rect{X: r.X, Y: y, W: r.W, H: h}
 }
 
 func (s *SelectWidget) RenderPopup(surface Surface) {
 	pr := s.PopupRect()
 	w, h := pr.W, pr.H
+	listH := h - 2
+	if w <= 2 || listH <= 0 {
+		return
+	}
 
-	s.ensureVisible(h)
+	s.ensureVisible(listH)
 
-	s.scrollbar.X = pr.X + w - 1
-	s.scrollbar.Y = pr.Y
-	s.scrollbar.Height = h
+	// Fill first so the popup is opaque over whatever it covers.
+	for y := range h {
+		for x := range w {
+			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: term.StylePaletteItem})
+		}
+	}
+	surface.DrawBorder(0, 0, w, h, widgetBorders(s.Box), term.StyleBorder)
+
+	s.scrollbar.X = pr.X + w - 2
+	s.scrollbar.Y = pr.Y + 1
+	s.scrollbar.Height = listH
 	s.scrollbar.TotalItems = len(s.filtered)
 	s.scrollbar.TopItem = s.scrollTop
 
-	for i := range h {
+	for i := range listH {
 		idx := s.scrollTop + i
 		if idx >= len(s.filtered) {
 			break
@@ -113,19 +237,25 @@ func (s *SelectWidget) RenderPopup(surface Surface) {
 		if idx == s.selected {
 			style = term.StylePaletteSelected
 		}
-		for x := range w {
-			surface.SetCell(x, i, term.Cell{Ch: ' ', Style: style})
+		for x := 1; x < w-1; x++ {
+			surface.SetCell(x, i+1, term.Cell{Ch: ' ', Style: style})
 		}
-		surface.DrawText(1, i, item.Label, w-1, style)
+		surface.DrawText(2, i+1, item.Label, w-4, style)
 	}
 
-	s.scrollbar.Render(surface, w-1, 0)
+	s.scrollbar.Render(surface, w-2, 1)
 }
-func (s *SelectWidget) Width() int { return 0 }
+func (s *SelectWidget) Width() int { return s.FixedWidth }
 
-func (s *SelectWidget) Focusable() bool   { return true }
-func (s *SelectWidget) SetFocused(f bool) { s.focused = f; s.input.SetFocused(f) }
-func (s *SelectWidget) IsFocused() bool   { return s.focused }
+func (s *SelectWidget) Focusable() bool { return true }
+func (s *SelectWidget) SetFocused(f bool) {
+	s.focused = f
+	s.input.SetFocused(f)
+	if !f && s.Config.Collapsible {
+		s.setOpen(false)
+	}
+}
+func (s *SelectWidget) IsFocused() bool { return s.focused }
 
 func (s *SelectWidget) CursorPosition() (x, y int, visible bool) {
 	return s.input.CursorPosition()
@@ -184,12 +314,13 @@ func (s *SelectWidget) Render(surface Surface) {
 	s.input.Render(inputSurface)
 
 	chevron := '▼'
-	if s.focused {
+	if (s.Config.Collapsible && s.open) || (!s.Config.Collapsible && s.focused) {
 		chevron = '▲'
 	}
 	surface.SetCell(w-2, y, term.Cell{Ch: chevron, Style: term.StyleMuted})
 	y++
 
+	// A collapsed select is just the one-line control; its list lives in a popup.
 	if s.Config.Collapsible {
 		return
 	}
@@ -249,6 +380,15 @@ func (s *SelectWidget) HandleEvent(ev tcell.Event) EventResult {
 }
 
 func (s *SelectWidget) handleKey(ev *tcell.EventKey) EventResult {
+	// A collapsed select opens on Up/Down/Enter before it starts navigating.
+	if s.Config.Collapsible && !s.open {
+		switch ev.Key() {
+		case tcell.KeyUp, tcell.KeyDown, tcell.KeyEnter:
+			s.setOpen(true)
+			return EventConsumed
+		}
+	}
+
 	switch ev.Key() {
 	case tcell.KeyUp:
 		if s.selected > 0 {
@@ -265,11 +405,18 @@ func (s *SelectWidget) handleKey(ev *tcell.EventKey) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyEnter:
-		if s.selected >= 0 && s.selected < len(s.filtered) && s.Config.OnSelect != nil {
-			s.Config.OnSelect(s.Config.Items[s.filtered[s.selected]].ID)
+		if s.selected >= 0 && s.selected < len(s.filtered) {
+			s.commitSelection()
+		}
+		if s.Config.Collapsible {
+			s.setOpen(false)
 		}
 		return EventConsumed
 	case tcell.KeyEscape:
+		if s.Config.Collapsible && s.open {
+			s.setOpen(false)
+			return EventConsumed
+		}
 		if s.Config.OnDismiss != nil {
 			s.Config.OnDismiss()
 		}
@@ -311,22 +458,29 @@ func (s *SelectWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 
 	if btn&tcell.Button1 != 0 {
 		if s.Config.Collapsible {
-			if !s.focused {
-				return EventIgnored
-			}
-			pr := s.PopupRect()
-			if my >= pr.Y && my < pr.Y+pr.H {
-				idx := s.scrollTop + (my - pr.Y)
-				if idx >= 0 && idx < len(s.filtered) {
-					s.selected = idx
-					s.notifyChange()
-					if s.Config.OnSelect != nil {
-						s.Config.OnSelect(s.Config.Items[s.filtered[s.selected]].ID)
+			if s.open {
+				pr := s.PopupRect()
+				// The popup's first and last rows are its border.
+				if mx >= pr.X && mx < pr.X+pr.W && my > pr.Y && my < pr.Y+pr.H-1 {
+					idx := s.scrollTop + (my - pr.Y - 1)
+					if idx >= 0 && idx < len(s.filtered) {
+						s.selected = idx
+						s.notifyChange()
+						s.commitSelection()
 					}
+					s.setOpen(false)
+					return EventConsumed
 				}
+			}
+			// Clicking the control itself toggles the list.
+			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+1 {
+				s.setOpen(!s.open)
 				return EventConsumed
 			}
-			return s.input.HandleEvent(ev)
+			if s.open {
+				s.setOpen(false)
+			}
+			return EventIgnored
 		}
 		listStart := r.Y + 1
 		if s.Config.ShowDivider {

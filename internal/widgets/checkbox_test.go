@@ -160,20 +160,27 @@ func TestCheckboxKeyIgnoredWhenNotFocused(t *testing.T) {
 func TestCheckboxFocusStyling(t *testing.T) {
 	cb := NewCheckboxWidget(CheckboxConfig{Label: "Styled"})
 
-	// Render unfocused
+	// Focus is carried by the bracket colour, with no background change, so the
+	// mark and label must render identically either way.
 	cb.SetFocused(false)
 	s1 := renderWidget(cb, 0, 0, 30, 1)
-	unfocusedStyle := s1.cells[0][1].Style
-	if unfocusedStyle == term.StyleButtonFocused {
-		t.Error("unfocused checkbox should not use StyleButtonFocused")
+	if got := s1.cells[0][1].Style; got != term.StyleBorder {
+		t.Errorf("unfocused bracket = %v, want StyleBorder", got)
 	}
 
-	// Render focused
 	cb.SetFocused(true)
 	s2 := renderWidget(cb, 0, 0, 30, 1)
-	focusedStyle := s2.cells[0][1].Style
-	if focusedStyle != term.StyleButtonFocused {
-		t.Errorf("focused checkbox should use StyleButtonFocused, got %v", focusedStyle)
+	if got := s2.cells[0][1].Style; got != term.StyleBorderActive {
+		t.Errorf("focused bracket = %v, want StyleBorderActive", got)
+	}
+	if s2.cells[0][3].Style != term.StyleBorderActive {
+		t.Error("closing bracket should track focus too")
+	}
+
+	for _, x := range []int{2, 5, 6} {
+		if s1.cells[0][x].Style != s2.cells[0][x].Style {
+			t.Errorf("cell %d changed style on focus; only brackets should", x)
+		}
 	}
 }
 

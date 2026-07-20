@@ -132,22 +132,11 @@ func (inp *InputWidget) renderBordered(surface Surface) {
 	if inp.focused {
 		borderStyle = term.StyleBorderActive
 	}
-	bs := inp.borders()
+	bs := widgetBorders(inp.Box)
 
 	inner.DrawBorder(0, 0, w, h, bs, borderStyle)
 
 	inp.renderText(inner, 2, 1, w-4)
-}
-
-func (inp *InputWidget) borders() term.BorderSet {
-	if inp.Box.Borders.Horizontal != 0 {
-		return inp.Box.Borders
-	}
-	return term.BorderSet{
-		Horizontal: '─', Vertical: '│',
-		TopLeft: '╭', TopRight: '╮',
-		BottomLeft: '╰', BottomRight: '╯',
-	}
 }
 
 func (inp *InputWidget) renderBorderless(surface Surface) {
