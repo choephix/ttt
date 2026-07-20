@@ -11,6 +11,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
 	"github.com/gdamore/tcell/v2"
@@ -372,6 +373,18 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		default:
 			a.StatusNotify(message)
 		}
+	}
+	p.SetStatusItem = func(side, id, text string, priority int, onClick func()) {
+		a.Status.SetSegment(view.StatusSegment{
+			ID:       id,
+			Side:     side,
+			Priority: priority,
+			Text:     text,
+			OnClick:  onClick,
+		})
+	}
+	p.RemoveStatusItem = func(id string) {
+		a.Status.RemoveSegment(id)
 	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))

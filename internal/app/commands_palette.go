@@ -4,6 +4,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
@@ -159,8 +160,8 @@ func registerPaletteCommands(app *App) {
 		Handler:  app.ShowThemePicker,
 	})
 
-	app.StatusBar.OnIndentClick = app.ShowIndentPicker
-	app.StatusBar.OnEolClick = app.ShowEolPicker
+	app.Status.SetSegment(view.StatusSegment{ID: "indent", Side: "right", Priority: 200, OnClick: app.ShowIndentPicker})
+	app.Status.SetSegment(view.StatusSegment{ID: "eol", Side: "right", Priority: 400, OnClick: app.ShowEolPicker})
 
 	reg.Register(command.Command{
 		ID: "editor.indentation", Title: "Change Indentation",

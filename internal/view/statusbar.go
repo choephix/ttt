@@ -1,6 +1,7 @@
 package view
 
 import (
+	"sort"
 	"time"
 
 	"github.com/eugenioenko/ttt/internal/term"
@@ -25,19 +26,20 @@ func (l NotifyLevel) Style() term.Style {
 	}
 }
 
+type StatusSegment struct {
+	ID       string
+	Side     string // "left" or "right"
+	Priority int
+	Text     string
+	Style    term.Style
+	OnClick  func()
+}
+
 type StatusBar struct {
-	FileName        string
-	Line            int
-	Col             int
-	Dirty           bool
-	Branch          string
-	Blame           string
-	Language        string
-	LSP             bool
-	TabSize         int
-	UseTabs         bool
-	LineEnding      string
-	CursorCount     int
+	segments        map[string]*StatusSegment
+	sortedLeft      []*StatusSegment
+	sortedRight     []*StatusSegment
+	dirty           bool
 	Notification    string
 	NotifyLevel     NotifyLevel
 	NotifyExpiry    time.Time
@@ -45,6 +47,74 @@ type StatusBar struct {
 	ActionLabel     string
 	SecondaryAction func()
 	SecondaryLabel  string
+}
+
+func NewStatusBar() *StatusBar {
+	return &StatusBar{
+		segments: make(map[string]*StatusSegment),
+	}
+}
+
+func (s *StatusBar) SetSegment(seg StatusSegment) {
+	if existing, ok := s.segments[seg.ID]; ok {
+		existing.Text = seg.Text
+		existing.Style = seg.Style
+		if seg.OnClick != nil {
+			existing.OnClick = seg.OnClick
+		}
+		if seg.Side != "" && seg.Side != existing.Side {
+			existing.Side = seg.Side
+			s.dirty = true
+		}
+		if seg.Priority != 0 && seg.Priority != existing.Priority {
+			existing.Priority = seg.Priority
+			s.dirty = true
+		}
+		return
+	}
+	cp := seg
+	s.segments[seg.ID] = &cp
+	s.dirty = true
+}
+
+func (s *StatusBar) RemoveSegment(id string) {
+	if _, ok := s.segments[id]; ok {
+		delete(s.segments, id)
+		s.dirty = true
+	}
+}
+
+func (s *StatusBar) LeftSegments() []*StatusSegment {
+	if s.dirty {
+		s.resort()
+	}
+	return s.sortedLeft
+}
+
+func (s *StatusBar) RightSegments() []*StatusSegment {
+	if s.dirty {
+		s.resort()
+	}
+	return s.sortedRight
+}
+
+func (s *StatusBar) resort() {
+	s.sortedLeft = s.sortedLeft[:0]
+	s.sortedRight = s.sortedRight[:0]
+	for _, seg := range s.segments {
+		if seg.Side == "left" {
+			s.sortedLeft = append(s.sortedLeft, seg)
+		} else {
+			s.sortedRight = append(s.sortedRight, seg)
+		}
+	}
+	sort.Slice(s.sortedLeft, func(i, j int) bool {
+		return s.sortedLeft[i].Priority < s.sortedLeft[j].Priority
+	})
+	sort.Slice(s.sortedRight, func(i, j int) bool {
+		return s.sortedRight[i].Priority < s.sortedRight[j].Priority
+	})
+	s.dirty = false
 }
 
 func (s *StatusBar) SetNotification(msg string, level NotifyLevel, duration time.Duration) {

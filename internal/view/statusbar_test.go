@@ -5,21 +5,61 @@ import (
 	"time"
 )
 
-func TestStatusBarFields(t *testing.T) {
-	sb := &StatusBar{FileName: "file.go", Line: 2, Col: 4, Dirty: true}
-	if sb.FileName != "file.go" {
-		t.Errorf("expected FileName 'file.go', got %q", sb.FileName)
+func TestSetSegment(t *testing.T) {
+	sb := NewStatusBar()
+	sb.SetSegment(StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: "main"})
+	sb.SetSegment(StatusSegment{ID: "pos", Side: "right", Priority: 100, Text: "Ln 1, Col 1"})
+
+	left := sb.LeftSegments()
+	if len(left) != 1 || left[0].Text != "main" {
+		t.Errorf("expected left segment 'main', got %v", left)
 	}
-	if sb.Line != 2 {
-		t.Errorf("expected Line 2, got %d", sb.Line)
+	right := sb.RightSegments()
+	if len(right) != 1 || right[0].Text != "Ln 1, Col 1" {
+		t.Errorf("expected right segment 'Ln 1, Col 1', got %v", right)
 	}
-	if !sb.Dirty {
-		t.Error("expected Dirty to be true")
+}
+
+func TestSetSegmentUpdate(t *testing.T) {
+	sb := NewStatusBar()
+	sb.SetSegment(StatusSegment{ID: "pos", Side: "right", Priority: 100, Text: "Ln 1"})
+	sb.SetSegment(StatusSegment{ID: "pos", Side: "right", Priority: 100, Text: "Ln 5"})
+
+	right := sb.RightSegments()
+	if len(right) != 1 || right[0].Text != "Ln 5" {
+		t.Errorf("expected updated text 'Ln 5', got %v", right)
+	}
+}
+
+func TestRemoveSegment(t *testing.T) {
+	sb := NewStatusBar()
+	sb.SetSegment(StatusSegment{ID: "a", Side: "left", Priority: 100, Text: "A"})
+	sb.SetSegment(StatusSegment{ID: "b", Side: "left", Priority: 200, Text: "B"})
+	sb.RemoveSegment("a")
+
+	left := sb.LeftSegments()
+	if len(left) != 1 || left[0].ID != "b" {
+		t.Errorf("expected only segment 'b', got %v", left)
+	}
+}
+
+func TestSegmentPrioritySorting(t *testing.T) {
+	sb := NewStatusBar()
+	sb.SetSegment(StatusSegment{ID: "c", Side: "left", Priority: 300, Text: "C"})
+	sb.SetSegment(StatusSegment{ID: "a", Side: "left", Priority: 100, Text: "A"})
+	sb.SetSegment(StatusSegment{ID: "b", Side: "left", Priority: 200, Text: "B"})
+
+	left := sb.LeftSegments()
+	if len(left) != 3 {
+		t.Fatalf("expected 3 segments, got %d", len(left))
+	}
+	if left[0].ID != "a" || left[1].ID != "b" || left[2].ID != "c" {
+		t.Errorf("expected order a,b,c got %s,%s,%s", left[0].ID, left[1].ID, left[2].ID)
 	}
 }
 
 func TestSetNotification(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	sb.SetNotification("saved", NotifyInfo, 3*time.Second)
 
 	if sb.Notification != "saved" {
@@ -40,11 +80,10 @@ func TestSetNotification(t *testing.T) {
 }
 
 func TestSetNotificationClearsAction(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	called := false
 	sb.SetNotificationWithAction("error", NotifyError, 5*time.Second, "Retry", func() { called = true })
 
-	// Now overwrite with a plain notification
 	sb.SetNotification("info", NotifyInfo, 2*time.Second)
 
 	if sb.NotifyAction != nil {
@@ -59,7 +98,7 @@ func TestSetNotificationClearsAction(t *testing.T) {
 }
 
 func TestSetNotificationWithAction(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	called := false
 	action := func() { called = true }
 	sb.SetNotificationWithAction("failed", NotifyError, 10*time.Second, "Retry", action)
@@ -84,7 +123,7 @@ func TestSetNotificationWithAction(t *testing.T) {
 }
 
 func TestDismissNotification(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	sb.SetNotificationWithAction("error", NotifyError, 10*time.Second, "Fix", func() {})
 	sb.SecondaryLabel = "Details"
 	sb.SecondaryAction = func() {}
@@ -112,14 +151,14 @@ func TestDismissNotification(t *testing.T) {
 }
 
 func TestIsNotificationActive_NoNotification(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	if sb.IsNotificationActive() {
 		t.Error("expected no active notification for empty StatusBar")
 	}
 }
 
 func TestIsNotificationActive_NotExpired(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	sb.SetNotification("hello", NotifyInfo, 10*time.Second)
 
 	if !sb.IsNotificationActive() {
@@ -128,22 +167,21 @@ func TestIsNotificationActive_NotExpired(t *testing.T) {
 }
 
 func TestIsNotificationActive_Expired(t *testing.T) {
-	sb := &StatusBar{}
-	sb.SetNotification("old", NotifyWarning, -1*time.Second) // already expired
+	sb := NewStatusBar()
+	sb.SetNotification("old", NotifyWarning, -1*time.Second)
 
 	if sb.IsNotificationActive() {
 		t.Error("expected notification to be inactive (expired)")
 	}
-	// After checking, the notification should be dismissed
 	if sb.Notification != "" {
 		t.Errorf("expected Notification to be cleared after expiry check, got %q", sb.Notification)
 	}
 }
 
 func TestIsNotificationActive_ZeroExpiry(t *testing.T) {
-	sb := &StatusBar{}
+	sb := NewStatusBar()
 	sb.Notification = "permanent"
-	sb.NotifyExpiry = time.Time{} // zero value = no expiry
+	sb.NotifyExpiry = time.Time{}
 
 	if !sb.IsNotificationActive() {
 		t.Error("expected notification with zero expiry to remain active")
@@ -151,24 +189,6 @@ func TestIsNotificationActive_ZeroExpiry(t *testing.T) {
 }
 
 func TestNotifyLevel_Style(t *testing.T) {
-	tests := []struct {
-		level NotifyLevel
-		want  string
-	}{
-		{NotifyInfo, "StyleStatusBar"},
-		{NotifyWarning, "StyleWarning"},
-		{NotifyError, "StyleDanger"},
-	}
-
-	for _, tt := range tests {
-		got := tt.level.Style()
-		// We can't import term constants here (same package), but the
-		// Style() method returns term.Style values. Verify they return
-		// distinct values for each level.
-		_ = got
-	}
-
-	// Verify each level returns distinct styles
 	infoStyle := NotifyInfo.Style()
 	warningStyle := NotifyWarning.Style()
 	errorStyle := NotifyError.Style()
