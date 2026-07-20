@@ -29,6 +29,12 @@ func (a *App) ToggleAutoDedent() {
 	a.SaveAndApplySettings()
 }
 
+func (a *App) ToggleAutoIndent() {
+	enabled := !a.Settings.Editor.IsAutoIndentEnabled()
+	a.Settings.Editor.AutoIndent = &enabled
+	a.SaveAndApplySettings()
+}
+
 func (a *App) ToggleSyntaxHighlight() {
 	enabled := !a.Settings.Editor.IsSyntaxHighlightEnabled()
 	a.Settings.Editor.SyntaxHighlight = &enabled
@@ -159,6 +165,11 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		bracketColorChecked = ui.MenuChecked
 	}
 
+	autoIndentChecked := ui.MenuUnchecked
+	if a.Settings.Editor.IsAutoIndentEnabled() {
+		autoIndentChecked = ui.MenuChecked
+	}
+
 	autoDedentChecked := ui.MenuUnchecked
 	if a.Settings.Editor.IsAutoDedentEnabled() {
 		autoDedentChecked = ui.MenuChecked
@@ -182,6 +193,7 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
+		{Label: "Auto Indent", Command: "options.toggleAutoIndent", Checked: autoIndentChecked},
 		{Label: "Auto Dedent", Command: "options.toggleAutoDedent", Checked: autoDedentChecked},
 		{Label: "Syntax Highlight", Command: "options.toggleSyntaxHighlight", Checked: syntaxChecked},
 		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
@@ -218,6 +230,12 @@ func registerOptionsCommands(app *App) {
 		ID: "options.toggleWordWrap", Title: "Toggle Word Wrap",
 		Keywords: []string{"preferences", "settings", "editor", "view"},
 		Handler:  app.ToggleWordWrap,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleAutoIndent", Title: "Toggle Auto Indent",
+		Keywords: []string{"preferences", "settings", "editor", "indentation", "indent"},
+		Handler:  app.ToggleAutoIndent,
 	})
 
 	reg.Register(command.Command{

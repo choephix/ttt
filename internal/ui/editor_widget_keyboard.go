@@ -287,34 +287,39 @@ func (e *EditorPaneWidget) execEnter() {
 	e.Cursor.Line++
 	e.Cursor.Col = 0
 
-	indent := leadingWhitespace(line)
-	newIndent := indent
-	runes := []rune(line)
-	charBefore := ' '
-	if col > 0 && col <= len(runes) {
-		charBefore = runes[col-1]
-	}
-	charAfter := ' '
-	if col < len(runes) {
-		charAfter = runes[col]
-	}
-	extraIndent := indentOpeners[charBefore]
-	if extraIndent {
-		newIndent += e.indentUnit()
-	}
-	if len(newIndent) > 0 {
-		indentCmd := &undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent}
-		indentCmd.Apply(e.Buf)
-		cmds = append(cmds, indentCmd)
-		e.Cursor.Col = len([]rune(newIndent))
-	}
-	if extraIndent && closingBrackets[charAfter] {
-		bracketSplit := &undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col}
-		bracketSplit.Apply(e.Buf)
-		cmds = append(cmds, bracketSplit)
-		bracketIndent := &undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent}
-		bracketIndent.Apply(e.Buf)
-		cmds = append(cmds, bracketIndent)
+	// Auto-indent (indent preservation plus a shiftwidth after an opening
+	// bracket) is gated on AutoIndent. With it off, Enter opens a column-1 line,
+	// matching an editor with `noautoindent` — which the Vim layer relies on.
+	if e.AutoIndent {
+		indent := leadingWhitespace(line)
+		newIndent := indent
+		runes := []rune(line)
+		charBefore := ' '
+		if col > 0 && col <= len(runes) {
+			charBefore = runes[col-1]
+		}
+		charAfter := ' '
+		if col < len(runes) {
+			charAfter = runes[col]
+		}
+		extraIndent := indentOpeners[charBefore]
+		if extraIndent {
+			newIndent += e.indentUnit()
+		}
+		if len(newIndent) > 0 {
+			indentCmd := &undo.InsertStringCommand{Line: e.Cursor.Line, Col: 0, Text: newIndent}
+			indentCmd.Apply(e.Buf)
+			cmds = append(cmds, indentCmd)
+			e.Cursor.Col = len([]rune(newIndent))
+		}
+		if extraIndent && closingBrackets[charAfter] {
+			bracketSplit := &undo.SplitLineCommand{Line: e.Cursor.Line, Col: e.Cursor.Col}
+			bracketSplit.Apply(e.Buf)
+			cmds = append(cmds, bracketSplit)
+			bracketIndent := &undo.InsertStringCommand{Line: e.Cursor.Line + 1, Col: 0, Text: indent}
+			bracketIndent.Apply(e.Buf)
+			cmds = append(cmds, bracketIndent)
+		}
 	}
 	if e.Undo != nil {
 		e.Undo.Push(&undo.BatchCommand{Commands: cmds})
