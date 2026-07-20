@@ -1340,6 +1340,7 @@ Require the `editor.read` permission.
 | `editor.current_line()`| string                                                    | Text of the line at cursor.          |
 | `editor.get_line(n)`   | string                                                    | Text of line `n` (1-based).          |
 | `editor.line_count()`  | number                                                    | Total number of lines in the buffer. |
+| `editor.viewport()`    | `{top_line, bottom_line, height}`                         | Visible viewport range (1-based lines) and height in rows. |
 | `editor.cursor()`      | `{line, col}`                                             | Current cursor position (1-based).   |
 | `editor.selection()`   | `{active, start_line, start_col, end_line, end_col}`     | Selection state (1-based). `active` is boolean. |
 | `editor.selection_text()` | string                                                 | Selected text (empty if no selection).|
@@ -1373,10 +1374,14 @@ Require the `editor.write` permission.
 |---------------------------------------------------|------------------------------------------------|
 | `editor.insert(line, col, text)`                  | Insert text at position (1-based).             |
 | `editor.set_line(line, text)`                     | Replace the entire content of line `line` (1-based). |
+| `editor.scroll_to(line)`                          | Scroll so that `line` (1-based) is at the top of the viewport. |
+| `editor.scroll_by(delta)`                         | Scroll up/down by `delta` lines (negative = up). |
 | `editor.replace(start_line, start_col, end_line, end_col, text)` | Replace a range with text (1-based). |
 | `editor.set_cursor(line, col)`                    | Move the cursor (1-based).                     |
 | `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range (1-based).     |
 | `editor.clear_selection()`                        | Clear the current selection.                   |
+| `editor.begin_undo_group()`                       | Start grouping subsequent edits into a single undo step. |
+| `editor.end_undo_group()`                         | Close the group; all edits since `begin` undo/redo as one operation. |
 
 All write operations go through the undo system — they can be undone with Ctrl+Z.
 

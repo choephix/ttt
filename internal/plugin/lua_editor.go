@@ -17,6 +17,7 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "current_line", L.NewFunction(editorCurrentLine(p)))
 			L.SetField(mod, "get_line", L.NewFunction(editorGetLine(p)))
 			L.SetField(mod, "line_count", L.NewFunction(editorLineCount(p)))
+			L.SetField(mod, "viewport", L.NewFunction(editorViewport(p)))
 			L.SetField(mod, "cursor", L.NewFunction(editorCursor(p)))
 			L.SetField(mod, "selection", L.NewFunction(editorSelection(p)))
 			L.SetField(mod, "selection_text", L.NewFunction(editorSelectionText(p)))
@@ -29,12 +30,16 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 		}
 
 		if hasWrite {
+			L.SetField(mod, "scroll_to", L.NewFunction(editorScrollTo(p)))
+			L.SetField(mod, "scroll_by", L.NewFunction(editorScrollBy(p)))
 			L.SetField(mod, "insert", L.NewFunction(editorInsert(p)))
 			L.SetField(mod, "set_line", L.NewFunction(editorSetLine(p)))
 			L.SetField(mod, "replace", L.NewFunction(editorReplace(p)))
 			L.SetField(mod, "set_cursor", L.NewFunction(editorSetCursor(p)))
 			L.SetField(mod, "set_selection", L.NewFunction(editorSetSelection(p)))
 			L.SetField(mod, "clear_selection", L.NewFunction(editorClearSelection(p)))
+			L.SetField(mod, "begin_undo_group", L.NewFunction(editorBeginUndoGroup(p)))
+			L.SetField(mod, "end_undo_group", L.NewFunction(editorEndUndoGroup(p)))
 		}
 
 		L.Push(mod)
@@ -252,6 +257,45 @@ func editorColToByte(p *Plugin) lua.LGFunction {
 	}
 }
 
+func editorViewport(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		top, bottom, height := p.Editor.Viewport()
+		tbl := L.NewTable()
+		L.SetField(tbl, "top_line", lua.LNumber(top+1))
+		L.SetField(tbl, "bottom_line", lua.LNumber(bottom+1))
+		L.SetField(tbl, "height", lua.LNumber(height))
+		L.Push(tbl)
+		return 1
+	}
+}
+
+func editorScrollTo(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		line := int(L.CheckNumber(1)) - 1
+		p.Editor.ScrollTo(line)
+		return 0
+	}
+}
+
+func editorScrollBy(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		delta := int(L.CheckNumber(1))
+		p.Editor.ScrollBy(delta)
+		return 0
+	}
+}
+
 func editorSetLine(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
@@ -406,6 +450,26 @@ func editorClearSelection(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		p.Editor.ClearSelection()
+		return 0
+	}
+}
+
+func editorBeginUndoGroup(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.BeginUndoGroup()
+		return 0
+	}
+}
+
+func editorEndUndoGroup(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.EndUndoGroup()
 		return 0
 	}
 }
