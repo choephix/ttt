@@ -6,6 +6,7 @@
 --
 -- Phase 0: mode state machine (normal/insert), Esc handling, status indicator.
 -- Phase 1: normal-mode motions with {count} prefixes.
+-- Phase 2: insert-mode entry points and single-key edits.
 
 local ttt = require("ttt")
 local events = require("ttt.events")
@@ -29,6 +30,8 @@ local state = {
 	find_pending = nil, -- "f" | "F" | "t" | "T" awaiting its target char
 	last_find = nil, -- { op = "f", ch = "x" } for `;` and `,`
 	goal = nil, -- sticky column for j/k
+	replace_pending = nil, -- count for `r{char}` awaiting its replacement char
+	last_insert = nil, -- { line, col } where insert mode was last left, for `gi`
 }
 
 local MODE_LABELS = {
@@ -59,6 +62,7 @@ local function set_mode(mode)
 	state.operator = nil
 	state.register = nil
 	state.find_pending = nil
+	state.replace_pending = nil
 	state.goal = nil
 	render_status()
 end
@@ -132,6 +136,7 @@ local function has_pending()
 		or state.operator ~= nil
 		or state.register ~= nil
 		or state.find_pending ~= nil
+		or state.replace_pending ~= nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -671,14 +676,429 @@ local PREFIX_KEYS = { g = true, z = true }
 local FIND_KEYS = { f = true, F = true, t = true, T = true }
 
 -- ---------------------------------------------------------------------------
+-- Edits
+--
+-- UNDO CONTRACT: every Vim operation is exactly one undo step. Each edit is
+-- bracketed by begin_undo_group()/end_undo_group() so `3x` undoes as one `u`,
+-- not three. Undo transactions do NOT nest -- BeginTransaction resets the
+-- transaction start index (internal/core/undo/undo.go) -- so an operation must
+-- call begin exactly once. Commands that edit *and then* enter insert mode open
+-- the group here and let leave_insert() close it, which is what makes
+-- `cwfoo<Esc>` a single undo the way Vim does it.
+-- ---------------------------------------------------------------------------
+
+-- Vim's 'shiftwidth'. Hardcoded until Phase 7 wires plugin settings; reading
+-- editor.tabSize would need a `settings` permission the manifest does not ask
+-- for, and re-prompting installed users for it is not worth it yet.
+local SHIFTWIDTH = 4
+
+local function line_len(l)
+	return #line_runes(l)
+end
+
+-- The caller must already have opened the undo group.
+local function begin_insert()
+	set_mode("insert")
+end
+
+-- Leaving insert/replace mode. Vim steps the cursor one column left and drops
+-- it back onto a character; the position *before* that step is what `gi`
+-- resumes from.
+local function leave_insert()
+	local cur = editor.cursor()
+	state.last_insert = { line = cur.line, col = cur.col }
+	set_mode("normal")
+	if cur.col > 1 then
+		editor.set_cursor(cur.line, cur.col - 1)
+	end
+	clamp_cursor()
+	editor.end_undo_group()
+end
+
+-- Delete from the cursor to the end of line (cur.line + n - 1), joining the
+-- lines in between. `2D` on "aaa"/"bbb" leaves a single empty line, as in Vim.
+local function delete_to_end(n)
+	local cur = editor.cursor()
+	local last = clamp(cur.line + n - 1, 1, line_count())
+	editor.replace(cur.line, cur.col, last, line_len(last) + 1, "")
+end
+
+local function swap_case(ch)
+	local b = ch:byte(1)
+	if b == nil then
+		return ch
+	end
+	if b >= 0x61 and b <= 0x7a then
+		return string.char(b - 32)
+	end
+	if b >= 0x41 and b <= 0x5a then
+		return string.char(b + 32)
+	end
+	return ch
+end
+
+-- J / gJ. `count` is the number of lines to end up joined, so it performs
+-- count-1 joins (and `J` alone, count 1, still performs one).
+local function join(count, with_space)
+	local l = editor.cursor().line
+	local times = math.max(1, count - 1)
+	local col = 1
+	editor.begin_undo_group()
+	for _ = 1, times do
+		if l >= line_count() then
+			break
+		end
+		local cur_r = line_runes(l)
+		local nxt_r = line_runes(l + 1)
+		local end_col, sep = 1, ""
+		if with_space then
+			local fnb = 1
+			while fnb <= #nxt_r and is_blank(nxt_r[fnb]) do
+				fnb = fnb + 1
+			end
+			end_col = fnb
+			-- Vim adds no space when the joined-to line already ends in
+			-- whitespace, when it is empty, or when the next line starts with
+			-- a closing paren.
+			if fnb <= #nxt_r and #cur_r > 0 and not is_blank(cur_r[#cur_r]) and nxt_r[fnb] ~= ")" then
+				sep = " "
+			end
+		end
+		editor.replace(l, #cur_r + 1, l + 1, end_col, sep)
+		col = #cur_r + 1
+	end
+	editor.end_undo_group()
+	editor.set_cursor(l, col)
+	clamp_cursor()
+end
+
+-- >> and <<. Blank lines are left alone, as in Vim.
+local function indent_lines(n, dir)
+	local cur = editor.cursor()
+	local last = clamp(cur.line + n - 1, 1, line_count())
+	editor.begin_undo_group()
+	for l = cur.line, last do
+		local r = line_runes(l)
+		if #r > 0 then
+			if dir > 0 then
+				editor.insert(l, 1, string.rep(" ", SHIFTWIDTH))
+			else
+				local k = 0
+				while k < SHIFTWIDTH do
+					local ch = r[k + 1]
+					if ch == "\t" then
+						k = k + 1
+						break
+					elseif ch == " " then
+						k = k + 1
+					else
+						break
+					end
+				end
+				if k > 0 then
+					editor.replace(l, 1, l, k + 1, "")
+				end
+			end
+		end
+	end
+	editor.end_undo_group()
+	move_to(cur.line, first_non_blank(cur.line))
+end
+
+-- == reindent. ttt has no indent engine, so this is a deliberate heuristic:
+-- copy the previous non-blank line's indent, add one shiftwidth if that line
+-- opens a block, and remove one if this line closes one. Spaces only.
+local function reindent(n)
+	local cur = editor.cursor()
+	local last = clamp(cur.line + n - 1, 1, line_count())
+	editor.begin_undo_group()
+	for l = cur.line, last do
+		local body = (editor.get_line(l) or ""):match("^[ \t]*(.-)[ \t]*$") or ""
+		if body ~= "" then
+			local width = 0
+			local p = l - 1
+			while p >= 1 do
+				local prev = editor.get_line(p) or ""
+				local pbody = prev:match("^[ \t]*(.-)[ \t]*$") or ""
+				if pbody ~= "" then
+					width = #(prev:match("^ *") or "")
+					if pbody:match("[%{%(%[]$") or pbody:match(":$") then
+						width = width + SHIFTWIDTH
+					end
+					break
+				end
+				p = p - 1
+			end
+			if body:match("^[%}%)%]]") then
+				width = math.max(0, width - SHIFTWIDTH)
+			end
+			editor.set_line(l, string.rep(" ", width) .. body)
+		end
+	end
+	editor.end_undo_group()
+	move_to(cur.line, first_non_blank(cur.line))
+end
+
+-- Ctrl-A / Ctrl-X. Finds the first digit run ending at or after the cursor,
+-- takes an immediately preceding "-" as a sign, and preserves zero padding.
+-- byte_to_col/col_to_byte bridge Lua's byte-oriented patterns to the editor's
+-- rune columns.
+local function bump(count, dir)
+	local cur = editor.cursor()
+	local text = editor.get_line(cur.line) or ""
+	local bcur = editor.col_to_byte(text, cur.col)
+
+	local s, e
+	local from = 1
+	while true do
+		local a, b = text:find("%d+", from)
+		if not a then
+			break
+		end
+		if b >= bcur then
+			s, e = a, b
+			break
+		end
+		from = b + 1
+	end
+	if not s then
+		return
+	end
+
+	local digits = text:sub(s, e)
+	local start, neg = s, false
+	if s > 1 and text:sub(s - 1, s - 1) == "-" then
+		start, neg = s - 1, true
+	end
+
+	local val = tonumber(digits)
+	if neg then
+		val = -val
+	end
+	val = val + dir * count
+
+	local body = string.format("%d", math.abs(val))
+	if digits:sub(1, 1) == "0" and #digits > 1 and #body < #digits then
+		body = string.rep("0", #digits - #body) .. body
+	end
+	local out = (val < 0 and "-" or "") .. body
+
+	local scol = editor.byte_to_col(text, start)
+	editor.begin_undo_group()
+	editor.replace(cur.line, scol, cur.line, editor.byte_to_col(text, e + 1), out)
+	editor.end_undo_group()
+	editor.set_cursor(cur.line, scol + #out - 1)
+end
+
+-- Single-key normal-mode edits. Called as fn(count, had_count).
+local EDITS = {
+	["i"] = function()
+		editor.begin_undo_group()
+		begin_insert()
+	end,
+	["I"] = function()
+		local l = editor.cursor().line
+		move_to(l, first_non_blank(l))
+		editor.begin_undo_group()
+		begin_insert()
+	end,
+	["a"] = function()
+		local cur = editor.cursor()
+		editor.set_cursor(cur.line, math.min(cur.col + 1, line_len(cur.line) + 1))
+		editor.begin_undo_group()
+		begin_insert()
+	end,
+	["A"] = function()
+		local cur = editor.cursor()
+		editor.set_cursor(cur.line, line_len(cur.line) + 1)
+		editor.begin_undo_group()
+		begin_insert()
+	end,
+	-- Insert rejects line >= #Lines (internal/app/plugin_api.go), so `o` on the
+	-- last line appends the newline to the *end* of that line rather than
+	-- addressing the line after it.
+	["o"] = function()
+		local l = editor.cursor().line
+		editor.begin_undo_group()
+		editor.insert(l, line_len(l) + 1, "\n")
+		editor.set_cursor(l + 1, 1)
+		begin_insert()
+	end,
+	["O"] = function()
+		local l = editor.cursor().line
+		editor.begin_undo_group()
+		editor.insert(l, 1, "\n")
+		editor.set_cursor(l, 1)
+		begin_insert()
+	end,
+
+	["x"] = function(n)
+		local cur = editor.cursor()
+		local last = math.min(cur.col + n, line_len(cur.line) + 1)
+		if last <= cur.col then
+			return
+		end
+		editor.begin_undo_group()
+		editor.replace(cur.line, cur.col, cur.line, last, "")
+		editor.end_undo_group()
+		clamp_cursor()
+	end,
+	["X"] = function(n)
+		local cur = editor.cursor()
+		local start = math.max(1, cur.col - n)
+		if start >= cur.col then
+			return
+		end
+		editor.begin_undo_group()
+		editor.replace(cur.line, start, cur.line, cur.col, "")
+		editor.end_undo_group()
+		editor.set_cursor(cur.line, start)
+	end,
+	["D"] = function(n)
+		editor.begin_undo_group()
+		delete_to_end(n)
+		editor.end_undo_group()
+		clamp_cursor()
+	end,
+	["C"] = function(n)
+		editor.begin_undo_group()
+		delete_to_end(n)
+		begin_insert()
+	end,
+	["s"] = function(n)
+		local cur = editor.cursor()
+		local last = math.min(cur.col + n, line_len(cur.line) + 1)
+		editor.begin_undo_group()
+		if last > cur.col then
+			editor.replace(cur.line, cur.col, cur.line, last, "")
+		end
+		begin_insert()
+	end,
+	["S"] = function(n)
+		local cur = editor.cursor()
+		local last = clamp(cur.line + n - 1, 1, line_count())
+		editor.begin_undo_group()
+		editor.replace(cur.line, 1, last, line_len(last) + 1, "")
+		editor.set_cursor(cur.line, 1)
+		begin_insert()
+	end,
+	-- r consumes the next key; the count rides along in replace_pending.
+	["r"] = function(n)
+		state.replace_pending = n
+	end,
+	["R"] = function()
+		editor.begin_undo_group()
+		set_mode("replace")
+	end,
+
+	["~"] = function(n)
+		local cur = editor.cursor()
+		local r = line_runes(cur.line)
+		if #r == 0 then
+			return
+		end
+		local last = math.min(cur.col + n - 1, #r)
+		local out = {}
+		for i = cur.col, last do
+			out[#out + 1] = swap_case(r[i])
+		end
+		editor.begin_undo_group()
+		editor.replace(cur.line, cur.col, cur.line, last + 1, table.concat(out))
+		editor.end_undo_group()
+		editor.set_cursor(cur.line, math.min(last + 1, max_col(r)))
+	end,
+	["J"] = function(n)
+		join(n, true)
+	end,
+
+	["u"] = function(n)
+		for _ = 1, n do
+			ttt.exec_command("editor.undo")
+		end
+		clamp_cursor()
+	end,
+	["ctrl-r"] = function(n)
+		for _ = 1, n do
+			ttt.exec_command("editor.redo")
+		end
+		clamp_cursor()
+	end,
+
+	["ctrl-a"] = function(n)
+		bump(n, 1)
+	end,
+	["ctrl-x"] = function(n)
+		bump(n, -1)
+	end,
+}
+
+-- Doubled-key line operators: >>, <<, ==.
+local LINE_OPERATORS = {
+	[">"] = function(n)
+		indent_lines(n, 1)
+	end,
+	["<"] = function(n)
+		indent_lines(n, -1)
+	end,
+	["="] = function(n)
+		reindent(n)
+	end,
+}
+
+for k in pairs(LINE_OPERATORS) do
+	PREFIX_KEYS[k] = true
+end
+
+-- g-prefixed edits, appended to the Phase 1 motion table.
+G_MOTIONS["i"] = function()
+	local li = state.last_insert
+	editor.begin_undo_group()
+	if li then
+		local l = clamp(li.line, 1, line_count())
+		editor.set_cursor(l, math.min(li.col, line_len(l) + 1))
+	end
+	begin_insert()
+end
+
+G_MOTIONS["J"] = function(n)
+	join(n, false)
+end
+
+-- ---------------------------------------------------------------------------
 -- Mode handlers
 -- ---------------------------------------------------------------------------
 
 local function handle_insert(tok)
 	if ESCAPE_TOKENS[tok] then
-		set_mode("normal")
-		-- Insert mode allows one-past-the-end; normal mode does not.
-		clamp_cursor()
+		leave_insert()
+		return true
+	end
+	return false
+end
+
+-- R: overtype until Esc. Backspace only walks left -- Vim restores the
+-- overwritten characters, which needs the per-keystroke change log that arrives
+-- with `.` repeat in Phase 5.
+local function handle_replace(tok)
+	if ESCAPE_TOKENS[tok] then
+		leave_insert()
+		return true
+	end
+	if tok == "backspace" or tok == "backspace2" then
+		local cur = editor.cursor()
+		if cur.col > 1 then
+			editor.set_cursor(cur.line, cur.col - 1)
+		end
+		return true
+	end
+	if is_printable(tok) then
+		local cur = editor.cursor()
+		if cur.col <= line_len(cur.line) then
+			editor.replace(cur.line, cur.col, cur.line, cur.col + 1, tok)
+		else
+			editor.insert(cur.line, cur.col, tok)
+		end
+		editor.set_cursor(cur.line, cur.col + 1)
 		return true
 	end
 	return false
@@ -696,6 +1116,23 @@ local function handle_normal(tok)
 			return false
 		end
 		set_mode("normal")
+		return true
+	end
+
+	-- r{char} consumes the next key. Vim refuses the whole operation when the
+	-- count runs past the end of the line rather than replacing fewer chars.
+	if state.replace_pending then
+		local n = state.replace_pending
+		state.replace_pending = nil
+		if is_printable(tok) then
+			local cur = editor.cursor()
+			if cur.col + n - 1 <= line_len(cur.line) then
+				editor.begin_undo_group()
+				editor.replace(cur.line, cur.col, cur.line, cur.col + n, tok:rep(n))
+				editor.end_undo_group()
+				editor.set_cursor(cur.line, cur.col + n - 1)
+			end
+		end
 		return true
 	end
 
@@ -717,6 +1154,16 @@ local function handle_normal(tok)
 		local fn = G_MOTIONS[tok]
 		if fn then
 			fn(n, had)
+		end
+		return true
+	end
+
+	if LINE_OPERATORS[state.pending] then
+		local op = state.pending
+		state.pending = ""
+		local n = take_count()
+		if tok == op then
+			LINE_OPERATORS[op](n)
 		end
 		return true
 	end
@@ -753,8 +1200,10 @@ local function handle_normal(tok)
 		return true
 	end
 
-	if tok == "i" then
-		set_mode("insert")
+	local edit = EDITS[tok]
+	if edit then
+		local n, had = take_count()
+		edit(n, had)
 		return true
 	end
 
@@ -771,6 +1220,7 @@ end
 local HANDLERS = {
 	normal = handle_normal,
 	insert = handle_insert,
+	replace = handle_replace,
 }
 
 local function on_key(ev)
