@@ -125,28 +125,25 @@ func settingsCategories() []settingsCategory {
 				GetInt: func(s *config.Settings) int { return s.Autocomplete.Debounce },
 				SetInt: func(s *config.Settings, v int) { s.Autocomplete.Debounce = v }},
 		}},
-		{Title: "Explorer", Fields: []settingField{
-			{Label: "Show hidden files", Kind: settingBool,
+		// Explorer, terminal, search and plugin settings are a handful of fields
+		// each; separate tabs for them left the strip mostly empty. Labels here
+		// name their area, since the tab title no longer does.
+		{Title: "Advanced", Fields: []settingField{
+			{Label: "Explorer: hidden files", Kind: settingBool,
 				GetBool: func(s *config.Settings) bool { return s.Explorer.ShowHidden },
 				SetBool: func(s *config.Settings, v bool) { s.Explorer.ShowHidden = v }},
-			{Label: "Show git-ignored files", Kind: settingBool,
+			{Label: "Explorer: git-ignored files", Kind: settingBool,
 				GetBool: func(s *config.Settings) bool { return s.Explorer.ShowGitIgnored },
 				SetBool: func(s *config.Settings, v bool) { s.Explorer.ShowGitIgnored = v }},
-		}},
-		{Title: "Terminal", Fields: []settingField{
-			{Label: "Shell", Kind: settingString, Restart: true,
+			{Label: "Terminal shell", Kind: settingString, Restart: true,
 				GetString: func(s *config.Settings) string { return s.Terminal.Shell },
 				SetString: func(s *config.Settings, v string) { s.Terminal.Shell = v }},
-			{Label: "Scrollback lines", Kind: settingInt, Restart: true, Min: 1,
+			{Label: "Terminal scrollback", Kind: settingInt, Restart: true, Min: 1,
 				GetInt: func(s *config.Settings) int { return s.Terminal.Scrollback },
 				SetInt: func(s *config.Settings, v int) { s.Terminal.Scrollback = v }},
-		}},
-		{Title: "Search", Fields: []settingField{
-			{Label: "Debounce (ms)", Kind: settingInt,
+			{Label: "Search debounce (ms)", Kind: settingInt,
 				GetInt: func(s *config.Settings) int { return s.Search.Debounce },
 				SetInt: func(s *config.Settings, v int) { s.Search.Debounce = v }},
-		}},
-		{Title: "Advanced", Fields: []settingField{
 			{Label: "Enable plugins", Kind: settingBool, Restart: true,
 				GetBool: func(s *config.Settings) bool { return s.Plugins.IsEnabled() },
 				SetBool: func(s *config.Settings, v bool) { s.Plugins.Enabled = boolPtr(v) }},

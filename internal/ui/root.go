@@ -319,7 +319,13 @@ func (r *Root) RemoveOverlay(w Widget) {
 	}
 }
 
+// Refocusing the already-focused widget is a no-op: a click inside the focused
+// pane routes through here, and blurring it first would discard transient state
+// such as an open dropdown.
 func (r *Root) SetFocus(w Widget) {
+	if r.Focused == w {
+		return
+	}
 	if r.Focused != nil {
 		if setter, ok := r.Focused.(interface{ SetFocused(bool) }); ok {
 			setter.SetFocused(false)

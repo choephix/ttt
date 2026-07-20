@@ -20,7 +20,7 @@ func TestSettingsViewOpensAsTab(t *testing.T) {
 	screen := h.screenText()
 	for _, want := range []string{
 		"Settings",
-		"Editor", "Appearance", "Completion", "Explorer", "Terminal", "Search", "Advanced",
+		"Editor", "Appearance", "Completion", "Advanced",
 		"Tab size", "Word wrap", "Insert spaces",
 		"Apply", "Reset", "Edit JSON",
 	} {
@@ -186,20 +186,18 @@ func toggleWordWrap(t *testing.T, h *testHarness) {
 	}
 }
 
-// focusTabSizeInput tabs until keystrokes land in the Tab size field. Clicking
-// a text input inside a scroll view does not focus it, so traversal is the only
-// way in for now.
+// focusTabSizeInput clicks the Tab size field and confirms keystrokes land in
+// it. The enclosing scroll view is focusable too, so this doubles as a
+// regression test that a click focuses the innermost control, not the container.
 func focusTabSizeInput(t *testing.T, h *testHarness) {
 	t.Helper()
-	for range 10 {
-		h.pressKey(tcell.KeyTab, tcell.ModNone)
-		h.pressRune('9')
-		if rowHas(h, "Tab size", "❯ 49") {
-			h.pressKey(tcell.KeyBackspace2, tcell.ModNone)
-			return
-		}
+	clickRowControl(t, h, "Tab size", "❯")
+	h.pressKey(tcell.KeyEnd, tcell.ModNone)
+	h.pressRune('9')
+	if !rowHas(h, "Tab size", "❯ 49") {
+		t.Fatalf("clicking the Tab size field did not focus it:\n%s", h.screenText())
 	}
-	t.Fatalf("could not reach the Tab size field:\n%s", h.screenText())
+	h.pressKey(tcell.KeyBackspace2, tcell.ModNone)
 }
 
 func TestSettingsInvalidIntRevertsAndBlocksApply(t *testing.T) {
