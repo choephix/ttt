@@ -5,14 +5,14 @@ Tracks [issue #386](https://github.com/eugenioenko/ttt/issues/386).
 
 ## Status
 
-Under construction, built in phases. Currently at **Phase 2**.
+Under construction, built in phases. Currently at **Phase 3**.
 
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Mode state machine, normal/insert, Esc, status indicator | ✅ |
 | 1 | Motions and counts | ✅ |
 | 2 | Insert mode and simple edits | ✅ |
-| 3 | Operators and text objects | ⬜ |
+| 3 | Operators and text objects | ✅ |
 | 4 | Visual modes | ⬜ |
 | 5 | Registers, marks, macros, `.` repeat | ⬜ |
 | 6 | Ex command line, search, editor integration | ⬜ |
@@ -48,8 +48,7 @@ Every motion below accepts a `{count}` prefix (`3j`, `5w`, `2fx`, `10G`).
 | `~` | Toggle case of `{count}` characters and advance |
 | `J` `gJ` | Join `{count}` lines, with / without an inserted space |
 | `u` `Ctrl-R` | Undo / redo `{count}` times (delegates to `editor.undo` / `editor.redo`) |
-| `>>` `<<` | Indent / dedent `{count}` lines by one shiftwidth |
-| `==` | Reindent `{count}` lines (heuristic, see below) |
+| `p` `P` | Paste `{count}` times after / before the cursor (linewise- and charwise-aware) |
 | `Ctrl-A` `Ctrl-X` | Increment / decrement the number at or after the cursor by `{count}` |
 
 ### Motions
@@ -86,7 +85,62 @@ Normal mode also overrides `Ctrl-D`, `Ctrl-U`, `Ctrl-E`, `Ctrl-F`, `Ctrl-Y`,
 `editor.cut` and `search.replace`. That is intended — those commands remain
 reachable from insert mode, the command palette, and with Vim mode disabled.
 
-### Known gaps in Phase 2
+### Operators
+
+Full `{count}{operator}{count}{motion|textobject}` composition — the two counts
+multiply, so `2d3w` deletes six words.
+
+| Key | Action |
+|---|---|
+| `d` `c` `y` | Delete / change / yank over a motion or text object |
+| `>` `<` `=` | Indent / dedent / reindent (always linewise) |
+| `gu` `gU` `g~` | Lowercase / uppercase / swap case over a motion or text object |
+| `dd` `cc` `yy` `>>` `<<` `==` | Doubled form: `{count}` whole lines |
+| `guu` `gUU` `g~~` | Doubled form of the case operators (`gugu`, `gUgU`, `g~g~` also work) |
+| `D` `C` `Y` | Shorthand for `d$`, `c$`, `y$` |
+
+Every motion in the table above is a valid operator target, with counts on both
+sides: `d2w`, `3dw`, `2d3w`, `c$`, `y3j`, `dfx`, `dtx`, `d}`, `dG`, `dgg`, `d%`.
+
+Exclusive/inclusive is modelled explicitly, so `dw` stops before the character
+it lands on while `de`, `d$`, `dfx` and `d%` include it, and `dtx` excludes the
+target. Both of Vim's exclusive-motion adjustments are implemented (a motion
+ending in column 1 backs up to the end of the previous line, and becomes
+linewise when it started at or before the first non-blank), which is what makes
+`d}` delete whole paragraph lines. `cw` on a non-blank behaves like `ce`, and a
+`w` motion whose last word ends a line stops there instead of eating the
+newline.
+
+### Text objects
+
+Only valid after an operator.
+
+| Key | Object |
+|---|---|
+| `iw` `aw` `iW` `aW` | Word / WORD, inner or with surrounding whitespace |
+| `i"` `a"` `i'` `a'` | Quoted string (line-scoped, as in Vim) |
+| ``i` `` ``a` `` | Backtick-quoted string |
+| `i(` `a(` `i)` `a)` `ib` `ab` | Parenthesised block |
+| `i[` `a[` `i]` `a]` | Square-bracketed block |
+| `i{` `a{` `i}` `a}` `iB` `aB` | Braced block |
+| `i<` `a<` `i>` `a>` | Angle-bracketed block |
+| `it` `at` | HTML/XML tag body, or the tag including its delimiters |
+| `ip` `ap` | Paragraph (linewise) |
+| `is` `as` | Sentence |
+
+Bracket objects nest and span lines, and take a count (`d2i(` reaches the
+enclosing pair). An inner block whose open brace ends a line and whose close
+brace starts one becomes linewise, which is what makes `di{` clear a code body
+without leaving a blank line.
+
+### Registers
+
+Phase 3 keeps exactly one register: the unnamed `"`. `d`, `c`, `y`, `x`, `X`,
+`s`, `S`, `D`, `C` and `Y` all fill it, and `p` / `P` read it. A linewise yank
+pastes onto a new line below / above; a charwise one pastes after / before the
+cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
+
+### Known gaps in Phases 2-3
 
 - **Counts on insert-entry commands are ignored.** `3o` / `3i` repeat the typed
   text on `Esc`, which needs the per-keystroke change log that arrives with `.`
@@ -101,6 +155,17 @@ reachable from insert mode, the command palette, and with Vim mode disabled.
   bracket.
 - **Shiftwidth is hardcoded to 4 spaces.** Reading `editor.tabSize` needs a
   `settings` permission the manifest does not request; wiring it is Phase 7.
+- **`Y` is `y$`, not `yy`.** ttt follows Neovim's default rather than Vim's, so
+  `Y` lines up with `D` and `C`.
+- **`cc` / `S` always preserve indentation**, where Vim only does so with
+  `autoindent` set.
+- **`it` / `at` scan a 500-line window** around the cursor rather than the whole
+  buffer, to keep the key-press path bounded. Tags nested further apart than
+  that are not found.
+- **`is` / `as` are scoped to the paragraph** around the cursor, and recognise
+  `.`/`!`/`?` (plus trailing quotes and brackets) as sentence ends. Vim's
+  abbreviation handling is not reproduced.
+- **No visual mode, registers, marks, macros or `.`** — Phases 4 and 5.
 
 Commands: `Vim: Toggle Vim Mode`, `Vim: Enable Vim Mode`, `Vim: Disable Vim Mode`.
 
@@ -149,6 +214,13 @@ the same buffer.
 side, so every scrolling routine moves the cursor *first* and calls `scroll_to`
 *last* — the other order gets silently undone.
 
+**gopher-lua does not swap.** Multiple assignment is *not* simultaneous when a
+target also appears on the right-hand side: `a, b = b, a` evaluates to `b, b`,
+and `sl, sc, el, ec = el, ec, sl, sc` to `el, ec, el, ec`. This is a gopher-lua
+register-allocation bug, not a Lua semantic — real Lua 5.1 swaps correctly. Every
+swap in `init.lua` therefore goes through explicit temporaries. It is a silent
+wrong-answer bug, so treat any `x, y = y, x` in a ttt plugin as broken.
+
 **Lua 5.1.** gopher-lua implements 5.1 — no `%g` character class, no `goto`.
 Errors thrown inside a `key.press` listener are swallowed and the key falls
 through, which reads exactly like "the plugin ignored my key". Suspect a Lua
@@ -174,5 +246,6 @@ unaffected.
 Tests:
 
 ```sh
-cd tests/functional && npx vitest run vim-mode.test.js vim-motions.test.js vim-edits.test.js
+cd tests/functional && npx vitest run vim-mode.test.js vim-motions.test.js \
+  vim-edits.test.js vim-operators.test.js vim-textobjects.test.js
 ```
