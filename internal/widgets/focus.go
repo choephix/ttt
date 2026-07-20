@@ -85,15 +85,6 @@ func (fm *FocusManager) FocusPrev() {
 // scroll view, say) matches the container before the control the user aimed at.
 // The last match is the innermost one.
 func (fm *FocusManager) FocusByClick(mx, my int) {
-	// A popup floats over unrelated rows, so rect matching would hand focus to
-	// whatever sits underneath and close the popup before the click lands.
-	if pr, ok := fm.Focused().(PopupRenderer); ok && pr.HasPopup() {
-		r := pr.PopupRect()
-		if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
-			return
-		}
-	}
-
 	hit := -1
 	for i, fw := range fm.items {
 		r := VisibleRect(fm.root, fw)
@@ -234,14 +225,6 @@ func (fm *FocusManager) HandleEvent(ev tcell.Event) EventResult {
 			fm.FocusByClick(tev.Position())
 		}
 		mx, my := tev.Position()
-		// An open popup covers rows that are not its owner's, so it claims clicks
-		// inside its bounds before the rect scan below.
-		if pr, ok := fm.Focused().(PopupRenderer); ok && pr.HasPopup() {
-			r := pr.PopupRect()
-			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
-				return pr.(FocusableWidget).HandleEvent(ev)
-			}
-		}
 		for _, fw := range fm.items {
 			r := VisibleRect(fm.root, fw)
 			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {

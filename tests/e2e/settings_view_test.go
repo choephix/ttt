@@ -22,7 +22,7 @@ func TestSettingsViewOpensAsTab(t *testing.T) {
 		"Settings",
 		"Editor", "Appearance", "Completion", "Advanced",
 		"Tab size", "Word wrap", "Insert spaces",
-		"Apply", "Reset", "Edit JSON",
+		"Cancel", "Apply",
 	} {
 		if !strings.Contains(screen, want) {
 			t.Errorf("expected %q in settings view:\n%s", want, screen)
@@ -226,30 +226,33 @@ func TestSettingsInvalidIntRevertsAndBlocksApply(t *testing.T) {
 	}
 }
 
-func TestSettingsResetDiscardsPendingEdits(t *testing.T) {
+func TestSettingsCancelClosesAndDiscardsPendingEdits(t *testing.T) {
 	h := openSettings(t)
 	tabsBefore := h.app.EditorGroup.TabCount()
 
 	toggleWordWrap(t, h)
-	clickRowControl(t, h, "Reset", "Reset")
+	clickRowControl(t, h, "Cancel", "Cancel")
 
-	if rowHas(h, "Word wrap", checkedBox) {
-		t.Errorf("Reset did not revert the checkbox:\n%s", h.screenText())
-	}
 	if h.app.Settings.Editor.WordWrap {
-		t.Error("Reset should not have written anything to settings")
+		t.Error("Cancel should not have written anything to settings")
 	}
-	if got := h.app.EditorGroup.TabCount(); got != tabsBefore {
-		t.Errorf("Reset changed the tab count: %d -> %d", tabsBefore, got)
+	if got := h.app.EditorGroup.TabCount(); got != tabsBefore-1 {
+		t.Errorf("Cancel left the tab open: %d -> %d", tabsBefore, got)
+	}
+
+	// Reopening starts from the saved settings, not the discarded working copy.
+	h.exec("settings.openUI")
+	if rowHas(h, "Word wrap", checkedBox) {
+		t.Errorf("discarded edit survived into the reopened tab:\n%s", h.screenText())
 	}
 }
 
-// The apply/reset commands are reachable from the palette with no settings tab
+// The apply/cancel commands are reachable from the palette with no settings tab
 // open, so they must not panic.
 func TestSettingsCommandsWithoutOpenTab(t *testing.T) {
 	h := newTestHarness(t, 120, 40)
 	h.exec("settings.apply")
-	h.exec("settings.reset")
+	h.exec("settings.cancel")
 	if !strings.Contains(h.screenText(), "No settings editor open") {
 		t.Errorf("expected a notice when no settings tab is open:\n%s", h.screenText())
 	}

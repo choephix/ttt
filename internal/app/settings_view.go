@@ -219,12 +219,9 @@ func (a *App) ShowSettings() {
 	tabbed.Fill = true
 
 	v.status = widgets.NewLabelWidget(widgets.LabelConfig{Style: term.StyleMuted})
+	cancelBtn := widgets.NewButtonWidget(widgets.ButtonConfig{Label: "Cancel", OnClick: v.cancel})
 	applyBtn := widgets.NewButtonWidget(widgets.ButtonConfig{Label: "Apply", OnClick: v.apply})
-	resetBtn := widgets.NewButtonWidget(widgets.ButtonConfig{Label: "Reset", OnClick: v.reset})
-	jsonBtn := widgets.NewButtonWidget(widgets.ButtonConfig{Label: "Edit JSON", OnClick: func() {
-		a.Reg.Execute("settings.open")
-	}})
-	buttons := widgets.NewHStackWidget(v.status, applyBtn, resetBtn, jsonBtn)
+	buttons := widgets.NewHStackWidget(v.status, cancelBtn, applyBtn)
 	buttons.Gap = 1
 	buttons.FixedHeight = 1
 	buttons.Box.PaddingLeft = 1
@@ -366,12 +363,12 @@ func (v *settingsView) apply() {
 	v.setStatus("Settings applied")
 }
 
-func (v *settingsView) reset() {
+// Dropping the working copy is what discards unapplied edits, so it does not
+// wait on OnContentTabClose: that hook only exists once App.Init has run, and
+// clearing it here is idempotent with it.
+func (v *settingsView) cancel() {
 	v.app.settingsView = nil
-	v.app.ShowSettings()
-	if nv := v.app.settingsView; nv != nil {
-		nv.setStatus("Changes discarded")
-	}
+	v.app.EditorGroup.ClosePluginTab(settingsTabID)
 }
 
 func (v *settingsView) setStatus(msg string) {
@@ -388,12 +385,12 @@ func (a *App) ApplySettingsView() {
 	a.settingsView.apply()
 }
 
-func (a *App) ResetSettingsView() {
+func (a *App) CancelSettingsView() {
 	if a.settingsView == nil {
 		a.StatusNotify("No settings editor open")
 		return
 	}
-	a.settingsView.reset()
+	a.settingsView.cancel()
 }
 
 func (a *App) cleanupSettingsTab(id string) {

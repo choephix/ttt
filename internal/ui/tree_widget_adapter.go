@@ -86,9 +86,9 @@ func (a *WidgetAdapter) Render(surface Surface) {
 	a.W.SetRect(Rect{X: r.X, Y: r.Y, W: r.W, H: r.H})
 	a.W.Render(surface)
 
-	// Popups draw after the tree so they overlay it. This covers any popup-bearing
-	// widget, not just the focused one, because a click can leave focus on an
-	// ancestor (a scroll view) while opening a popup on a leaf.
+	// Popups draw after the tree so they overlay it. Every popup-bearing widget is
+	// considered rather than only the focused one, so ownership of a popup never
+	// has to be inferred from where focus happens to sit.
 	bounds := Rect{X: r.X, Y: r.Y, W: r.W, H: r.H}
 	for _, pr := range a.popups {
 		if pb, ok := pr.(widgets.PopupBounder); ok {
@@ -102,6 +102,24 @@ func (a *WidgetAdapter) Render(surface Surface) {
 			X: rect.X - bounds.X, Y: rect.Y - bounds.Y, W: rect.W, H: rect.H,
 		}))
 	}
+}
+
+// popupAt returns the widget whose open popup covers the point, if any. Bounds
+// come from the same list Render draws from, so hit testing and painting cannot
+// disagree about where a popup is.
+func (a *WidgetAdapter) popupAt(mx, my int) widgets.Widget {
+	for _, pr := range a.popups {
+		if !pr.HasPopup() {
+			continue
+		}
+		r := pr.PopupRect()
+		if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+			if w, ok := pr.(widgets.Widget); ok {
+				return w
+			}
+		}
+	}
+	return nil
 }
 
 func (a *WidgetAdapter) RebuildFocus() {
@@ -123,6 +141,13 @@ func (a *WidgetAdapter) CursorPosition() (int, int, bool) {
 }
 
 func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
+	// Popups are painted over the tree, so they must claim clicks over the rows
+	// they cover before those rows get a chance at them.
+	if tev, ok := ev.(*tcell.EventMouse); ok {
+		if w := a.popupAt(tev.Position()); w != nil {
+			return w.HandleEvent(ev)
+		}
+	}
 	if result := a.focus.HandleEvent(ev); result != EventIgnored {
 		return result
 	}

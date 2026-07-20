@@ -187,9 +187,9 @@ func registerPaletteCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "settings.reset", Title: "Settings: Discard Changes",
-		Keywords: []string{"preferences", "settings", "revert"},
-		Handler:  app.ResetSettingsView,
+		ID: "settings.cancel", Title: "Settings: Discard Changes",
+		Keywords: []string{"preferences", "settings", "revert", "cancel", "close"},
+		Handler:  app.CancelSettingsView,
 	})
 
 	reg.Register(command.Command{
