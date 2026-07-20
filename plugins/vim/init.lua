@@ -7,6 +7,8 @@
 -- Phase 0: mode state machine (normal/insert), Esc handling, status indicator.
 -- Phase 1: normal-mode motions with {count} prefixes.
 -- Phase 2: insert-mode entry points and single-key edits.
+-- Phase 3: operators, motion ranges and text objects.
+-- Phase 4: visual, visual-line and visual-block modes.
 
 local ttt = require("ttt")
 local events = require("ttt.events")
@@ -33,6 +35,9 @@ local state = {
 	goal = nil, -- sticky column for j/k
 	replace_pending = nil, -- count for `r{char}` awaiting its replacement char
 	last_insert = nil, -- { line, col } where insert mode was last left, for `gi`
+	visual = nil, -- { al, ac, cl, cc, dollar } anchor + Vim cursor while visual
+	last_visual = nil, -- the range `gv` reselects
+	block_insert = false, -- blockwise I/A/c is holding multi-cursors open
 }
 
 local MODE_LABELS = {
@@ -717,6 +722,12 @@ end
 -- it back onto a character; the position *before* that step is what `gi`
 -- resumes from.
 local function leave_insert()
+	-- Blockwise I/A/c parked a cursor on every row; collapse them before reading
+	-- the cursor back, so the position recorded for `gi` is the primary one.
+	if state.block_insert then
+		state.block_insert = false
+		editor.clear_cursors()
+	end
 	local cur = editor.cursor()
 	state.last_insert = { line = cur.line, col = cur.col }
 	set_mode("normal")
@@ -2058,6 +2069,693 @@ G_MOTIONS["J"] = function(n)
 end
 
 -- ---------------------------------------------------------------------------
+-- Visual modes
+--
+-- state.visual holds the anchor (al, ac) and the *Vim* cursor (cl, cc). The
+-- real editor cursor is not always the Vim cursor: ttt renders a selection as
+-- Selection.Start .. live-cursor (internal/core/selection), so the only free
+-- variable is the anchor, and linewise/blockwise need the real cursor parked
+-- somewhere else to draw the range correctly. Keeping (cl, cc) in Lua means
+-- motions still see and produce true Vim positions -- visual_sync() puts the
+-- real cursor back before a motion runs, visual_capture() reads it after.
+--
+-- Blockwise has no native backing at all: it is drawn with add_cursor() per
+-- line and every edit loops the lines by hand.
+-- ---------------------------------------------------------------------------
+
+local VISUAL_KEY_MODE = { v = "visual", V = "visual_line", ["ctrl-v"] = "visual_block" }
+
+local function take_count()
+	local n = state.count
+	state.count = nil
+	return n or 1, n ~= nil
+end
+
+local function visual_sync()
+	local v = state.visual
+	if not v then
+		return
+	end
+	local l = clamp(v.cl, 1, line_count())
+	editor.set_cursor(l, clamp(v.cc, 1, max_col(line_runes(l))))
+end
+
+local function visual_capture()
+	local v = state.visual
+	if not v then
+		return
+	end
+	local c = editor.cursor()
+	v.cl = c.line
+	v.cc = c.col
+end
+
+-- Normalized block corners. `dollar` is the ragged right edge set by `$`.
+local function block_rect()
+	local v = state.visual
+	local top, bot = v.al, v.cl
+	if top > bot then
+		local t = top
+		top = bot
+		bot = t
+	end
+	local left, right = v.ac, v.cc
+	if left > right then
+		local t = left
+		left = right
+		right = t
+	end
+	return top, bot, left, right
+end
+
+local function visual_render()
+	local v = state.visual
+	if not v then
+		return
+	end
+
+	if state.mode == "visual_block" then
+		editor.clear_cursors()
+		editor.clear_selection()
+		local top, bot, _, right = block_rect()
+		local cl = clamp(v.cl, 1, line_count())
+		editor.set_cursor(cl, clamp(v.cc, 1, max_col(line_runes(cl))))
+		for l = top, bot do
+			if l ~= cl then
+				local col = v.dollar and max_col(line_runes(l)) or math.min(right, max_col(line_runes(l)))
+				editor.add_cursor(l, col)
+			end
+		end
+		return
+	end
+
+	if state.mode == "visual_line" then
+		local top, bot = v.al, v.cl
+		if top > bot then
+			local t = top
+			top = bot
+			bot = t
+		end
+		if v.cl >= v.al then
+			editor.set_selection(top, 1, v.cl, line_len(v.cl) + 1)
+		else
+			editor.set_selection(bot, line_len(bot) + 1, v.cl, 1)
+		end
+		return
+	end
+
+	-- Charwise. Forward: the anchor is the start and the cursor is the
+	-- (exclusive) end, so the character *under* the cursor is not painted --
+	-- the cursor block itself stands in for it. Backward: the anchor is shifted
+	-- one column right so the character it sits on stays inside the range, which
+	-- is exactly Vim's inclusive behaviour on that side.
+	local backward = (v.cl < v.al) or (v.cl == v.al and v.cc < v.ac)
+	if backward then
+		editor.set_selection(v.al, math.min(v.ac + 1, line_len(v.al) + 1), v.cl, v.cc)
+	else
+		editor.set_selection(v.al, v.ac, v.cl, v.cc)
+	end
+end
+
+-- The selection as an operator range: sl, sc, el, ec (exclusive end column),
+-- linewise. Charwise visual is inclusive of the character under the cursor.
+local function visual_range()
+	local v = state.visual
+	local sl, sc, el, ec = v.al, v.ac, v.cl, v.cc
+	if (v.cl < v.al) or (v.cl == v.al and v.cc < v.ac) then
+		sl = v.cl
+		sc = v.cc
+		el = v.al
+		ec = v.ac
+	end
+	if state.mode == "visual_line" then
+		return sl, 1, el, 1, true
+	end
+	return sl, sc, el, math.min(ec + 1, line_len(el) + 1), false
+end
+
+local function save_last_visual()
+	local v = state.visual
+	if not v then
+		return
+	end
+	state.last_visual = { mode = state.mode, al = v.al, ac = v.ac, cl = v.cl, cc = v.cc, dollar = v.dollar }
+end
+
+-- Tear down the visual chrome and return to normal mode *without* touching the
+-- cursor. Operators call this before they edit; Esc uses exit_visual().
+local function end_visual()
+	save_last_visual()
+	if state.mode == "visual_block" then
+		editor.clear_cursors()
+	end
+	editor.clear_selection()
+	state.visual = nil
+	set_mode("normal")
+end
+
+local function exit_visual()
+	local v = state.visual
+	local l, c = v and v.cl or nil, v and v.cc or nil
+	end_visual()
+	if l then
+		move_to(l, c)
+	end
+end
+
+local function enter_visual(mode)
+	local cur = editor.cursor()
+	state.visual = { al = cur.line, ac = cur.col, cl = cur.line, cc = cur.col, dollar = false }
+	set_mode(mode)
+	visual_render()
+end
+
+local function switch_visual(mode)
+	if state.mode == "visual_block" and mode ~= "visual_block" then
+		editor.clear_cursors()
+	end
+	if mode ~= "visual_block" then
+		state.visual.dollar = false
+	end
+	set_mode(mode)
+	visual_render()
+end
+
+local function reselect_visual()
+	local lv = state.last_visual
+	if not lv then
+		return
+	end
+	local n = line_count()
+	state.visual = {
+		al = clamp(lv.al, 1, n),
+		ac = lv.ac,
+		cl = clamp(lv.cl, 1, n),
+		cc = lv.cc,
+		dollar = lv.dollar,
+	}
+	set_mode(lv.mode)
+	visual_render()
+end
+
+-- `o`: swap the anchor and the cursor. gopher-lua does not swap in a multiple
+-- assignment when a target appears on the right, so this goes via temporaries.
+local function visual_swap_ends()
+	local v = state.visual
+	local al, ac = v.al, v.ac
+	v.al = v.cl
+	v.ac = v.cc
+	v.cl = al
+	v.cc = ac
+end
+
+-- `O` in blockwise: swap the two corners horizontally, leaving the rows alone.
+local function visual_swap_corners()
+	local v = state.visual
+	local ac = v.ac
+	v.ac = v.cc
+	v.cc = ac
+end
+
+-- Run a Phase 1 motion with the real cursor parked at the Vim cursor, then take
+-- the result back as the new Vim cursor and redraw.
+local function visual_motion(fn, n, had)
+	visual_sync()
+	fn(n, had)
+	visual_capture()
+	visual_render()
+end
+
+-- ---------------------------------------------------------------------------
+-- Blockwise edits
+--
+-- Every one of these loops the rows bottom-to-top: editor.replace shifts the
+-- content of later lines only when it removes a newline, but iterating upward
+-- keeps line indices stable no matter what, and it is the same discipline the
+-- multi-cursor code uses.
+-- ---------------------------------------------------------------------------
+
+-- Column span [lo, hi) for row `l`, clamped onto the line. Returns nil when the
+-- row is too short to contain any of the block.
+local function block_span(l, left, right, dollar)
+	local len = line_len(l)
+	local lo = math.min(left, len + 1)
+	local hi = dollar and (len + 1) or math.min(right + 1, len + 1)
+	if hi <= lo then
+		return nil
+	end
+	return lo, hi
+end
+
+local function block_text(top, bot, left, right, dollar)
+	local parts = {}
+	for l = top, bot do
+		local lo, hi = block_span(l, left, right, dollar)
+		parts[#parts + 1] = lo and sub_runes(line_runes(l), lo, hi - 1) or ""
+	end
+	return table.concat(parts, "\n")
+end
+
+local function block_delete(top, bot, left, right, dollar)
+	for l = bot, top, -1 do
+		local lo, hi = block_span(l, left, right, dollar)
+		if lo then
+			editor.replace(l, lo, l, hi, "")
+		end
+	end
+end
+
+-- I / A / c: park a cursor on every row and hand typing to the editor's native
+-- multi-cursor path, which already coalesces into the open undo group.
+local function block_insert_at(top, bot, col_for)
+	editor.clear_cursors()
+	editor.clear_selection()
+	local primary = col_for(top)
+	editor.set_cursor(top, primary)
+	for l = top + 1, bot do
+		editor.add_cursor(l, col_for(l))
+	end
+	state.block_insert = true
+	begin_insert()
+end
+
+-- ---------------------------------------------------------------------------
+-- Visual-mode operators
+-- ---------------------------------------------------------------------------
+
+local function visual_case(how)
+	local sl, sc, el, ec, linewise = visual_range()
+	local op = (how == "lower" and "gu") or (how == "upper" and "gU") or "g~"
+	if state.mode == "visual_block" then
+		local top, bot, left, right = block_rect()
+		local dollar = state.visual.dollar
+		end_visual()
+		editor.begin_undo_group()
+		for l = bot, top, -1 do
+			local lo, hi = block_span(l, left, right, dollar)
+			if lo then
+				local text = sub_runes(line_runes(l), lo, hi - 1)
+				editor.replace(l, lo, l, hi, transform_case(text, how))
+			end
+		end
+		editor.end_undo_group()
+		move_to(top, math.min(left, max_col(line_runes(top))))
+		return
+	end
+	end_visual()
+	apply_operator(op, sl, sc, el, ec, linewise)
+end
+
+local function visual_replace_char(ch)
+	if state.mode == "visual_block" then
+		local top, bot, left, right = block_rect()
+		local dollar = state.visual.dollar
+		end_visual()
+		editor.begin_undo_group()
+		for l = bot, top, -1 do
+			local lo, hi = block_span(l, left, right, dollar)
+			if lo then
+				editor.replace(l, lo, l, hi, ch:rep(hi - lo))
+			end
+		end
+		editor.end_undo_group()
+		move_to(top, math.min(left, max_col(line_runes(top))))
+		return
+	end
+
+	local sl, sc, el, ec, linewise = visual_range()
+	if linewise then
+		sc = 1
+		ec = line_len(el) + 1
+	end
+	end_visual()
+	editor.begin_undo_group()
+	for l = el, sl, -1 do
+		local lo = (l == sl) and sc or 1
+		local hi = (l == el) and ec or (line_len(l) + 1)
+		hi = math.min(hi, line_len(l) + 1)
+		if hi > lo then
+			editor.replace(l, lo, l, hi, ch:rep(hi - lo))
+		end
+	end
+	editor.end_undo_group()
+	move_to(sl, sc)
+end
+
+-- Visual `p`: the selection is replaced by the register, and the text that was
+-- there becomes the new unnamed register, as in Vim.
+local function visual_paste()
+	local reg = state.registers['"']
+	local sl, sc, el, ec, linewise = visual_range()
+	if state.mode == "visual_block" or not reg or reg.text == "" then
+		return
+	end
+	local text = reg.text
+	local body = (text:gsub("\n$", ""))
+	end_visual()
+
+	local a, b = sc, ec
+	if linewise then
+		a = 1
+		b = line_len(el) + 1
+	end
+
+	editor.begin_undo_group()
+	if linewise then
+		yank_linewise(sl, el)
+	else
+		yank_charwise(sl, sc, el, ec)
+	end
+
+	local repl
+	if linewise then
+		repl = reg.linewise and body or text
+	else
+		repl = reg.linewise and ("\n" .. body .. "\n") or text
+	end
+	editor.replace(sl, a, el, b, repl)
+	editor.end_undo_group()
+	move_to(sl, linewise and first_non_blank(sl) or a)
+end
+
+local function visual_join()
+	local top, bot = state.visual.al, state.visual.cl
+	if top > bot then
+		local t = top
+		top = bot
+		bot = t
+	end
+	end_visual()
+	move_to(top, 1)
+	join(math.max(2, bot - top + 1), true)
+end
+
+local function visual_indent(op, count)
+	local sl, _, el = visual_range()
+	end_visual()
+	editor.begin_undo_group()
+	if op == "=" then
+		reindent_range(sl, el)
+	else
+		for _ = 1, math.max(1, count) do
+			indent_lines_range(sl, el, op == ">" and 1 or -1)
+		end
+	end
+	editor.end_undo_group()
+	move_to(sl, first_non_blank(sl))
+end
+
+-- d / x / c / s / y over the current selection, in whichever visual mode.
+local function visual_operator(op, force_linewise)
+	if state.mode == "visual_block" then
+		local top, bot, left, right = block_rect()
+		local dollar = state.visual.dollar
+		if op == "y" then
+			set_register(block_text(top, bot, left, right, dollar), false)
+			end_visual()
+			move_to(top, math.min(left, max_col(line_runes(top))))
+			return
+		end
+		set_register(block_text(top, bot, left, right, dollar), false)
+		end_visual()
+		editor.begin_undo_group()
+		block_delete(top, bot, left, right, dollar)
+		if op == "c" then
+			block_insert_at(top, bot, function(l)
+				return math.min(left, line_len(l) + 1)
+			end)
+			-- Undo group stays open; leave_insert() closes it.
+			return
+		end
+		editor.end_undo_group()
+		move_to(top, math.min(left, max_col(line_runes(top))))
+		return
+	end
+
+	local sl, sc, el, ec, linewise = visual_range()
+	if force_linewise then
+		sc, ec, linewise = 1, 1, true
+	end
+	end_visual()
+	apply_operator(op, sl, sc, el, ec, linewise)
+end
+
+-- ---------------------------------------------------------------------------
+-- Visual-mode key dispatch
+-- ---------------------------------------------------------------------------
+
+-- Text objects in visual mode *set* the selection to the object rather than
+-- running an operator, so `viw` selects the word under the cursor.
+local function visual_textobject(inner, tok)
+	local fn = TEXT_OBJECTS[tok]
+	local n = state.count or 1
+	state.count = nil
+	if not fn then
+		return
+	end
+	visual_sync()
+	local sl, sc, el, ec, linewise = fn(inner, n)
+	if sl == nil then
+		return
+	end
+	local v = state.visual
+	if linewise then
+		v.al, v.ac = sl, 1
+		v.cl, v.cc = el, 1
+		if state.mode ~= "visual_line" then
+			switch_visual("visual_line")
+			return
+		end
+	else
+		v.al, v.ac = sl, sc
+		v.cl = el
+		v.cc = math.max(1, ec - 1)
+	end
+	visual_render()
+end
+
+-- `$` in blockwise means "ragged right edge"; everywhere else it is the motion.
+local function visual_dollar(n)
+	if state.mode == "visual_block" then
+		state.visual.dollar = true
+	end
+	visual_motion(MOTIONS["$"], n, false)
+end
+
+local VISUAL_LINEWISE_OPS = { X = "d", D = "d", R = "c", S = "c", C = "c", Y = "y" }
+
+local function handle_visual(tok)
+	if ESCAPE_TOKENS[tok] then
+		exit_visual()
+		return true
+	end
+
+	if state.replace_pending then
+		state.replace_pending = nil
+		if is_printable(tok) then
+			visual_replace_char(tok)
+		end
+		return true
+	end
+
+	if state.find_pending then
+		local op = state.find_pending
+		state.find_pending = nil
+		if is_printable(tok) then
+			state.last_find = { op = op, ch = tok }
+			visual_motion(function(n)
+				find_char(op, tok, n, false)
+			end, take_count(), false)
+		end
+		return true
+	end
+
+	if state.textobj then
+		local inner = state.textobj == "i"
+		state.textobj = nil
+		visual_textobject(inner, tok)
+		return true
+	end
+
+	if state.pending == "g" then
+		state.pending = ""
+		if tok == "v" then
+			-- `gv` inside visual mode is a no-op in Vim; swallow it.
+			state.count = nil
+			return true
+		end
+		local gop = G_OPERATORS[tok]
+		if gop then
+			state.count = nil
+			visual_case(CASE_OPERATORS[gop])
+			return true
+		end
+		if tok == "J" then
+			state.count = nil
+			visual_join()
+			return true
+		end
+		local fn = G_MOTIONS[tok]
+		if fn and G_MOTION_KIND[tok] then
+			local n, had = take_count()
+			visual_motion(fn, n, had)
+		else
+			state.count = nil
+		end
+		return true
+	end
+
+	if state.pending == "z" then
+		state.pending = ""
+		state.count = nil
+		if Z_COMMANDS[tok] then
+			reposition(tok)
+		end
+		return true
+	end
+
+	if #tok == 1 and tok >= "0" and tok <= "9" and not (tok == "0" and state.count == nil) then
+		state.count = (state.count or 0) * 10 + tonumber(tok)
+		return true
+	end
+
+	-- Mode keys: the same key exits, a different one switches.
+	local vm = VISUAL_KEY_MODE[tok]
+	if vm then
+		state.count = nil
+		if state.mode == vm then
+			exit_visual()
+		else
+			switch_visual(vm)
+		end
+		return true
+	end
+
+	if tok == "i" or tok == "a" then
+		state.textobj = tok
+		return true
+	end
+
+	if tok == "g" or tok == "z" then
+		state.pending = tok
+		return true
+	end
+
+	if FIND_KEYS[tok] then
+		state.find_pending = tok
+		return true
+	end
+
+	if tok == "o" then
+		state.count = nil
+		visual_swap_ends()
+		visual_render()
+		return true
+	end
+
+	if tok == "O" then
+		state.count = nil
+		if state.mode == "visual_block" then
+			visual_swap_corners()
+		else
+			visual_swap_ends()
+		end
+		visual_render()
+		return true
+	end
+
+	if tok == "$" then
+		local n = take_count()
+		visual_dollar(n)
+		return true
+	end
+
+	if tok == "r" then
+		state.replace_pending = 1
+		return true
+	end
+
+	if tok == "J" then
+		state.count = nil
+		visual_join()
+		return true
+	end
+
+	if tok == "u" or tok == "U" or tok == "~" then
+		state.count = nil
+		visual_case((tok == "u" and "lower") or (tok == "U" and "upper") or "swap")
+		return true
+	end
+
+	if tok == ">" or tok == "<" or tok == "=" then
+		local n = take_count()
+		visual_indent(tok, n)
+		return true
+	end
+
+	if tok == "p" or tok == "P" then
+		state.count = nil
+		visual_paste()
+		return true
+	end
+
+	-- Blockwise insert at the left / right edge of every row.
+	if (tok == "I" or tok == "A") and state.mode == "visual_block" then
+		state.count = nil
+		local top, bot, left, right = block_rect()
+		local dollar = state.visual.dollar
+		end_visual()
+		editor.begin_undo_group()
+		if tok == "I" then
+			block_insert_at(top, bot, function(l)
+				return math.min(left, line_len(l) + 1)
+			end)
+		else
+			block_insert_at(top, bot, function(l)
+				return dollar and (line_len(l) + 1) or math.min(right + 1, line_len(l) + 1)
+			end)
+		end
+		return true
+	end
+
+	if tok == "d" or tok == "x" then
+		state.count = nil
+		visual_operator("d", false)
+		return true
+	end
+	if tok == "c" or tok == "s" then
+		state.count = nil
+		visual_operator("c", false)
+		return true
+	end
+	if tok == "y" then
+		state.count = nil
+		visual_operator("y", false)
+		return true
+	end
+
+	local lw = VISUAL_LINEWISE_OPS[tok]
+	if lw then
+		state.count = nil
+		visual_operator(lw, true)
+		return true
+	end
+
+	local motion = MOTIONS[tok]
+	if motion then
+		local n, had = take_count()
+		visual_motion(motion, n, had)
+		return true
+	end
+
+	if is_printable(tok) or MUTATING_KEYS[tok] then
+		return true
+	end
+
+	return false
+end
+
+-- ---------------------------------------------------------------------------
 -- Mode handlers
 -- ---------------------------------------------------------------------------
 
@@ -2095,12 +2793,6 @@ local function handle_replace(tok)
 		return true
 	end
 	return false
-end
-
-local function take_count()
-	local n = state.count
-	state.count = nil
-	return n or 1, n ~= nil
 end
 
 local function handle_normal(tok)
@@ -2257,10 +2949,29 @@ local function handle_normal(tok)
 	return false
 end
 
+-- Visual-mode entry points, appended to the normal-mode tables. Core binds
+-- Ctrl-V to editor.paste; normal mode overrides it, as documented in the README.
+EDITS["v"] = function()
+	enter_visual("visual")
+end
+EDITS["V"] = function()
+	enter_visual("visual_line")
+end
+EDITS["ctrl-v"] = function()
+	enter_visual("visual_block")
+end
+
+G_MOTIONS["v"] = function()
+	reselect_visual()
+end
+
 local HANDLERS = {
 	normal = handle_normal,
 	insert = handle_insert,
 	replace = handle_replace,
+	visual = handle_visual,
+	visual_line = handle_visual,
+	visual_block = handle_visual,
 }
 
 local function on_key(ev)

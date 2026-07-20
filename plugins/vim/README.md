@@ -5,7 +5,7 @@ Tracks [issue #386](https://github.com/eugenioenko/ttt/issues/386).
 
 ## Status
 
-Under construction, built in phases. Currently at **Phase 3**.
+Under construction, built in phases. Currently at **Phase 4**.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -13,7 +13,7 @@ Under construction, built in phases. Currently at **Phase 3**.
 | 1 | Motions and counts | ✅ |
 | 2 | Insert mode and simple edits | ✅ |
 | 3 | Operators and text objects | ✅ |
-| 4 | Visual modes | ⬜ |
+| 4 | Visual modes | ✅ |
 | 5 | Registers, marks, macros, `.` repeat | ⬜ |
 | 6 | Ex command line, search, editor integration | ⬜ |
 | 7 | Settings, docs, handoff to `ttt-plugins` | ⬜ |
@@ -82,7 +82,8 @@ equivalent. The binding is still in the motion table, so rebinding
 Normal mode also overrides `Ctrl-D`, `Ctrl-U`, `Ctrl-E`, `Ctrl-F`, `Ctrl-Y`,
 `Ctrl-A`, `Ctrl-X` and `Ctrl-R`, which core binds to `multicursor.selectNext`,
 `editor.autocomplete`, `editor.redo`, `search.find`, `editor.selectAll`,
-`editor.cut` and `search.replace`. That is intended — those commands remain
+`editor.cut` and `search.replace`. `Ctrl-V` (`editor.paste`) is overridden the
+same way, for visual block mode. That is intended — those commands remain
 reachable from insert mode, the command palette, and with Vim mode disabled.
 
 ### Operators
@@ -133,12 +134,85 @@ enclosing pair). An inner block whose open brace ends a line and whose close
 brace starts one becomes linewise, which is what makes `di{` clear a code body
 without leaving a blank line.
 
+### Visual modes
+
+| Key | Action |
+|---|---|
+| `v` `V` `Ctrl-V` | Charwise / linewise / blockwise visual. The same key again exits; a different one switches mode and keeps the anchor. |
+| `Esc` | Leave visual mode, cursor stays where the motion left it |
+| `o` | Swap the cursor and the anchor |
+| `O` | Blockwise: swap the corners horizontally. Elsewhere the same as `o`. |
+| `gv` | Reselect the previous visual range (also after an operator ran on it) |
+
+Every motion in the table above extends the selection from the anchor, counts
+included (`v3l`, `v2e`, `Vjj`, `vfx`). Visual mode is *inclusive*, so `vwd`
+deletes the character `w` lands on, unlike normal-mode `dw`.
+
+| Operator | Action |
+|---|---|
+| `d` `x` | Delete the selection |
+| `c` `s` | Delete the selection and insert |
+| `y` | Yank the selection |
+| `p` `P` | Replace the selection with the register; the replaced text becomes the new unnamed register |
+| `>` `<` `=` | Shift / reindent the lines the selection touches (`{count}>` shifts repeatedly) |
+| `gu` `gU` `g~` | Lowercase / uppercase / swap case |
+| `u` `U` `~` | Visual-mode shorthands for `gu` / `gU` / `g~` |
+| `r{c}` | Replace every selected character with `{c}` |
+| `J` | Join the selected lines |
+| `X` `D` `S` `C` `R` `Y` | Force the operation linewise |
+
+Text objects (`iw`, `aw`, `i(`, `a"`, `ip`, `it`, … — the full table below) *set*
+the selection to the object instead of running an operator, so `viw` selects a
+word and `vipd` deletes a paragraph. A linewise object switches the mode to
+`-- VISUAL LINE --`.
+
+Blockwise adds:
+
+| Key | Action |
+|---|---|
+| `I` | Insert at the left edge of every row |
+| `A` | Append at the right edge of every row |
+| `$` | Ragged right edge — every row runs to its own end |
+| `d` `x` `c` `y` `r` `gu` `gU` `g~` | Operate on the column range of every row |
+
+Blockwise `I`, `A` and `c` place a cursor on every row and hand typing to ttt's
+native multi-cursor path, so the whole thing — the block edit plus everything
+typed before `Esc` — is a single undo step. Rows too short to reach the block's
+left edge are skipped rather than padded.
+
 ### Registers
 
 Phase 3 keeps exactly one register: the unnamed `"`. `d`, `c`, `y`, `x`, `X`,
 `s`, `S`, `D`, `C` and `Y` all fill it, and `p` / `P` read it. A linewise yank
 pastes onto a new line below / above; a charwise one pastes after / before the
 cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
+
+### Known gaps in Phase 4
+
+- **The character under the cursor is not painted in a forward charwise
+  selection.** ttt renders a selection as `Selection.Start` .. *live cursor*
+  (`internal/core/selection`), so the anchor is the only value the plugin can
+  choose. Keeping the real cursor on the Vim cursor means a forward range paints
+  `[anchor, cursor)` and the cursor block itself stands in for the last
+  character. A *backward* selection has no such problem — the anchor is shifted
+  one column right and the range is exactly Vim's. Operators are unaffected:
+  `visual_range()` is always inclusive.
+- **`Ln, Col` is not the Vim cursor in `V` and `Ctrl-V` modes.** Linewise
+  parks the real cursor at the end (or start) of the outer line so the whole
+  line highlights, and blockwise draws its rows with `add_cursor`. The true Vim
+  cursor is kept in Lua, so motions and operators are correct; only the status
+  bar reading differs.
+- **A blockwise yank is stored charwise**, rows joined with newlines, because
+  the register model has no blockwise flag yet. `p` therefore pastes the rows as
+  lines rather than re-inserting a column. Blockwise paste is Phase 5.
+- **Blockwise `A` does not pad short rows.** Vim fills with spaces out to the
+  block's right edge; here the append clamps to the end of the row.
+- **Text objects replace the selection rather than growing it.** `viw` selects
+  the word; repeating `iw` re-selects the same word instead of extending to the
+  next one.
+- **`Ctrl-V` overrides `editor.paste`** in normal and visual mode. It is an
+  ordinary binding, not a force key, so the plugin interceptor wins. Paste stays
+  reachable from insert mode, the Edit menu and the command palette.
 
 ### Known gaps in Phases 2-3
 
@@ -165,7 +239,7 @@ cursor. Named registers, the numbered ring and `"x` prefixes are Phase 5.
 - **`is` / `as` are scoped to the paragraph** around the cursor, and recognise
   `.`/`!`/`?` (plus trailing quotes and brackets) as sentence ends. Vim's
   abbreviation handling is not reproduced.
-- **No visual mode, registers, marks, macros or `.`** — Phases 4 and 5.
+- **No registers, marks, macros or `.`** — Phase 5.
 
 Commands: `Vim: Toggle Vim Mode`, `Vim: Enable Vim Mode`, `Vim: Disable Vim Mode`.
 
@@ -247,5 +321,6 @@ Tests:
 
 ```sh
 cd tests/functional && npx vitest run vim-mode.test.js vim-motions.test.js \
-  vim-edits.test.js vim-operators.test.js vim-textobjects.test.js
+  vim-edits.test.js vim-operators.test.js vim-textobjects.test.js \
+  vim-visual.test.js
 ```
