@@ -83,6 +83,7 @@ type Plugin struct {
 	Notify             func(message, level string)
 	SetStatusItem      func(side, id, text string, priority int, onClick func())
 	RemoveStatusItem   func(id string)
+	ExecCommand        func(id string) bool
 	PublishDiagnostics func(path string, items []DiagnosticItem)
 	ClearDiagnostics   func(path string)
 
@@ -242,6 +243,7 @@ func (p *Plugin) Destroy() {
 	p.Notify = nil
 	p.SetStatusItem = nil
 	p.RemoveStatusItem = nil
+	p.ExecCommand = nil
 	p.PublishDiagnostics = nil
 	p.ClearDiagnostics = nil
 	p.EditorContextProvider = nil
