@@ -155,7 +155,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	contentSplit.Borders = borders
 	contentSplit.ShowBottom = false
 
-	status := &view.StatusBar{FileName: editorGroup.ActiveFilePath()}
+	status := view.NewStatusBar()
 	statusBar := ui.NewStatusBarWidget(status)
 
 	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{

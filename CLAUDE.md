@@ -128,6 +128,18 @@ Lua plugins render UI in sidebar panels, bottom-panel tabs, drawers, and editor 
 
 **Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`, `bold`, `italic`, `code`, `syntax_comment`, `syntax_string`, `syntax_keyword`, `syntax_number`, `syntax_operator`, `syntax_function`, `syntax_type`, `syntax_builtin`, `syntax_variable`, `syntax_tag`, `syntax_attribute`. These map to `term.Style*` constants via `StyleByName()` in `styles.go`.
 
+### Status Bar Segment API
+
+The status bar uses a segment-based model (`view.StatusBar` with `StatusSegment`). Both core and plugins contribute segments. Each segment has an `ID`, `Side` (`"left"` or `"right"`), `Priority` (lower = closer to the edge), `Text`, optional `Style`, and optional `OnClick` handler.
+
+Core segments use priorities 100–500 (branch=100, blame=200 on left; position=100, indent=200, encoding=300, eol=400, language=500 on right). Plugin segments default to priority 1000; lower values (e.g., 10) appear before core segments.
+
+**Plugin Lua API:**
+- `ttt.set_status_item(side, id, text, opts)` — add or update a status bar segment. `side` is `"left"` or `"right"`. `id` is scoped to the plugin (prefixed with `pluginName:`). `opts` is an optional table with `priority` (number, default 1000) and `on_click` (function).
+- `ttt.remove_status_item(id)` — remove a segment by ID.
+
+These callbacks are only available after `WirePlugin` — call them from command handlers or event callbacks, not at plugin init time.
+
 ### Testing
 
 The project has three levels of testing:
@@ -185,7 +197,7 @@ Supported commands:
 
 **`--size WxH`** — Force screen dimensions for deterministic layout (e.g. `--size 120x40`). Essential for reproducible screenshots and coordinate-based click tests.
 
-**`--plugin FILE`** — Load a Lua plugin file on startup with full permissions. For more complex test scenarios that need callbacks, state, or event handling.
+**`--plugin FILE`** — Load a Lua plugin file on startup with full permissions. For more complex test scenarios that need callbacks, state, or event handling. **Important:** Plugin files must `local ttt = require("ttt")` before using any `ttt.*` API — the module is preloaded, not global. Callbacks (e.g., `ttt.notify`, `ttt.set_status_item`) only work after `WirePlugin` runs, which happens after `InitFromSource`, so they must be called from command handlers or event callbacks, not at init time.
 
 **`--debug`** — Enable debug mode regardless of config setting.
 

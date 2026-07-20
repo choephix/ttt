@@ -10,6 +10,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/render"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -41,28 +42,51 @@ func RunEventLoop(
 	lastCursorFile := ""
 	lastBranchDir := app.Workspace.Primary()
 	blameGen := 0
-	app.Status.Branch = git.BranchName(lastBranchDir)
-	app.Status.TabSize = app.Settings.Editor.TabSize
+	app.Status.SetSegment(view.StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: git.BranchName(lastBranchDir)})
 
 	syncStatus := func() {
 		line, col := app.EditorGroup.ActiveCursor()
 		filePath := app.EditorGroup.ActiveFilePath()
-		app.Status.FileName = filePath
-		app.Status.Line = line
-		app.Status.Col = col
-		app.Status.Dirty = app.EditorGroup.IsDirty()
-		app.Status.CursorCount = app.EditorGroup.MultiCursorCount()
-		if buf := app.EditorGroup.ActiveBuffer(); buf != nil {
-			app.Status.LineEnding = buf.LineEnding
-		} else {
-			app.Status.LineEnding = "\n"
+		cursorCount := app.EditorGroup.MultiCursorCount()
+
+		posText := fmt.Sprintf("Ln %d, Col %d", line+1, col+1)
+		if cursorCount > 1 {
+			posText += fmt.Sprintf(" (%d cursors)", cursorCount)
 		}
+		app.Status.SetSegment(view.StatusSegment{ID: "position", Side: "right", Priority: 100, Text: posText})
+
+		app.Status.SetSegment(view.StatusSegment{ID: "encoding", Side: "right", Priority: 300, Text: "UTF-8"})
+
+		lineEnding := "\n"
+		if buf := app.EditorGroup.ActiveBuffer(); buf != nil {
+			lineEnding = buf.LineEnding
+		}
+		eolLabel := "LF"
+		if lineEnding == "\r\n" {
+			eolLabel = "CRLF"
+		}
+		app.Status.SetSegment(view.StatusSegment{ID: "eol", Side: "right", Priority: 400, Text: eolLabel})
+
 		app.Explorer.SetActiveFile(filePath)
 		app.SyncWatched()
 
+		var tabSize int
+		var useTabs bool
+		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.TabSize > 0 {
+			tabSize = app.EditorGroup.Editor.TabSize
+			useTabs = app.EditorGroup.Editor.UseTabs
+		} else {
+			tabSize = app.Settings.Editor.TabSize
+			useTabs = !app.Settings.Editor.InsertSpaces
+		}
+		indentLabel := "Spaces"
+		if useTabs {
+			indentLabel = "Tab Size"
+		}
+		app.Status.SetSegment(view.StatusSegment{ID: "indent", Side: "right", Priority: 200, Text: fmt.Sprintf("%s: %d", indentLabel, tabSize)})
+
 		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.Highlighter != nil {
 			lang := app.EditorGroup.Editor.Highlighter.Language()
-			app.Status.Language = lang
 			serverKey, _, lspOk := app.lspResolve(filePath, lang)
 			if lspOk {
 				serverCfg := app.LspManager.ServerConfig(serverKey)
@@ -71,17 +95,13 @@ func RunEventLoop(
 					lspOk = err == nil
 				}
 			}
-			app.Status.LSP = lspOk
+			langText := lang
+			if lspOk {
+				langText += " ⊕"
+			}
+			app.Status.SetSegment(view.StatusSegment{ID: "language", Side: "right", Priority: 500, Text: langText})
 		} else {
-			app.Status.Language = ""
-			app.Status.LSP = false
-		}
-		if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.TabSize > 0 {
-			app.Status.TabSize = app.EditorGroup.Editor.TabSize
-			app.Status.UseTabs = app.EditorGroup.Editor.UseTabs
-		} else {
-			app.Status.TabSize = app.Settings.Editor.TabSize
-			app.Status.UseTabs = !app.Settings.Editor.InsertSpaces
+			app.Status.SetSegment(view.StatusSegment{ID: "language", Side: "right", Priority: 500, Text: ""})
 		}
 
 		repoDir := ""
@@ -94,9 +114,9 @@ func RunEventLoop(
 		if repoDir != lastBranchDir {
 			lastBranchDir = repoDir
 			if repoDir != "" {
-				app.Status.Branch = git.BranchName(repoDir)
+				app.Status.SetSegment(view.StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: git.BranchName(repoDir)})
 			} else {
-				app.Status.Branch = ""
+				app.Status.SetSegment(view.StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: ""})
 			}
 		}
 
@@ -140,7 +160,7 @@ func RunEventLoop(
 		if filePath != lastBlameFile || line != lastBlameLine {
 			lastBlameFile = filePath
 			lastBlameLine = line
-			app.Status.Blame = ""
+			app.Status.SetSegment(view.StatusSegment{ID: "blame", Side: "left", Priority: 200, Text: ""})
 			if repoDir != "" {
 				blameGen++
 				gen := blameGen
@@ -251,8 +271,8 @@ func RunEventLoop(
 				}
 			case *BlameResult:
 				if v.Gen == blameGen && v.Info != nil {
-					app.Status.Blame = fmt.Sprintf("%s, %s",
-						v.Info.Author, git.FormatRelativeTime(v.Info.Time))
+					app.Status.SetSegment(view.StatusSegment{ID: "blame", Side: "left", Priority: 200, Text: fmt.Sprintf("%s, %s",
+						v.Info.Author, git.FormatRelativeTime(v.Info.Time))})
 				}
 			case *GitGutterResult:
 				if v.Gen == app.GitGutterGen {

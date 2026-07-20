@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
 
@@ -10,15 +9,13 @@ import (
 
 type statusBarSpan struct {
 	start, end int
+	onClick    func()
 }
 
 type StatusBarWidget struct {
 	BaseWidget
 	Status        *view.StatusBar
-	OnIndentClick func()
-	OnEolClick    func()
-	indentSpan    statusBarSpan
-	eolSpan       statusBarSpan
+	spans         []statusBarSpan
 	okSpan        statusBarSpan
 	actionSpan    statusBarSpan
 	secondarySpan statusBarSpan
@@ -44,76 +41,55 @@ func (s *StatusBarWidget) Render(surface Surface) {
 	}
 
 	s.okSpan = statusBarSpan{}
+	s.spans = s.spans[:0]
+	r := s.GetRect()
 
 	x := 0
 	x += s.drawText(surface, x, " ", term.StyleStatusBar)
 
-	if st.Branch != "" {
-		x += s.drawText(surface, x, st.Branch, term.StyleStatusBar)
+	for _, seg := range st.LeftSegments() {
+		if seg.Text == "" {
+			continue
+		}
+		style := seg.Style
+		if style == 0 {
+			style = term.StyleStatusBar
+		}
+		textLen := len([]rune(seg.Text))
+		if seg.OnClick != nil {
+			s.spans = append(s.spans, statusBarSpan{r.X + x, r.X + x + textLen, seg.OnClick})
+		}
+		x += s.drawText(surface, x, seg.Text, style)
 		x += s.drawText(surface, x, "  ", term.StyleStatusBar)
 	}
 
-	if st.Blame != "" {
-		x += s.drawText(surface, x, st.Blame, term.StyleStatusBar)
-	}
-
-	type segment struct {
-		text string
-		id   string
-	}
-	var right []segment
-	posText := fmt.Sprintf("Ln %d, Col %d", st.Line+1, st.Col+1)
-	if st.CursorCount > 1 {
-		posText += fmt.Sprintf(" (%d cursors)", st.CursorCount)
-	}
-	right = append(right, segment{posText, "pos"})
-	if st.TabSize > 0 {
-		indentLabel := "Spaces"
-		if st.UseTabs {
-			indentLabel = "Tab Size"
-		}
-		right = append(right, segment{fmt.Sprintf("%s: %d", indentLabel, st.TabSize), "indent"})
-	}
-	right = append(right, segment{"UTF-8", "encoding"})
-	eolLabel := "LF"
-	if st.LineEnding == "\r\n" {
-		eolLabel = "CRLF"
-	}
-	right = append(right, segment{eolLabel, "eol"})
-	if st.Language != "" {
-		lang := st.Language
-		if st.LSP {
-			lang += " ⊕"
-		}
-		right = append(right, segment{lang, "lang"})
-	}
-
+	rightSegs := st.RightSegments()
 	rightStr := ""
-	for i, seg := range right {
+	for i, seg := range rightSegs {
 		if i > 0 {
 			rightStr += "   "
 		}
-		rightStr += seg.text
+		rightStr += seg.Text
 	}
 	rightStr += " "
 
 	rx := w - len([]rune(rightStr))
 	if rx > x {
 		pos := rx
-		r := s.GetRect()
-		for i, seg := range right {
+		for i, seg := range rightSegs {
 			if i > 0 {
 				s.drawText(surface, pos, "   ", term.StyleStatusBar)
 				pos += 3
 			}
-			segLen := len([]rune(seg.text))
-			if seg.id == "indent" {
-				s.indentSpan = statusBarSpan{r.X + pos, r.X + pos + segLen}
+			style := seg.Style
+			if style == 0 {
+				style = term.StyleStatusBar
 			}
-			if seg.id == "eol" {
-				s.eolSpan = statusBarSpan{r.X + pos, r.X + pos + segLen}
+			segLen := len([]rune(seg.Text))
+			if seg.OnClick != nil {
+				s.spans = append(s.spans, statusBarSpan{r.X + pos, r.X + pos + segLen, seg.OnClick})
 			}
-			s.drawText(surface, pos, seg.text, term.StyleStatusBar)
+			s.drawText(surface, pos, seg.Text, style)
 			pos += segLen
 		}
 	}
@@ -140,7 +116,7 @@ func (s *StatusBarWidget) renderNotification(surface Surface, w int) {
 		actionLabel := " [" + s.Status.ActionLabel + "] "
 		actionX := rightX - len([]rune(actionLabel))
 		if actionX > x+2 {
-			s.actionSpan = statusBarSpan{r.X + actionX, r.X + actionX + len([]rune(actionLabel))}
+			s.actionSpan = statusBarSpan{r.X + actionX, r.X + actionX + len([]rune(actionLabel)), nil}
 			for i, ch := range actionLabel {
 				surface.SetCell(actionX+i, 0, term.Cell{Ch: ch, Style: style})
 			}
@@ -150,7 +126,7 @@ func (s *StatusBarWidget) renderNotification(surface Surface, w int) {
 			secLabel := " [" + s.Status.SecondaryLabel + "] "
 			secX := rightX - len([]rune(secLabel))
 			if secX > x+2 {
-				s.secondarySpan = statusBarSpan{r.X + secX, r.X + secX + len([]rune(secLabel))}
+				s.secondarySpan = statusBarSpan{r.X + secX, r.X + secX + len([]rune(secLabel)), nil}
 				for i, ch := range secLabel {
 					surface.SetCell(secX+i, 0, term.Cell{Ch: ch, Style: style})
 				}
@@ -160,7 +136,7 @@ func (s *StatusBarWidget) renderNotification(surface Surface, w int) {
 		okLabel := " [OK] "
 		okX := rightX - len([]rune(okLabel))
 		if okX > x+2 {
-			s.okSpan = statusBarSpan{r.X + okX, r.X + okX + len([]rune(okLabel))}
+			s.okSpan = statusBarSpan{r.X + okX, r.X + okX + len([]rune(okLabel)), nil}
 			for i, ch := range okLabel {
 				surface.SetCell(okX+i, 0, term.Cell{Ch: ch, Style: style})
 			}
@@ -200,14 +176,13 @@ func (s *StatusBarWidget) HandleEvent(ev tcell.Event) EventResult {
 			s.Status.DismissNotification()
 			return EventConsumed
 		}
+		return EventIgnored
 	}
-	if mx >= s.indentSpan.start && mx < s.indentSpan.end && s.OnIndentClick != nil {
-		s.OnIndentClick()
-		return EventConsumed
-	}
-	if mx >= s.eolSpan.start && mx < s.eolSpan.end && s.OnEolClick != nil {
-		s.OnEolClick()
-		return EventConsumed
+	for _, span := range s.spans {
+		if mx >= span.start && mx < span.end && span.onClick != nil {
+			span.onClick()
+			return EventConsumed
+		}
 	}
 	return EventIgnored
 }
