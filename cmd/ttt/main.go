@@ -67,6 +67,7 @@ type cliFlags struct {
 	configFile   string
 	pluginFile   string
 	exec         string
+	execSplitOn  string
 	sizeW, sizeH int
 	debug        bool
 }
@@ -89,6 +90,11 @@ func parseFlags() cliFlags {
 		case "--exec":
 			if i+1 < len(args) {
 				f.exec = args[i+1]
+				i++
+			}
+		case "--exec-split-on":
+			if i+1 < len(args) {
+				f.execSplitOn = args[i+1]
 				i++
 			}
 		case "--size":
@@ -141,6 +147,8 @@ Options:
   --workspace <file>  Open a saved workspace (.ttt file)
   --config <file>     Use a custom config file
   --exec "commands"   Execute semicolon-separated commands after startup
+  --exec-split-on <s> Split --exec on <s> instead of ";" (for scripts that
+                      need to send a literal semicolon)
 
 Examples:
   ttt                                           Open current directory
@@ -335,7 +343,7 @@ Docs: https://tttedit.dev
 	}
 
 	if flags.exec != "" {
-		go app.RunExecScript(editor, flags.exec)
+		go app.RunExecScriptSep(editor, flags.exec, flags.execSplitOn)
 	}
 
 	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)

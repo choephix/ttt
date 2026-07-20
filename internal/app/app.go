@@ -85,6 +85,8 @@ type App struct {
 	Output                 *ui.OutputWidget
 	pluginDetailWidgets    map[string]*pluginDetailState
 	pluginDrawer           ui.Widget
+	commandLine            *ui.CommandLineWidget
+	commandLinePrevFocus   ui.Widget
 	settingsView           *settingsView
 	// appliedSettings is the last value ApplySettings acted on. Callers routinely
 	// mutate a.Settings before calling it, so a.Settings cannot serve as "before".

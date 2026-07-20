@@ -63,3 +63,18 @@ The core needs several plugin API additions first — all general-purpose, not V
 - `editor.add_cursor(line, col)` — add a cursor at position (1-based). Duplicates ignored. Gated on `editor.write`.
 - `editor.get_cursors()` — returns list of `{line, col}` tables (1-based). Gated on `editor.read`.
 - `editor.clear_cursors()` — collapse back to single cursor. Gated on `editor.write`.
+
+### 8. Key Interceptor Precedence ✅
+
+**Done.** The `KeyInterceptor` hook moved up in `Root.HandleEvent` (`internal/ui/root.go`) so modal plugins can own the keyboard.
+
+- Now runs **above** the Escape branch and `handleChord`, instead of below them. Without this a plugin could never observe Esc, which blocks Insert→Normal.
+- Still runs **below** `ForceKeys` (the terminal-toggle escape hatch must stay unswallowable) and `handleOverlay` (modal dialogs and the command palette keep their keys).
+- Skipped entirely while a chord is in flight (`r.chord != nil`), because a chord's continuation keys are plain runes (`s` of `ctrl+k s`) that a modal plugin would otherwise consume — silently breaking every chord binding.
+- Plugins must return `false` for keys they do not own. In particular, Esc should pass through when the plugin has nothing to cancel, so core `EscapeDismissers` still run.
+
+Covered by `tests/e2e/key_interceptor_test.go`.
+
+### Remaining
+
+**9. Status-line command input** — a Vim-style `:`/`/` prompt on the bottom row, for ex commands and incremental search. Needed by Phase 6 of the plugin; not yet started.

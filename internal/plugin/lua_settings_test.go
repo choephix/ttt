@@ -322,6 +322,8 @@ func TestCheckSettingsKey(t *testing.T) {
 		{"exact match", []string{"formatters.go"}, "formatters.go", false},
 		{"exact no match", []string{"formatters.go"}, "formatters.py", true},
 		{"no settings permission", nil, "formatters.go", true},
+		{"star wildcard allows any", []string{"*"}, "vim.enabled", false},
+		{"star wildcard allows nested", []string{"*"}, "any.deep.key", false},
 	}
 
 	for _, tt := range tests {

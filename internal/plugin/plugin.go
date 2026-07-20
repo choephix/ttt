@@ -88,6 +88,11 @@ type Plugin struct {
 	PublishDiagnostics func(path string, items []DiagnosticItem)
 	ClearDiagnostics   func(path string)
 
+	ShowCommandLine    func(prefix, text string, onChange, onSubmit func(string), onCancel func())
+	HideCommandLine    func()
+	SetCommandLineText func(text string)
+	CommandLineActive  func() bool
+
 	EditorContextProvider *lua.LFunction
 
 	Editor     EditorAPI
@@ -253,6 +258,10 @@ func (p *Plugin) Destroy() {
 	p.ListCommands = nil
 	p.PublishDiagnostics = nil
 	p.ClearDiagnostics = nil
+	p.ShowCommandLine = nil
+	p.HideCommandLine = nil
+	p.SetCommandLineText = nil
+	p.CommandLineActive = nil
 	p.EditorContextProvider = nil
 	p.EventListeners = nil
 }

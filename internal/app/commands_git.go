@@ -147,8 +147,77 @@ func (a *App) OpenPullRequestDialog() {
 	})
 }
 
+// changedFilePaths returns the ordered, de-duplicated list of absolute paths for
+// every file that currently appears in the Changes panel (staged and unstaged).
+func (a *App) changedFilePaths() []string {
+	var paths []string
+	seen := make(map[string]bool)
+	add := func(dir, rel string) {
+		p := filepath.Join(dir, rel)
+		if !seen[p] {
+			seen[p] = true
+			paths = append(paths, p)
+		}
+	}
+	for _, g := range a.Changes.Groups() {
+		for _, s := range g.Staged {
+			add(g.Dir, s.Path)
+		}
+		for _, s := range g.Unstaged {
+			add(g.Dir, s.Path)
+		}
+	}
+	return paths
+}
+
+func (a *App) changesNavFile(dir int) {
+	paths := a.changedFilePaths()
+	if len(paths) == 0 {
+		a.StatusNotify("No changed files")
+		return
+	}
+	current := a.EditorGroup.ActiveFilePath()
+	idx := -1
+	for i, p := range paths {
+		if p == current {
+			idx = i
+			break
+		}
+	}
+	target := paths[0]
+	if idx >= 0 {
+		n := (idx + dir) % len(paths)
+		if n < 0 {
+			n += len(paths)
+		}
+		target = paths[n]
+	}
+	a.EditorGroup.OpenFile(target)
+	a.FocusEditorIfEnabled()
+}
+
+// ChangesNextFile opens the next changed file relative to the active file,
+// wrapping around at the end of the list.
+func (a *App) ChangesNextFile() { a.changesNavFile(1) }
+
+// ChangesPrevFile opens the previous changed file relative to the active file,
+// wrapping around at the start of the list.
+func (a *App) ChangesPrevFile() { a.changesNavFile(-1) }
+
 func registerGitCommands(app *App) {
 	reg := app.Reg
+
+	reg.Register(command.Command{
+		ID: "changes.nextFile", Title: "Git: Next Changed File",
+		Keywords: []string{"git", "changes", "file", "navigate", "next"},
+		Handler:  app.ChangesNextFile,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.prevFile", Title: "Git: Previous Changed File",
+		Keywords: []string{"git", "changes", "file", "navigate", "previous"},
+		Handler:  app.ChangesPrevFile,
+	})
 
 	reg.Register(command.Command{
 		ID: "changes.openDiff", Title: "Git: Open Compact Diff",

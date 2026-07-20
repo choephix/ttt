@@ -245,8 +245,15 @@ func LoadPluginFromFile(a *App, path string) {
 			NetworkHTTP:       plugin.NetworkHTTP{All: true},
 			EventsFile:        true,
 			EventsEditor:      true,
+			Settings:          true,
+			SettingsKeys:      []string{"*"},
 		},
 	}
+
+	// Wire the settings API before init so plugins loaded via --plugin can read
+	// settings at startup, matching the production ApproveAndLoad path where
+	// wireAPIs runs before Init.
+	p.Settings = NewPluginSettingsAPI(a)
 
 	if err := p.InitFromSource(string(source)); err != nil {
 		slog.Error("init plugin from file", "path", path, "error", err)

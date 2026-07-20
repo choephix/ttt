@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
+
+	"github.com/eugenioenko/ttt/internal/ui"
 )
 
 func TestKeyInterceptorBlocksRune(t *testing.T) {
@@ -44,6 +46,89 @@ func TestKeyInterceptorPassthrough(t *testing.T) {
 	h.pressRune('x')
 
 	h.assertContains("x")
+}
+
+// Modal plugins (Vim mode) need Esc to leave insert mode, so the interceptor
+// runs before EscapeDismissers.
+func TestKeyInterceptorConsumesEscape(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("file.new")
+
+	dismissed := false
+	h.app.Root.EscapeDismissers = append(h.app.Root.EscapeDismissers, func() bool {
+		dismissed = true
+		return true
+	})
+
+	intercepted := false
+	h.app.Root.KeyInterceptor = func(ev *tcell.EventKey) bool {
+		if ev.Key() == tcell.KeyEscape {
+			intercepted = true
+			return true
+		}
+		return false
+	}
+
+	h.pressKey(tcell.KeyEscape, tcell.ModNone)
+
+	if !intercepted {
+		t.Fatal("expected interceptor to receive Escape")
+	}
+	if dismissed {
+		t.Fatal("expected interceptor to preempt EscapeDismissers")
+	}
+}
+
+func TestKeyInterceptorEscapePassthrough(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("file.new")
+
+	dismissed := false
+	h.app.Root.EscapeDismissers = append(h.app.Root.EscapeDismissers, func() bool {
+		dismissed = true
+		return true
+	})
+
+	h.app.Root.KeyInterceptor = func(ev *tcell.EventKey) bool {
+		return false
+	}
+
+	h.pressKey(tcell.KeyEscape, tcell.ModNone)
+
+	if !dismissed {
+		t.Fatal("expected EscapeDismissers to run when the interceptor declines")
+	}
+}
+
+// A chord in flight outranks the interceptor: its continuation keys are plain
+// runes that a modal plugin would otherwise swallow.
+func TestKeyInterceptorDoesNotBreakChords(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	h.exec("file.new")
+
+	// Stand in for a modal plugin that consumes every printable key.
+	h.app.Root.KeyInterceptor = func(ev *tcell.EventKey) bool {
+		return ev.Key() == tcell.KeyRune
+	}
+
+	fired := false
+	h.app.Root.AddChordKey([]ui.GlobalKeyBinding{
+		{Key: tcell.KeyCtrlK, Mod: tcell.ModCtrl},
+		{Key: tcell.KeyRune, Rune: 'z'},
+	}, func() { fired = true })
+
+	h.pressCtrl(tcell.KeyCtrlK)
+	h.pressRune('z')
+
+	if !fired {
+		t.Fatal("expected chord to fire despite an interceptor that consumes runes")
+	}
 }
 
 func TestKeyInterceptorNotCalledForOverlays(t *testing.T) {

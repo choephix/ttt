@@ -119,6 +119,18 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		return r.handleMouse(ev)
 	}
 
+	// Plugin key interceptors run before Escape handling and chords so modal
+	// plugins (e.g. Vim mode) can own the keyboard. ForceKeys and overlays stay
+	// above: a plugin must never be able to swallow the terminal-toggle escape
+	// hatch or steal keys from a modal dialog.
+	//
+	// A chord already in flight also outranks the interceptor: its continuation
+	// keys are plain runes (the `s` of `ctrl+k s`), which a modal plugin would
+	// otherwise consume, silently breaking every chord binding.
+	if r.chord == nil && r.KeyInterceptor != nil && r.KeyInterceptor(kev) {
+		return EventConsumed
+	}
+
 	if kev.Key() == tcell.KeyEscape {
 		for _, dismiss := range r.EscapeDismissers {
 			if dismiss() {
@@ -144,10 +156,6 @@ func (r *Root) HandleEvent(ev tcell.Event) EventResult {
 		if rk, ok := r.Focused.(RawKeyConsumer); ok && rk.WantsRawKeys() {
 			return r.handleRawKeyConsumer(kev)
 		}
-	}
-
-	if r.KeyInterceptor != nil && r.KeyInterceptor(kev) {
-		return EventConsumed
 	}
 
 	if r.Focused != nil {
