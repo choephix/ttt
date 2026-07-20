@@ -591,6 +591,19 @@ func (a *App) RegisterStartupPluginCommands() {
 	for _, p := range a.PluginManager.Plugins() {
 		a.WirePlugin(p)
 	}
+	a.ensureKeyInterceptor()
+}
+
+func (a *App) ensureKeyInterceptor() {
+	if a.Root.KeyInterceptor != nil {
+		return
+	}
+	a.Root.KeyInterceptor = func(ev *tcell.EventKey) bool {
+		if a.Root.Focused != a.EditorGroup {
+			return false
+		}
+		return a.PluginManager.DispatchKeyEvent(ev)
+	}
 }
 
 func (a *App) pluginReload() {

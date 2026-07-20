@@ -267,6 +267,30 @@ func (p *Plugin) CallSidebarAction(cmd string) {
 	}
 }
 
+func (p *Plugin) DispatchKeyEvent(ev *lua.LTable) bool {
+	listeners := p.EventListeners["key.press"]
+	if len(listeners) == 0 || p.State == nil {
+		return false
+	}
+	for _, fn := range listeners {
+		err := p.State.CallByParam(lua.P{
+			Fn:      fn,
+			NRet:    1,
+			Protect: true,
+		}, ev)
+		if err != nil {
+			p.logError("event key.press", err)
+			continue
+		}
+		ret := p.State.Get(-1)
+		p.State.Pop(1)
+		if lua.LVAsBool(ret) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Plugin) DispatchEvent(name string, args ...lua.LValue) {
 	listeners := p.EventListeners[name]
 	if len(listeners) == 0 || p.State == nil {

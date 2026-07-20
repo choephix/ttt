@@ -3,6 +3,7 @@ package plugin
 import (
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -95,6 +96,120 @@ func TestEventsUnknownEvent(t *testing.T) {
 	`)
 	if err == nil {
 		t.Fatal("expected error for unknown event")
+	}
+}
+
+func TestEventsKeyPressConsumed(t *testing.T) {
+	p, cleanup := setupTestPluginForEvents(PermissionSet{Keybindings: true})
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local events = require("ttt.events")
+		events.on("key.press", function(ev)
+			if ev.key == "j" then
+				_G.intercepted = "j"
+				return true
+			end
+			return false
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+
+	ev := tcell.NewEventKey(tcell.KeyRune, 'j', tcell.ModNone)
+	tbl := keyEventToLua(p.State, ev)
+	if !p.DispatchKeyEvent(tbl) {
+		t.Fatal("expected key.press to be consumed")
+	}
+	if p.State.GetGlobal("intercepted").String() != "j" {
+		t.Errorf("expected 'j', got %q", p.State.GetGlobal("intercepted").String())
+	}
+}
+
+func TestEventsKeyPressNotConsumed(t *testing.T) {
+	p, cleanup := setupTestPluginForEvents(PermissionSet{Keybindings: true})
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local events = require("ttt.events")
+		events.on("key.press", function(ev)
+			return false
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+
+	ev := tcell.NewEventKey(tcell.KeyRune, 'k', tcell.ModNone)
+	tbl := keyEventToLua(p.State, ev)
+	if p.DispatchKeyEvent(tbl) {
+		t.Fatal("expected key.press not to be consumed")
+	}
+}
+
+func TestEventsKeyPressWithModifiers(t *testing.T) {
+	p, cleanup := setupTestPluginForEvents(PermissionSet{Keybindings: true})
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local events = require("ttt.events")
+		events.on("key.press", function(ev)
+			_G.got_key = ev.key
+			_G.got_mod = ev.mod or ""
+			return true
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+
+	ev := tcell.NewEventKey(tcell.KeyRune, 'w', tcell.ModAlt)
+	tbl := keyEventToLua(p.State, ev)
+	p.DispatchKeyEvent(tbl)
+
+	if p.State.GetGlobal("got_key").String() != "w" {
+		t.Errorf("expected 'w', got %q", p.State.GetGlobal("got_key").String())
+	}
+	if p.State.GetGlobal("got_mod").String() != "alt" {
+		t.Errorf("expected 'alt', got %q", p.State.GetGlobal("got_mod").String())
+	}
+}
+
+func TestEventsKeyPressSpecialKey(t *testing.T) {
+	p, cleanup := setupTestPluginForEvents(PermissionSet{Keybindings: true})
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local events = require("ttt.events")
+		events.on("key.press", function(ev)
+			_G.got_key = ev.key
+			return true
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+
+	ev := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
+	tbl := keyEventToLua(p.State, ev)
+	p.DispatchKeyEvent(tbl)
+
+	if p.State.GetGlobal("got_key").String() != "Esc" {
+		t.Errorf("expected 'Esc', got %q", p.State.GetGlobal("got_key").String())
+	}
+}
+
+func TestEventsKeyPressWithoutPermission(t *testing.T) {
+	p, cleanup := setupTestPluginForEvents(PermissionSet{})
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local events = require("ttt.events")
+		events.on("key.press", function() return true end)
+	`)
+	if err == nil {
+		t.Fatal("expected error when events.keys not granted")
 	}
 }
 

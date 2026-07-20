@@ -18,6 +18,10 @@ var editorEvents = map[string]bool{
 	"tab.change":    true,
 }
 
+var keyEvents = map[string]bool{
+	"key.press": true,
+}
+
 func setupEventsModule(L *lua.LState, p *Plugin) {
 	loader := func(L *lua.LState) int {
 		mod := L.NewTable()
@@ -43,6 +47,11 @@ func eventsOn(p *Plugin) lua.LGFunction {
 			}
 		} else if editorEvents[eventName] {
 			if err := p.Granted.Check("events.editor"); err != nil {
+				L.ArgError(1, err.Error())
+				return 0
+			}
+		} else if keyEvents[eventName] {
+			if err := p.Granted.Check("keybindings"); err != nil {
 				L.ArgError(1, err.Error())
 				return 0
 			}
