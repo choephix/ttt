@@ -343,6 +343,77 @@ for _, cmd in ipairs(cmds) do
 end
 ```
 
+### `ttt.command_line` Module
+
+A single-line, framed input docked directly above the status bar — the `:` prompt of a modal editor. It is drawn as a modal overlay, so opening it never resizes the editor underneath and the buffer does not jump.
+
+All four functions require the `keybindings` permission: taking the command line is a keyboard-focus grab, the same class of capability as claiming a key binding.
+
+While the command line is open it consumes **all** keys. In particular, a plugin's `key.press` listener stops receiving events until it closes — so a modal plugin goes silent for free, with no mode flag to track.
+
+#### `ttt.command_line.show(config)`
+
+Open the command line and move focus to it. If one is already open, it is replaced rather than stacked. The call is a no-op while another overlay (a dialog, the command palette, a menu) is up.
+
+| Field       | Type     | Description                                                        |
+|-------------|----------|--------------------------------------------------------------------|
+| `prefix`    | string   | Prompt character shown before the text. Default `":"`. Typically `":"`, `"/"`, or `"?"`. |
+| `text`      | string   | Initial text. Default empty.                                       |
+| `on_change` | function | Called with the full text after every edit. Use for incremental search. |
+| `on_submit` | function | Called with the full text when Enter is pressed. The command line closes first. |
+| `on_cancel` | function | Called when Escape is pressed. The command line closes first.      |
+
+```lua
+local ttt = require("ttt")
+local events = require("ttt.events")
+
+events.on("key.press", function(ev)
+  if ev.key == ":" then
+    ttt.command_line.show({
+      prefix = ":",
+      on_submit = function(text)
+        if text == "w" then
+          ttt.exec_command("file.save")
+        elseif text == "q" then
+          ttt.exec_command("tab.close")
+        end
+      end,
+    })
+    return true
+  end
+  return false
+end)
+```
+
+Incremental search, using `on_change`:
+
+```lua
+ttt.command_line.show({
+  prefix = "/",
+  on_change = function(query)
+    highlight_matches(query)   -- runs on every keystroke
+  end,
+  on_submit = function(query)
+    jump_to_first_match(query)
+  end,
+  on_cancel = clear_highlights,
+})
+```
+
+Focus returns to whatever was focused before `show` — normally the editor — on submit, on cancel, and on `hide()`.
+
+#### `ttt.command_line.hide()`
+
+Close the command line without firing `on_submit` or `on_cancel`. No-op if none is open.
+
+#### `ttt.command_line.set_text(text)`
+
+Replace the current text. Fires `on_change`, exactly as typing would. No-op if no command line is open.
+
+#### `ttt.command_line.active()`
+
+**Returns:** `true` while a command line is open, `false` otherwise.
+
 ### `ttt.open_drawer(config)`
 
 Open a drawer panel anchored to the left or right side of the editor. Requires `panel.drawer` permission.
@@ -1756,7 +1827,44 @@ Register an event listener. Multiple listeners can be registered for the same ev
 | `cursor.change` | Cursor position changed (line or column). |
 | `tab.change`    | The active file changed — a tab switch, or a file opened from the CLI. Useful for re-scanning the newly active file. |
 
-All callbacks receive the file path of the affected file as their single argument.
+File and editor callbacks receive the file path of the affected file as their single argument.
+
+**Key events** (require `keybindings` permission):
+
+| Event       | Description                                    |
+|-------------|------------------------------------------------|
+| `key.press` | A key was pressed while the editor has focus.  |
+
+`key.press` is the hook for modal editing: it lets a plugin own the keyboard. The callback receives an event table and its return value decides what happens to the key.
+
+| Field  | Type   | Description                                                                 |
+|--------|--------|-----------------------------------------------------------------------------|
+| `type` | string | Always `"key"`.                                                             |
+| `key`  | string | For printable keys, the character itself (`"j"`, `":"`). Otherwise the key name (`"Enter"`, `"Escape"`, `"Ctrl-D"`). |
+| `rune` | string | The character, present only for printable keys.                             |
+| `mod`  | string | Active modifiers joined by `+` (`"ctrl"`, `"ctrl+shift"`, `"alt"`). Absent when there are none. |
+
+**Returning `true` consumes the key** — the editor never sees it. Returning `false` (or nothing) lets it through to normal handling.
+
+Note that control keys set **both** fields: `ctrl+d` arrives as `{ key = "Ctrl-D", mod = "ctrl" }`. Match on `key`, and check `mod` only when you need to distinguish (for example `"j"` from `alt+j`).
+
+```lua
+local events = require("ttt.events")
+
+events.on("key.press", function(ev)
+  if ev.key == "u" and not ev.mod then
+    ttt.exec_command("editor.undo")
+    return true    -- consumed
+  end
+  if ev.key == "Ctrl-D" then
+    ttt.exec_command("editor.deleteLine")
+    return true
+  end
+  return false     -- passed through
+end)
+```
+
+`key.press` fires only when the editor itself has focus, and it is bypassed entirely while an overlay is open — a dialog, the command palette, or `ttt.command_line`. Force keys (such as the terminal toggle) and any chord already in flight also outrank it, so a plugin can never trap the user.
 
 **Example:**
 

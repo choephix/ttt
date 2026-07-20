@@ -308,6 +308,8 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 1
 		}))
 
+		L.SetField(mod, "command_line", newCommandLineModule(L, p))
+
 		L.SetField(mod, "list_commands", L.NewFunction(func(L *lua.LState) int {
 			if err := p.Granted.Check("commands"); err != nil {
 				L.ArgError(1, "commands permission not granted")
