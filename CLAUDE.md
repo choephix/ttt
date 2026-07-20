@@ -138,6 +138,9 @@ Core segments use priorities 100–500 (branch=100, blame=200 on left; position=
 - `ttt.set_status_item(side, id, text, opts)` — add or update a status bar segment. `side` is `"left"` or `"right"`. `id` is scoped to the plugin (prefixed with `pluginName:`). `opts` is an optional table with `priority` (number, default 1000) and `on_click` (function).
 - `ttt.remove_status_item(id)` — remove a segment by ID.
 
+**Command execution:**
+- `ttt.exec_command(id)` — execute any registered command by ID (e.g., `"editor.undo"`, `"file.save"`). Returns `true` if the command was found and executed, `false` otherwise. Requires `commands` permission.
+
 These callbacks are only available after `WirePlugin` — call them from command handlers or event callbacks, not at plugin init time.
 
 ### Testing

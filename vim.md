@@ -25,13 +25,13 @@ In Vim Normal mode, pressing `j` must be a motion, not insert a character.
 - Segments sorted by priority (lower = closer to edge). Same priority tiebreaks by registration order.
 - Core segments: branch(L:100), blame(L:200), position(R:100), indent(R:200), encoding(R:300), eol(R:400), language(R:500).
 
-### 3. Command Execution API
+### 3. Command Execution API ✅
 
-Plugins cannot programmatically invoke editor commands. A Vim plugin needs undo, redo, save, delete-line, join-lines, etc.
+**Done.** Plugins can now invoke any registered command by ID.
 
-**What to add:**
-- `ttt.exec(command_id)` — execute any registered command by ID (e.g., `"editor.undo"`, `"editor.joinLines"`, `"file.save"`).
-- Expose through the Lua sandbox in `internal/plugin/sandbox.go`.
+- `ttt.exec_command(id)` — execute a command by ID, returns `true` if found and executed, `false` otherwise.
+- Gated on the existing `commands` permission (same as command registration).
+- Wired via `Plugin.ExecCommand` callback → `App.Reg.Execute(id)`.
 
 ### 4. Single-Line Buffer Access
 

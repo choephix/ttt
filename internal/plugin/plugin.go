@@ -83,6 +83,8 @@ type Plugin struct {
 	Notify             func(message, level string)
 	SetStatusItem      func(side, id, text string, priority int, onClick func())
 	RemoveStatusItem   func(id string)
+	ExecCommand        func(id string) bool
+	ListCommands       func() []CommandInfo
 	PublishDiagnostics func(path string, items []DiagnosticItem)
 	ClearDiagnostics   func(path string)
 
@@ -102,6 +104,11 @@ type Plugin struct {
 
 	timers      map[int]func()
 	nextTimerID int
+}
+
+type CommandInfo struct {
+	ID    string
+	Title string
 }
 
 type pendingDrawerCall struct {
@@ -242,6 +249,8 @@ func (p *Plugin) Destroy() {
 	p.Notify = nil
 	p.SetStatusItem = nil
 	p.RemoveStatusItem = nil
+	p.ExecCommand = nil
+	p.ListCommands = nil
 	p.PublishDiagnostics = nil
 	p.ClearDiagnostics = nil
 	p.EditorContextProvider = nil

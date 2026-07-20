@@ -386,6 +386,17 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	p.RemoveStatusItem = func(id string) {
 		a.Status.RemoveSegment(id)
 	}
+	p.ExecCommand = func(id string) bool {
+		return a.Reg.Execute(id)
+	}
+	p.ListCommands = func() []plugin.CommandInfo {
+		cmds := a.Reg.List()
+		result := make([]plugin.CommandInfo, len(cmds))
+		for i, cmd := range cmds {
+			result[i] = plugin.CommandInfo{ID: cmd.ID, Title: cmd.Title}
+		}
+		return result
+	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
