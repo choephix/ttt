@@ -56,32 +56,44 @@ describe("settings editor", () => {
     expect(snapshots[s0]).toMatch(/Tab size\s+❯ 4/);
   });
 
-  it("defers edits until Apply, then live-applies them", () => {
+  // Deferral itself is an app-state assertion and lives in the e2e suite
+  // (TestSettingsEditsDeferUntilApply). What only the real binary can prove is
+  // the round trip: that Apply writes settings.json and a freshly built form
+  // reads the value back.
+  it("persists a toggled setting through settings.json", () => {
     openEditor();
 
     tui.exec("Settings: Open Editor Settings");
     tui.waitStable();
 
-    // Tab past the tab strip and scroll view onto Word wrap.
-    // The assertions below name that row, so if the traversal ever lands
-    // somewhere else this fails loudly instead of passing on a no-op.
+    // Tab onto Word wrap. The assertions name that row, so a traversal that
+    // lands elsewhere fails loudly instead of passing on a no-op.
     tui.press("tab");
     tui.press("tab");
     tui.press("tab");
     tui.press("space");
     tui.waitStable();
-    const beforeApply = tui.snapshot();
+    const toggled = tui.snapshot();
 
     tui.exec("Settings: Apply Changes");
     tui.waitStable();
-    const afterApply = tui.snapshot();
+    const applied = tui.snapshot();
+
+    // Reload from disk, then close and reopen. Without the reload the form is
+    // rebuilt from the in-memory settings ApplySettings already updated, and
+    // would pass even if nothing ever reached settings.json.
+    tui.exec("Reload Settings");
+    tui.waitStable();
+    tui.exec("Settings: Discard Changes");
+    tui.waitStable();
+    tui.exec("Settings: Open Editor Settings");
+    tui.waitStable();
+    const reopened = tui.snapshot();
 
     const { snapshots } = tui.run();
-    // Toggled in the form...
-    expect(snapshots[beforeApply]).toMatch(/Word wrap\s+\[x\]/);
-    // ...and still set after Apply wrote and re-read settings.json.
-    expect(snapshots[afterApply]).toMatch(/Word wrap\s+\[x\]/);
-    expect(snapshots[afterApply]).toContain("Settings applied");
+    expect(snapshots[toggled]).toMatch(/Word wrap\s+\[x\]/);
+    expect(snapshots[applied]).toContain("Settings applied");
+    expect(snapshots[reopened]).toMatch(/Word wrap\s+\[x\]/);
   });
 
   it("keeps a single settings tab when reopened", () => {
