@@ -41,14 +41,13 @@ In Vim Normal mode, pressing `j` must be a motion, not insert a character.
 - `editor.line_count()` — returns total number of lines in the buffer.
 - Both gated on the existing `editor.read` permission.
 
-### 5. Viewport and Scroll Control
+### 5. Viewport and Scroll Control ✅
 
-No way to query or control the visible viewport. Vim's `Ctrl+D`, `Ctrl+U`, `zz`, `zt`, `zb` all need this.
+**Done.** Plugins can now query and control the visible viewport.
 
-**What to add:**
-- `editor.viewport()` — returns `{top_line, bottom_line, height}`.
-- `editor.scroll_to(line)` — scroll so that `line` is at the top of the viewport.
-- `editor.scroll_by(delta)` — scroll up/down by `delta` lines.
+- `editor.viewport()` — returns `{top_line, bottom_line, height}` (1-based). Gated on `editor.read`.
+- `editor.scroll_to(line)` — scroll so that `line` (1-based) is at the top of the viewport. Gated on `editor.write`.
+- `editor.scroll_by(delta)` — scroll up/down by `delta` lines. Gated on `editor.write`.
 
 ### 6. Undo Transaction Grouping
 

@@ -39,6 +39,10 @@ type EditorAPI interface {
 	FileName() string
 	Language() string
 
+	Viewport() (topLine, bottomLine, height int)
+	ScrollTo(line int)
+	ScrollBy(delta int)
+
 	Insert(line, col int, text string)
 	SetLine(line int, text string)
 	Replace(startLine, startCol, endLine, endCol int, text string)

@@ -17,6 +17,7 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "current_line", L.NewFunction(editorCurrentLine(p)))
 			L.SetField(mod, "get_line", L.NewFunction(editorGetLine(p)))
 			L.SetField(mod, "line_count", L.NewFunction(editorLineCount(p)))
+			L.SetField(mod, "viewport", L.NewFunction(editorViewport(p)))
 			L.SetField(mod, "cursor", L.NewFunction(editorCursor(p)))
 			L.SetField(mod, "selection", L.NewFunction(editorSelection(p)))
 			L.SetField(mod, "selection_text", L.NewFunction(editorSelectionText(p)))
@@ -29,6 +30,8 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 		}
 
 		if hasWrite {
+			L.SetField(mod, "scroll_to", L.NewFunction(editorScrollTo(p)))
+			L.SetField(mod, "scroll_by", L.NewFunction(editorScrollBy(p)))
 			L.SetField(mod, "insert", L.NewFunction(editorInsert(p)))
 			L.SetField(mod, "set_line", L.NewFunction(editorSetLine(p)))
 			L.SetField(mod, "replace", L.NewFunction(editorReplace(p)))
@@ -249,6 +252,45 @@ func editorColToByte(p *Plugin) lua.LGFunction {
 		// last byte.
 		L.Push(lua.LNumber(len(text) + 1))
 		return 1
+	}
+}
+
+func editorViewport(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		top, bottom, height := p.Editor.Viewport()
+		tbl := L.NewTable()
+		L.SetField(tbl, "top_line", lua.LNumber(top+1))
+		L.SetField(tbl, "bottom_line", lua.LNumber(bottom+1))
+		L.SetField(tbl, "height", lua.LNumber(height))
+		L.Push(tbl)
+		return 1
+	}
+}
+
+func editorScrollTo(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		line := int(L.CheckNumber(1)) - 1
+		p.Editor.ScrollTo(line)
+		return 0
+	}
+}
+
+func editorScrollBy(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		delta := int(L.CheckNumber(1))
+		p.Editor.ScrollBy(delta)
+		return 0
 	}
 }
 

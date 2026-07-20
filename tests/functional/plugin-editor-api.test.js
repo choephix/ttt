@@ -105,3 +105,66 @@ describe("editor.set_line plugin API", () => {
     expect(snapshots[s]).not.toContain("bbb");
   });
 });
+
+describe("editor.viewport plugin API", () => {
+  it("returns top_line, bottom_line, and height", () => {
+    dir = createTempDir();
+    const lines = Array.from({ length: 50 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    const file = createTempFile(dir, "test.txt", lines);
+    const plugin = writePlugin(dir, "test.lua", `
+      local ttt = require("ttt")
+      local editor = require("ttt.editor")
+      ttt.register({
+        commands = {
+          { id = "test.vp", title = "Test Viewport", handler = function()
+              local vp = editor.viewport()
+              ttt.set_status_item("left", "result",
+                "T:" .. vp.top_line .. ",H:" .. vp.height, { priority = 10 })
+            end
+          }
+        }
+      })
+    `);
+
+    tui.start("--plugin", plugin, file);
+    tui.waitStable(300);
+    tui.exec("Test Viewport");
+    tui.waitStable();
+    const s = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    const lastLine = snapshots[s].split("\n").pop();
+    expect(lastLine).toContain("T:1,H:");
+  });
+
+  it("scroll_to changes the top line", () => {
+    dir = createTempDir();
+    const lines = Array.from({ length: 50 }, (_, i) => `line ${i + 1}`).join("\n") + "\n";
+    const file = createTempFile(dir, "test.txt", lines);
+    const plugin = writePlugin(dir, "test.lua", `
+      local ttt = require("ttt")
+      local editor = require("ttt.editor")
+      ttt.register({
+        commands = {
+          { id = "test.scroll", title = "Test Scroll", handler = function()
+              editor.scroll_to(20)
+              local vp = editor.viewport()
+              ttt.set_status_item("left", "result",
+                "T:" .. vp.top_line, { priority = 10 })
+            end
+          }
+        }
+      })
+    `);
+
+    tui.start("--plugin", plugin, file);
+    tui.waitStable(300);
+    tui.exec("Test Scroll");
+    tui.waitStable();
+    const s = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    const lastLine = snapshots[s].split("\n").pop();
+    expect(lastLine).toContain("T:20");
+  });
+});

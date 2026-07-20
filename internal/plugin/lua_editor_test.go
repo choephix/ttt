@@ -65,6 +65,9 @@ func (m *mockEditorAPI) SelectionText() string { return m.selText }
 func (m *mockEditorAPI) FilePath() string      { return m.filePath }
 func (m *mockEditorAPI) FileName() string      { return m.fileName }
 func (m *mockEditorAPI) Language() string      { return m.language }
+func (m *mockEditorAPI) Viewport() (int, int, int) { return 0, 24, 25 }
+func (m *mockEditorAPI) ScrollTo(line int)          {}
+func (m *mockEditorAPI) ScrollBy(delta int)         {}
 func (m *mockEditorAPI) SetLine(line int, text string) {
 	if line >= 0 && line < len(m.bufLines) {
 		m.bufLines[line] = text

@@ -116,6 +116,44 @@ func (e *PluginEditorAPI) Language() string {
 	return ed.Highlighter.Language()
 }
 
+func (e *PluginEditorAPI) Viewport() (int, int, int) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Viewport == nil {
+		return 0, 0, 0
+	}
+	top := ed.Viewport.TopLine
+	height := ed.Viewport.Height
+	bottom := top + height - 1
+	buf := e.eg.ActiveBuffer()
+	if buf != nil && bottom >= len(buf.Lines) {
+		bottom = len(buf.Lines) - 1
+	}
+	return top, bottom, height
+}
+
+func (e *PluginEditorAPI) ScrollTo(line int) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Viewport == nil {
+		return
+	}
+	if line < 0 {
+		line = 0
+	}
+	ed.Viewport.TopLine = line
+}
+
+func (e *PluginEditorAPI) ScrollBy(delta int) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Viewport == nil {
+		return
+	}
+	newTop := ed.Viewport.TopLine + delta
+	if newTop < 0 {
+		newTop = 0
+	}
+	ed.Viewport.TopLine = newTop
+}
+
 func (e *PluginEditorAPI) SetLine(line int, text string) {
 	ed := e.eg.Editor
 	if ed == nil || ed.Buf == nil || ed.Undo == nil {
