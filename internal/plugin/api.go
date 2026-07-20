@@ -51,6 +51,15 @@ type EditorAPI interface {
 	ClearSelection()
 	BeginUndoGroup()
 	EndUndoGroup()
+
+	AddCursor(line, col int)
+	GetCursors() []CursorPosition
+	ClearCursors()
+}
+
+type CursorPosition struct {
+	Line int
+	Col  int
 }
 
 type FileEntry struct {

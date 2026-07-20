@@ -210,3 +210,68 @@ describe("editor.begin_undo_group / end_undo_group plugin API", () => {
     expect(snapshots[s2]).toContain("ccc");
   });
 });
+
+describe("editor.add_cursor / get_cursors / clear_cursors plugin API", () => {
+  it("adds cursors and returns all cursor positions", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "test.txt", "aaa\nbbb\nccc\nddd\n");
+    const plugin = writePlugin(dir, "test.lua", `
+      local ttt = require("ttt")
+      local editor = require("ttt.editor")
+      ttt.register({
+        commands = {
+          { id = "test.addcursors", title = "Test AddCursors", handler = function()
+              editor.add_cursor(2, 1)
+              editor.add_cursor(3, 1)
+              local cursors = editor.get_cursors()
+              ttt.set_status_item("left", "result",
+                "N:" .. #cursors, { priority = 10 })
+            end
+          }
+        }
+      })
+    `);
+
+    tui.start("--plugin", plugin, file);
+    tui.waitStable(300);
+    tui.exec("Test AddCursors");
+    tui.waitStable();
+    const s = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    const lastLine = snapshots[s].split("\n").pop();
+    expect(lastLine).toContain("N:3");
+  });
+
+  it("clear_cursors collapses back to single cursor", () => {
+    dir = createTempDir();
+    const file = createTempFile(dir, "test.txt", "aaa\nbbb\nccc\n");
+    const plugin = writePlugin(dir, "test.lua", `
+      local ttt = require("ttt")
+      local editor = require("ttt.editor")
+      ttt.register({
+        commands = {
+          { id = "test.clearcursors", title = "Test ClearCursors", handler = function()
+              editor.add_cursor(2, 1)
+              editor.add_cursor(3, 1)
+              editor.clear_cursors()
+              local cursors = editor.get_cursors()
+              ttt.set_status_item("left", "result",
+                "N:" .. #cursors, { priority = 10 })
+            end
+          }
+        }
+      })
+    `);
+
+    tui.start("--plugin", plugin, file);
+    tui.waitStable(300);
+    tui.exec("Test ClearCursors");
+    tui.waitStable();
+    const s = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    const lastLine = snapshots[s].split("\n").pop();
+    expect(lastLine).toContain("N:1");
+  });
+});
