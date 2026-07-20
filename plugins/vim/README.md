@@ -3,9 +3,15 @@
 A Vim compatibility layer for ttt, implemented entirely as a Lua plugin.
 Tracks [issue #386](https://github.com/eugenioenko/ttt/issues/386).
 
+> **Requires ttt 1.1.0 or newer.** The plugin depends on core changes that ship
+> in 1.1.0 — the key interceptor's precedence over Escape (needed to leave
+> insert mode) and the `ttt.command_line` API (needed for `:` and `/`). On
+> older builds Esc will not return you to normal mode and the command line will
+> not open.
+
 ## Status
 
-Under construction, built in phases. Currently at **Phase 6**.
+Feature-complete across all seven planned phases.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -16,10 +22,35 @@ Under construction, built in phases. Currently at **Phase 6**.
 | 4 | Visual modes | ✅ |
 | 5 | Registers, marks, macros, `.` repeat | ✅ |
 | 6 | Ex command line, search, editor integration | ✅ |
-| 7 | Settings, docs, handoff to `ttt-plugins` | ⬜ |
+| 7 | Settings, editor-integration commands, docs | ✅ |
 
 `cheatsheet.md` is a vendored copy of [ibhagwan/vim-cheatsheet](https://github.com/ibhagwan/vim-cheatsheet),
 used as the coverage checklist.
+
+## Configuration
+
+Settings live in `settings.json` under a `vim` object and are read through the
+`ttt.settings` API (the manifest requests the `settings` permission with a
+`vim.enabled` / `vim.clipboard` allowlist). Missing keys fall back to the
+default, so an absent `vim` object leaves everything at its default.
+
+| Key | Type | Default | Effect |
+|---|---|---|---|
+| `vim.enabled` | bool | `true` | When `false`, the plugin starts with Vim mode **off**. It can still be toggled on from the command palette (`Vim: Enable Vim Mode` / `Vim: Toggle Vim Mode`). |
+| `vim.clipboard` | bool | `false` | When `true`, every unnamed yank/delete (a plain `y`, `d`, `x`, …) is also mirrored to the system clipboard, reusing the same `editor.copy` path as the `"+` / `"*` registers. When `false`, only explicit `"+` / `"*` touch the clipboard. |
+
+Example:
+
+```json
+{
+  "vim": { "enabled": true, "clipboard": true }
+}
+```
+
+**`vim.timeoutlen` is intentionally not supported.** The dispatcher has no
+pending-key timer — multi-key sequences (`gg`, `dw`, `]c`, …) resolve on the
+next key, not on a timeout — so a timeout length would be a no-op. There is
+nothing to configure.
 
 ## Supported today
 
@@ -358,14 +389,19 @@ Two further deviations worth knowing:
 | `za` | `fold.toggle` |
 | `zR` `zM` | `fold.expandAll` / `fold.collapseAll` |
 | `Ctrl-W w` `Ctrl-W W` | `focus.nextGroup` / `focus.prevGroup` |
+| `]c` `[c` | `diff.nextHunk` / `diff.prevHunk` (next/previous changed hunk) |
+| `]f` `[f` | `changes.nextFile` / `changes.prevFile` (next/previous changed file) |
+
+`]c` / `[c` jump between changed hunks in the current file (the git-gutter
+`LineChanges`); with the gutter disabled or the file untracked they are silent
+no-ops. `]f` / `[f` cycle through the files in the Changes panel, wrapping
+around. Both `[` and `]` are prefixes in normal mode, waiting for the second
+key. The commands they delegate to (`diff.nextHunk`, `diff.prevHunk`,
+`changes.nextFile`, `changes.prevFile`) were added to core in Phase 7.
 
 Everything here delegates to a core command. Keys with **no core equivalent are
 deliberately absent** rather than approximated:
 
-- **`]c` / `[c` (next/previous changed hunk) and `]f` / `[f` (next/previous
-  changed file) are not implemented.** ttt has no hunk- or changed-file
-  navigation commands at all — only `changes.refresh` and `sidebar.changes`.
-  They need Go-side commands first.
 - **`zo` / `zc` are not implemented.** Core registers `fold.toggle`,
   `fold.expandAll` and `fold.collapseAll`, but no open-only or close-only
   command, and mapping both `zo` and `zc` onto a toggle would be wrong.
@@ -438,7 +474,8 @@ reachable from the tab bar, the File menu and the command palette.
   clipboard carries no register kind, so `"+p` pastes whatever core makes of the
   text rather than honouring linewise/blockwise; and `{count}"+p` is one undo
   step per repetition, because core opens its own transaction and undo groups do
-  not nest.
+  not nest. The `vim.clipboard` setting routes plain unnamed yanks/deletes
+  through this same `editor.copy` path, so it inherits the same limitations.
 - **`.` does not repeat a visual-mode operator.** Vim re-applies it to a
   same-sized region from the cursor; here a visual operator records no payload,
   so `.` keeps repeating the last normal-mode change instead.
@@ -462,8 +499,10 @@ reachable from the tab bar, the File menu and the command palette.
   the previous non-blank line's (space) indent, adds one shiftwidth if that line
   ends with `{`/`(`/`[`/`:`, and removes one if this line starts with a closing
   bracket.
-- **Shiftwidth is hardcoded to 4 spaces.** Reading `editor.tabSize` needs a
-  `settings` permission the manifest does not request; wiring it is Phase 7.
+- **Shiftwidth is hardcoded to 4 spaces.** Reading `editor.tabSize` needs it in
+  the manifest's `settings_keys` allowlist. The manifest now requests `settings`,
+  but scoped to `vim.enabled` / `vim.clipboard` only, so `editor.tabSize` is
+  still out of reach — wiring it is a separate change.
 - **`Y` is `y$`, not `yy`.** ttt follows Neovim's default rather than Vim's, so
   `Y` lines up with `D` and `C`.
 - **`cc` / `S` always preserve indentation**, where Vim only does so with

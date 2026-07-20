@@ -200,7 +200,7 @@ func (ps PermissionSet) CheckSettingsKey(key string) error {
 		return fmt.Errorf("permission denied: settings")
 	}
 	for _, pattern := range ps.SettingsKeys {
-		if pattern == key {
+		if pattern == "*" || pattern == key {
 			return nil
 		}
 		if strings.HasSuffix(pattern, ".*") {

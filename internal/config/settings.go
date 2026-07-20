@@ -173,6 +173,63 @@ type Settings struct {
 	// default, so the zero value and "unset" mean the same thing.
 	Plugins    PluginSettings    `json:"plugins,omitzero"`
 	Formatters map[string]string `json:"formatters,omitempty"`
+	// Extra holds top-level keys that are not part of the core schema — chiefly
+	// plugin-namespaced settings (e.g. "vim"). Without this, json.Unmarshal into
+	// the struct would silently drop them, making ttt.settings.get/set unusable
+	// for plugins. It is populated/emitted by the custom (Un)MarshalJSON below.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// knownSettingsKeys is the set of top-level JSON keys owned by the core schema.
+// Any other top-level key is preserved via Settings.Extra.
+var knownSettingsKeys = map[string]bool{
+	"version": true, "theme": true, "debugMode": true, "editor": true,
+	"search": true, "explorer": true, "terminal": true, "lsp": true,
+	"autocomplete": true, "markdown": true, "plugins": true, "formatters": true,
+}
+
+func (s Settings) MarshalJSON() ([]byte, error) {
+	type alias Settings
+	base, err := json.Marshal(alias(s))
+	if err != nil {
+		return nil, err
+	}
+	if len(s.Extra) == 0 {
+		// Byte-identical to the plain struct encoding — keeps field ordering
+		// stable for the settings-roundtrip test when no plugin keys are present.
+		return base, nil
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(base, &m); err != nil {
+		return nil, err
+	}
+	for k, v := range s.Extra {
+		if !knownSettingsKeys[k] {
+			m[k] = v
+		}
+	}
+	return json.Marshal(m)
+}
+
+func (s *Settings) UnmarshalJSON(data []byte) error {
+	type alias Settings
+	aux := (*alias)(s)
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	for k, v := range m {
+		if !knownSettingsKeys[k] {
+			if s.Extra == nil {
+				s.Extra = make(map[string]json.RawMessage)
+			}
+			s.Extra[k] = v
+		}
+	}
+	return nil
 }
 
 func DefaultSettings() Settings {

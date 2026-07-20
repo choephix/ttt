@@ -48,7 +48,13 @@ local state = {
 	visual = nil, -- { al, ac, cl, cc, dollar } anchor + Vim cursor while visual
 	last_visual = nil, -- the range `gv` reselects
 	block_insert = false, -- blockwise I/A/c is holding multi-cursors open
+	clipboard = false, -- vim.clipboard: sync the unnamed register to the system clipboard
 }
+
+-- Startup settings are read deferred, at the bottom of this file (see the
+-- ttt.set_timeout call), not here: for an already-approved plugin, LoadAll calls
+-- Init before the host wires the settings API, so a read at init time would
+-- always see nil. state.enabled / state.clipboard keep their defaults until then.
 
 -- ---------------------------------------------------------------------------
 -- Editor shim
@@ -817,7 +823,7 @@ local G_MOTIONS = {
 -- Second key of a `z`-prefixed sequence, passed straight to reposition().
 local Z_COMMANDS = { z = true, t = true, b = true }
 
-local PREFIX_KEYS = { g = true, z = true }
+local PREFIX_KEYS = { g = true, z = true, ["["] = true, ["]"] = true }
 local FIND_KEYS = { f = true, F = true, t = true, T = true }
 
 -- ---------------------------------------------------------------------------
@@ -1101,6 +1107,12 @@ local function set_register(text, kind, is_delete, range)
 	if name then
 		reg_store(name, text, kind)
 		return
+	end
+
+	-- vim.clipboard: an unnamed yank/delete also lands on the system clipboard,
+	-- reusing the same editor.copy path as the "+/"* registers.
+	if state.clipboard and range then
+		clipboard_copy(range[1], range[2], range[3], range[4])
 	end
 
 	if is_delete then
@@ -4428,6 +4440,20 @@ do
 		["ctrl-w"] = "focus.nextGroup",
 	}
 
+	-- `]`/`[` bracket-command targets. `]c`/`[c` jump between changed hunks in the
+	-- current file; `]f`/`[f` cycle through the files in the Changes panel. These
+	-- delegate to core commands; a false return (command absent) is a silent
+	-- no-op. Assigned straight onto vim6 (no locals) to stay under Lua 5.1's
+	-- per-function local cap, which this do-block is already close to.
+	vim6.BRACKET_NEXT = {
+		["c"] = "diff.nextHunk",
+		["f"] = "changes.nextFile",
+	}
+	vim6.BRACKET_PREV = {
+		["c"] = "diff.prevHunk",
+		["f"] = "changes.prevFile",
+	}
+
 	G_MOTIONS["t"] = function(n)
 		for _ = 1, n do
 			exec_or_warn("tab.next")
@@ -4807,6 +4833,26 @@ local function handle_normal(tok)
 		return true
 	end
 
+	-- `]`/`[` bracket commands (]c/[c hunks, ]f/[f changed files). A missing core
+	-- command returns false and is a silent no-op. No new locals: handle_normal is
+	-- large and near Lua 5.1's per-function local cap.
+	if state.pending == "]" then
+		state.pending = ""
+		state.count = nil
+		if vim6.BRACKET_NEXT[tok] then
+			ttt.exec_command(vim6.BRACKET_NEXT[tok])
+		end
+		return true
+	end
+	if state.pending == "[" then
+		state.pending = ""
+		state.count = nil
+		if vim6.BRACKET_PREV[tok] then
+			ttt.exec_command(vim6.BRACKET_PREV[tok])
+		end
+		return true
+	end
+
 	-- Count prefix. A leading `0` is the motion, not a count digit.
 	if #tok == 1 and tok >= "0" and tok <= "9" and not (tok == "0" and state.count == nil) then
 		state.count = (state.count or 0) * 10 + tonumber(tok)
@@ -5081,6 +5127,31 @@ ttt.register({
 
 events.on("key.press", on_key)
 
--- set_status_item is only wired after WirePlugin runs, which is after this file
--- executes, so the initial indicator is deferred by a tick.
-ttt.set_timeout(0, render_status)
+-- Deferred startup: read settings, then draw the initial status indicator. Both
+-- the settings API and set_status_item are only wired after WirePlugin runs
+-- (which is after this file executes), so this is delayed by a tick. get_setting
+-- lives inside the closure so it consumes no permanent top-level local (Lua 5.1
+-- caps the main chunk at 200). Reads are defensive: ttt.settings may be
+-- unavailable or return nil, in which case the default stands, and a denied key
+-- raises a Lua error, so each call is pcall'd. vim.enabled=false starts with Vim
+-- mode off (re-enable from the command palette); vim.clipboard=true mirrors the
+-- unnamed register to the system clipboard on every yank/delete.
+ttt.set_timeout(0, function()
+	local function get_setting(key, default)
+		local ok, mod = pcall(require, "ttt.settings")
+		if not ok or type(mod) ~= "table" or type(mod.get) ~= "function" then
+			return default
+		end
+		local ok2, val = pcall(mod.get, key)
+		if not ok2 or val == nil then
+			return default
+		end
+		return val
+	end
+
+	if not get_setting("vim.enabled", true) then
+		disable()
+	end
+	state.clipboard = get_setting("vim.clipboard", false) and true or false
+	render_status()
+end)
