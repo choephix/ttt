@@ -61,6 +61,22 @@ func (e *PluginEditorAPI) CurrentLine() string {
 	return ""
 }
 
+func (e *PluginEditorAPI) GetLine(n int) string {
+	buf := e.eg.ActiveBuffer()
+	if buf == nil || n < 0 || n >= len(buf.Lines) {
+		return ""
+	}
+	return buf.Lines[n]
+}
+
+func (e *PluginEditorAPI) LineCount() int {
+	buf := e.eg.ActiveBuffer()
+	if buf == nil {
+		return 0
+	}
+	return len(buf.Lines)
+}
+
 func (e *PluginEditorAPI) CursorPos() (int, int) {
 	return e.eg.ActiveCursor()
 }
@@ -98,6 +114,18 @@ func (e *PluginEditorAPI) Language() string {
 		return ""
 	}
 	return ed.Highlighter.Language()
+}
+
+func (e *PluginEditorAPI) SetLine(line int, text string) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Buf == nil || ed.Undo == nil {
+		return
+	}
+	if line < 0 || line >= len(ed.Buf.Lines) {
+		return
+	}
+	runes := []rune(ed.Buf.Lines[line])
+	e.Replace(line, 0, line, len(runes), text)
 }
 
 func (e *PluginEditorAPI) Insert(line, col int, text string) {

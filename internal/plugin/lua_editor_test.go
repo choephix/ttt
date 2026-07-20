@@ -48,6 +48,13 @@ func (m *mockEditorAPI) BufferLines() []string {
 	return result
 }
 func (m *mockEditorAPI) CurrentLine() string { return m.curLine }
+func (m *mockEditorAPI) GetLine(n int) string {
+	if n < 0 || n >= len(m.bufLines) {
+		return ""
+	}
+	return m.bufLines[n]
+}
+func (m *mockEditorAPI) LineCount() int { return len(m.bufLines) }
 func (m *mockEditorAPI) CursorPos() (int, int) {
 	return m.cursorLine, m.cursorCol
 }
@@ -58,6 +65,11 @@ func (m *mockEditorAPI) SelectionText() string { return m.selText }
 func (m *mockEditorAPI) FilePath() string      { return m.filePath }
 func (m *mockEditorAPI) FileName() string      { return m.fileName }
 func (m *mockEditorAPI) Language() string      { return m.language }
+func (m *mockEditorAPI) SetLine(line int, text string) {
+	if line >= 0 && line < len(m.bufLines) {
+		m.bufLines[line] = text
+	}
+}
 func (m *mockEditorAPI) Insert(line, col int, text string) {
 	m.insertedLine = line
 	m.insertedCol = col

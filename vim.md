@@ -33,13 +33,13 @@ In Vim Normal mode, pressing `j` must be a motion, not insert a character.
 - Gated on the existing `commands` permission (same as command registration).
 - Wired via `Plugin.ExecCommand` callback → `App.Reg.Execute(id)`.
 
-### 4. Single-Line Buffer Access
+### 4. Single-Line Buffer Access ✅
 
-`editor.get_line(n)` is missing — must copy the entire buffer via `buffer_lines()` to read one line. A Vim plugin checks character-at-cursor on every keystroke.
+**Done.** Plugins can now read individual lines without copying the entire buffer.
 
-**What to add:**
 - `editor.get_line(n)` — returns the text of line `n` (1-based) as a string.
 - `editor.line_count()` — returns total number of lines in the buffer.
+- Both gated on the existing `editor.read` permission.
 
 ### 5. Viewport and Scroll Control
 

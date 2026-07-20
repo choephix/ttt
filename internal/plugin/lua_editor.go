@@ -15,6 +15,8 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "buffer_text", L.NewFunction(editorBufferText(p)))
 			L.SetField(mod, "buffer_lines", L.NewFunction(editorBufferLines(p)))
 			L.SetField(mod, "current_line", L.NewFunction(editorCurrentLine(p)))
+			L.SetField(mod, "get_line", L.NewFunction(editorGetLine(p)))
+			L.SetField(mod, "line_count", L.NewFunction(editorLineCount(p)))
 			L.SetField(mod, "cursor", L.NewFunction(editorCursor(p)))
 			L.SetField(mod, "selection", L.NewFunction(editorSelection(p)))
 			L.SetField(mod, "selection_text", L.NewFunction(editorSelectionText(p)))
@@ -28,6 +30,7 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 
 		if hasWrite {
 			L.SetField(mod, "insert", L.NewFunction(editorInsert(p)))
+			L.SetField(mod, "set_line", L.NewFunction(editorSetLine(p)))
 			L.SetField(mod, "replace", L.NewFunction(editorReplace(p)))
 			L.SetField(mod, "set_cursor", L.NewFunction(editorSetCursor(p)))
 			L.SetField(mod, "set_selection", L.NewFunction(editorSetSelection(p)))
@@ -78,6 +81,30 @@ func editorCurrentLine(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		L.Push(lua.LString(p.Editor.CurrentLine()))
+		return 1
+	}
+}
+
+func editorGetLine(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		n := int(L.CheckNumber(1)) - 1
+		L.Push(lua.LString(p.Editor.GetLine(n)))
+		return 1
+	}
+}
+
+func editorLineCount(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNumber(0))
+			return 1
+		}
+		L.Push(lua.LNumber(p.Editor.LineCount()))
 		return 1
 	}
 }
@@ -222,6 +249,20 @@ func editorColToByte(p *Plugin) lua.LGFunction {
 		// last byte.
 		L.Push(lua.LNumber(len(text) + 1))
 		return 1
+	}
+}
+
+func editorSetLine(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		n := int(L.CheckNumber(1)) - 1
+		text := L.CheckString(2)
+		p.Editor.SetLine(n, text)
+		return 0
 	}
 }
 
