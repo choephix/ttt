@@ -13,11 +13,25 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// RunExecScript parses a semicolon-separated script string and executes
-// each command sequentially. Intended to be run in a goroutine after
-// the event loop starts.
+// DefaultExecSeparator splits exec scripts when no override is given.
+const DefaultExecSeparator = ";"
+
+// RunExecScript parses a separator-delimited script string and executes each
+// command sequentially. Intended to be run in a goroutine after the event loop
+// starts.
 func RunExecScript(a *App, script string) {
-	commands := strings.Split(script, ";")
+	RunExecScriptSep(a, script, DefaultExecSeparator)
+}
+
+// RunExecScriptSep is RunExecScript with a caller-chosen separator. Semicolons
+// are unusable when the script must type or send one -- `;` is a Vim motion,
+// for instance -- so callers can pick a delimiter that cannot collide with
+// their payload.
+func RunExecScriptSep(a *App, script, sep string) {
+	if sep == "" {
+		sep = DefaultExecSeparator
+	}
+	commands := strings.Split(script, sep)
 	for _, raw := range commands {
 		cmd := strings.TrimSpace(raw)
 		if cmd == "" {

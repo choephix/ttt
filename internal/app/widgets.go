@@ -38,6 +38,10 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 			i++
 			continue
 		}
+		if args[i] == "--exec-split-on" && i+1 < len(args) {
+			i++
+			continue
+		}
 		if args[i] == "--plugin" && i+1 < len(args) {
 			i++
 			continue
