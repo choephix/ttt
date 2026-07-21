@@ -150,6 +150,9 @@ func TestDefaultEditorSettings(t *testing.T) {
 	if e.BracketPairColorization {
 		t.Error("expected BracketPairColorization false by default")
 	}
+	if !e.IsShowTrailingNewlineEnabled() {
+		t.Error("expected ShowTrailingNewline true by default (nil)")
+	}
 }
 
 func TestDefaultTerminalSettings(t *testing.T) {

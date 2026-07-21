@@ -73,6 +73,7 @@ type Buffer struct {
 	Lines                  []string
 	Dirty                  bool
 	InsertFinalNewline     bool
+	ShowTrailingNewline    bool
 	TrimTrailingWhitespace bool
 	LineEnding             string // "\n" (LF) or "\r\n" (CRLF); defaults to "\n"
 

@@ -30,6 +30,7 @@ func (a *App) ApplySettings(s config.Settings) {
 	a.EditorGroup.LineNumbers = s.Editor.LineNumbers
 	a.EditorGroup.GutterStyle = s.Editor.GutterStyle
 	a.EditorGroup.InsertFinalNewline = s.Editor.InsertFinalNewline
+	a.EditorGroup.ShowTrailingNewline = s.Editor.IsShowTrailingNewlineEnabled()
 	a.EditorGroup.TrimTrailingWhitespace = s.Editor.TrimTrailingWhitespace
 	a.EditorGroup.WordWrap = s.Editor.WordWrap
 	a.EditorGroup.BracketPairColorization = s.Editor.BracketPairColorization
