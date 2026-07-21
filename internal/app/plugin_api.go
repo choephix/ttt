@@ -298,6 +298,23 @@ func (e *PluginEditorAPI) ClearCursors() {
 	e.eg.CollapseMultiCursor()
 }
 
+func (e *PluginEditorAPI) SetSearch(pattern string, useRegex bool) {
+	if !e.eg.IsEditorActive() {
+		return
+	}
+	buf := e.eg.ActiveBuffer()
+	if buf == nil {
+		return
+	}
+	opts := ui.SearchOptions{UseRegex: useRegex, CaseSensitive: true}
+	matches, _ := ui.FindInLines(buf.Lines, pattern, opts)
+	e.eg.SetSearch(pattern, matches)
+}
+
+func (e *PluginEditorAPI) ClearSearch() {
+	e.eg.ClearSearch()
+}
+
 // PluginFilesystemAPI implements plugin.FilesystemAPI with path restrictions.
 type PluginFilesystemAPI struct {
 	allowedRoots []string

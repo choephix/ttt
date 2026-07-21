@@ -55,6 +55,9 @@ type EditorAPI interface {
 	AddCursor(line, col int)
 	GetCursors() []CursorPosition
 	ClearCursors()
+
+	SetSearch(pattern string, useRegex bool)
+	ClearSearch()
 }
 
 type CursorPosition struct {
