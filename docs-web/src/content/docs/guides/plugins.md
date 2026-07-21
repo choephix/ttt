@@ -5,6 +5,12 @@ description: Install, manage, and configure plugins in TTT.
 
 TTT supports Lua plugins that add panels, commands, and keybindings to the editor. Plugins run in a sandboxed Lua VM with a permission system — no plugin can access your filesystem, run commands, or make network requests without your explicit approval.
 
+## Vim Mode
+
+If you prefer modal editing, the [Vim Mode](https://github.com/eugenioenko/ttt-vim) plugin adds a Vim compatibility layer on top of TTT: Normal, Insert and Visual modes, motions, operators, text objects, registers, marks and macros. It is written entirely against the public plugin API (key interception, status bar segments, multi cursor, undo grouping), so it requires no special core support and can be enabled or disabled like any other plugin.
+
+Install it from the **Plugins** sidebar tab by searching for "vim", or run **Plugins: Install from URL** with `https://github.com/eugenioenko/ttt-vim`. Once loaded it starts in Normal mode and shows the current mode in the status bar.
+
 ## Installing Plugins
 
 ### From the Plugins Panel

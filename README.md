@@ -449,6 +449,12 @@ To use your terminal's native colors instead of the theme's, set foreground/back
 
 TTT supports Lua plugins that add sidebar panels, bottom panel tabs, commands, and keybindings. Plugins run in a sandboxed Lua VM with a permission system — users approve each plugin's capabilities on first load.
 
+#### Vim Mode
+
+Prefer modal editing? Install the [Vim Mode](https://github.com/eugenioenko/ttt-vim) plugin for a Vim compatibility layer: Normal, Insert and Visual modes, motions, operators, text objects, registers, marks and macros. It is built entirely on the public plugin API, so it needs no special core support and stays enabled or disabled like any other plugin.
+
+Install it from the **Plugins** sidebar tab by searching for "vim", or run **Plugins: Install from URL** with `https://github.com/eugenioenko/ttt-vim`.
+
 #### Installing Plugins
 
 Open the **Plugins** sidebar tab to browse and install from the community registry, or use **Plugins: Install from URL** from the command palette to install from any git repository.
