@@ -40,6 +40,10 @@ type mockEditorAPI struct {
 
 	selCleared   bool
 	extraCursors []CursorPosition
+
+	searchPattern string
+	searchRegex   bool
+	searchCleared bool
 }
 
 func (m *mockEditorAPI) BufferText() string { return m.bufText }
@@ -111,6 +115,13 @@ func (m *mockEditorAPI) GetCursors() []CursorPosition {
 }
 func (m *mockEditorAPI) ClearCursors() {
 	m.extraCursors = nil
+}
+func (m *mockEditorAPI) SetSearch(pattern string, useRegex bool) {
+	m.searchPattern = pattern
+	m.searchRegex = useRegex
+}
+func (m *mockEditorAPI) ClearSearch() {
+	m.searchCleared = true
 }
 
 func setupTestPluginWithEditor(perms PermissionSet, editor *mockEditorAPI) (*Plugin, func()) {
@@ -318,5 +329,62 @@ func TestEditorSelection(t *testing.T) {
 	}
 	if p.State.GetGlobal("text").String() != "selected text" {
 		t.Errorf("expected 'selected text', got %q", p.State.GetGlobal("text").String())
+	}
+}
+
+func TestEditorSetSearch(t *testing.T) {
+	mock := &mockEditorAPI{}
+	p, cleanup := setupTestPluginWithEditor(PermissionSet{EditorWrite: true}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local editor = require("ttt.editor")
+		editor.set_search("hello")
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if mock.searchPattern != "hello" {
+		t.Errorf("expected pattern 'hello', got %q", mock.searchPattern)
+	}
+	if mock.searchRegex {
+		t.Error("expected useRegex false")
+	}
+}
+
+func TestEditorSetSearchRegex(t *testing.T) {
+	mock := &mockEditorAPI{}
+	p, cleanup := setupTestPluginWithEditor(PermissionSet{EditorWrite: true}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local editor = require("ttt.editor")
+		editor.set_search("\\bfoo\\b", true)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if mock.searchPattern != `\bfoo\b` {
+		t.Errorf("expected pattern '\\bfoo\\b', got %q", mock.searchPattern)
+	}
+	if !mock.searchRegex {
+		t.Error("expected useRegex true")
+	}
+}
+
+func TestEditorClearSearch(t *testing.T) {
+	mock := &mockEditorAPI{}
+	p, cleanup := setupTestPluginWithEditor(PermissionSet{EditorWrite: true}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local editor = require("ttt.editor")
+		editor.clear_search()
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if !mock.searchCleared {
+		t.Error("expected ClearSearch to be called")
 	}
 }

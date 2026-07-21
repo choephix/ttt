@@ -43,6 +43,8 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "end_undo_group", L.NewFunction(editorEndUndoGroup(p)))
 			L.SetField(mod, "add_cursor", L.NewFunction(editorAddCursor(p)))
 			L.SetField(mod, "clear_cursors", L.NewFunction(editorClearCursors(p)))
+			L.SetField(mod, "set_search", L.NewFunction(editorSetSearch(p)))
+			L.SetField(mod, "clear_search", L.NewFunction(editorClearSearch(p)))
 		}
 
 		L.Push(mod)
@@ -515,6 +517,31 @@ func editorClearCursors(p *Plugin) lua.LGFunction {
 			return 0
 		}
 		p.Editor.ClearCursors()
+		return 0
+	}
+}
+
+func editorSetSearch(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		pattern := L.CheckString(1)
+		useRegex := false
+		if L.GetTop() >= 2 {
+			useRegex = L.OptBool(2, false)
+		}
+		p.Editor.SetSearch(pattern, useRegex)
+		return 0
+	}
+}
+
+func editorClearSearch(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.ClearSearch()
 		return 0
 	}
 }
