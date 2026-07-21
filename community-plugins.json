@@ -80,6 +80,15 @@
     "tags": ["notes", "scratchpad", "productivity", "utility"]
   },
   {
+    "name": "spell",
+    "displayName": "Spell Check",
+    "author": "eugenioenko",
+    "description": "Spell checking for prose files via aspell, with inline squiggles and corrections",
+    "repo": "https://github.com/eugenioenko/ttt-spell",
+    "version": "0.1.0",
+    "tags": ["spelling", "aspell", "prose", "writing", "markdown"]
+  },
+  {
     "name": "todo-scanner",
     "displayName": "TODO Scanner",
     "author": "eugenioenko",
