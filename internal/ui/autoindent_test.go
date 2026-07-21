@@ -189,3 +189,24 @@ func TestAutoIndentDisabledNoSmartIndentAfterBrace(t *testing.T) {
 		t.Fatalf("expected no shiftwidth after opener with AutoIndent off, got %q", e.Buf.Lines[1])
 	}
 }
+
+func TestAutoIndentDisabledInMultiCursor(t *testing.T) {
+	e := newEditorWithLines("    foo", "    bar")
+	e.AutoIndent = false
+	e.Cursor.Line, e.Cursor.Col = 0, 7
+	e.ensureMulti()
+	e.Multi.Add(1, 7)
+	e.syncFromMulti()
+	if !e.isMultiActive() {
+		t.Fatal("expected multi-cursor mode to be active")
+	}
+
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+
+	// Both split lines should open at column 1 with AutoIndent off.
+	for _, ln := range []int{1, 3} {
+		if e.Buf.Lines[ln] != "" {
+			t.Fatalf("expected column-1 line at %d with AutoIndent off, got %q", ln, e.Buf.Lines[ln])
+		}
+	}
+}
