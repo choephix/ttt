@@ -162,3 +162,30 @@ func TestEnterIndentConsistentAcrossCursorModes(t *testing.T) {
 		t.Fatalf("expected both to inherit 4-space indent, got %q", singleIndent)
 	}
 }
+
+func TestAutoIndentDisabledPreservesNoIndent(t *testing.T) {
+	e := newEditorWithLines("    foo")
+	e.AutoIndent = false
+	e.Cursor.Line, e.Cursor.Col = 0, 7 // end of "    foo"
+
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+
+	if e.Buf.Lines[1] != "" {
+		t.Fatalf("expected column-1 new line with AutoIndent off, got %q", e.Buf.Lines[1])
+	}
+	if e.Cursor.Line != 1 || e.Cursor.Col != 0 {
+		t.Fatalf("expected cursor at (1,0), got (%d,%d)", e.Cursor.Line, e.Cursor.Col)
+	}
+}
+
+func TestAutoIndentDisabledNoSmartIndentAfterBrace(t *testing.T) {
+	e := newEditorWithLines("{")
+	e.AutoIndent = false
+	e.Cursor.Col = 1
+
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+
+	if e.Buf.Lines[1] != "" {
+		t.Fatalf("expected no shiftwidth after opener with AutoIndent off, got %q", e.Buf.Lines[1])
+	}
+}

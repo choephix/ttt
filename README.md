@@ -506,7 +506,8 @@ To edit the raw files, use **Settings: Open settings.json** and **Settings: Open
 | `tabSize` | int | `4` | Number of spaces per indentation level |
 | `insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
 | `wordWrap` | bool | `false` | Wrap long lines at the editor width |
-| `autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line (indentation inheritance and indent after `{ ( [ :` always apply) |
+| `autoIndent` | bool | `true` | Inherit the previous line's indent on Enter, plus one level after `{ ( [ :` (turn off for `noautoindent` behavior) |
+| `autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line |
 | `lineNumbers` | bool | `true` | Show line numbers in the gutter |
 | `sidebarVisible` | bool | `true` | Show the sidebar on startup |
 | `sidebarWidth` | int | `30` | Width of the sidebar in columns |
@@ -536,6 +537,7 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
   "tabSize": 4,
   "insertSpaces": true,
   "wordWrap": false,
+  "autoIndent": true,
   "autoDedent": true,
   "lineNumbers": true,
   "sidebarVisible": true,

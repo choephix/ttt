@@ -39,6 +39,7 @@ func (a *App) ApplySettings(s config.Settings) {
 		a.EditorGroup.Editor.LineNumbers = s.Editor.LineNumbers
 		a.EditorGroup.Editor.GutterStyle = s.Editor.GutterStyle
 		a.EditorGroup.Editor.AutoDedent = s.Editor.IsAutoDedentEnabled()
+		a.EditorGroup.Editor.AutoIndent = s.Editor.IsAutoIndentEnabled()
 		a.EditorGroup.Editor.WordWrap = s.Editor.WordWrap
 		a.EditorGroup.Editor.BracketPairColorization = s.Editor.BracketPairColorization
 		if s.Editor.BracketPairColorization != prev.Editor.BracketPairColorization {
