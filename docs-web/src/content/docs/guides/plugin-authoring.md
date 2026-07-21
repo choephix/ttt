@@ -1628,7 +1628,7 @@ The `ttt.system` module provides command execution and environment variable acce
 local sys = require("ttt.system")
 ```
 
-### `sys.exec(binary, [args])`
+### `sys.exec(binary, [args], [opts])`
 
 Execute a command synchronously. Requires the `system.exec` permission with the binary listed in the allowlist.
 
@@ -1636,6 +1636,13 @@ Execute a command synchronously. Requires the `system.exec` permission with the 
 |-----------|--------|----------|------------------------------------------|
 | `binary`  | string | yes      | Command to execute. Must be in the `system.exec` permission allowlist. |
 | `args`    | table  | no       | Array of string arguments.               |
+| `opts`    | table  | no       | Options table. Only `stdin` is supported. |
+
+**Options:**
+
+| Field   | Type   | Description                                                      |
+|---------|--------|------------------------------------------------------------------|
+| `stdin` | string | Written to the command's standard input. Nothing is written when omitted or empty. |
 
 **Returns** a table:
 
@@ -1652,9 +1659,23 @@ if result.exit_code == 0 then
 end
 ```
 
+Many tools read the text they operate on from standard input rather than from a
+file argument — formatters like `prettier` and `gofmt`, and checkers like
+`aspell`. Pass it with `stdin`:
+
+```lua
+local result = sys.exec("aspell", {"pipe", "--mode=markdown"}, {
+  stdin = "!\n^" .. line .. "\n",
+})
+```
+
+Prefer `stdin` over passing document text as an argument. Arguments are capped
+by the OS (`ARG_MAX`, commonly 2 MB) and are visible to every process on the
+machine via `ps`; standard input has neither limit.
+
 Arguments are validated before execution: shell-injection patterns and dangerous git flags (e.g. `--upload-pack`, `core.fsmonitor`) are rejected.
 
-### `sys.exec_async(binary, [args], callback)`
+### `sys.exec_async(binary, [args], [opts], callback)`
 
 Execute a command asynchronously. The callback receives the same result table and is called on the main thread when the command completes. The UI remains responsive during execution.
 
@@ -1662,6 +1683,7 @@ Execute a command asynchronously. The callback receives the same result table an
 |------------|----------|----------|----------------------------------------------|
 | `binary`   | string   | yes      | Command to execute.                          |
 | `args`     | table    | no       | Array of string arguments. May be omitted — the callback can be the second argument. |
+| `opts`     | table    | no       | Options table, same fields as `sys.exec`. Requires `args` to be passed too. |
 | `callback` | function | yes      | Receives the result table when done.         |
 
 ```lua
@@ -1675,6 +1697,11 @@ end)
 -- Without arguments:
 sys.exec_async("uptime", function(result)
   panel:redraw()
+end)
+
+-- With stdin:
+sys.exec_async("aspell", {"pipe"}, {stdin = text}, function(result)
+  -- parse result.stdout
 end)
 ```
 
