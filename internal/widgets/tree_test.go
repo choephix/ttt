@@ -361,6 +361,35 @@ func TestTreeKeyUpDown(t *testing.T) {
 	}
 }
 
+func TestTreeJKHL(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "A", Expandable: true, Children: []*TreeNode{
+				{ID: "a1", Label: "A1"},
+			}},
+			{ID: "b", Label: "B"},
+		},
+	})
+	renderWidget(tree, 0, 0, 20, 10)
+
+	pressRune(tree, 'j')
+	if tree.SelectedIndex() != 1 {
+		t.Errorf("j should move down to 1, got %d", tree.SelectedIndex())
+	}
+	pressRune(tree, 'k')
+	if tree.SelectedIndex() != 0 {
+		t.Errorf("k should move up to 0, got %d", tree.SelectedIndex())
+	}
+	pressRune(tree, 'l')
+	if !tree.flatList[0].Expanded {
+		t.Error("l should expand node A")
+	}
+	pressRune(tree, 'h')
+	if tree.flatList[0].Expanded {
+		t.Error("h should collapse node A")
+	}
+}
+
 func TestTreeKeyLeftCollapse(t *testing.T) {
 	tree := NewTreeWidget(TreeConfig{
 		Items: []*TreeNode{
