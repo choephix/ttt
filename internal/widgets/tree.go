@@ -607,6 +607,24 @@ func (t *TreeWidget) handleKey(ev *tcell.EventKey) EventResult {
 		if t.Config.OnKey != nil && t.Config.OnKey(ev, t.Selected()) {
 			return EventConsumed
 		}
+		switch ev.Rune() {
+		case 'j':
+			if t.selected < len(t.flatList)-1 {
+				t.selected++
+			}
+			return EventConsumed
+		case 'k':
+			if t.selected > 0 {
+				t.selected--
+			}
+			return EventConsumed
+		case 'l':
+			t.expandOrChild()
+			return EventConsumed
+		case 'h':
+			t.collapseOrParent()
+			return EventConsumed
+		}
 		if ev.Rune() == ' ' {
 			t.ActivateSelected()
 			return EventConsumed
