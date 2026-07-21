@@ -13,11 +13,13 @@ type mockSystemAPI struct {
 	exitCode   int
 	execErr    error
 	envVars    map[string]string
+	execStdin  string
 }
 
-func (m *mockSystemAPI) Exec(binary string, args []string) (string, string, int, error) {
+func (m *mockSystemAPI) Exec(binary string, args []string, stdin string) (string, string, int, error) {
 	m.execBinary = binary
 	m.execArgs = args
+	m.execStdin = stdin
 	return m.stdout, m.stderr, m.exitCode, m.execErr
 }
 
@@ -236,4 +238,83 @@ func TestSystemExecAsyncNilStateSafety(t *testing.T) {
 	p.Destroy()
 
 	capturedCallback()
+}
+
+func TestSystemExecStdin(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "& helllo 3 1: hello, hell, he'll\n"}
+	p, cleanup := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"aspell"}},
+		mock,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		local result = sys.exec("aspell", {"pipe"}, {stdin = "!\n^helllo\n"})
+		_G.stdout = result.stdout
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if mock.execStdin != "!\n^helllo\n" {
+		t.Errorf("stdin not forwarded, got %q", mock.execStdin)
+	}
+	if len(mock.execArgs) != 1 || mock.execArgs[0] != "pipe" {
+		t.Errorf("opts table leaked into args: %v", mock.execArgs)
+	}
+}
+
+func TestSystemExecWithoutStdin(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "ok"}
+	p, cleanup := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"echo"}},
+		mock,
+	)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec("echo", {"hi"})
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if mock.execStdin != "" {
+		t.Errorf("expected empty stdin, got %q", mock.execStdin)
+	}
+}
+
+func TestSystemExecAsyncStdin(t *testing.T) {
+	mock := &mockSystemAPI{stdout: "piped"}
+
+	ch := make(chan func(), 1)
+	p, cleanup := setupTestPluginWithSystem(
+		PermissionSet{SystemExec: []string{"aspell"}},
+		mock,
+	)
+	defer cleanup()
+
+	p.PostAsync = func(result *PluginAsyncResult) {
+		ch <- result.Callback
+	}
+
+	err := p.State.DoString(`
+		local sys = require("ttt.system")
+		sys.exec_async("aspell", {"pipe"}, {stdin = "^word\n"}, function(result)
+			_G.got_stdout = result.stdout
+		end)
+	`)
+	if err != nil {
+		t.Fatalf("exec_async with stdin failed: %v", err)
+	}
+
+	callback := <-ch
+	callback()
+
+	if mock.execStdin != "^word\n" {
+		t.Errorf("stdin not forwarded, got %q", mock.execStdin)
+	}
+	if p.State.GetGlobal("got_stdout").String() != "piped" {
+		t.Errorf("expected stdout 'piped', got %q", p.State.GetGlobal("got_stdout").String())
+	}
 }

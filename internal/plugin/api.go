@@ -75,7 +75,9 @@ type FilesystemAPI interface {
 }
 
 type SystemAPI interface {
-	Exec(binary string, args []string) (stdout, stderr string, exitCode int, err error)
+	// Exec runs binary with args, writing stdin to the child's standard input
+	// (nothing is written when stdin is empty).
+	Exec(binary string, args []string, stdin string) (stdout, stderr string, exitCode int, err error)
 	Env(name string) string
 }
 

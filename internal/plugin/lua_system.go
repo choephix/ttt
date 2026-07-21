@@ -27,6 +27,23 @@ func setupSystemModule(L *lua.LState, p *Plugin) {
 	L.PreloadModule("ttt.system", loader)
 }
 
+// parseExecArgs reads the optional argv array and options table that follow the
+// binary name, starting at stack index start. The only option is stdin, whose
+// contents are written to the child's standard input.
+func parseExecArgs(L *lua.LState, start int) (args []string, stdin string) {
+	if argsTbl, ok := L.Get(start).(*lua.LTable); ok {
+		argsTbl.ForEach(func(_, v lua.LValue) {
+			args = append(args, v.String())
+		})
+	}
+	if optsTbl, ok := L.Get(start + 1).(*lua.LTable); ok {
+		if s, ok := L.GetField(optsTbl, "stdin").(lua.LString); ok {
+			stdin = string(s)
+		}
+	}
+	return args, stdin
+}
+
 func sysExec(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.System == nil {
@@ -41,15 +58,10 @@ func sysExec(p *Plugin) lua.LGFunction {
 			return 2
 		}
 
-		var args []string
-		if argsTbl, ok := L.Get(2).(*lua.LTable); ok {
-			argsTbl.ForEach(func(_, v lua.LValue) {
-				args = append(args, v.String())
-			})
-		}
+		args, stdin := parseExecArgs(L, 2)
 
 		tbl := L.NewTable()
-		stdout, stderr, exitCode, err := p.System.Exec(binary, args)
+		stdout, stderr, exitCode, err := p.System.Exec(binary, args, stdin)
 		if err != nil {
 			L.SetField(tbl, "stdout", lua.LString(""))
 			L.SetField(tbl, "stderr", lua.LString(err.Error()))
@@ -79,20 +91,21 @@ func sysExecAsync(p *Plugin) lua.LGFunction {
 		}
 
 		var args []string
+		var stdin string
 		var callback *lua.LFunction
 		if fn, ok := L.Get(2).(*lua.LFunction); ok {
 			callback = fn
 		} else {
-			if argsTbl, ok := L.Get(2).(*lua.LTable); ok {
-				argsTbl.ForEach(func(_, v lua.LValue) {
-					args = append(args, v.String())
-				})
+			args, stdin = parseExecArgs(L, 2)
+			if fn, ok := L.Get(3).(*lua.LFunction); ok {
+				callback = fn
+			} else {
+				callback = L.CheckFunction(4)
 			}
-			callback = L.CheckFunction(3)
 		}
 
 		go func() {
-			stdout, stderr, exitCode, err := p.System.Exec(binary, args)
+			stdout, stderr, exitCode, err := p.System.Exec(binary, args, stdin)
 			resultFn := func() {
 				if p.State == nil {
 					return

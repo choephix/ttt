@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -247,5 +248,33 @@ func TestPluginSystemAPI_ArgumentInjection(t *testing.T) {
 				t.Errorf("expected argument to be allowed, got: %v", err)
 			}
 		})
+	}
+}
+
+// TestPluginSystemAPI_ExecStdin exercises the real subprocess path. The
+// Lua-level tests in internal/plugin use a mock SystemAPI, so this is the only
+// coverage that stdin actually reaches the child process.
+func TestPluginSystemAPI_ExecStdin(t *testing.T) {
+	if _, err := exec.LookPath("cat"); err != nil {
+		t.Skip("cat not available")
+	}
+	api := NewPluginSystemAPI()
+
+	stdout, _, code, err := api.Exec("cat", nil, "hello from stdin\n")
+	if err != nil || code != 0 {
+		t.Fatalf("exec cat: err=%v code=%d", err, code)
+	}
+	if stdout != "hello from stdin\n" {
+		t.Errorf("stdin not piped to child, got %q", stdout)
+	}
+
+	// With no stdin the child must see EOF immediately. If Stdin were left
+	// attached to the terminal instead, this would block forever.
+	stdout, _, code, err = api.Exec("cat", nil, "")
+	if err != nil || code != 0 {
+		t.Fatalf("exec cat with no stdin: err=%v code=%d", err, code)
+	}
+	if stdout != "" {
+		t.Errorf("expected empty stdout, got %q", stdout)
 	}
 }

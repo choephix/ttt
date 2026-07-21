@@ -408,7 +408,7 @@ func (s *PluginSystemAPI) validateArgs(binary string, args []string) error {
 	return nil
 }
 
-func (s *PluginSystemAPI) Exec(binary string, args []string) (string, string, int, error) {
+func (s *PluginSystemAPI) Exec(binary string, args []string, stdin string) (string, string, int, error) {
 	if err := s.validateArgs(binary, args); err != nil {
 		return "", "", -1, err
 	}
@@ -416,6 +416,9 @@ func (s *PluginSystemAPI) Exec(binary string, args []string) (string, string, in
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	err := cmd.Run()
 	exitCode := 0
 	if err != nil {
