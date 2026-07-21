@@ -35,6 +35,12 @@ func (a *App) ToggleAutoIndent() {
 	a.SaveAndApplySettings()
 }
 
+func (a *App) ToggleShowTrailingNewline() {
+	enabled := !a.Settings.Editor.IsShowTrailingNewlineEnabled()
+	a.Settings.Editor.ShowTrailingNewline = &enabled
+	a.SaveAndApplySettings()
+}
+
 func (a *App) ToggleSyntaxHighlight() {
 	enabled := !a.Settings.Editor.IsSyntaxHighlightEnabled()
 	a.Settings.Editor.SyntaxHighlight = &enabled
@@ -242,6 +248,12 @@ func registerOptionsCommands(app *App) {
 		ID: "options.toggleAutoDedent", Title: "Toggle Auto Dedent",
 		Keywords: []string{"preferences", "settings", "editor", "indentation", "dedent", "bracket"},
 		Handler:  app.ToggleAutoDedent,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleShowTrailingNewline", Title: "Toggle Show Trailing Newline",
+		Keywords: []string{"preferences", "settings", "editor", "newline", "trailing", "phantom"},
+		Handler:  app.ToggleShowTrailingNewline,
 	})
 
 	reg.Register(command.Command{

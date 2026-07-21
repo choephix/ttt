@@ -90,6 +90,11 @@ type EditorSettings struct {
 	GutterStyle             string `json:"gutterStyle,omitempty"`
 	BorderStyle             string `json:"borderStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`
+	ShowTrailingNewline     *bool  `json:"showTrailingNewline,omitempty"`
+}
+
+func (e EditorSettings) IsShowTrailingNewlineEnabled() bool {
+	return e.ShowTrailingNewline == nil || *e.ShowTrailingNewline
 }
 
 func (e EditorSettings) IsSyntaxHighlightEnabled() bool {

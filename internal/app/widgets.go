@@ -128,6 +128,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.Editor.TabSize, cfg.Settings.Editor.LineNumbers, cfg.Settings.Editor.GutterStyle)
 	editorGroup.InsertSpaces = cfg.Settings.Editor.InsertSpaces
 	editorGroup.InsertFinalNewline = cfg.Settings.Editor.InsertFinalNewline
+	editorGroup.ShowTrailingNewline = cfg.Settings.Editor.IsShowTrailingNewlineEnabled()
 	editorGroup.TrimTrailingWhitespace = cfg.Settings.Editor.TrimTrailingWhitespace
 	editorGroup.SyntaxHighlight = cfg.Settings.Editor.IsSyntaxHighlightEnabled()
 	editorGroup.WordWrap = cfg.Settings.Editor.WordWrap

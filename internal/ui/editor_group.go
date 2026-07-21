@@ -82,6 +82,7 @@ type EditorGroupWidget struct {
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	InsertFinalNewline      bool
+	ShowTrailingNewline     bool
 	TrimTrailingWhitespace  bool
 	Borders                 *term.BorderSet
 	OnFileOpen              func(path, lang, text string)
@@ -206,7 +207,7 @@ func (g *EditorGroupWidget) OpenFile(path string) {
 			return
 		}
 	}
-	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline, TrimTrailingWhitespace: g.TrimTrailingWhitespace}
+	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline, ShowTrailingNewline: g.ShowTrailingNewline, TrimTrailingWhitespace: g.TrimTrailingWhitespace}
 	ec := config.LoadEditorConfig(path)
 	if ec.InsertFinalNLSet {
 		newBuf.InsertFinalNewline = ec.InsertFinalNewline
