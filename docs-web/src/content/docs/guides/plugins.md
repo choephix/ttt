@@ -7,7 +7,9 @@ TTT supports Lua plugins that add panels, commands, and keybindings to the edito
 
 ## Vim Mode
 
-If you prefer modal editing, the [Vim Mode](https://github.com/eugenioenko/ttt-vim) plugin adds a Vim compatibility layer on top of TTT: Normal, Insert and Visual modes, motions, operators, text objects, registers, marks and macros. It is written entirely against the public plugin API (key interception, status bar segments, multi cursor, undo grouping), so it requires no special core support and can be enabled or disabled like any other plugin.
+If you prefer modal editing, the [Vim Mode](https://github.com/eugenioenko/ttt-vim) plugin adds a Vim compatibility layer on top of TTT: Normal, Insert and Visual modes, the operator/motion/text-object grammar, registers, marks, macros, dot-repeat, a `:` command line and `/` search. It is a single Lua plugin written against the public plugin API (key interception, status bar segments, multi cursor, undo grouping).
+
+Because it depends on plugin API additions from ttt 1.1.0 (the key interceptor's precedence over Escape, needed to leave Insert mode, and the command-line API for `:` and `/`), it requires ttt 1.1.0 or newer. Its manifest declares `api: 2`, so an older editor declines to load it instead of running it half-broken.
 
 Install it from the **Plugins** sidebar tab by searching for "vim", or run **Plugins: Install from URL** with `https://github.com/eugenioenko/ttt-vim`. Once loaded it starts in Normal mode and shows the current mode in the status bar.
 
