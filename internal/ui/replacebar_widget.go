@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/eugenioenko/ttt/internal/term"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type ReplaceBarWidget struct {
@@ -306,7 +306,7 @@ func (r *ReplaceBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	if r.focusRow == 1 {
 		inp = r.ReplaceInput
 	}
-	if inp.HandleEvent(tcell.NewEventKey(kev.Key(), term.KeyRune(kev), kev.Modifiers())) == EventConsumed {
+	if inp.HandleEvent(tcell.NewEventKey(kev.Key(), kev.Str(), kev.Modifiers())) == EventConsumed {
 		return EventConsumed
 	}
 

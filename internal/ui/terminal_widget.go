@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/terminal"
 
 	"github.com/eugenioenko/vt10x"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type TerminalColorPalette struct {
@@ -472,10 +471,22 @@ func (tw *TerminalWidget) scrollDown(n int) {
 func keyToVT(ev *tcell.EventKey) string {
 	if ev.Key() == tcell.KeyRune {
 		mod := ev.Modifiers()
-		if mod&tcell.ModAlt != 0 {
-			return fmt.Sprintf("\x1b%c", term.KeyRune(ev))
+		// tcell v3 reports ctrl+non-letter printables (ctrl+space, ctrl+/,
+		// ctrl+`...) as KeyRune with ModCtrl instead of folding them into
+		// control-key constants. Encode them as the control byte the shell
+		// expects rather than the literal character.
+		if mod&tcell.ModCtrl != 0 {
+			if ctrl, ok := ctrlByteForRune(term.KeyRune(ev)); ok {
+				if mod&tcell.ModAlt != 0 {
+					return "\x1b" + ctrl
+				}
+				return ctrl
+			}
 		}
-		return string(term.KeyRune(ev))
+		if mod&tcell.ModAlt != 0 {
+			return "\x1b" + term.KeyStr(ev)
+		}
+		return term.KeyStr(ev)
 	}
 
 	switch ev.Key() {
@@ -540,6 +551,27 @@ func keyToVT(ev *tcell.EventKey) string {
 	}
 
 	return ""
+}
+
+// ctrlByteForRune maps a printable character typed with Ctrl held to the
+// ASCII control byte a terminal would traditionally emit (ch & 0x1F for
+// @ A-Z a-z [ \ ] ^ _, NUL for space and backtick, DEL for ?).
+func ctrlByteForRune(r rune) (string, bool) {
+	switch {
+	case r == ' ', r == '`', r == '@':
+		return "\x00", true
+	case r >= 'a' && r <= 'z':
+		return string(rune(r - 'a' + 1)), true
+	case r >= 'A' && r <= 'Z':
+		return string(rune(r - 'A' + 1)), true
+	case r == '[', r == '\\', r == ']', r == '^', r == '_':
+		return string(rune(r & 0x1f)), true
+	case r == '/':
+		return "\x1f", true
+	case r == '?':
+		return "\x7f", true
+	}
+	return "", false
 }
 
 func ParseHexColor(hex string) term.DirectColor {

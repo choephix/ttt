@@ -5,7 +5,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/multicursor"
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {

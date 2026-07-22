@@ -3,7 +3,7 @@ package widgets
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // The settings form nests focusable controls inside HStack rows inside a

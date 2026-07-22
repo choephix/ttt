@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newMultiCursorEditor(lines []string, positions [][2]int) *EditorPaneWidget {

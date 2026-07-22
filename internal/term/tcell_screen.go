@@ -1,7 +1,7 @@
 package term
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 const StyleCount = styleCount
@@ -81,9 +81,11 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	}
 	s := t.styleMap[c.Style]
 	if c.BgStyle != 0 {
-		_, bg, _ := t.styleMap[c.BgStyle].Decompose()
-		fg, _, attrs := s.Decompose()
-		s = tcell.StyleDefault.Foreground(fg).Background(bg).Attributes(attrs)
+		bg := t.styleMap[c.BgStyle].GetBackground()
+		s = tcell.StyleDefault.
+			Foreground(s.GetForeground()).
+			Background(bg).
+			Attributes(s.GetAttributes())
 	}
 	if c.UlStyle != 0 {
 		us := t.styleMap[c.UlStyle]
@@ -94,7 +96,7 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 			// style a plugin passed for a diagnostic). Still draw a squiggle:
 			// force curly, coloured by the style's foreground.
 			ulStyle = tcell.UnderlineStyleCurly
-			if fg, _, _ := us.Decompose(); fg != tcell.ColorDefault {
+			if fg := us.GetForeground(); fg != tcell.ColorDefault {
 				ulColor = fg
 			}
 		}
@@ -117,8 +119,11 @@ func (t *TcellScreen) Clear() {
 	t.scr.Clear()
 }
 
+// PollEvent blocks until the next event is available. tcell v3 replaced
+// PollEvent with a plain event channel; receiving from it after Fini
+// (closed channel) yields nil, matching v2 PollEvent semantics.
 func (t *TcellScreen) PollEvent() tcell.Event {
-	return t.scr.PollEvent()
+	return <-t.scr.EventQ()
 }
 
 func (t *TcellScreen) Fini() {
@@ -148,12 +153,28 @@ func (t *TcellScreen) SetCursorStyle(style CursorStyle) {
 	}
 }
 
+// PostEvent injects an event into the screen's event queue (tcell v3 has no
+// PostEvent; the queue channel is written directly). The send is non-blocking:
+// PostEvent is occasionally called from the event-loop goroutine itself (e.g.
+// plugin redraw requests), which also drains this queue, so a blocking send
+// on a full queue would deadlock. When the queue is full (cap 128 in tcell
+// v3's tScreen) the event is delivered from a goroutine instead of being
+// dropped — async wakeups must never be lost, and strict ordering only
+// degrades under a burst that v2 would have dropped outright.
 func (t *TcellScreen) PostEvent(ev tcell.Event) error {
-	return t.scr.PostEvent(ev)
+	q := t.scr.EventQ()
+	select {
+	case q <- ev:
+	default:
+		go func() { q <- ev }()
+	}
+	return nil
 }
 
-func (t *TcellScreen) GetContent(x, y int) (rune, []rune, tcell.Style, int) {
-	return t.scr.GetContent(x, y)
+// GetContent returns the cell contents at (x, y). tcell v3 replaced
+// GetContent (rune-based) with Get (string-based).
+func (t *TcellScreen) GetContent(x, y int) (string, tcell.Style, int) {
+	return t.scr.Get(x, y)
 }
 
 func (t *TcellScreen) Tty() (tcell.Tty, bool) {

@@ -10,7 +10,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/config"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // DefaultExecSeparator splits exec scripts when no override is given.
@@ -198,7 +198,7 @@ func execKey(a *App, args string) {
 
 	for _, step := range steps {
 		key, mod, ch := comboToTcell(step)
-		a.Screen.PostEvent(tcell.NewEventKey(key, ch, mod))
+		a.Screen.PostEvent(tcell.NewEventKey(key, keyEventStr(ch), mod))
 		time.Sleep(30 * time.Millisecond)
 	}
 }
@@ -206,7 +206,7 @@ func execKey(a *App, args string) {
 func execType(a *App, args string) {
 	text := stripQuotes(args)
 	for _, r := range text {
-		a.Screen.PostEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+		a.Screen.PostEvent(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 		time.Sleep(10 * time.Millisecond)
 	}
 }

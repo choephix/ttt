@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func key(k tcell.Key, r rune, mod tcell.ModMask) *tcell.EventKey {

@@ -3,7 +3,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestExplorerHelpDialog(t *testing.T) {

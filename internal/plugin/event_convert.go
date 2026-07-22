@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 	lua "github.com/yuin/gopher-lua"
 )
 

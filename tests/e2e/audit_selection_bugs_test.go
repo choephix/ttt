@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // Repro test for BUG-004 from audit/2026-07-12-ux-bug-audit.md (branch audit/bug-hunt).

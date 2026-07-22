@@ -7,7 +7,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/cursor"
 	"github.com/eugenioenko/ttt/internal/view"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newEditorWithLines(lines ...string) *EditorPaneWidget {

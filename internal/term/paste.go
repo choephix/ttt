@@ -3,7 +3,7 @@ package term
 import (
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // CollectPasteText reconstructs text from a sequence of tcell key events
@@ -15,7 +15,7 @@ func CollectPasteText(events []*tcell.EventKey) string {
 	for _, ev := range events {
 		switch ev.Key() {
 		case tcell.KeyRune:
-			buf.WriteRune(KeyRune(ev))
+			buf.WriteString(KeyStr(ev))
 		case tcell.KeyEnter:
 			buf.WriteRune('\r')
 		case tcell.KeyCtrlJ:

@@ -3,7 +3,7 @@ package ui
 import (
 	"time"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func (e *EditorPaneWidget) handleMouse(mev *tcell.EventMouse) EventResult {

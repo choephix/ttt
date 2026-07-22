@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/app"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestBracketPairColorization(t *testing.T) {

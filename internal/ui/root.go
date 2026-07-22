@@ -6,7 +6,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/term"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type Overlay struct {
@@ -89,7 +89,37 @@ func normalizeKey(k tcell.Key) tcell.Key {
 	return k
 }
 
+// foldCtrlEvent maps ctrl+non-letter printable key events onto canonical
+// control-key constants so a single registered form (see comboToTcell in
+// internal/app/keys.go) matches every terminal encoding. tcell v3 delivers
+// these combos as KeyRune events whose string depends on the encoding:
+//
+//	combo        legacy bytes    kitty protocol    folded to
+//	ctrl+space   " " + ModCtrl   " " + ModCtrl     KeyNUL + ModCtrl
+//	ctrl+`       " " + ModCtrl   "`" + ModCtrl     KeyNUL + ModCtrl
+//	ctrl+/       "_" + ModCtrl   "/" + ModCtrl     KeyUS  + ModCtrl
+//
+// (Legacy ctrl+` and ctrl+space both emit NUL — indistinguishable at the
+// byte level — and legacy ctrl+/ emits 0x1F, which tcell reports as "_".)
+// Ctrl+letter combos are unaffected: tcell folds those to KeyCtrlA..Z itself.
+// Returns the canonical key and true when the event was folded.
+func foldCtrlEvent(kev *tcell.EventKey) (tcell.Key, bool) {
+	if kev.Key() != tcell.KeyRune || kev.Modifiers()&tcell.ModCtrl == 0 {
+		return 0, false
+	}
+	switch kev.Str() {
+	case " ", "`":
+		return tcell.KeyNUL, true
+	case "_", "/":
+		return tcell.KeyUS, true
+	}
+	return 0, false
+}
+
 func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
+	if folded, ok := foldCtrlEvent(kev); ok {
+		return folded == normalizeKey(gk.Key) && gk.Key != tcell.KeyRune && kev.Modifiers() == gk.Mod
+	}
 	if gk.Key != tcell.KeyRune {
 		return normalizeKey(kev.Key()) == normalizeKey(gk.Key) && kev.Modifiers() == gk.Mod
 	}
@@ -100,6 +130,9 @@ func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 // This handles caps lock being on: e.g. chord "ctrl+k j" still matches when
 // caps lock sends uppercase "J" as the second key.
 func matchKeyChord(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
+	if folded, ok := foldCtrlEvent(kev); ok {
+		return folded == normalizeKey(gk.Key) && gk.Key != tcell.KeyRune && kev.Modifiers() == gk.Mod
+	}
 	if gk.Key != tcell.KeyRune {
 		return normalizeKey(kev.Key()) == normalizeKey(gk.Key) && kev.Modifiers() == gk.Mod
 	}

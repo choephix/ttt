@@ -3,7 +3,7 @@ package term
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // A UlStyle whose style defines no underline of its own must still render a

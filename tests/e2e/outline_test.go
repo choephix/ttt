@@ -7,7 +7,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/lsp"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 const outlineMd = `# Title

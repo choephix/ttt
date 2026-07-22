@@ -3,7 +3,7 @@ package widgets
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // fixedWidget is a test helper with configurable fixed height/width.
