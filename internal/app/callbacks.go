@@ -534,6 +534,8 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Copy Absolute Path", Command: "explorer.copyAbsolutePath"},
 			{Label: "Copy Relative Path", Command: "explorer.copyRelativePath"},
 			ui.MenuSep(),
+			{Label: "Reveal in File Manager", Command: "explorer.reveal"},
+			ui.MenuSep(),
 			{Label: "Rename", Command: "explorer.rename"},
 			{Label: "Delete", Command: "explorer.delete"},
 		}
