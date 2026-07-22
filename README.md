@@ -712,7 +712,7 @@ All test levels run in CI on every push and pull request.
 
 ### Chaos Monkey (Fuzz Testing)
 
-A randomized fuzz tester that hammers the editor with thousands of random events — keypresses, mouse clicks, resizes, clipboard operations, and command palette commands — to find panics and crashes that normal testing misses. It runs against a `tcell.SimulationScreen` so no real terminal is needed.
+A randomized fuzz tester that hammers the editor with thousands of random events — keypresses, mouse clicks, resizes, clipboard operations, and command palette commands — to find panics and crashes that normal testing misses. It runs against an in-memory simulated screen (`term.SimScreen`) so no real terminal is needed.
 
 All chaos targets run in Docker: the random command stream can write files, persist settings, and open browser tabs, so the harness refuses to run unsandboxed (set `CHAOS_ALLOW_HOST=1` to force a host run, e.g. under a debugger).
 

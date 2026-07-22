@@ -70,9 +70,9 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 Keybindings are defined in `internal/config/keybindings.go` (`DefaultKeybindings()`) and converted to tcell key constants via `comboToTcell()` in `internal/app/keys.go`. The matching happens in `matchKey()` in `internal/ui/root.go`.
 
-**Critical: tcell control key behavior.** For control keys (`r < ' '`), tcell posts events with **both** the `KeyCtrl*` constant **and** `ModCtrl` set (see `vendor/.../tcell/v2/input.go:452`). When registering control key bindings in `comboToTcell`, do NOT strip `ModCtrl` — the registered modifier must match what tcell delivers, otherwise `matchKey()` will fail silently.
+**Critical: tcell control key behavior.** For Ctrl+letter, tcell v3 (legacy mode, which ttt uses) delivers events with **both** the `KeyCtrlA..Z` constant **and** `ModCtrl` set. When registering control key bindings in `comboToTcell`, do NOT strip `ModCtrl` — the registered modifier must match what tcell delivers, otherwise `matchKey()` will fail silently. Ctrl+punctuation control chars (space, backtick, `/`, `\`, `]`, `^`, `_`) have no `KeyCtrl*` constant in v3 — they arrive as `KeyRune` + `ModCtrl` + a printable string (the exact string differs between legacy terminals and kitty-protocol terminals). `foldCtrlEvent()` in `internal/ui/root.go` folds both encodings to the canonical registered form: ctrl+space and ctrl+backtick → `KeyNUL`+`ModCtrl`, ctrl+/ → `KeyUS`+`ModCtrl`. New ctrl+punctuation bindings need a fold entry there.
 
-**Ctrl+Backtick (`` ctrl+` ``):** Maps to `KeyCtrlSpace` (value 64) in tcell because Ctrl+` sends NUL (0x00), same as Ctrl+Space. This is a terminal-level constraint, not a bug. Both `ctrl+backtick` and `ctrl+space` produce the same tcell event — they cannot be bound to different commands. `terminal.toggle` is bound to `ctrl+t` by default (with `alt+t` for `terminal.fullscreen`); `ctrl+backtick` is currently unbound.
+**Ctrl+Backtick (`` ctrl+` ``):** On legacy terminals Ctrl+` sends NUL (0x00), same as Ctrl+Space — they are indistinguishable, and both fold to `KeyNUL`+`ModCtrl`. Kitty-protocol terminals (Ghostty, Kitty, WezTerm) do report them distinctly under tcell v3, but ttt currently folds both to the same canonical key, so they remain one binding. `terminal.toggle` is bound to `ctrl+t` by default (with `alt+t` for `terminal.fullscreen`); `ctrl+backtick` is currently unbound.
 
 **Force keys:** Bindings for commands in the `config.ForceKeyCommands` map (`internal/config/keybindings.go`, registered via `root.AddForceKey()` in `internal/app/commands.go`) are checked even when a `RawKeyConsumer` (like the integrated terminal) has focus. `terminal.toggle` must remain a force key.
 
@@ -149,7 +149,7 @@ The project has three levels of testing:
 
 **Unit tests** (`internal/*/`) — Standard Go tests for individual packages. The core layer is fully testable without any terminal dependency. Run with `go test ./internal/core/buffer/` or `make test` for all.
 
-**E2E tests** (`tests/e2e/`) — Go tests that wire up the full `App` with a `tcell.SimulationScreen`. The `testHarness` (`harness_test.go`) creates a temp directory with sample files, builds the complete app (config, commands, keybindings, renderer), and provides helpers: `pressKey()`, `pressRune()`, `click()`, `exec()`, `screenText()`, `assertContains()`. The watcher-aware `waitForFileChange()` helper blocks on `PollEvent` to receive real fsnotify events and dispatches them through the reconciliation path. These tests run single-threaded (no event loop goroutine) — the test drives events and redraws manually.
+**E2E tests** (`tests/e2e/`) — Go tests that wire up the full `App` with a `term.SimScreen` (an in-memory `tcell.Screen`). The `testHarness` (`harness_test.go`) creates a temp directory with sample files, builds the complete app (config, commands, keybindings, renderer), and provides helpers: `pressKey()`, `pressRune()`, `click()`, `exec()`, `screenText()`, `assertContains()`. The watcher-aware `waitForFileChange()` helper blocks on `PollEvent` to receive real fsnotify events and dispatches them through the reconciliation path. These tests run single-threaded (no event loop goroutine) — the test drives events and redraws manually.
 
 **Functional tests** (`tests/functional/`) — JavaScript tests using vitest that drive the real compiled `bin/ttt` binary via the `--exec` debug harness. The `tui.js` wrapper accumulates commands (type, press, exec, snapshot) and runs them in a single batch via `execFileSync`. No external dependencies beyond vitest. Run with `cd tests/functional && pnpm test`. The binary must be built first (`make build`).
 
@@ -227,6 +227,6 @@ After a feature is implemented and tests pass, review all changes for cleanup: d
 
 Key external dependencies beyond the Go standard library:
 
-- `github.com/gdamore/tcell/v2` — terminal rendering
+- `github.com/gdamore/tcell/v3` — terminal rendering
 - `github.com/creack/pty` — PTY management for the integrated terminal
 - `github.com/hinshun/vt10x` — VT escape sequence parsing for the integrated terminal

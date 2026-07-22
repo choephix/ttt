@@ -166,7 +166,13 @@ func (t *TcellScreen) PostEvent(ev tcell.Event) error {
 	select {
 	case q <- ev:
 	default:
-		go func() { q <- ev }()
+		go func() {
+			// tScreen.Fini closes the event queue; a goroutine still blocked
+			// here at shutdown would panic with "send on closed channel".
+			// Dropping the event is fine at that point — recover and exit.
+			defer func() { _ = recover() }()
+			q <- ev
+		}()
 	}
 	return nil
 }
