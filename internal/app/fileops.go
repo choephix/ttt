@@ -2,7 +2,9 @@ package app
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 )
@@ -107,6 +109,51 @@ func (a *App) FileOpCopyAbsolutePath(path string) {
 	}
 	clipboard.Set(path)
 	a.StatusNotify("Absolute path copied to clipboard")
+}
+
+func (a *App) FileOpReveal(path string) {
+	if path == "" {
+		a.StatusWarn("No file selected")
+		return
+	}
+	if err := revealInFileManager(path); err != nil {
+		a.StatusError("Could not reveal in file manager")
+		return
+	}
+	a.StatusNotify("Revealed in file manager")
+}
+
+// revealInFileManager opens the OS file manager showing path, highlighting the
+// item where the platform supports it. On Linux it falls back to opening the
+// containing folder (no highlight) when the FileManager1 D-Bus service is
+// unavailable.
+func revealInFileManager(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", "-R", path).Start()
+	case "windows":
+		return exec.Command("explorer", "/select,"+path).Start()
+	default:
+		uri := "file://" + path
+		dbus := exec.Command("dbus-send", "--session",
+			"--dest=org.freedesktop.FileManager1", "--type=method_call",
+			"/org/freedesktop/FileManager1",
+			"org.freedesktop.FileManager1.ShowItems",
+			"array:string:"+uri, "string:")
+		if err := dbus.Run(); err == nil {
+			return nil
+		}
+		return exec.Command("xdg-open", containingFolder(path)).Start()
+	}
+}
+
+// containingFolder returns the folder to open for a fallback reveal: the path
+// itself if it is a directory, otherwise its parent directory.
+func containingFolder(path string) string {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return path
+	}
+	return filepath.Dir(path)
 }
 
 func (a *App) FileOpCopyRelativePath(path string) {
