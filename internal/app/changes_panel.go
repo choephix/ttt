@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/gdamore/tcell/v2"
@@ -428,7 +429,7 @@ func (cp *ChangesPanel) handleKey(ev *tcell.EventKey) bool {
 		return false
 	}
 	inPR := cp.selectedInPR()
-	switch ev.Rune() {
+	switch term.KeyRune(ev) {
 	case 'r', 'R':
 		if inPR {
 			cp.refreshSelectedPR()

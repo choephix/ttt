@@ -4,6 +4,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/fold"
 	"github.com/eugenioenko/ttt/internal/core/multicursor"
 	"github.com/eugenioenko/ttt/internal/core/undo"
+	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -190,7 +191,7 @@ func (e *EditorPaneWidget) handleKey(kev *tcell.EventKey) EventResult {
 			return EventIgnored
 		}
 		e.expandFoldAtCursor()
-		if r := kev.Rune(); r != 0 {
+		if r := term.KeyRune(kev); r != 0 {
 			if multi {
 				e.multiExecRune(r)
 			} else {

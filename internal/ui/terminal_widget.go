@@ -473,9 +473,9 @@ func keyToVT(ev *tcell.EventKey) string {
 	if ev.Key() == tcell.KeyRune {
 		mod := ev.Modifiers()
 		if mod&tcell.ModAlt != 0 {
-			return fmt.Sprintf("\x1b%c", ev.Rune())
+			return fmt.Sprintf("\x1b%c", term.KeyRune(ev))
 		}
-		return string(ev.Rune())
+		return string(term.KeyRune(ev))
 	}
 
 	switch ev.Key() {

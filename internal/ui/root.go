@@ -77,11 +77,23 @@ func (r *Root) ClearKeys() {
 	r.chord = nil
 }
 
+// normalizeKey folds KeyBackspace2 (DEL, 0x7F) into KeyBackspace (BS, 0x08) so
+// bindings registered with either constant match events carrying either byte
+// value. tcell normalizes incoming backspace events to KeyBackspace (v2.13+
+// and v3), but synthetic events (tests, simulation screens) may still carry
+// KeyBackspace2.
+func normalizeKey(k tcell.Key) tcell.Key {
+	if k == tcell.KeyBackspace2 {
+		return tcell.KeyBackspace
+	}
+	return k
+}
+
 func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 	if gk.Key != tcell.KeyRune {
-		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
+		return normalizeKey(kev.Key()) == normalizeKey(gk.Key) && kev.Modifiers() == gk.Mod
 	}
-	return kev.Key() == tcell.KeyRune && kev.Rune() == gk.Rune && kev.Modifiers() == gk.Mod
+	return kev.Key() == tcell.KeyRune && term.KeyRune(kev) == gk.Rune && kev.Modifiers() == gk.Mod
 }
 
 // matchKeyChord is like matchKey but compares rune keys case-insensitively.
@@ -89,10 +101,10 @@ func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 // caps lock sends uppercase "J" as the second key.
 func matchKeyChord(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
 	if gk.Key != tcell.KeyRune {
-		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
+		return normalizeKey(kev.Key()) == normalizeKey(gk.Key) && kev.Modifiers() == gk.Mod
 	}
 	return kev.Key() == tcell.KeyRune &&
-		unicode.ToLower(kev.Rune()) == unicode.ToLower(gk.Rune) &&
+		unicode.ToLower(term.KeyRune(kev)) == unicode.ToLower(gk.Rune) &&
 		kev.Modifiers() == gk.Mod
 }
 

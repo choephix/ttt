@@ -639,7 +639,7 @@ func describeKeyCombo(kev *tcell.EventKey) string {
 	if name := specialKeyName(key); name != "" {
 		parts = append(parts, name)
 	} else if key == tcell.KeyRune {
-		r := kev.Rune()
+		r := term.KeyRune(kev)
 		if r == ' ' {
 			parts = append(parts, "space")
 		} else {

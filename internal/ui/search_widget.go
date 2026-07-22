@@ -808,7 +808,7 @@ func (s *SearchWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case *tcell.EventKey:
 		if tev.Modifiers()&tcell.ModAlt != 0 && tev.Key() == tcell.KeyRune {
-			switch tev.Rune() {
+			switch term.KeyRune(tev) {
 			case 'c':
 				s.Options.CaseSensitive = !s.Options.CaseSensitive
 				s.syncOptionActions()

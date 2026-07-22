@@ -600,7 +600,7 @@ func TestTreeKeyOnKey(t *testing.T) {
 	tree := NewTreeWidget(TreeConfig{
 		Items: makeTreeItems("A"),
 		OnKey: func(ev *tcell.EventKey, node *TreeNode) bool {
-			captured = append(captured, ev.Rune())
+			captured = append(captured, term.KeyRune(ev))
 			return true
 		},
 	})

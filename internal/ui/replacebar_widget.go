@@ -280,7 +280,7 @@ func (r *ReplaceBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	}
 
 	if kev.Modifiers()&tcell.ModAlt != 0 && kev.Key() == tcell.KeyRune {
-		switch kev.Rune() {
+		switch term.KeyRune(kev) {
 		case 'r':
 			if r.OnReplaceAll != nil {
 				r.OnReplaceAll(r.SearchInput.Text, r.ReplaceInput.Text, r.Options)
@@ -306,7 +306,7 @@ func (r *ReplaceBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	if r.focusRow == 1 {
 		inp = r.ReplaceInput
 	}
-	if inp.HandleEvent(tcell.NewEventKey(kev.Key(), kev.Rune(), kev.Modifiers())) == EventConsumed {
+	if inp.HandleEvent(tcell.NewEventKey(kev.Key(), term.KeyRune(kev), kev.Modifiers())) == EventConsumed {
 		return EventConsumed
 	}
 

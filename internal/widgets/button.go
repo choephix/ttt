@@ -118,13 +118,13 @@ func (b *ButtonWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	case *tcell.EventKey:
 		if b.focused {
-			if e.Key() == tcell.KeyEnter || (e.Key() == tcell.KeyRune && e.Rune() == ' ') {
+			if e.Key() == tcell.KeyEnter || (e.Key() == tcell.KeyRune && term.KeyRune(e) == ' ') {
 				b.trigger()
 				return EventConsumed
 			}
 		}
 		if b.accelRune != 0 && e.Key() == tcell.KeyRune {
-			if unicode.ToLower(e.Rune()) == unicode.ToLower(b.accelRune) {
+			if unicode.ToLower(term.KeyRune(e)) == unicode.ToLower(b.accelRune) {
 				b.trigger()
 				return EventConsumed
 			}

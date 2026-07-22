@@ -189,7 +189,7 @@ func (inp *InputWidget) HandleEvent(ev tcell.Event) EventResult {
 			inp.deleteSelection()
 		}
 		runes := []rune(inp.Text)
-		runes = append(runes[:inp.CursorPos], append([]rune{kev.Rune()}, runes[inp.CursorPos:]...)...)
+		runes = append(runes[:inp.CursorPos], append([]rune{term.KeyRune(kev)}, runes[inp.CursorPos:]...)...)
 		inp.Text = string(runes)
 		inp.CursorPos++
 		inp.notify()

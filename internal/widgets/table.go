@@ -390,7 +390,7 @@ func (t *TableWidget) handleKey(ev *tcell.EventKey) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyRune:
-		if t.handleShortcutKey(ev.Rune()) == EventConsumed {
+		if t.handleShortcutKey(term.KeyRune(ev)) == EventConsumed {
 			return EventConsumed
 		}
 	}

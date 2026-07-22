@@ -15,7 +15,7 @@ func CollectPasteText(events []*tcell.EventKey) string {
 	for _, ev := range events {
 		switch ev.Key() {
 		case tcell.KeyRune:
-			buf.WriteRune(ev.Rune())
+			buf.WriteRune(KeyRune(ev))
 		case tcell.KeyEnter:
 			buf.WriteRune('\r')
 		case tcell.KeyCtrlJ:

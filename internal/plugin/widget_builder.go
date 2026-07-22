@@ -483,7 +483,7 @@ func wireTreeCallbacks(tw *widgets.TreeWidget, desc WidgetDesc, p *Plugin) {
 		kc := desc.KeyCommands
 		tw.Config.OnKey = func(ev *tcell.EventKey, node *widgets.TreeNode) bool {
 			if ev.Key() == tcell.KeyRune {
-				if cmd, ok := kc[ev.Rune()]; ok && tw.Config.OnCommand != nil {
+				if cmd, ok := kc[term.KeyRune(ev)]; ok && tw.Config.OnCommand != nil {
 					tw.Config.OnCommand(cmd, node)
 					return true
 				}
