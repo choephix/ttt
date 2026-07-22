@@ -122,7 +122,7 @@ func TestButtonEnterKeyFiresOnClick(t *testing.T) {
 	})
 	btn.SetFocused(true)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("enter key on focused button should be consumed")
@@ -140,7 +140,7 @@ func TestButtonSpaceKeyFiresOnClick(t *testing.T) {
 	})
 	btn.SetFocused(true)
 
-	ev := tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, " ", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("space key on focused button should be consumed")
@@ -158,7 +158,7 @@ func TestButtonEnterKeyIgnoredWhenNotFocused(t *testing.T) {
 	})
 	// Not focused
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	// Enter should not trigger if not focused (no accel match either)
 	if clicked {
@@ -237,7 +237,7 @@ func TestButtonOnCommand(t *testing.T) {
 		OnCommand: func(cmd string) { received = cmd },
 	})
 	btn.SetFocused(true)
-	btn.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	btn.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if received != "editor.run" {
 		t.Errorf("expected command 'editor.run', got %q", received)
 	}
@@ -250,7 +250,7 @@ func TestButtonAcceleratorKeyTrigger(t *testing.T) {
 		OnClick: func() { clicked = true },
 	})
 	// Not focused, but accel key 's' should trigger
-	ev := tcell.NewEventKey(tcell.KeyRune, 's', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "s", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("accelerator key should be consumed")
@@ -267,7 +267,7 @@ func TestButtonAcceleratorKeyCaseInsensitive(t *testing.T) {
 		OnClick: func() { clicked = true },
 	})
 	// Uppercase 'S' should also match
-	ev := tcell.NewEventKey(tcell.KeyRune, 'S', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "S", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("accelerator key (uppercase) should be consumed")

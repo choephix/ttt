@@ -10,7 +10,7 @@ import (
 // curly squiggle, coloured by the style's foreground. This is what lets a
 // plugin pass an arbitrary named colour style for a diagnostic.
 func TestUlStyleForcesCurlyForPlainStyle(t *testing.T) {
-	sim := tcell.NewSimulationScreen("")
+	sim := NewSimScreen()
 	if err := sim.Init(); err != nil {
 		t.Fatalf("sim init: %v", err)
 	}

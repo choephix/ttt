@@ -362,7 +362,7 @@ func TestVStackRenderChildrenWithStyle(t *testing.T) {
 
 func TestVStackEmptyHandleEventReturnsIgnored(t *testing.T) {
 	vs := NewVStackWidget()
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := vs.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("empty VStack should return EventIgnored")

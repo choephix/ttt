@@ -45,7 +45,7 @@ func (m *passThroughWidget) Render(surface Surface) {}
 func (m *passThroughWidget) Focusable() bool        { return true }
 
 func makeKeyEvent(key tcell.Key, mod tcell.ModMask) *tcell.EventKey {
-	return tcell.NewEventKey(key, 0, mod)
+	return tcell.NewEventKey(key, "", mod)
 }
 
 func TestRootRoutesToFocused(t *testing.T) {
@@ -254,7 +254,7 @@ func TestChordMatchesCaseInsensitive(t *testing.T) {
 	}
 
 	// Second step: uppercase J (simulating caps lock)
-	ev := tcell.NewEventKey(tcell.KeyRune, 'J', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "J", tcell.ModNone)
 	root.HandleEvent(ev)
 	if !fired {
 		t.Fatal("chord should fire with uppercase second key (caps lock)")
@@ -277,7 +277,7 @@ func TestChordMatchesCaseInsensitiveReverse(t *testing.T) {
 	root.HandleEvent(makeKeyEvent(tcell.KeyCtrlK, tcell.ModCtrl))
 
 	// Second step: lowercase j (caps lock off)
-	ev := tcell.NewEventKey(tcell.KeyRune, 'j', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "j", tcell.ModNone)
 	root.HandleEvent(ev)
 	if !fired {
 		t.Fatal("chord should fire with lowercase second key when registered as uppercase")

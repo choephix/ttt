@@ -109,7 +109,7 @@ func TestDrawerEscapeDismisses(t *testing.T) {
 		OnDismiss: func() { dismissed = true },
 	})
 
-	ev := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone)
 	result := d.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -125,7 +125,7 @@ func TestDrawerKeyEventDelegatedToContent(t *testing.T) {
 	d := NewDrawerWidget(DrawerConfig{})
 	d.SetContent(content)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := d.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -139,7 +139,7 @@ func TestDrawerKeyEventDelegatedToContent(t *testing.T) {
 func TestDrawerKeyEventWithoutContent(t *testing.T) {
 	d := NewDrawerWidget(DrawerConfig{})
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := d.HandleEvent(ev)
 
 	if result != EventIgnored {

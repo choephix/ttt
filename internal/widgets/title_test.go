@@ -93,7 +93,7 @@ func TestTitleWithoutDropdown(t *testing.T) {
 
 func TestTitleHandleEventIgnoredWithoutDropdown(t *testing.T) {
 	tw := NewTitleWidget(TitleConfig{Title: "Test"})
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	if r := tw.HandleEvent(ev); r != EventIgnored {
 		t.Fatalf("expected EventIgnored without dropdown, got %d", r)
 	}

@@ -11,7 +11,7 @@ func TestEventToLuaKeyEvent(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "a", tcell.ModNone)
 	tbl := eventToLua(L, ev)
 	if tbl == nil {
 		t.Fatal("expected non-nil table")
@@ -29,7 +29,7 @@ func TestEventToLuaKeyEventSpecial(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	tbl := eventToLua(L, ev)
 	if tbl == nil {
 		t.Fatal("expected non-nil table")
@@ -45,7 +45,7 @@ func TestEventToLuaKeyEventModNilWhenNone(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "r", tcell.ModNone)
 	tbl := eventToLua(L, ev)
 
 	mod := tbl.RawGetString("mod")
@@ -58,7 +58,7 @@ func TestEventToLuaKeyEventCtrl(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModCtrl)
+	ev := tcell.NewEventKey(tcell.KeyRune, "a", tcell.ModCtrl)
 	tbl := eventToLua(L, ev)
 
 	mod := tbl.RawGetString("mod").String()
@@ -71,7 +71,7 @@ func TestEventToLuaKeyEventCombinedModifiers(t *testing.T) {
 	L := lua.NewState()
 	defer L.Close()
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModCtrl|tcell.ModShift)
+	ev := tcell.NewEventKey(tcell.KeyRune, "a", tcell.ModCtrl|tcell.ModShift)
 	tbl := eventToLua(L, ev)
 
 	mod := tbl.RawGetString("mod").String()

@@ -285,7 +285,7 @@ func TestBoxHandleEventNilChild(t *testing.T) {
 	box := NewBoxWidget(BoxModel{})
 	// No child
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := box.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("box with nil child should return EventIgnored")

@@ -224,7 +224,7 @@ func TestDropdownNonMouseEventIgnored(t *testing.T) {
 	})
 	renderWidget(dd, 0, 0, 10, 1)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := dd.HandleEvent(ev)
 
 	if result == EventConsumed {

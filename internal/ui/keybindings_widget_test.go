@@ -76,25 +76,25 @@ func TestKeybindingsWidgetNavigation(t *testing.T) {
 	}
 
 	// Down arrow
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if w.selected != 1 {
 		t.Errorf("expected selected=1 after down, got %d", w.selected)
 	}
 
 	// Up arrow
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyUp, "", tcell.ModNone))
 	if w.selected != 0 {
 		t.Errorf("expected selected=0 after up, got %d", w.selected)
 	}
 
 	// Up wraps to last
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyUp, "", tcell.ModNone))
 	if w.selected != len(w.items)-1 {
 		t.Errorf("expected selected=%d after wrap up, got %d", len(w.items)-1, w.selected)
 	}
 
 	// Down wraps to first
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if w.selected != 0 {
 		t.Errorf("expected selected=0 after wrap down, got %d", w.selected)
 	}
@@ -109,13 +109,13 @@ func TestKeybindingsWidgetRecording(t *testing.T) {
 	}
 
 	// Enter starts recording
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if !w.recording {
 		t.Fatal("expected recording mode after Enter")
 	}
 
 	// Press Ctrl+S, then Enter to confirm single key
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModCtrl))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyCtrlS, "", tcell.ModCtrl))
 	if w.recordCombo != "ctrl+s" {
 		t.Errorf("expected recordCombo='ctrl+s', got %q", w.recordCombo)
 	}
@@ -125,7 +125,7 @@ func TestKeybindingsWidgetRecording(t *testing.T) {
 	}
 
 	// Enter confirms
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if w.recording {
 		t.Fatal("expected recording to stop after Enter confirm")
 	}
@@ -144,12 +144,12 @@ func TestKeybindingsWidgetRecordChord(t *testing.T) {
 		editedKey = newKey
 	}
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 
 	// First key: Ctrl+K
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyCtrlK, 0, tcell.ModCtrl))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyCtrlK, "", tcell.ModCtrl))
 	// Second key: e (chord auto-saves)
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'e', tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "e", tcell.ModNone))
 
 	if w.recording {
 		t.Fatal("expected recording to stop after chord")
@@ -166,12 +166,12 @@ func TestKeybindingsWidgetRecordEscape(t *testing.T) {
 		called = true
 	}
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if !w.recording {
 		t.Fatal("expected recording")
 	}
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone))
 	if w.recording {
 		t.Fatal("expected recording cancelled")
 	}
@@ -188,7 +188,7 @@ func TestKeybindingsWidgetClear(t *testing.T) {
 	}
 
 	// Delete key clears binding
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyDelete, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDelete, "", tcell.ModNone))
 	if clearedCmd != w.items[0].CmdID {
 		t.Errorf("expected cleared %q, got %q", w.items[0].CmdID, clearedCmd)
 	}
@@ -202,7 +202,7 @@ func TestKeybindingsWidgetReset(t *testing.T) {
 	}
 
 	// Backspace on empty input resets
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, "", tcell.ModNone))
 	if resetCmd != w.items[0].CmdID {
 		t.Errorf("expected reset %q, got %q", w.items[0].CmdID, resetCmd)
 	}
@@ -215,7 +215,7 @@ func TestKeybindingsWidgetDismiss(t *testing.T) {
 		dismissed = true
 	}
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone))
 	if !dismissed {
 		t.Fatal("expected dismiss on Escape")
 	}
@@ -228,19 +228,19 @@ func TestKeybindingsWidgetTabNavigation(t *testing.T) {
 	}
 
 	// Tab cycles through footer buttons: 0=Cancel, 1=Edit, 2=Reset, 3=Clear, 4=Help
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
 	if w.focusedAction != 0 {
 		t.Errorf("expected focusedAction=0 after first Tab, got %d", w.focusedAction)
 	}
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
 	if w.focusedAction != 1 {
 		t.Errorf("expected focusedAction=1 after second Tab, got %d", w.focusedAction)
 	}
 
 	// Tab wraps around
 	w.focusedAction = 4
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
 	if w.focusedAction != 0 {
 		t.Errorf("expected focusedAction=0 after wrap, got %d", w.focusedAction)
 	}
@@ -250,13 +250,13 @@ func TestKeybindingsWidgetShiftTab(t *testing.T) {
 	w := NewKeybindingsWidget(kbTestCommands())
 
 	// Shift+Tab wraps to last
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModShift))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, "", tcell.ModShift))
 	if w.focusedAction != 4 {
 		t.Errorf("expected focusedAction=4 after Shift+Tab from -1, got %d", w.focusedAction)
 	}
 
 	// Shift+Tab goes back
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModShift))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, "", tcell.ModShift))
 	if w.focusedAction != 3 {
 		t.Errorf("expected focusedAction=3 after Shift+Tab, got %d", w.focusedAction)
 	}
@@ -270,12 +270,12 @@ func TestKeybindingsWidgetTabEnterActivatesEdit(t *testing.T) {
 	}
 
 	// Tab to Edit (index 1), then Enter
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
 	if w.focusedAction != 1 {
 		t.Fatalf("expected focusedAction=1, got %d", w.focusedAction)
 	}
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if !w.recording {
 		t.Fatal("expected recording mode after Enter on Edit button")
 	}
@@ -290,11 +290,11 @@ func TestKeybindingsWidgetTabEnterActivatesCancel(t *testing.T) {
 	}
 
 	// Tab to Cancel (index 0), then Enter
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
 	if w.focusedAction != 0 {
 		t.Fatalf("expected focusedAction=0, got %d", w.focusedAction)
 	}
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if !dismissed {
 		t.Fatal("expected dismiss after Enter on Cancel button")
 	}
@@ -308,8 +308,8 @@ func TestKeybindingsWidgetEscapeFromButton(t *testing.T) {
 	}
 
 	// Tab to a button, then Escape returns to input
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone))
 	if w.focusedAction != -1 {
 		t.Errorf("expected focusedAction=-1 after Escape, got %d", w.focusedAction)
 	}
@@ -318,7 +318,7 @@ func TestKeybindingsWidgetEscapeFromButton(t *testing.T) {
 	}
 
 	// Second Escape dismisses
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone))
 	if !dismissed {
 		t.Fatal("second Escape should dismiss")
 	}
@@ -328,12 +328,12 @@ func TestKeybindingsWidgetTypingReturnsFocus(t *testing.T) {
 	w := NewKeybindingsWidget(kbTestCommands())
 
 	// Tab to button, then type a character
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
 	if w.focusedAction != 0 {
 		t.Fatalf("expected focusedAction=0, got %d", w.focusedAction)
 	}
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'a', tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "a", tcell.ModNone))
 	if w.focusedAction != -1 {
 		t.Errorf("expected focusedAction=-1 after typing, got %d", w.focusedAction)
 	}
@@ -342,8 +342,8 @@ func TestKeybindingsWidgetTypingReturnsFocus(t *testing.T) {
 func TestKeybindingsWidgetArrowReturnsFocus(t *testing.T) {
 	w := NewKeybindingsWidget(kbTestCommands())
 
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
-	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
+	w.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if w.focusedAction != -1 {
 		t.Errorf("expected focusedAction=-1 after Down, got %d", w.focusedAction)
 	}
@@ -352,22 +352,22 @@ func TestKeybindingsWidgetArrowReturnsFocus(t *testing.T) {
 func TestDescribeKeyCombo(t *testing.T) {
 	tests := []struct {
 		key  tcell.Key
-		rune rune
+		str  string
 		mod  tcell.ModMask
 		want string
 	}{
-		{tcell.KeyCtrlS, 0, tcell.ModCtrl, "ctrl+s"},
-		{tcell.KeyRune, 'a', tcell.ModNone, "a"},
-		{tcell.KeyRune, 'a', tcell.ModAlt, "alt+a"},
-		{tcell.KeyF1, 0, tcell.ModNone, "f1"},
-		{tcell.KeyEnter, 0, tcell.ModNone, "enter"},
-		{tcell.KeyTab, 0, tcell.ModNone, "tab"},
-		{tcell.KeyUp, 0, tcell.ModNone, "up"},
-		{tcell.KeyRune, ' ', tcell.ModNone, "space"},
+		{tcell.KeyCtrlS, "", tcell.ModCtrl, "ctrl+s"},
+		{tcell.KeyRune, "a", tcell.ModNone, "a"},
+		{tcell.KeyRune, "a", tcell.ModAlt, "alt+a"},
+		{tcell.KeyF1, "", tcell.ModNone, "f1"},
+		{tcell.KeyEnter, "", tcell.ModNone, "enter"},
+		{tcell.KeyTab, "", tcell.ModNone, "tab"},
+		{tcell.KeyUp, "", tcell.ModNone, "up"},
+		{tcell.KeyRune, " ", tcell.ModNone, "space"},
 	}
 
 	for _, tt := range tests {
-		ev := tcell.NewEventKey(tt.key, tt.rune, tt.mod)
+		ev := tcell.NewEventKey(tt.key, tt.str, tt.mod)
 		got := describeKeyCombo(ev)
 		if got != tt.want {
 			t.Errorf("describeKeyCombo(%v) = %q, want %q", tt, got, tt.want)

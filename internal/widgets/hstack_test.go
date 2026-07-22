@@ -270,7 +270,7 @@ func TestHStackWidthReturnsZero(t *testing.T) {
 
 func TestHStackEmptyHandleEventReturnsIgnored(t *testing.T) {
 	hs := NewHStackWidget()
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := hs.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("empty HStack should return EventIgnored")

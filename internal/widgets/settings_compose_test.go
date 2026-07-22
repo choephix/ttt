@@ -73,7 +73,7 @@ func TestCollapsedSelectOpensAndCloses(t *testing.T) {
 	}
 
 	// Down opens the list before it starts navigating.
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if !sel.HasPopup() {
 		t.Fatal("Down should open the list")
 	}
@@ -81,8 +81,8 @@ func TestCollapsedSelectOpensAndCloses(t *testing.T) {
 		t.Errorf("opening should not move the selection, got %q", sel.selectedID())
 	}
 
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if sel.HasPopup() {
 		t.Error("Enter should close the list")
 	}
@@ -90,13 +90,13 @@ func TestCollapsedSelectOpensAndCloses(t *testing.T) {
 		t.Errorf("selectedID = %q, want \"b\"", sel.selectedID())
 	}
 
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone))
 	if sel.HasPopup() {
 		t.Error("Escape should close the list")
 	}
 
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	sel.SetFocused(false)
 	if sel.HasPopup() {
 		t.Error("losing focus should close the list")
@@ -120,19 +120,19 @@ func TestSelectKeepsValueAfterFilteringAndClosing(t *testing.T) {
 	sel.SetSelectedID("")
 
 	// Open, filter down to a single match, and pick it.
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	for _, r := range "zen" {
-		sel.HandleEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+		sel.HandleEvent(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 	}
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 
 	if got := sel.selectedID(); got != "zenburn" {
 		t.Fatalf("SelectedID after picking = %q, want \"zenburn\"", got)
 	}
 
 	// Reopening and confirming without typing must keep the same value.
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
+	sel.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if got := sel.selectedID(); got != "zenburn" {
 		t.Errorf("value reverted after reopen+confirm: %q, want \"zenburn\"", got)
 	}
@@ -176,8 +176,8 @@ func TestOnOpenLetsOwnerCloseSiblings(t *testing.T) {
 		s.SetFocused(true)
 	}
 
-	all[0].HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	all[2].HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	all[0].HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
+	all[2].HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 
 	open := 0
 	for _, s := range all {

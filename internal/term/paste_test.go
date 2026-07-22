@@ -7,33 +7,39 @@ import (
 	"github.com/gdamore/tcell/v3"
 )
 
-func key(k tcell.Key, r rune, mod tcell.ModMask) *tcell.EventKey {
-	return tcell.NewEventKey(k, r, mod)
+func key(k tcell.Key, str string, mod tcell.ModMask) *tcell.EventKey {
+	return tcell.NewEventKey(k, str, mod)
 }
 
 func runeKey(r rune) *tcell.EventKey {
-	return key(tcell.KeyRune, r, tcell.ModNone)
+	return key(tcell.KeyRune, string(r), tcell.ModNone)
 }
 
-// keysFromString simulates how tcell encodes each byte of a string during
-// bracketed paste. This mirrors tcell's input.go inpStateInit switch exactly:
+// keysFromString simulates how tcell v3 encodes each byte of a string during
+// bracketed paste in legacy (non-advanced) mode. This mirrors tcell's
+// input.go istAny switch plus postControlKey exactly:
 //   - \t → KeyTab
 //   - \r → KeyEnter
 //   - \b, 0x7F → KeyBackspace
-//   - r < ' ' → KeyCtrlSpace+Key(r) with ModCtrl  (covers \n as KeyCtrlJ)
+//   - NUL → KeyRune " " with ModCtrl
+//   - r < ' ' → KeyRune string(r+0x40) with ModCtrl; NewEventKey then
+//     normalizes ctrl+letter back to KeyCtrlA..Z (covers \n as KeyCtrlJ),
+//     while 0x1C-0x1F stay KeyRune ("\\", "]", "^", "_") with ModCtrl
 //   - r >= ' ' → KeyRune
 func keysFromString(s string) []*tcell.EventKey {
 	var events []*tcell.EventKey
 	for _, r := range s {
 		switch {
 		case r == '\t':
-			events = append(events, key(tcell.KeyTab, 0, tcell.ModNone))
+			events = append(events, key(tcell.KeyTab, "", tcell.ModNone))
 		case r == '\b' || r == 0x7F:
-			events = append(events, key(tcell.KeyBackspace, 0, tcell.ModNone))
+			events = append(events, key(tcell.KeyBackspace, "", tcell.ModNone))
 		case r == '\r':
-			events = append(events, key(tcell.KeyEnter, 0, tcell.ModNone))
+			events = append(events, key(tcell.KeyEnter, "", tcell.ModNone))
+		case r == 0:
+			events = append(events, key(tcell.KeyRune, " ", tcell.ModCtrl))
 		case r < ' ':
-			events = append(events, key(tcell.KeyCtrlSpace+tcell.Key(r), 0, tcell.ModCtrl))
+			events = append(events, key(tcell.KeyRune, string(r+0x40), tcell.ModCtrl))
 		default:
 			events = append(events, runeKey(r))
 		}
@@ -256,13 +262,15 @@ func TestCollectPasteText_MixedScripts(t *testing.T) {
 }
 
 // --- Control character handling (intentionally dropped) ---
-// tcell encodes control chars (0x00-0x1F except \t,\r,\n) as KeyCtrl*
-// and we intentionally skip them. These tests lock down that behavior.
+// tcell v3 encodes control chars (0x00-0x1F except \t,\r,\n) either as
+// KeyCtrlA..Z (ctrl+letter) or as KeyRune with ModCtrl (NUL → " ",
+// 0x1C-0x1F → "\\", "]", "^", "_"). We intentionally skip both forms.
+// These tests lock down that behavior.
 
 func TestCollectPasteText_NullByteDropped(t *testing.T) {
 	events := []*tcell.EventKey{
 		runeKey('a'),
-		key(tcell.KeyCtrlSpace, 0, tcell.ModCtrl), // 0x00
+		key(tcell.KeyRune, " ", tcell.ModCtrl), // 0x00 (NUL) in v3 legacy encoding
 		runeKey('b'),
 	}
 	got := CollectPasteText(events)
@@ -286,7 +294,7 @@ func TestCollectPasteText_AllControlCharsDropped(t *testing.T) {
 	for _, dk := range droppedKeys {
 		events := []*tcell.EventKey{
 			runeKey('x'),
-			key(dk, 0, tcell.ModCtrl),
+			key(dk, "", tcell.ModCtrl),
 			runeKey('y'),
 		}
 		got := CollectPasteText(events)
@@ -296,10 +304,26 @@ func TestCollectPasteText_AllControlCharsDropped(t *testing.T) {
 	}
 }
 
+func TestCollectPasteText_CtrlPunctuationDropped(t *testing.T) {
+	// 0x1C-0x1F arrive in v3 legacy mode as KeyRune with ModCtrl and the
+	// shifted-up punctuation string — they must be dropped, not inserted.
+	for _, s := range []string{"\\", "]", "^", "_"} {
+		events := []*tcell.EventKey{
+			runeKey('x'),
+			key(tcell.KeyRune, s, tcell.ModCtrl),
+			runeKey('y'),
+		}
+		got := CollectPasteText(events)
+		if got != "xy" {
+			t.Errorf("ctrl+%s not dropped: got %q, want %q", s, got, "xy")
+		}
+	}
+}
+
 func TestCollectPasteText_BackspaceDropped(t *testing.T) {
 	events := []*tcell.EventKey{
 		runeKey('a'),
-		key(tcell.KeyBackspace, 0, tcell.ModNone), // 0x7F
+		key(tcell.KeyBackspace, "", tcell.ModNone), // 0x7F
 		runeKey('b'),
 	}
 	got := CollectPasteText(events)
@@ -311,7 +335,7 @@ func TestCollectPasteText_BackspaceDropped(t *testing.T) {
 func TestCollectPasteText_EscapeDropped(t *testing.T) {
 	events := []*tcell.EventKey{
 		runeKey('a'),
-		key(tcell.KeyEscape, 0, tcell.ModNone),
+		key(tcell.KeyEscape, "", tcell.ModNone),
 		runeKey('b'),
 	}
 	got := CollectPasteText(events)
@@ -323,10 +347,10 @@ func TestCollectPasteText_EscapeDropped(t *testing.T) {
 func TestCollectPasteText_ArrowKeysDropped(t *testing.T) {
 	events := []*tcell.EventKey{
 		runeKey('a'),
-		key(tcell.KeyUp, 0, tcell.ModNone),
-		key(tcell.KeyDown, 0, tcell.ModNone),
-		key(tcell.KeyLeft, 0, tcell.ModNone),
-		key(tcell.KeyRight, 0, tcell.ModNone),
+		key(tcell.KeyUp, "", tcell.ModNone),
+		key(tcell.KeyDown, "", tcell.ModNone),
+		key(tcell.KeyLeft, "", tcell.ModNone),
+		key(tcell.KeyRight, "", tcell.ModNone),
 		runeKey('b'),
 	}
 	got := CollectPasteText(events)
@@ -338,14 +362,14 @@ func TestCollectPasteText_ArrowKeysDropped(t *testing.T) {
 func TestCollectPasteText_FunctionKeysDropped(t *testing.T) {
 	events := []*tcell.EventKey{
 		runeKey('a'),
-		key(tcell.KeyF1, 0, tcell.ModNone),
-		key(tcell.KeyF12, 0, tcell.ModNone),
-		key(tcell.KeyHome, 0, tcell.ModNone),
-		key(tcell.KeyEnd, 0, tcell.ModNone),
-		key(tcell.KeyPgUp, 0, tcell.ModNone),
-		key(tcell.KeyPgDn, 0, tcell.ModNone),
-		key(tcell.KeyInsert, 0, tcell.ModNone),
-		key(tcell.KeyDelete, 0, tcell.ModNone),
+		key(tcell.KeyF1, "", tcell.ModNone),
+		key(tcell.KeyF12, "", tcell.ModNone),
+		key(tcell.KeyHome, "", tcell.ModNone),
+		key(tcell.KeyEnd, "", tcell.ModNone),
+		key(tcell.KeyPgUp, "", tcell.ModNone),
+		key(tcell.KeyPgDn, "", tcell.ModNone),
+		key(tcell.KeyInsert, "", tcell.ModNone),
+		key(tcell.KeyDelete, "", tcell.ModNone),
 		runeKey('b'),
 	}
 	got := CollectPasteText(events)

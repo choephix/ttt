@@ -12,34 +12,34 @@ func TestSelectableListKeyNav(t *testing.T) {
 	items := 5
 
 	// Down
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, "", 0), r, items)
 	if sl.Selected != 1 {
 		t.Fatalf("expected 1, got %d", sl.Selected)
 	}
 
 	// Down x3
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0), r, items)
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0), r, items)
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, "", 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, "", 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, "", 0), r, items)
 	if sl.Selected != 4 {
 		t.Fatalf("expected 4, got %d", sl.Selected)
 	}
 
 	// Down past end — clamped
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyDown, "", 0), r, items)
 	if sl.Selected != 4 {
 		t.Fatalf("expected 4 (clamped), got %d", sl.Selected)
 	}
 
 	// Up
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyUp, 0, 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyUp, "", 0), r, items)
 	if sl.Selected != 3 {
 		t.Fatalf("expected 3, got %d", sl.Selected)
 	}
 
 	// Up past start — clamped
 	sl.Selected = 0
-	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyUp, 0, 0), r, items)
+	sl.HandleListEvent(tcell.NewEventKey(tcell.KeyUp, "", 0), r, items)
 	if sl.Selected != 0 {
 		t.Fatalf("expected 0 (clamped), got %d", sl.Selected)
 	}
@@ -49,7 +49,7 @@ func TestSelectableListEnter(t *testing.T) {
 	sl := &SelectableList{Selected: 2}
 	r := Rect{X: 0, Y: 0, W: 20, H: 10}
 
-	res := sl.HandleListEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0), r, 5)
+	res := sl.HandleListEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0), r, 5)
 	if res.Result != EventConsumed {
 		t.Fatal("Enter should be consumed")
 	}
@@ -181,12 +181,12 @@ func TestSelectableListUnhandledKey(t *testing.T) {
 	sl := &SelectableList{}
 	r := Rect{X: 0, Y: 0, W: 20, H: 10}
 
-	res := sl.HandleListEvent(tcell.NewEventKey(tcell.KeyLeft, 0, 0), r, 5)
+	res := sl.HandleListEvent(tcell.NewEventKey(tcell.KeyLeft, "", 0), r, 5)
 	if res.Result != EventIgnored {
 		t.Fatal("Left key should be ignored by SelectableList")
 	}
 
-	res = sl.HandleListEvent(tcell.NewEventKey(tcell.KeyRune, 'x', 0), r, 5)
+	res = sl.HandleListEvent(tcell.NewEventKey(tcell.KeyRune, "x", 0), r, 5)
 	if res.Result != EventIgnored {
 		t.Fatal("rune key should be ignored by SelectableList")
 	}

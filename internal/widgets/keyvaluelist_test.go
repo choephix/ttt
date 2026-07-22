@@ -109,7 +109,7 @@ func TestKeyValueListHandleEventIgnored(t *testing.T) {
 	kv := NewKeyValueListWidget([]KeyValueEntry{
 		{Key: "K", Value: "V"},
 	})
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	if got := kv.HandleEvent(ev); got != EventIgnored {
 		t.Errorf("expected EventIgnored, got %v", got)
 	}

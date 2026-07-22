@@ -152,12 +152,12 @@ func TestTableKeyboardUp(t *testing.T) {
 	}
 
 	// Move down then up
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if tbl.SelectedIndex() != 1 {
 		t.Fatalf("after down, selected should be 1, got %d", tbl.SelectedIndex())
 	}
 
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyUp, "", tcell.ModNone))
 	if tbl.SelectedIndex() != 0 {
 		t.Fatalf("after up, selected should be 0, got %d", tbl.SelectedIndex())
 	}
@@ -170,7 +170,7 @@ func TestTableKeyboardDownClamp(t *testing.T) {
 
 	// Move down past end
 	for i := 0; i < 10; i++ {
-		tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+		tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	}
 	if tbl.SelectedIndex() != 2 {
 		t.Fatalf("down clamp: selected should be 2 (last row), got %d", tbl.SelectedIndex())
@@ -183,7 +183,7 @@ func TestTableKeyboardUpClamp(t *testing.T) {
 	renderWidget(tbl, 0, 0, 20, 10)
 
 	// Already at 0, pressing up should stay at 0
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyUp, "", tcell.ModNone))
 	if tbl.SelectedIndex() != 0 {
 		t.Fatalf("up clamp: selected should remain 0, got %d", tbl.SelectedIndex())
 	}
@@ -204,8 +204,8 @@ func TestTableKeyboardEnterFiresOnSelect(t *testing.T) {
 	tbl.SetFocused(true)
 	renderWidget(tbl, 0, 0, 15, 10)
 
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 
 	if selected != 1 {
 		t.Fatalf("enter should fire OnSelect with row 1, got %d", selected)
@@ -235,7 +235,7 @@ func TestTableKeyCommands(t *testing.T) {
 	tbl.SetFocused(true)
 	renderWidget(tbl, 0, 0, 15, 10)
 
-	result := tbl.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'd', tcell.ModNone))
+	result := tbl.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "d", tcell.ModNone))
 	if result != EventConsumed {
 		t.Error("key command 'd' should be consumed")
 	}
@@ -260,7 +260,7 @@ func TestTableKeyCommandUnknownKey(t *testing.T) {
 	tbl.SetFocused(true)
 	renderWidget(tbl, 0, 0, 15, 10)
 
-	result := tbl.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'x', tcell.ModNone))
+	result := tbl.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "x", tcell.ModNone))
 	if result == EventConsumed {
 		t.Error("unknown key should not be consumed")
 	}
@@ -416,7 +416,7 @@ func TestTableScrollingEnsureVisible(t *testing.T) {
 
 	// Move selection beyond visible area
 	for i := 0; i < 8; i++ {
-		tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+		tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	}
 	// After moving, re-render to trigger ensureVisible
 	renderWidget(tbl, 0, 0, 15, 7)
@@ -497,13 +497,13 @@ func TestTableSingleRow(t *testing.T) {
 	renderWidget(tbl, 0, 0, 15, 5)
 
 	// Down should not move past single row
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if tbl.SelectedIndex() != 0 {
 		t.Errorf("single row: down should stay at 0, got %d", tbl.SelectedIndex())
 	}
 
 	// Enter should fire OnSelect
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if selected != 0 {
 		t.Errorf("enter on single row should fire OnSelect(0), got %d", selected)
 	}
@@ -564,8 +564,8 @@ func TestTableOnSelectFiredOnNavigation(t *testing.T) {
 	tbl.SetFocused(true)
 	renderWidget(tbl, 0, 0, 15, 10)
 
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
-	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
+	tbl.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 
 	if len(selections) != 2 {
 		t.Fatalf("expected 2 OnSelect calls, got %d", len(selections))

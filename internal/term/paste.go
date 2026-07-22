@@ -15,6 +15,13 @@ func CollectPasteText(events []*tcell.EventKey) string {
 	for _, ev := range events {
 		switch ev.Key() {
 		case tcell.KeyRune:
+			if ev.Modifiers()&tcell.ModCtrl != 0 {
+				// tcell v3 legacy mode delivers raw control bytes that have
+				// no KeyCtrl* letter code (NUL, 0x1C-0x1F) as KeyRune with
+				// ModCtrl and a shifted-up string (" ", "\\", "]", "^", "_").
+				// Drop them like the KeyCtrl* codes are dropped.
+				continue
+			}
 			buf.WriteString(KeyStr(ev))
 		case tcell.KeyEnter:
 			buf.WriteRune('\r')

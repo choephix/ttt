@@ -15,12 +15,12 @@ func makeSelectItems(labels ...string) []SelectItem {
 }
 
 func sendRune(w Widget, r rune) EventResult {
-	ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone)
 	return w.HandleEvent(ev)
 }
 
 func sendKey(w Widget, key tcell.Key) EventResult {
-	ev := tcell.NewEventKey(key, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(key, "", tcell.ModNone)
 	return w.HandleEvent(ev)
 }
 

@@ -108,7 +108,7 @@ func TestCheckboxEnterKeyToggles(t *testing.T) {
 	})
 	cb.SetFocused(true)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := cb.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("enter key on focused checkbox should be consumed")
@@ -129,7 +129,7 @@ func TestCheckboxSpaceKeyToggles(t *testing.T) {
 	})
 	cb.SetFocused(true)
 
-	ev := tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, " ", tcell.ModNone)
 	result := cb.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("space key on focused checkbox should be consumed")
@@ -147,7 +147,7 @@ func TestCheckboxKeyIgnoredWhenNotFocused(t *testing.T) {
 	})
 	// Not focused
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := cb.HandleEvent(ev)
 	if result == EventConsumed {
 		t.Error("enter key on unfocused checkbox should not be consumed")
@@ -222,7 +222,7 @@ func TestCheckboxNoOnChangeCallback(t *testing.T) {
 	// Ensure toggling works even without OnChange callback (no panic)
 	cb := NewCheckboxWidget(CheckboxConfig{Label: "No callback"})
 	cb.SetFocused(true)
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	cb.HandleEvent(ev)
 	if !cb.Config.Checked {
 		t.Error("checkbox should toggle even without OnChange callback")
