@@ -142,7 +142,7 @@ func (a *App) OpenPullRequestDialog() {
 		a.StatusError("GitHub CLI (gh) is required. Install from https://cli.github.com/")
 		return
 	}
-	a.ShowInputDialogEx("Review PR", "https://github.com/owner/repo/pull/123", "", "Review", func(url string) {
+	a.ShowInputDialogEx("Open PR Diff", "https://github.com/owner/repo/pull/123", "", "Open", func(url string) {
 		a.FetchAndOpenPR(url)
 	})
 }
@@ -367,7 +367,7 @@ func registerPRCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
-		ID: "pr.review", Title: "Git: Review PR",
+		ID: "pr.openDiff", Title: "Git: Open PR Diff",
 		Keywords: []string{"git", "pull request", "github"},
 		Handler:  app.OpenPullRequestDialog,
 	})
