@@ -50,6 +50,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "Push", Command: "git.push"},
 			{Label: "Sync", Command: "git.sync"},
 			ui.MenuSep(),
+			{Label: "Open PR Diff", Command: "pr.openDiff"},
+			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
 	case "outline":

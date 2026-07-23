@@ -27,7 +27,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Open Workspace", Command: "workspace.open"},
 		{Label: "Save Workspace", Command: "workspace.save"},
 		ui.MenuSep(),
-		{Label: "Review PR", Command: "pr.review"},
+		{Label: "Open PR Diff", Command: "pr.openDiff"},
 		ui.MenuSep(),
 		{Label: "Quit", Command: "editor.quit"},
 	},
