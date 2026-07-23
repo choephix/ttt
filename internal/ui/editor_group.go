@@ -1296,6 +1296,10 @@ func (g *EditorGroupWidget) Copy() {
 		}
 		return
 	}
+	if t.Content != nil {
+		// Non-editor tab (settings UI, plugin panel, ...): no buffer to copy from.
+		return
+	}
 	if t.Sel == nil || !t.Sel.Active {
 		// No selection: copy the whole current line, including a trailing
 		// newline so a paste inserts it as a full line.
