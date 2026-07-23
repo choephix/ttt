@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/alecthomas/chroma/v2 v2.24.1
 	github.com/aymanbagabas/go-pty v0.2.3
-	github.com/eugenioenko/vt10x v0.0.0-20260527232601-d49d2c8355db
+	github.com/eugenioenko/vt10x v0.0.0-20260723044012-f8bf2a92fc22
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gdamore/tcell/v3 v3.4.1
 	github.com/yuin/goldmark v1.8.2
