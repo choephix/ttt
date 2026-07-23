@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type CheckboxConfig struct {
@@ -83,7 +83,7 @@ func (c *CheckboxWidget) HandleEvent(ev tcell.Event) EventResult {
 		if !c.focused {
 			return EventIgnored
 		}
-		if tev.Key() == tcell.KeyEnter || (tev.Key() == tcell.KeyRune && tev.Rune() == ' ') {
+		if tev.Key() == tcell.KeyEnter || (tev.Key() == tcell.KeyRune && term.KeyRune(tev) == ' ') {
 			c.toggle()
 			return EventConsumed
 		}

@@ -3,7 +3,7 @@ package widgets
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // fixedWidget is a test helper with configurable fixed height/width.
@@ -243,7 +243,7 @@ func TestVStackEventDelegationFirstConsumerWins(t *testing.T) {
 	b := &fixedWidget{h: 3, w: 10, consume: true}
 	vs := NewVStackWidget(a, b)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := vs.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -262,7 +262,7 @@ func TestVStackEventDelegationFallthrough(t *testing.T) {
 	b := &fixedWidget{h: 3, w: 10, consume: true}
 	vs := NewVStackWidget(a, b)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := vs.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -281,7 +281,7 @@ func TestVStackEventDelegationNoneConsume(t *testing.T) {
 	b := &fixedWidget{h: 3, w: 10, consume: false}
 	vs := NewVStackWidget(a, b)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := vs.HandleEvent(ev)
 
 	if result != EventIgnored {
@@ -468,7 +468,7 @@ func TestHStackEventDelegationFirstConsumerWins(t *testing.T) {
 	b := &fixedWidget{h: 10, w: 5, consume: true}
 	hs := NewHStackWidget(a, b)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := hs.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -487,7 +487,7 @@ func TestHStackEventDelegationNoneConsume(t *testing.T) {
 	b := &fixedWidget{h: 10, w: 5, consume: false}
 	hs := NewHStackWidget(a, b)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := hs.HandleEvent(ev)
 
 	if result != EventIgnored {

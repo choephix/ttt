@@ -6,7 +6,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/watcher"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // FileChangedResult is posted to the event loop when a watched file changes on

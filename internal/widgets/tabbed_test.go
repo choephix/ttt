@@ -3,7 +3,7 @@ package widgets
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestTabbedSetActiveBoundsCheck(t *testing.T) {
@@ -144,7 +144,7 @@ func TestTabbedEventRoutingPriority(t *testing.T) {
 	tabs.SetFocused(false)
 	child.lastEvent = nil
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result = tw.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -171,7 +171,7 @@ func TestTabbedEventRoutingTabsFocused(t *testing.T) {
 	tabs.SetFocused(true)
 
 	// Right arrow should be consumed by tabs (focused), not the child
-	ev := tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone)
 	result := tw.HandleEvent(ev)
 
 	if result != EventConsumed {

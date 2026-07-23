@@ -3,7 +3,7 @@ package plugin
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -117,7 +117,7 @@ func TestEventsKeyPressConsumed(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'j', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "j", tcell.ModNone)
 	tbl := keyEventToLua(p.State, ev)
 	if !p.DispatchKeyEvent(tbl) {
 		t.Fatal("expected key.press to be consumed")
@@ -141,7 +141,7 @@ func TestEventsKeyPressNotConsumed(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'k', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "k", tcell.ModNone)
 	tbl := keyEventToLua(p.State, ev)
 	if p.DispatchKeyEvent(tbl) {
 		t.Fatal("expected key.press not to be consumed")
@@ -164,7 +164,7 @@ func TestEventsKeyPressWithModifiers(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	ev := tcell.NewEventKey(tcell.KeyRune, 'w', tcell.ModAlt)
+	ev := tcell.NewEventKey(tcell.KeyRune, "w", tcell.ModAlt)
 	tbl := keyEventToLua(p.State, ev)
 	p.DispatchKeyEvent(tbl)
 
@@ -191,7 +191,7 @@ func TestEventsKeyPressSpecialKey(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	ev := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone)
 	tbl := keyEventToLua(p.State, ev)
 	p.DispatchKeyEvent(tbl)
 

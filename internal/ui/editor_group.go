@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type DiagnosticSeverity int
@@ -1294,6 +1294,10 @@ func (g *EditorGroupWidget) Copy() {
 		if text := dv.CopySelection(); text != "" {
 			clipboard.Set(text)
 		}
+		return
+	}
+	if t.Content != nil {
+		// Non-editor tab (settings UI, plugin panel, ...): no buffer to copy from.
 		return
 	}
 	if t.Sel == nil || !t.Sel.Active {

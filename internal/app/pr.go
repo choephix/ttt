@@ -5,7 +5,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/github"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type PrFetchResult struct {

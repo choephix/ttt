@@ -22,7 +22,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 var (
@@ -121,7 +121,7 @@ func initSimulationScreen(w, h int) *term.TcellScreen {
 	if w <= 0 || h <= 0 {
 		w, h = 80, 25
 	}
-	sim := tcell.NewSimulationScreen("")
+	sim := term.NewSimScreen()
 	_ = sim.Init()
 	sim.SetSize(w, h)
 	return term.NewTcellScreenFrom(sim)

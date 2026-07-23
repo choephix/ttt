@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestParagraphHeight(t *testing.T) {
@@ -84,7 +84,7 @@ func TestParagraphEmptyText(t *testing.T) {
 
 func TestParagraphHandleEventIgnored(t *testing.T) {
 	p := NewParagraphWidget("test")
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	if r := p.HandleEvent(ev); r != EventIgnored {
 		t.Fatalf("expected EventIgnored, got %d", r)
 	}

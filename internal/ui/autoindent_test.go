@@ -7,7 +7,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/cursor"
 	"github.com/eugenioenko/ttt/internal/view"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newEditorWithLines(lines ...string) *EditorPaneWidget {
@@ -21,7 +21,7 @@ func TestAutoIndentEnterAfterOpenBrace(t *testing.T) {
 	e := newEditorWithLines("{")
 	e.Cursor.Col = 1
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	if e.Buf.Lines[1] != "    " {
 		t.Fatalf("expected new line indented 4 spaces, got %q", e.Buf.Lines[1])
@@ -35,7 +35,7 @@ func TestAutoIndentEnterBetweenBracesSplitsClosing(t *testing.T) {
 	e := newEditorWithLines("{}")
 	e.Cursor.Col = 1
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	if e.Buf.Lines[0] != "{" || e.Buf.Lines[1] != "    " || e.Buf.Lines[2] != "}" {
 		t.Fatalf("expected {, 4-space line, }, got %q", e.Buf.Lines)
@@ -50,7 +50,7 @@ func TestAutoIndentDedentOnCloseBrace(t *testing.T) {
 	e.Cursor.Line = 1
 	e.Cursor.Col = 4
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '}', 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "}", 0))
 
 	if e.Buf.Lines[1] != "}" {
 		t.Fatalf("expected closing brace dedented to column 0, got %q", e.Buf.Lines[1])
@@ -64,7 +64,7 @@ func TestAutoIndentDedentNestedRemovesOneLevel(t *testing.T) {
 	e := newEditorWithLines("        ") // two levels of indent
 	e.Cursor.Col = 8
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '}', 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "}", 0))
 
 	if e.Buf.Lines[0] != "    }" {
 		t.Fatalf("expected one indent level removed leaving '    }', got %q", e.Buf.Lines[0])
@@ -78,7 +78,7 @@ func TestAutoIndentDedentSkipsMidLine(t *testing.T) {
 	e := newEditorWithLines("    foo")
 	e.Cursor.Col = 7
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '}', 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "}", 0))
 
 	if e.Buf.Lines[0] != "    foo}" {
 		t.Fatalf("expected no dedent for mid-line brace, got %q", e.Buf.Lines[0])
@@ -92,7 +92,7 @@ func TestOpenIndentAppliesRegardlessOfAutoDedent(t *testing.T) {
 	e.AutoDedent = false
 	e.Cursor.Col = 1
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	if e.Buf.Lines[1] != "    " {
 		t.Fatalf("expected open-brace indent even with auto-dedent off, got %q", e.Buf.Lines[1])
@@ -107,7 +107,7 @@ func TestAutoDedentDisabledNoDedent(t *testing.T) {
 	e.AutoDedent = false
 	e.Cursor.Col = 4
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, '}', 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "}", 0))
 
 	if e.Buf.Lines[0] != "    }" {
 		t.Fatalf("expected brace appended without dedent, got %q", e.Buf.Lines[0])
@@ -127,7 +127,7 @@ func TestEnterInheritsIndentation(t *testing.T) {
 	e.AutoDedent = false
 	e.Cursor.Col = 7
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	if e.Buf.Lines[1] != "    " {
 		t.Fatalf("expected new line to inherit 4-space indent, got %q", e.Buf.Lines[1])
@@ -141,7 +141,7 @@ func TestEnterInheritsIndentation(t *testing.T) {
 func TestEnterIndentConsistentAcrossCursorModes(t *testing.T) {
 	single := newEditorWithLines("    foo")
 	single.Cursor.Line, single.Cursor.Col = 0, 7
-	single.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	single.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 	singleIndent := single.Buf.Lines[1]
 
 	multi := newEditorWithLines("    foo", "    bar")
@@ -152,7 +152,7 @@ func TestEnterIndentConsistentAcrossCursorModes(t *testing.T) {
 	if !multi.isMultiActive() {
 		t.Fatal("expected multi-cursor mode to be active")
 	}
-	multi.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	multi.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 	multiIndent := multi.Buf.Lines[1]
 
 	if singleIndent != multiIndent {
@@ -168,7 +168,7 @@ func TestAutoIndentDisabledPreservesNoIndent(t *testing.T) {
 	e.AutoIndent = false
 	e.Cursor.Line, e.Cursor.Col = 0, 7 // end of "    foo"
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	if e.Buf.Lines[1] != "" {
 		t.Fatalf("expected column-1 new line with AutoIndent off, got %q", e.Buf.Lines[1])
@@ -183,7 +183,7 @@ func TestAutoIndentDisabledNoSmartIndentAfterBrace(t *testing.T) {
 	e.AutoIndent = false
 	e.Cursor.Col = 1
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	if e.Buf.Lines[1] != "" {
 		t.Fatalf("expected no shiftwidth after opener with AutoIndent off, got %q", e.Buf.Lines[1])
@@ -201,7 +201,7 @@ func TestAutoIndentDisabledInMultiCursor(t *testing.T) {
 		t.Fatal("expected multi-cursor mode to be active")
 	}
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 
 	// Both split lines should open at column 1 with AutoIndent off.
 	for _, ln := range []int{1, 3} {

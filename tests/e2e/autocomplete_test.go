@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/ui"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // Helper to create a file, open it in the editor, and return the harness.

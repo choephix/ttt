@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestProgressRenderZero(t *testing.T) {
@@ -153,7 +153,7 @@ func TestProgressWidthIsZero(t *testing.T) {
 
 func TestProgressHandleEventIgnored(t *testing.T) {
 	p := NewProgressWidget(ProgressConfig{Value: 0.5})
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	if p.HandleEvent(ev) != EventIgnored {
 		t.Error("progress widget should ignore all events")
 	}

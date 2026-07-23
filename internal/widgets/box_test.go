@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestBoxRenderWithBorder(t *testing.T) {
@@ -285,7 +285,7 @@ func TestBoxHandleEventNilChild(t *testing.T) {
 	box := NewBoxWidget(BoxModel{})
 	// No child
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := box.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("box with nil child should return EventIgnored")

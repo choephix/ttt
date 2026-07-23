@@ -22,7 +22,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/workspace"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type EventRecord struct {
@@ -41,7 +41,7 @@ type CrashReport struct {
 
 type chaosHarness struct {
 	app      *app.App
-	screen   tcell.SimulationScreen
+	screen   *term.SimScreen
 	reg      *command.Registry
 	renderer *render.Renderer
 	dir      string
@@ -64,7 +64,7 @@ func newChaosHarness(seed int64) *chaosHarness {
 	os.WriteFile(filepath.Join(dir, "src", "lib.go"), []byte("package src\n\nfunc Add(a, b int) int { return a + b }\n"), 0644)
 
 	w, h := 80, 24
-	sim := tcell.NewSimulationScreen("")
+	sim := term.NewSimScreen()
 	sim.Init()
 	sim.SetSize(w, h)
 
@@ -166,7 +166,7 @@ var ctrlKeys = []tcell.Key{
 	tcell.KeyCtrlP, tcell.KeyCtrlQ, tcell.KeyCtrlR, tcell.KeyCtrlS,
 	tcell.KeyCtrlT, tcell.KeyCtrlU, tcell.KeyCtrlV, tcell.KeyCtrlW,
 	tcell.KeyCtrlX, tcell.KeyCtrlY, tcell.KeyCtrlZ,
-	tcell.KeyCtrlSpace,
+	tcell.KeyNUL,
 }
 
 var chordFollowRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
@@ -180,27 +180,27 @@ func (h *chaosHarness) randomEvent() {
 		// 30%: printable rune
 		r := printableRunes[h.rng.Intn(len(printableRunes))]
 		h.record("rune", string(r))
-		h.dispatch(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+		h.dispatch(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 
 	case n >= 30 && n < 45:
 		// 15%: special key
 		k := specialKeys[h.rng.Intn(len(specialKeys))]
 		h.record("special", fmt.Sprintf("key=%d", k))
-		h.dispatch(tcell.NewEventKey(k, 0, tcell.ModNone))
+		h.dispatch(tcell.NewEventKey(k, "", tcell.ModNone))
 
 	case n >= 45 && n < 55:
 		// 10%: ctrl+key
 		k := ctrlKeys[h.rng.Intn(len(ctrlKeys))]
 		h.record("ctrl", fmt.Sprintf("key=%d", k))
-		h.dispatch(tcell.NewEventKey(k, 0, tcell.ModCtrl))
+		h.dispatch(tcell.NewEventKey(k, "", tcell.ModCtrl))
 
 	case n >= 55 && n < 65:
 		// 10%: chord (ctrl+k followed by a rune)
 		h.record("chord", "ctrl+k")
-		h.dispatch(tcell.NewEventKey(tcell.KeyCtrlK, 0, tcell.ModCtrl))
+		h.dispatch(tcell.NewEventKey(tcell.KeyCtrlK, "", tcell.ModCtrl))
 		r := chordFollowRunes[h.rng.Intn(len(chordFollowRunes))]
 		h.record("chord-follow", string(r))
-		h.dispatch(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+		h.dispatch(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 
 	case n >= 65 && n < 75:
 		// 10%: mouse click
@@ -263,7 +263,7 @@ func (h *chaosHarness) randomEvent() {
 		// 5%: shift+special key
 		k := specialKeys[h.rng.Intn(len(specialKeys))]
 		h.record("shift-special", fmt.Sprintf("key=%d", k))
-		h.dispatch(tcell.NewEventKey(k, 0, tcell.ModShift))
+		h.dispatch(tcell.NewEventKey(k, "", tcell.ModShift))
 	}
 }
 

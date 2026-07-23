@@ -7,7 +7,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type InputConfig struct {
@@ -246,7 +246,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) EventResult {
 			inp.deleteSelection()
 		}
 		runes := []rune(inp.text)
-		runes = append(runes[:inp.cursorPos], append([]rune{ev.Rune()}, runes[inp.cursorPos:]...)...)
+		runes = append(runes[:inp.cursorPos], append([]rune{term.KeyRune(ev)}, runes[inp.cursorPos:]...)...)
 		inp.text = string(runes)
 		inp.cursorPos++
 		inp.notify()

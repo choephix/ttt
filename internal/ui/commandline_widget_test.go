@@ -6,7 +6,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/term"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newCommandLineSurface(w, h int) ([][]term.Cell, Surface) {
@@ -34,7 +34,7 @@ func cellRow(cells [][]term.Cell, y int) string {
 
 func typeInto(c *CommandLineWidget, s string) {
 	for _, r := range s {
-		c.HandleEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+		c.HandleEvent(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 	}
 }
 
@@ -101,7 +101,7 @@ func TestCommandLineTypingAndBackspace(t *testing.T) {
 	if c.Text() != "wqa" {
 		t.Fatalf("expected %q, got %q", "wqa", c.Text())
 	}
-	c.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone))
+	c.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, "", tcell.ModNone))
 	if c.Text() != "wq" {
 		t.Fatalf("expected %q after backspace, got %q", "wq", c.Text())
 	}
@@ -113,7 +113,7 @@ func TestCommandLineOnChangeFiresPerKeystroke(t *testing.T) {
 	c.OnChange = func(text string) { seen = append(seen, text) }
 
 	typeInto(c, "abc")
-	c.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone))
+	c.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, "", tcell.ModNone))
 
 	want := []string{"a", "ab", "abc", "ab"}
 	if len(seen) != len(want) {
@@ -134,7 +134,7 @@ func TestCommandLineEnterSubmits(t *testing.T) {
 	c.OnCancel = func() { t.Fatal("cancel must not fire on Enter") }
 
 	typeInto(c, "s/a/b/")
-	c.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	c.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 
 	if calls != 1 || submitted != "s/a/b/" {
 		t.Fatalf("expected 1 submit of %q, got %d of %q", "s/a/b/", calls, submitted)
@@ -148,7 +148,7 @@ func TestCommandLineEscapeCancels(t *testing.T) {
 	c.OnSubmit = func(string) { t.Fatal("submit must not fire on Escape") }
 
 	typeInto(c, "q")
-	if res := c.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)); res != EventConsumed {
+	if res := c.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone)); res != EventConsumed {
 		t.Fatalf("expected Escape to be consumed, got %v", res)
 	}
 	if cancelled != 1 {

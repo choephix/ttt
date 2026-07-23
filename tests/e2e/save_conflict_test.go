@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // modifyOnDisk rewrites a file's contents and pushes its mtime forward so the

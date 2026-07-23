@@ -3,7 +3,7 @@ package app
 import (
 	"github.com/eugenioenko/ttt/internal/config"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 var canonicalKeyToTcell = map[string]tcell.Key{
@@ -36,6 +36,15 @@ var canonicalKeyToTcell = map[string]tcell.Key{
 	"F12":       tcell.KeyF12,
 }
 
+// keyEventStr converts a comboToTcell rune to the string form that tcell v3's
+// NewEventKey expects: empty for non-rune keys (ch == 0).
+func keyEventStr(ch rune) string {
+	if ch == 0 {
+		return ""
+	}
+	return string(ch)
+}
+
 func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
 	var mod tcell.ModMask
 	if combo.Ctrl {
@@ -48,16 +57,23 @@ func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
 		mod |= tcell.ModShift
 	}
 
+	// Ctrl+non-letter printables (space, backtick, slash) are registered in
+	// their canonical control-key form (KeyNUL for ctrl+space/ctrl+backtick,
+	// KeyUS for ctrl+/) with ModCtrl kept. Incoming events are folded to the
+	// same form by foldCtrlEvent in internal/ui/root.go regardless of whether
+	// the terminal used the legacy byte encoding or the kitty keyboard
+	// protocol. tcell v3 removed the KeyCtrlSpace/KeyCtrlUnderscore aliases;
+	// KeyNUL (0x00) and KeyUS (0x1F) are the same values.
 	if combo.KeyName != "" {
 		if combo.KeyName == "Space" {
 			if combo.Ctrl {
-				return tcell.KeyCtrlSpace, mod &^ tcell.ModCtrl, 0
+				return tcell.KeyNUL, mod, 0
 			}
 			return tcell.KeyRune, mod, ' '
 		}
 		if combo.KeyName == "Backtick" {
 			if combo.Ctrl {
-				return tcell.KeyCtrlSpace, mod, 0
+				return tcell.KeyNUL, mod, 0
 			}
 			return tcell.KeyRune, mod, '`'
 		}
@@ -71,7 +87,7 @@ func comboToTcell(combo config.KeyCombo) (tcell.Key, tcell.ModMask, rune) {
 	}
 
 	if combo.Ctrl && combo.Rune == '/' {
-		return tcell.KeyCtrlUnderscore, mod, 0
+		return tcell.KeyUS, mod, 0
 	}
 
 	return tcell.KeyRune, mod, combo.Rune

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // --- helpers ---
@@ -21,12 +21,12 @@ func makeTreeItems(ids ...string) []*TreeNode {
 
 // pressKey sends a key event to the tree widget.
 func pressKey(t *TreeWidget, key tcell.Key) {
-	t.HandleEvent(tcell.NewEventKey(key, 0, tcell.ModNone))
+	t.HandleEvent(tcell.NewEventKey(key, "", tcell.ModNone))
 }
 
 // pressRune sends a rune event to the tree widget.
 func pressRune(t *TreeWidget, r rune) {
-	t.HandleEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+	t.HandleEvent(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 }
 
 // --- Rendering tests ---
@@ -600,7 +600,7 @@ func TestTreeKeyOnKey(t *testing.T) {
 	tree := NewTreeWidget(TreeConfig{
 		Items: makeTreeItems("A"),
 		OnKey: func(ev *tcell.EventKey, node *TreeNode) bool {
-			captured = append(captured, ev.Rune())
+			captured = append(captured, term.KeyRune(ev))
 			return true
 		},
 	})
@@ -1278,7 +1278,7 @@ func TestTreeShiftEnterOpensMenu(t *testing.T) {
 	renderWidget(tree, 0, 0, 20, 10)
 
 	// Shift+Enter
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModShift)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModShift)
 	tree.HandleEvent(ev)
 
 	if !menuCalled {
@@ -1295,18 +1295,18 @@ func TestTreeHandleEventReturns(t *testing.T) {
 	renderWidget(tree, 0, 0, 20, 10)
 
 	// Key events should be consumed for recognized keys
-	result := tree.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone))
+	result := tree.HandleEvent(tcell.NewEventKey(tcell.KeyUp, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Errorf("Up key should return EventConsumed, got %v", result)
 	}
 
-	result = tree.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone))
+	result = tree.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Errorf("Down key should return EventConsumed, got %v", result)
 	}
 
 	// Unrecognized rune key without OnKey/shortcut should be ignored
-	result = tree.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'z', tcell.ModNone))
+	result = tree.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "z", tcell.ModNone))
 	if result != EventIgnored {
 		t.Errorf("unrecognized rune should return EventIgnored, got %v", result)
 	}

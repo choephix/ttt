@@ -3,7 +3,8 @@ package plugin
 import (
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/gdamore/tcell/v3"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -22,8 +23,8 @@ func keyEventToLua(L *lua.LState, e *tcell.EventKey) *lua.LTable {
 	L.SetField(tbl, "type", lua.LString("key"))
 
 	if e.Key() == tcell.KeyRune {
-		L.SetField(tbl, "key", lua.LString(string(e.Rune())))
-		L.SetField(tbl, "rune", lua.LString(string(e.Rune())))
+		L.SetField(tbl, "key", lua.LString(string(term.KeyRune(e))))
+		L.SetField(tbl, "rune", lua.LString(string(term.KeyRune(e))))
 	} else {
 		name := tcell.KeyNames[e.Key()]
 		if name == "" {

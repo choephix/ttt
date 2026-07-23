@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // testSurface implements Surface for testing. Tracks cells and sub-surface offsets.
@@ -412,7 +412,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 	tabs.SetFocused(true)
 
 	// Right moves selected cursor, does NOT activate
-	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if tabs.selected != 1 {
 		t.Fatalf("expected selected=1, got %d", tabs.selected)
 	}
@@ -421,25 +421,25 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 	}
 
 	// Right again: 1 -> 2
-	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if tabs.selected != 2 {
 		t.Fatalf("expected selected=2, got %d", tabs.selected)
 	}
 
 	// Right wraps: 2 -> 0
-	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if tabs.selected != 0 {
 		t.Fatalf("expected wrap to 0, got %d", tabs.selected)
 	}
 
 	// Left wraps: 0 -> 2
-	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if tabs.selected != 2 {
 		t.Fatalf("expected wrap to 2, got %d", tabs.selected)
 	}
 
 	// Enter activates the selected tab
-	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if activated != 2 {
 		t.Fatalf("enter should activate selected tab 2, got %d", activated)
 	}
@@ -447,7 +447,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 	// Space also activates
 	activated = -1
 	tabs.selected = 1
-	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone))
+	tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRune, " ", tcell.ModNone))
 	if activated != 1 {
 		t.Fatalf("space should activate selected tab 1, got %d", activated)
 	}
@@ -463,7 +463,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 	// Not focused: should not handle
 	tabs.SetFocused(false)
 	activated = -1
-	handled := tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	handled := tabs.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if handled == EventConsumed {
 		t.Error("unfocused tabs should not handle key events")
 	}
@@ -566,14 +566,14 @@ func TestTreeOnExpand(t *testing.T) {
 	})
 
 	// Select root and expand
-	tree.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	tree.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if len(expanded) != 1 || expanded[0] != "root" {
 		t.Fatalf("expected OnExpand called with root, got %v", expanded)
 	}
 
 	// Collapse and re-expand
-	tree.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-	tree.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	tree.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
+	tree.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if len(expanded) != 2 {
 		t.Fatalf("expected 2 OnExpand calls, got %d", len(expanded))
 	}

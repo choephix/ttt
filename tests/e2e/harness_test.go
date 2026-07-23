@@ -14,13 +14,13 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/workspace"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type testHarness struct {
 	t        *testing.T
 	app      *app.App
-	screen   tcell.SimulationScreen
+	screen   *term.SimScreen
 	reg      *command.Registry
 	renderer *render.Renderer
 	running  bool
@@ -45,7 +45,7 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	config.OverrideConfigDir = configDir
 	t.Cleanup(func() { config.OverrideConfigDir = "" })
 
-	sim := tcell.NewSimulationScreen("")
+	sim := term.NewSimScreen()
 	if err := sim.Init(); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func (h *testHarness) flushOnChange() {
 
 func (h *testHarness) pressKey(key tcell.Key, mod tcell.ModMask) {
 	h.t.Helper()
-	ev := tcell.NewEventKey(key, 0, mod)
+	ev := tcell.NewEventKey(key, "", mod)
 	h.app.Root.HandleEvent(ev)
 	h.flushOnChange()
 	h.redraw()
@@ -117,7 +117,7 @@ func (h *testHarness) pressKey(key tcell.Key, mod tcell.ModMask) {
 
 func (h *testHarness) pressRune(r rune) {
 	h.t.Helper()
-	ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone)
 	h.app.Root.HandleEvent(ev)
 	h.flushOnChange()
 	h.redraw()
@@ -152,11 +152,12 @@ func (h *testHarness) screenText() string {
 		var line strings.Builder
 		for x := 0; x < w; x++ {
 			sc := cells[y*w+x]
-			ch := ' '
-			if len(sc.Runes) > 0 {
-				ch = sc.Runes[0]
+			if sc.Str != "" {
+				line.WriteString(sc.Str)
+			} else {
+				// wide-rune continuation cell or blank
+				line.WriteRune(' ')
 			}
-			line.WriteRune(ch)
 		}
 		lines = append(lines, line.String())
 	}
@@ -168,11 +169,12 @@ func (h *testHarness) screenRow(y int) string {
 	var line strings.Builder
 	for x := 0; x < w; x++ {
 		sc := cells[y*w+x]
-		ch := ' '
-		if len(sc.Runes) > 0 {
-			ch = sc.Runes[0]
+		if sc.Str != "" {
+			line.WriteString(sc.Str)
+		} else {
+			// wide-rune continuation cell or blank
+			line.WriteRune(' ')
 		}
-		line.WriteRune(ch)
 	}
 	return line.String()
 }

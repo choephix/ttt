@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // --- BoxWidget tests ---
@@ -82,7 +82,7 @@ func TestBoxEventPassthroughToChild(t *testing.T) {
 	box := NewBoxWithBorder(term.SingleBorderSet())
 	box.Child = child
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := box.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -98,7 +98,7 @@ func TestBoxEventIgnoredWhenChildIgnores(t *testing.T) {
 	box := NewBoxWithBorder(term.SingleBorderSet())
 	box.Child = child
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := box.HandleEvent(ev)
 
 	if result != EventIgnored {
@@ -109,7 +109,7 @@ func TestBoxEventIgnoredWhenChildIgnores(t *testing.T) {
 func TestBoxEventIgnoredNilChild(t *testing.T) {
 	box := NewBoxWithBorder(term.SingleBorderSet())
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := box.HandleEvent(ev)
 
 	if result != EventIgnored {
@@ -386,7 +386,7 @@ func TestScrollViewEventDelegationToChild(t *testing.T) {
 	}
 	sv := NewScrollViewWidget(child)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := sv.HandleEvent(ev)
 
 	if result != EventConsumed {
@@ -405,7 +405,7 @@ func TestScrollViewEventIgnoredByChild(t *testing.T) {
 	}
 	sv := NewScrollViewWidget(child)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := sv.HandleEvent(ev)
 
 	if result != EventIgnored {

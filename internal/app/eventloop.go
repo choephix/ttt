@@ -12,7 +12,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type BlameResult struct {
@@ -232,7 +232,7 @@ func RunEventLoop(
 					app.DismissSignatureHelp()
 				}
 			}
-			slog.Debug("key", "key", tev.Key(), "rune", string(tev.Rune()), "mod", tev.Modifiers())
+			slog.Debug("key", "key", tev.Key(), "rune", string(term.KeyRune(tev)), "mod", tev.Modifiers())
 			app.Root.HandleEvent(tev)
 			app.FlushEditorOnChange()
 			app.RefreshAutocomplete()

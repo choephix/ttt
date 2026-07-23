@@ -6,7 +6,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/term"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type Overlay struct {
@@ -77,22 +77,67 @@ func (r *Root) ClearKeys() {
 	r.chord = nil
 }
 
-func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
-	if gk.Key != tcell.KeyRune {
-		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
+// normalizeKey folds KeyBackspace2 (DEL, 0x7F) into KeyBackspace (BS, 0x08) so
+// bindings registered with either constant match events carrying either byte
+// value. tcell normalizes incoming backspace events to KeyBackspace (v2.13+
+// and v3), but synthetic events (tests, simulation screens) may still carry
+// KeyBackspace2.
+func normalizeKey(k tcell.Key) tcell.Key {
+	if k == tcell.KeyBackspace2 {
+		return tcell.KeyBackspace
 	}
-	return kev.Key() == tcell.KeyRune && kev.Rune() == gk.Rune && kev.Modifiers() == gk.Mod
+	return k
+}
+
+// foldCtrlEvent maps ctrl+non-letter printable key events onto canonical
+// control-key constants so a single registered form (see comboToTcell in
+// internal/app/keys.go) matches every terminal encoding. tcell v3 delivers
+// these combos as KeyRune events whose string depends on the encoding:
+//
+//	combo        legacy bytes    kitty protocol    folded to
+//	ctrl+space   " " + ModCtrl   " " + ModCtrl     KeyNUL + ModCtrl
+//	ctrl+`       " " + ModCtrl   "`" + ModCtrl     KeyNUL + ModCtrl
+//	ctrl+/       "_" + ModCtrl   "/" + ModCtrl     KeyUS  + ModCtrl
+//
+// (Legacy ctrl+` and ctrl+space both emit NUL — indistinguishable at the
+// byte level — and legacy ctrl+/ emits 0x1F, which tcell reports as "_".)
+// Ctrl+letter combos are unaffected: tcell folds those to KeyCtrlA..Z itself.
+// Returns the canonical key and true when the event was folded.
+func foldCtrlEvent(kev *tcell.EventKey) (tcell.Key, bool) {
+	if kev.Key() != tcell.KeyRune || kev.Modifiers()&tcell.ModCtrl == 0 {
+		return 0, false
+	}
+	switch kev.Str() {
+	case " ", "`":
+		return tcell.KeyNUL, true
+	case "_", "/":
+		return tcell.KeyUS, true
+	}
+	return 0, false
+}
+
+func matchKey(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
+	if folded, ok := foldCtrlEvent(kev); ok {
+		return folded == normalizeKey(gk.Key) && gk.Key != tcell.KeyRune && kev.Modifiers() == gk.Mod
+	}
+	if gk.Key != tcell.KeyRune {
+		return normalizeKey(kev.Key()) == normalizeKey(gk.Key) && kev.Modifiers() == gk.Mod
+	}
+	return kev.Key() == tcell.KeyRune && term.KeyRune(kev) == gk.Rune && kev.Modifiers() == gk.Mod
 }
 
 // matchKeyChord is like matchKey but compares rune keys case-insensitively.
 // This handles caps lock being on: e.g. chord "ctrl+k j" still matches when
 // caps lock sends uppercase "J" as the second key.
 func matchKeyChord(kev *tcell.EventKey, gk GlobalKeyBinding) bool {
+	if folded, ok := foldCtrlEvent(kev); ok {
+		return folded == normalizeKey(gk.Key) && gk.Key != tcell.KeyRune && kev.Modifiers() == gk.Mod
+	}
 	if gk.Key != tcell.KeyRune {
-		return kev.Key() == gk.Key && kev.Modifiers() == gk.Mod
+		return normalizeKey(kev.Key()) == normalizeKey(gk.Key) && kev.Modifiers() == gk.Mod
 	}
 	return kev.Key() == tcell.KeyRune &&
-		unicode.ToLower(kev.Rune()) == unicode.ToLower(gk.Rune) &&
+		unicode.ToLower(term.KeyRune(kev)) == unicode.ToLower(gk.Rune) &&
 		kev.Modifiers() == gk.Mod
 }
 

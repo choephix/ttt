@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type TabItem struct {
@@ -300,7 +300,7 @@ func (t *TabsWidget) handleKey(ev *tcell.EventKey) EventResult {
 		t.selected = (t.selected + 1) % n
 		return EventConsumed
 	case tcell.KeyEnter, tcell.KeyRune:
-		if ev.Key() == tcell.KeyRune && ev.Rune() != ' ' {
+		if ev.Key() == tcell.KeyRune && term.KeyRune(ev) != ' ' {
 			return EventIgnored
 		}
 		if t.isHidden(t.selected) {

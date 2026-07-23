@@ -3,7 +3,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 
 	"github.com/eugenioenko/ttt/internal/ui"
 )
@@ -16,7 +16,7 @@ func TestKeyInterceptorBlocksRune(t *testing.T) {
 
 	intercepted := false
 	h.app.Root.KeyInterceptor = func(ev *tcell.EventKey) bool {
-		if ev.Key() == tcell.KeyRune && ev.Rune() == 'j' {
+		if ev.Key() == tcell.KeyRune && ev.Str() == "j" {
 			intercepted = true
 			return true
 		}

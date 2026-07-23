@@ -3,15 +3,15 @@ package widgets
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func tabEvent() *tcell.EventKey {
-	return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	return tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone)
 }
 
 func shiftTabEvent() *tcell.EventKey {
-	return tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModShift)
+	return tcell.NewEventKey(tcell.KeyBacktab, "", tcell.ModShift)
 }
 
 func TestFocusManagerCollect(t *testing.T) {
@@ -120,7 +120,7 @@ func TestFocusManagerKeyRouting(t *testing.T) {
 	fm.SetActive(true)
 	fm.Collect(hs)
 
-	enterEv := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	enterEv := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	fm.HandleEvent(enterEv)
 
 	if !triggered {

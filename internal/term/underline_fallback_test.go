@@ -3,14 +3,14 @@ package term
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // A UlStyle whose style defines no underline of its own must still render a
 // curly squiggle, coloured by the style's foreground. This is what lets a
 // plugin pass an arbitrary named colour style for a diagnostic.
 func TestUlStyleForcesCurlyForPlainStyle(t *testing.T) {
-	sim := tcell.NewSimulationScreen("")
+	sim := NewSimScreen()
 	if err := sim.Init(); err != nil {
 		t.Fatalf("sim init: %v", err)
 	}
