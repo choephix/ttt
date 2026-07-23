@@ -1,8 +1,11 @@
 package ui
 
 import (
-	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
@@ -10,7 +13,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/terminal"
 
 	"github.com/eugenioenko/vt10x"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type TerminalColorPalette struct {
@@ -24,6 +27,26 @@ type termSelPos struct {
 	Line, Col int // Line = unified index (0 = oldest scrollback)
 }
 
+type linkSpan struct {
+	StartCol int
+	EndCol   int // exclusive
+	URL      string
+	IsFile   bool
+	FilePath string
+	Line     int // 1-based line number for file links (0 = no line)
+	Col      int // 1-based column number for file links (0 = no column)
+}
+
+var (
+	urlRe      = regexp.MustCompile(`https?://[^\s)>\]'"` + "`" + `]+`)
+	fileLineRe = regexp.MustCompile(`(?:^|[\s(])([^\s:*?"<>|]+):(\d+)(?::(\d+))?`)
+)
+
+// linkMemoMax bounds the per-widget link detection memo. When the memo grows
+// past this many unique line texts it is reset, so long sessions with lots of
+// distinct output do not accumulate memory indefinitely.
+const linkMemoMax = 512
+
 type TerminalWidget struct {
 	BaseWidget
 	Term         *terminal.Terminal
@@ -35,6 +58,13 @@ type TerminalWidget struct {
 	hasSelection bool
 	selAnchor    termSelPos
 	selCurrent   termSelPos
+
+	OnOpenURL  func(url string)
+	OnOpenFile func(path string, line, col int)
+	WorkDir    string
+	ctrlHeld   bool
+	linkCache  map[int][]linkSpan
+	linkMemo   map[string][]linkSpan
 }
 
 func NewTerminalWidget(t *terminal.Terminal, palette *TerminalColorPalette) *TerminalWidget {
@@ -77,6 +107,174 @@ func (tw *TerminalWidget) CursorPosition() (x, y int, visible bool) {
 	return r.X + cx, r.Y + cy, tw.focused
 }
 
+func byteToRunePos(s string, byteIdx int) int {
+	return len([]rune(s[:byteIdx]))
+}
+
+func detectLinks(text string, workDir string) []linkSpan {
+	var spans []linkSpan
+
+	for _, loc := range urlRe.FindAllStringIndex(text, -1) {
+		url := text[loc[0]:loc[1]]
+		for len(url) > 0 {
+			last := url[len(url)-1]
+			if last == '.' || last == ',' || last == ';' || last == ':' {
+				url = url[:len(url)-1]
+			} else {
+				break
+			}
+		}
+		startCol := byteToRunePos(text, loc[0])
+		endCol := startCol + len([]rune(url))
+		spans = append(spans, linkSpan{
+			StartCol: startCol,
+			EndCol:   endCol,
+			URL:      url,
+		})
+	}
+
+	for _, match := range fileLineRe.FindAllStringSubmatchIndex(text, -1) {
+		filePath := text[match[2]:match[3]]
+		lineStr := text[match[4]:match[5]]
+		lineNum, err := strconv.Atoi(lineStr)
+		if err != nil {
+			continue
+		}
+
+		resolvedPath := resolveFilePath(filePath, workDir)
+		if resolvedPath == "" {
+			continue
+		}
+
+		spanEnd := match[5]
+		colNum := 0
+		if match[6] != -1 {
+			spanEnd = match[7]
+			if c, err := strconv.Atoi(text[match[6]:match[7]]); err == nil {
+				colNum = c
+			}
+		}
+
+		startCol := byteToRunePos(text, match[2])
+		endCol := byteToRunePos(text, spanEnd)
+		overlaps := false
+		for _, existing := range spans {
+			if startCol < existing.EndCol && endCol > existing.StartCol {
+				overlaps = true
+				break
+			}
+		}
+		if overlaps {
+			continue
+		}
+
+		spans = append(spans, linkSpan{
+			StartCol: startCol,
+			EndCol:   endCol,
+			IsFile:   true,
+			FilePath: resolvedPath,
+			Line:     lineNum,
+			Col:      colNum,
+		})
+	}
+
+	return spans
+}
+
+func resolveFilePath(path string, workDir string) string {
+	if path == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			path = filepath.Join(home, path[2:])
+		}
+	}
+
+	if filepath.IsAbs(path) {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+		return ""
+	}
+
+	if workDir != "" {
+		abs := filepath.Join(workDir, path)
+		if _, err := os.Stat(abs); err == nil {
+			return abs
+		}
+	}
+
+	return ""
+}
+
+func extractLineText(view vt10x.View, unifiedLine int, maxCols int) string {
+	cols, rows := view.Size()
+	if maxCols > cols {
+		maxCols = cols
+	}
+	sbLen := view.ScrollbackLen()
+
+	var sb strings.Builder
+	if unifiedLine < sbLen {
+		sl := view.ScrollbackLine(unifiedLine)
+		for x := 0; x < maxCols; x++ {
+			if sl != nil && x < len(sl) {
+				ch := sl[x].Char
+				if ch == 0 {
+					ch = ' '
+				}
+				sb.WriteRune(ch)
+			} else {
+				sb.WriteByte(' ')
+			}
+		}
+	} else {
+		liveRow := unifiedLine - sbLen
+		if liveRow >= 0 && liveRow < rows {
+			for x := 0; x < maxCols; x++ {
+				ch := view.Cell(x, liveRow).Char
+				if ch == 0 {
+					ch = ' '
+				}
+				sb.WriteRune(ch)
+			}
+		}
+	}
+	return sb.String()
+}
+
+// linksForLine returns the link spans for a line of terminal text, memoized
+// by the line's text. Detection runs the regexes plus an os.Stat per file
+// candidate, so caching per unique text keeps Render cheap while Ctrl is held
+// (unchanged lines cost a map lookup per frame instead of stats).
+func (tw *TerminalWidget) linksForLine(text string) []linkSpan {
+	if spans, ok := tw.linkMemo[text]; ok {
+		return spans
+	}
+	if tw.linkMemo == nil || len(tw.linkMemo) >= linkMemoMax {
+		tw.linkMemo = make(map[string][]linkSpan)
+	}
+	spans := detectLinks(text, tw.WorkDir)
+	tw.linkMemo[text] = spans
+	return spans
+}
+
+func (tw *TerminalWidget) linkAt(unifiedLine, col int) *linkSpan {
+	spans, ok := tw.linkCache[unifiedLine]
+	if !ok {
+		return nil
+	}
+	for i := range spans {
+		if col >= spans[i].StartCol && col < spans[i].EndCol {
+			return &spans[i]
+		}
+	}
+	return nil
+}
+
 func (tw *TerminalWidget) ScrollToBottom() {
 	tw.scrollOffset = 0
 }
@@ -107,9 +305,20 @@ func (tw *TerminalWidget) Render(surface Surface) {
 			contentW = w - 1
 		}
 
+		if tw.ctrlHeld {
+			tw.linkCache = make(map[int][]linkSpan)
+		} else {
+			tw.linkCache = nil
+		}
+
 		if tw.scrollOffset == 0 {
 			for y := 0; y < h && y < rows; y++ {
 				unifiedLine := sbLen + y
+				if tw.ctrlHeld {
+					lineText := extractLineText(view, unifiedLine, contentW)
+					tw.linkCache[unifiedLine] = tw.linksForLine(lineText)
+				}
+
 				for x := 0; x < contentW && x < cols; x++ {
 					c := tw.glyphToCell(view.Cell(x, y))
 					if tw.isCellSelected(unifiedLine, x) {
@@ -120,6 +329,8 @@ func (tw *TerminalWidget) Render(surface Surface) {
 						if !c.Bg.Set {
 							c.Bg = tw.Palette.Fg
 						}
+					} else if tw.linkAt(unifiedLine, x) != nil {
+						c.Attrs |= term.CellAttrUnderline
 					}
 					surface.SetCell(x, y, c)
 				}
@@ -132,6 +343,11 @@ func (tw *TerminalWidget) Render(surface Surface) {
 
 			for screenY := 0; screenY < h; screenY++ {
 				srcLine := startLine + screenY
+				if tw.ctrlHeld {
+					lineText := extractLineText(view, srcLine, contentW)
+					tw.linkCache[srcLine] = tw.linksForLine(lineText)
+				}
+
 				if srcLine < sbLen {
 					sl := view.ScrollbackLine(srcLine)
 					for x := 0; x < contentW; x++ {
@@ -149,6 +365,8 @@ func (tw *TerminalWidget) Render(surface Surface) {
 							if !c.Bg.Set {
 								c.Bg = tw.Palette.Fg
 							}
+						} else if tw.linkAt(srcLine, x) != nil {
+							c.Attrs |= term.CellAttrUnderline
 						}
 						surface.SetCell(x, screenY, c)
 					}
@@ -165,6 +383,8 @@ func (tw *TerminalWidget) Render(surface Surface) {
 								if !c.Bg.Set {
 									c.Bg = tw.Palette.Fg
 								}
+							} else if tw.linkAt(srcLine, x) != nil {
+								c.Attrs |= term.CellAttrUnderline
 							}
 							surface.SetCell(x, screenY, c)
 						}
@@ -295,6 +515,8 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 	case *tcell.EventMouse:
+		tw.ctrlHeld = tev.Modifiers()&tcell.ModCtrl != 0
+
 		if newTop, consumed := tw.scrollbar.HandleEvent(ev); consumed {
 			sbLen := tw.Term.ScrollbackLen()
 			tw.scrollOffset = sbLen - newTop
@@ -317,6 +539,18 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 			return EventConsumed
 		}
 		if btn&tcell.Button1 != 0 {
+			if tw.ctrlHeld {
+				pos := tw.screenToLine(mx, my)
+				if link := tw.linkAt(pos.Line, pos.Col); link != nil {
+					if link.IsFile && tw.OnOpenFile != nil {
+						tw.OnOpenFile(link.FilePath, link.Line, link.Col)
+					} else if !link.IsFile && tw.OnOpenURL != nil {
+						tw.OnOpenURL(link.URL)
+					}
+					return EventConsumed
+				}
+			}
+
 			pos := tw.screenToLine(mx, my)
 			if !tw.selecting {
 				tw.selecting = true
@@ -472,10 +706,22 @@ func (tw *TerminalWidget) scrollDown(n int) {
 func keyToVT(ev *tcell.EventKey) string {
 	if ev.Key() == tcell.KeyRune {
 		mod := ev.Modifiers()
-		if mod&tcell.ModAlt != 0 {
-			return fmt.Sprintf("\x1b%c", ev.Rune())
+		// tcell v3 reports ctrl+non-letter printables (ctrl+space, ctrl+/,
+		// ctrl+`...) as KeyRune with ModCtrl instead of folding them into
+		// control-key constants. Encode them as the control byte the shell
+		// expects rather than the literal character.
+		if mod&tcell.ModCtrl != 0 {
+			if ctrl, ok := ctrlByteForRune(term.KeyRune(ev)); ok {
+				if mod&tcell.ModAlt != 0 {
+					return "\x1b" + ctrl
+				}
+				return ctrl
+			}
 		}
-		return string(ev.Rune())
+		if mod&tcell.ModAlt != 0 {
+			return "\x1b" + term.KeyStr(ev)
+		}
+		return term.KeyStr(ev)
 	}
 
 	switch ev.Key() {
@@ -540,6 +786,27 @@ func keyToVT(ev *tcell.EventKey) string {
 	}
 
 	return ""
+}
+
+// ctrlByteForRune maps a printable character typed with Ctrl held to the
+// ASCII control byte a terminal would traditionally emit (ch & 0x1F for
+// @ A-Z a-z [ \ ] ^ _, NUL for space and backtick, DEL for ?).
+func ctrlByteForRune(r rune) (string, bool) {
+	switch {
+	case r == ' ', r == '`', r == '@':
+		return "\x00", true
+	case r >= 'a' && r <= 'z':
+		return string(rune(r - 'a' + 1)), true
+	case r >= 'A' && r <= 'Z':
+		return string(rune(r - 'A' + 1)), true
+	case r == '[', r == '\\', r == ']', r == '^', r == '_':
+		return string(rune(r & 0x1f)), true
+	case r == '/':
+		return "\x1f", true
+	case r == '?':
+		return "\x7f", true
+	}
+	return "", false
 }
 
 func ParseHexColor(hex string) term.DirectColor {

@@ -229,7 +229,10 @@ func (e *EditorPaneWidget) multiExecEnter() {
 			e.adjustLaterCursors(i, start, end)
 		}
 		cs.Line = e.Buf.ClampLine(cs.Line)
-		indent := leadingWhitespace(e.Buf.Lines[cs.Line])
+		indent := ""
+		if e.AutoIndent {
+			indent = leadingWhitespace(e.Buf.Lines[cs.Line])
+		}
 		cmd := &undo.SplitLineCommand{Line: cs.Line, Col: cs.Col}
 		cmd.Apply(e.Buf)
 		cmds = append(cmds, cmd)

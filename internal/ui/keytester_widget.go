@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type KeyTesterWidget struct {
@@ -119,7 +119,7 @@ func (k *KeyTesterWidget) describeKey(kev *tcell.EventKey) string {
 	if name := specialKeyName(key); name != "" {
 		parts = append(parts, name)
 	} else if key == tcell.KeyRune {
-		r := kev.Rune()
+		r := term.KeyRune(kev)
 		if r == ' ' {
 			parts = append(parts, "space")
 		} else {
@@ -157,7 +157,7 @@ func (k *KeyTesterWidget) makeLines(combo string, kev *tcell.EventKey) []string 
 	}
 
 	lines = append(lines, fmt.Sprintf("Key: %d  Rune: %q  Mod: %d",
-		kev.Key(), string(kev.Rune()), kev.Modifiers()))
+		kev.Key(), string(term.KeyRune(kev)), kev.Modifiers()))
 	lines = append(lines, "")
 	lines = append(lines, "Press next key for chord, or new combo")
 	return lines

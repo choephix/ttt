@@ -6,7 +6,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/ui"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 var menuBarLabels = []string{
@@ -27,7 +27,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Open Workspace", Command: "workspace.open"},
 		{Label: "Save Workspace", Command: "workspace.save"},
 		ui.MenuSep(),
-		{Label: "Review PR", Command: "pr.review"},
+		{Label: "Open PR Diff", Command: "pr.openDiff"},
 		ui.MenuSep(),
 		{Label: "Quit", Command: "editor.quit"},
 	},
@@ -66,6 +66,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Toggle Terminal", Command: "terminal.toggle"},
 		{Label: "New Terminal", Command: "terminal.new"},
 		ui.MenuSep(),
+		{Label: "Settings", Command: "settings.openUI"},
 		{Label: "Keyboard Shortcuts", Command: "view.keybindings"},
 	},
 	// Options (placeholder — replaced dynamically by openMenuBarDropdown)

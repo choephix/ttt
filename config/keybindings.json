@@ -67,6 +67,7 @@
   { "key": "ctrl+k b", "command": "panel.toggle" },
   { "key": "ctrl+k j", "command": "editor.joinLines" },
   { "key": "ctrl+k y", "command": "view.keybindings" },
+  { "key": "ctrl+k ,", "command": "settings.openUI" },
   { "key": "ctrl+t", "command": "terminal.toggle" },
   { "key": "alt+t", "command": "terminal.fullscreen" },
   { "key": "f6", "command": "focus.nextGroup" },

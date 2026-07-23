@@ -150,6 +150,9 @@ func TestDefaultEditorSettings(t *testing.T) {
 	if e.BracketPairColorization {
 		t.Error("expected BracketPairColorization false by default")
 	}
+	if !e.IsShowTrailingNewlineEnabled() {
+		t.Error("expected ShowTrailingNewline true by default (nil)")
+	}
 }
 
 func TestDefaultTerminalSettings(t *testing.T) {
@@ -225,5 +228,60 @@ func TestReferenceSettingsMatchesDefaults(t *testing.T) {
 		t.Errorf("config/settings.json is out of date with DefaultSettings().\n"+
 			"Regenerate it by running DefaultSettings() with theme='default-dark' and saving the output.\n"+
 			"Got %d bytes, want %d bytes", len(refData), len(generated))
+	}
+}
+
+// TestSettingsPreservesPluginKeys verifies that top-level keys outside the core
+// schema (e.g. plugin-namespaced "vim") survive a load/marshal roundtrip via the
+// Extra catch-all. Without this, ttt.settings.get/set could never read or persist
+// plugin settings such as vim.enabled.
+func TestSettingsPreservesPluginKeys(t *testing.T) {
+	raw := []byte(`{"version":1,"vim":{"enabled":false,"clipboard":true}}`)
+
+	var s Settings
+	if err := json.Unmarshal(raw, &s); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if s.Extra["vim"] == nil {
+		t.Fatal("expected vim key captured in Extra")
+	}
+
+	out, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatalf("re-unmarshal: %v", err)
+	}
+	vim, ok := m["vim"].(map[string]any)
+	if !ok {
+		t.Fatalf("vim key not preserved through marshal, got: %s", out)
+	}
+	if vim["enabled"] != false {
+		t.Errorf("expected vim.enabled=false, got %v", vim["enabled"])
+	}
+	if vim["clipboard"] != true {
+		t.Errorf("expected vim.clipboard=true, got %v", vim["clipboard"])
+	}
+}
+
+// TestSettingsEmptyExtraByteIdentical guards that with no plugin keys present the
+// custom MarshalJSON produces exactly the plain struct encoding (field ordering
+// preserved), which the settings-roundtrip relies on.
+func TestSettingsEmptyExtraByteIdentical(t *testing.T) {
+	s := DefaultSettings()
+	s.Theme = "default-dark"
+	got, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	type alias Settings
+	want, err := json.Marshal(alias(s))
+	if err != nil {
+		t.Fatalf("marshal alias: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("empty-Extra MarshalJSON diverged from struct encoding:\n got: %s\nwant: %s", got, want)
 	}
 }

@@ -9,7 +9,13 @@ import (
 
 // SupportedAPIVersion is the plugin API version this editor implements.
 // Manifests without an "api" field are assumed to target version 1.
-const SupportedAPIVersion = 1
+//
+// v2 (ttt 1.1.0) adds the plugin key interceptor's precedence over Escape and
+// chords, the ttt.command_line API, and plugin-namespaced settings. A plugin
+// that needs any of these declares "api": 2; older builds (which only know v1)
+// already reject it via the check in LoadManifest, so it fails cleanly instead
+// of loading into a broken half-state.
+const SupportedAPIVersion = 2
 
 type Manifest struct {
 	Name        string        `json:"name"`

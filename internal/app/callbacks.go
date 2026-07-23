@@ -13,7 +13,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func (a *App) ShowSidebarMoreMenu(sx, sy int) {
@@ -49,6 +49,8 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "Pull", Command: "git.pull"},
 			{Label: "Push", Command: "git.push"},
 			{Label: "Sync", Command: "git.sync"},
+			ui.MenuSep(),
+			{Label: "Open PR Diff", Command: "pr.openDiff"},
 			ui.MenuSep(),
 			{Label: "Help", Command: "changes.help"},
 		}
@@ -537,6 +539,8 @@ func registerWidgetCallbacks(app *App) {
 			ui.MenuSep(),
 			{Label: "Copy Absolute Path", Command: "explorer.copyAbsolutePath"},
 			{Label: "Copy Relative Path", Command: "explorer.copyRelativePath"},
+			ui.MenuSep(),
+			{Label: "Reveal in File Manager", Command: "explorer.reveal"},
 			ui.MenuSep(),
 			{Label: "Rename", Command: "explorer.rename"},
 			{Label: "Delete", Command: "explorer.delete"},

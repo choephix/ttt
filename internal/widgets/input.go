@@ -7,7 +7,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type InputConfig struct {
@@ -132,22 +132,11 @@ func (inp *InputWidget) renderBordered(surface Surface) {
 	if inp.focused {
 		borderStyle = term.StyleBorderActive
 	}
-	bs := inp.borders()
+	bs := widgetBorders(inp.Box)
 
 	inner.DrawBorder(0, 0, w, h, bs, borderStyle)
 
 	inp.renderText(inner, 2, 1, w-4)
-}
-
-func (inp *InputWidget) borders() term.BorderSet {
-	if inp.Box.Borders.Horizontal != 0 {
-		return inp.Box.Borders
-	}
-	return term.BorderSet{
-		Horizontal: '─', Vertical: '│',
-		TopLeft: '╭', TopRight: '╮',
-		BottomLeft: '╰', BottomRight: '╯',
-	}
 }
 
 func (inp *InputWidget) renderBorderless(surface Surface) {
@@ -257,7 +246,7 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) EventResult {
 			inp.deleteSelection()
 		}
 		runes := []rune(inp.text)
-		runes = append(runes[:inp.cursorPos], append([]rune{ev.Rune()}, runes[inp.cursorPos:]...)...)
+		runes = append(runes[:inp.cursorPos], append([]rune{term.KeyRune(ev)}, runes[inp.cursorPos:]...)...)
 		inp.text = string(runes)
 		inp.cursorPos++
 		inp.notify()

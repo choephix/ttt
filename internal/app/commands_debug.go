@@ -14,7 +14,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func registerDebugCommands(app *App) {
@@ -86,10 +86,14 @@ func (a *App) debugSimulateClick() {
 	dialog.Title = "Simulate Click"
 	dialog.Borders = *a.Borders
 	dialog.Buttons = []widgets.DialogButton{
-		{Label: "Click", Handler: func() { submit(input.Text()) }},
+		{Label: "&Click", Handler: func() { submit(input.Text()) }},
 	}
+	dialog.OnDismiss = func() { a.DismissDialog() }
 	dialog.SetContent(input)
-	a.ShowDialog(dialog)
+	dialog.Build()
+
+	adapter := ui.NewWidgetAdapter(dialog)
+	a.ShowDialog(adapter)
 }
 
 func (a *App) debugRunPlugin() {
@@ -241,8 +245,15 @@ func LoadPluginFromFile(a *App, path string) {
 			NetworkHTTP:       plugin.NetworkHTTP{All: true},
 			EventsFile:        true,
 			EventsEditor:      true,
+			Settings:          true,
+			SettingsKeys:      []string{"*"},
 		},
 	}
+
+	// Wire the settings API before init so plugins loaded via --plugin can read
+	// settings at startup, matching the production ApproveAndLoad path where
+	// wireAPIs runs before Init.
+	p.Settings = NewPluginSettingsAPI(a)
 
 	if err := p.InitFromSource(string(source)); err != nil {
 		slog.Error("init plugin from file", "path", path, "error", err)
@@ -251,6 +262,7 @@ func LoadPluginFromFile(a *App, path string) {
 
 	a.PluginManager.RegisterDebugPlugin(p)
 	a.WirePlugin(p)
+	a.ensureKeyInterceptor()
 
 	slog.Info("plugin loaded from file", "path", path, "name", name)
 }

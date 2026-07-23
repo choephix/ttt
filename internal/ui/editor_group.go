@@ -15,12 +15,13 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/undo"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/view"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type DiagnosticSeverity int
@@ -81,6 +82,7 @@ type EditorGroupWidget struct {
 	BracketPairColorization bool
 	BracketColorStyles      []term.Style
 	InsertFinalNewline      bool
+	ShowTrailingNewline     bool
 	TrimTrailingWhitespace  bool
 	Borders                 *term.BorderSet
 	OnFileOpen              func(path, lang, text string)
@@ -222,7 +224,7 @@ func (g *EditorGroupWidget) openFile(path string, pinned bool) {
 			return
 		}
 	}
-	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline, TrimTrailingWhitespace: g.TrimTrailingWhitespace}
+	newBuf := &buffer.Buffer{Lines: []string{""}, InsertFinalNewline: g.InsertFinalNewline, ShowTrailingNewline: g.ShowTrailingNewline, TrimTrailingWhitespace: g.TrimTrailingWhitespace}
 	ec := config.LoadEditorConfig(path)
 	if ec.InsertFinalNLSet {
 		newBuf.InsertFinalNewline = ec.InsertFinalNewline
@@ -511,6 +513,12 @@ func (g *EditorGroupWidget) DiffTabSources() []DiffSearchSource {
 }
 
 func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
+	// Content tabs (settings, plugin panels) own their own cursor.
+	if t := g.activeTab(); t != nil && t.Content != nil {
+		if cp, ok := t.Content.(widgets.CursorPositioner); ok {
+			return cp.CursorPosition()
+		}
+	}
 	if g.IsEditorActive() {
 		if g.Editor.isMultiActive() {
 			return 0, 0, false
@@ -933,6 +941,23 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.scrollViewport()
 }
 
+// GoToLineCol moves the cursor to a 1-based line and column. The column is
+// clamped to the line's rune length; col 0 or 1 leaves the cursor at the
+// start of the line, matching GoToLine.
+func (g *EditorGroupWidget) GoToLineCol(line, col int) {
+	g.GoToLine(line)
+	if !g.IsEditorActive() || col <= 1 {
+		return
+	}
+	lineLen := len([]rune(g.Editor.Buf.Lines[g.Editor.Cursor.Line]))
+	c := col - 1
+	if c > lineLen {
+		c = lineLen
+	}
+	g.Editor.Cursor.Col = c
+	g.Editor.scrollViewport()
+}
+
 func (g *EditorGroupWidget) ScrollToCursor() {
 	if g.IsEditorActive() {
 		g.Editor.scrollViewport()
@@ -1290,6 +1315,24 @@ func (g *EditorGroupWidget) CollapseMultiCursor() {
 	}
 }
 
+func (g *EditorGroupWidget) AddCursor(line, col int) {
+	if !g.IsEditorActive() {
+		return
+	}
+	g.Editor.ensureMulti()
+	g.Editor.syncToMulti()
+	g.Editor.Multi.Add(line, col)
+	g.Editor.syncFromMulti()
+	g.saveMultiState()
+}
+
+func (g *EditorGroupWidget) GetCursors() []multicursor.CursorState {
+	if !g.IsEditorActive() || g.Editor.Multi == nil {
+		return nil
+	}
+	return g.Editor.Multi.Cursors
+}
+
 func (g *EditorGroupWidget) Copy() {
 	t := g.activeTab()
 	if t == nil {
@@ -1299,6 +1342,10 @@ func (g *EditorGroupWidget) Copy() {
 		if text := dv.CopySelection(); text != "" {
 			clipboard.Set(text)
 		}
+		return
+	}
+	if t.Content != nil {
+		// Non-editor tab (settings UI, plugin panel, ...): no buffer to copy from.
 		return
 	}
 	if t.Sel == nil || !t.Sel.Active {

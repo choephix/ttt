@@ -38,6 +38,10 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 			i++
 			continue
 		}
+		if args[i] == "--exec-split-on" && i+1 < len(args) {
+			i++
+			continue
+		}
 		if args[i] == "--plugin" && i+1 < len(args) {
 			i++
 			continue
@@ -124,11 +128,13 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.Editor.TabSize, cfg.Settings.Editor.LineNumbers, cfg.Settings.Editor.GutterStyle)
 	editorGroup.InsertSpaces = cfg.Settings.Editor.InsertSpaces
 	editorGroup.InsertFinalNewline = cfg.Settings.Editor.InsertFinalNewline
+	editorGroup.ShowTrailingNewline = cfg.Settings.Editor.IsShowTrailingNewlineEnabled()
 	editorGroup.TrimTrailingWhitespace = cfg.Settings.Editor.TrimTrailingWhitespace
 	editorGroup.SyntaxHighlight = cfg.Settings.Editor.IsSyntaxHighlightEnabled()
 	editorGroup.WordWrap = cfg.Settings.Editor.WordWrap
 	editorGroup.Editor.WordWrap = cfg.Settings.Editor.WordWrap
 	editorGroup.Editor.AutoDedent = cfg.Settings.Editor.IsAutoDedentEnabled()
+	editorGroup.Editor.AutoIndent = cfg.Settings.Editor.IsAutoIndentEnabled()
 	editorGroup.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.Editor.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.BracketColorStyles = bracketStyles
@@ -155,7 +161,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	contentSplit.Borders = borders
 	contentSplit.ShowBottom = false
 
-	status := &view.StatusBar{FileName: editorGroup.ActiveFilePath()}
+	status := view.NewStatusBar()
 	statusBar := ui.NewStatusBarWidget(status)
 
 	menuBar := ui.NewMenuBarWidget([]ui.MenuItem{

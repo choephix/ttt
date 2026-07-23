@@ -3,6 +3,13 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"slices"
+)
+
+// Validated by normalizeSettings and used to populate the settings UI pickers.
+var (
+	GutterStyles = []string{"minimal", "compact", "extended"}
+	BorderStyles = []string{"default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none"}
 )
 
 type TerminalSettings struct {
@@ -79,9 +86,15 @@ type EditorSettings struct {
 	SyntaxHighlight         *bool  `json:"syntaxHighlight,omitempty"`
 	GitGutter               *bool  `json:"gitGutter,omitempty"`
 	AutoDedent              *bool  `json:"autoDedent,omitempty"`
+	AutoIndent              *bool  `json:"autoIndent,omitempty"`
 	GutterStyle             string `json:"gutterStyle,omitempty"`
 	BorderStyle             string `json:"borderStyle,omitempty"`
 	BracketPairColorization bool   `json:"bracketPairColorization"`
+	ShowTrailingNewline     *bool  `json:"showTrailingNewline,omitempty"`
+}
+
+func (e EditorSettings) IsShowTrailingNewlineEnabled() bool {
+	return e.ShowTrailingNewline == nil || *e.ShowTrailingNewline
 }
 
 func (e EditorSettings) IsSyntaxHighlightEnabled() bool {
@@ -94,6 +107,10 @@ func (e EditorSettings) IsGitGutterEnabled() bool {
 
 func (e EditorSettings) IsAutoDedentEnabled() bool {
 	return e.AutoDedent == nil || *e.AutoDedent
+}
+
+func (e EditorSettings) IsAutoIndentEnabled() bool {
+	return e.AutoIndent == nil || *e.AutoIndent
 }
 
 func DefaultEditorSettings() EditorSettings {
@@ -149,18 +166,80 @@ func DefaultMarkdownSettings() MarkdownSettings {
 }
 
 type Settings struct {
-	Version      int                  `json:"version"`
-	Theme        string               `json:"theme,omitempty"`
-	DebugMode    bool                 `json:"debugMode,omitempty"`
-	Editor       EditorSettings       `json:"editor,omitzero"`
-	Search       SearchSettings       `json:"search,omitzero"`
-	Explorer     ExplorerSettings     `json:"explorer,omitzero"`
-	Terminal     TerminalSettings     `json:"terminal,omitzero"`
-	LSP          LSPSettings          `json:"lsp,omitzero"`
-	Autocomplete AutocompleteSettings `json:"autocomplete,omitzero"`
-	Plugins      PluginSettings       `json:"plugins,omitzero"`
-	Markdown     MarkdownSettings     `json:"markdown,omitzero"`
-	Formatters   map[string]string    `json:"formatters,omitempty"`
+	Version   int    `json:"version"`
+	Theme     string `json:"theme,omitempty"`
+	DebugMode bool   `json:"debugMode,omitempty"`
+	// These sections must NOT use omitzero: their defaults are non-zero, so an
+	// all-false/all-zero section would be omitted on save and silently revert to
+	// the defaults on the next load.
+	Editor       EditorSettings       `json:"editor"`
+	Search       SearchSettings       `json:"search"`
+	Explorer     ExplorerSettings     `json:"explorer"`
+	Terminal     TerminalSettings     `json:"terminal"`
+	LSP          LSPSettings          `json:"lsp"`
+	Autocomplete AutocompleteSettings `json:"autocomplete"`
+	Markdown     MarkdownSettings     `json:"markdown"`
+	// Plugins is safe: its only field is a tri-state *bool where nil means the
+	// default, so the zero value and "unset" mean the same thing.
+	Plugins    PluginSettings    `json:"plugins,omitzero"`
+	Formatters map[string]string `json:"formatters,omitempty"`
+	// Extra holds top-level keys that are not part of the core schema — chiefly
+	// plugin-namespaced settings (e.g. "vim"). Without this, json.Unmarshal into
+	// the struct would silently drop them, making ttt.settings.get/set unusable
+	// for plugins. It is populated/emitted by the custom (Un)MarshalJSON below.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// knownSettingsKeys is the set of top-level JSON keys owned by the core schema.
+// Any other top-level key is preserved via Settings.Extra.
+var knownSettingsKeys = map[string]bool{
+	"version": true, "theme": true, "debugMode": true, "editor": true,
+	"search": true, "explorer": true, "terminal": true, "lsp": true,
+	"autocomplete": true, "markdown": true, "plugins": true, "formatters": true,
+}
+
+func (s Settings) MarshalJSON() ([]byte, error) {
+	type alias Settings
+	base, err := json.Marshal(alias(s))
+	if err != nil {
+		return nil, err
+	}
+	if len(s.Extra) == 0 {
+		// Byte-identical to the plain struct encoding — keeps field ordering
+		// stable for the settings-roundtrip test when no plugin keys are present.
+		return base, nil
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(base, &m); err != nil {
+		return nil, err
+	}
+	for k, v := range s.Extra {
+		if !knownSettingsKeys[k] {
+			m[k] = v
+		}
+	}
+	return json.Marshal(m)
+}
+
+func (s *Settings) UnmarshalJSON(data []byte) error {
+	type alias Settings
+	aux := (*alias)(s)
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	for k, v := range m {
+		if !knownSettingsKeys[k] {
+			if s.Extra == nil {
+				s.Extra = make(map[string]json.RawMessage)
+			}
+			s.Extra[k] = v
+		}
+	}
+	return nil
 }
 
 func DefaultSettings() Settings {
@@ -184,14 +263,10 @@ func (s Settings) FormatterForExt(ext string) string {
 }
 
 func normalizeSettings(s *Settings) {
-	switch s.Editor.GutterStyle {
-	case "minimal", "compact", "extended":
-	default:
+	if !slices.Contains(GutterStyles, s.Editor.GutterStyle) {
 		s.Editor.GutterStyle = "compact"
 	}
-	switch s.Editor.BorderStyle {
-	case "default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none":
-	default:
+	if !slices.Contains(BorderStyles, s.Editor.BorderStyle) {
 		s.Editor.BorderStyle = "default"
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // clickableWidget is a test helper that consumes mouse clicks inside its rect.
@@ -362,7 +362,7 @@ func TestVStackRenderChildrenWithStyle(t *testing.T) {
 
 func TestVStackEmptyHandleEventReturnsIgnored(t *testing.T) {
 	vs := NewVStackWidget()
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := vs.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("empty VStack should return EventIgnored")

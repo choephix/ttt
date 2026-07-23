@@ -22,7 +22,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/eugenioenko/ttt/internal/workspace"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 const terminalStripWidth = ui.VerticalTabBarWidth
@@ -85,6 +85,12 @@ type App struct {
 	Output                 *ui.OutputWidget
 	pluginDetailWidgets    map[string]*pluginDetailState
 	pluginDrawer           ui.Widget
+	commandLine            *ui.CommandLineWidget
+	commandLinePrevFocus   ui.Widget
+	settingsView           *settingsView
+	// appliedSettings is the last value ApplySettings acted on. Callers routinely
+	// mutate a.Settings before calling it, so a.Settings cannot serve as "before".
+	appliedSettings config.Settings
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -224,6 +230,18 @@ func (a *App) SpawnTerminal() {
 	}
 
 	tw := ui.NewTerminalWidget(t, a.Palette)
+	tw.WorkDir = a.Workspace.Primary()
+	tw.OnOpenURL = func(url string) {
+		OpenURL(url)
+	}
+	tw.OnOpenFile = func(path string, line, col int) {
+		a.EditorGroup.OpenFile(path)
+		if line > 0 {
+			a.EditorGroup.GoToLineCol(line, col)
+		}
+		a.FocusEditor()
+	}
+
 	panelID := fmt.Sprintf("terminal-%d", len(a.Terminals))
 	a.Terminals = append(a.Terminals, TerminalTab{ID: panelID, Term: t, Widget: tw})
 	a.TerminalPanel.AddTerminal(tw)
@@ -407,6 +425,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	}
 	a.EditorGroup.OnContentTabClose = func(id string) {
 		a.cleanupPluginDetailTab(id)
+		a.cleanupSettingsTab(id)
 	}
 	if path := a.EditorGroup.ActiveFilePath(); path != "" {
 		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {

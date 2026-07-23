@@ -4,6 +4,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
 )
 
@@ -159,8 +160,8 @@ func registerPaletteCommands(app *App) {
 		Handler:  app.ShowThemePicker,
 	})
 
-	app.StatusBar.OnIndentClick = app.ShowIndentPicker
-	app.StatusBar.OnEolClick = app.ShowEolPicker
+	app.Status.SetSegment(view.StatusSegment{ID: "indent", Side: "right", Priority: 200, OnClick: app.ShowIndentPicker})
+	app.Status.SetSegment(view.StatusSegment{ID: "eol", Side: "right", Priority: 400, OnClick: app.ShowEolPicker})
 
 	reg.Register(command.Command{
 		ID: "editor.indentation", Title: "Change Indentation",
@@ -172,6 +173,24 @@ func registerPaletteCommands(app *App) {
 		ID: "editor.lineEnding", Title: "Change Line Ending",
 		Keywords: []string{"editor", "preferences", "settings", "eol", "crlf", "lf"},
 		Handler:  app.ShowEolPicker,
+	})
+
+	reg.Register(command.Command{
+		ID: "settings.openUI", Title: "Settings: Open Editor Settings",
+		Keywords: []string{"preferences", "settings", "configuration", "options", "ui"},
+		Handler:  app.ShowSettings,
+	})
+
+	reg.Register(command.Command{
+		ID: "settings.apply", Title: "Settings: Apply Changes",
+		Keywords: []string{"preferences", "settings", "save"},
+		Handler:  app.ApplySettingsView,
+	})
+
+	reg.Register(command.Command{
+		ID: "settings.cancel", Title: "Settings: Discard Changes",
+		Keywords: []string{"preferences", "settings", "revert", "cancel", "close"},
+		Handler:  app.CancelSettingsView,
 	})
 
 	reg.Register(command.Command{

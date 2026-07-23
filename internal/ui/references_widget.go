@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type ReferenceItem struct {

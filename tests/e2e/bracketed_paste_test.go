@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func pasteText(h *testHarness, events []*tcell.EventKey) {
@@ -21,9 +21,9 @@ func pasteKeys(runes string) []*tcell.EventKey {
 	var events []*tcell.EventKey
 	for _, r := range runes {
 		if r == '\n' {
-			events = append(events, tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+			events = append(events, tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 		} else {
-			events = append(events, tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+			events = append(events, tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 		}
 	}
 	return events

@@ -11,9 +11,10 @@ import (
 	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func registerPluginCommands(app *App) {
@@ -373,6 +374,44 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 			a.StatusNotify(message)
 		}
 	}
+	p.SetStatusItem = func(side, id, text string, priority int, onClick func()) {
+		a.Status.SetSegment(view.StatusSegment{
+			ID:       id,
+			Side:     side,
+			Priority: priority,
+			Text:     text,
+			OnClick:  onClick,
+		})
+	}
+	p.RemoveStatusItem = func(id string) {
+		a.Status.RemoveSegment(id)
+	}
+	p.ExecCommand = func(id string) bool {
+		return a.Reg.Execute(id)
+	}
+	p.ShowCommandLine = func(prefix, text string, onChange, onSubmit func(string), onCancel func()) {
+		w := a.ShowCommandLine(prefix, onChange, onSubmit, onCancel)
+		if w != nil && text != "" {
+			w.SetText(text)
+		}
+	}
+	p.HideCommandLine = func() {
+		a.HideCommandLine()
+	}
+	p.SetCommandLineText = func(text string) {
+		a.SetCommandLineText(text)
+	}
+	p.CommandLineActive = func() bool {
+		return a.CommandLineActive()
+	}
+	p.ListCommands = func() []plugin.CommandInfo {
+		cmds := a.Reg.List()
+		result := make([]plugin.CommandInfo, len(cmds))
+		for i, cmd := range cmds {
+			result[i] = plugin.CommandInfo{ID: cmd.ID, Title: cmd.Title}
+		}
+		return result
+	}
 	p.PostAsync = func(result *plugin.PluginAsyncResult) {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(result))
 	}
@@ -566,6 +605,19 @@ func (a *App) registerPluginCommandsAndKeys(p *plugin.Plugin) {
 func (a *App) RegisterStartupPluginCommands() {
 	for _, p := range a.PluginManager.Plugins() {
 		a.WirePlugin(p)
+	}
+	a.ensureKeyInterceptor()
+}
+
+func (a *App) ensureKeyInterceptor() {
+	if a.Root.KeyInterceptor != nil {
+		return
+	}
+	a.Root.KeyInterceptor = func(ev *tcell.EventKey) bool {
+		if a.Root.Focused != a.EditorGroup {
+			return false
+		}
+		return a.PluginManager.DispatchKeyEvent(ev)
 	}
 }
 

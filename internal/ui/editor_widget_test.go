@@ -8,7 +8,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/view"
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newTestEditor() *EditorPaneWidget {
@@ -43,17 +43,17 @@ func TestEditorArrowKeys(t *testing.T) {
 	e := newTestEditor()
 	e.SetRect(Rect{X: 0, Y: 0, W: 20, H: 10})
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyDown, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyDown, "", 0))
 	if e.Cursor.Line != 1 {
 		t.Fatalf("expected line 1, got %d", e.Cursor.Line)
 	}
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", 0))
 	if e.Cursor.Col != 1 {
 		t.Fatalf("expected col 1, got %d", e.Cursor.Col)
 	}
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyUp, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyUp, "", 0))
 	if e.Cursor.Line != 0 {
 		t.Fatalf("expected line 0, got %d", e.Cursor.Line)
 	}
@@ -63,7 +63,7 @@ func TestEditorTypeCharacter(t *testing.T) {
 	e := newTestEditor()
 	e.SetRect(Rect{X: 0, Y: 0, W: 20, H: 10})
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, 'X', 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRune, "X", 0))
 	if e.Buf.Lines[0] != "XHello" {
 		t.Fatalf("expected 'XHello', got '%s'", e.Buf.Lines[0])
 	}
@@ -102,12 +102,12 @@ func TestEditorHomeEnd(t *testing.T) {
 	e := newTestEditor()
 	e.Cursor.Col = 3
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyHome, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyHome, "", 0))
 	if e.Cursor.Col != 0 {
 		t.Fatalf("Home: expected col 0, got %d", e.Cursor.Col)
 	}
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnd, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnd, "", 0))
 	if e.Cursor.Col != 5 {
 		t.Fatalf("End: expected col 5, got %d", e.Cursor.Col)
 	}
@@ -117,7 +117,7 @@ func TestEditorBackspace(t *testing.T) {
 	e := newTestEditor()
 	e.Cursor.Col = 2
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyBackspace2, "", 0))
 	if e.Buf.Lines[0] != "Hllo" {
 		t.Fatalf("expected 'Hllo', got '%s'", e.Buf.Lines[0])
 	}
@@ -127,7 +127,7 @@ func TestEditorEnter(t *testing.T) {
 	e := newTestEditor()
 	e.Cursor.Col = 3
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", 0))
 	if e.Buf.Lines[0] != "Hel" {
 		t.Fatalf("expected 'Hel', got '%s'", e.Buf.Lines[0])
 	}
@@ -146,9 +146,9 @@ func TestEditorSelectionHighlight(t *testing.T) {
 
 	// Select "ell" in "Hello" via Shift+Right from col 1
 	e.Cursor.Col = 1
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModShift))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModShift))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModShift))
 
 	if !e.Selection.Active {
 		t.Fatal("selection should be active")

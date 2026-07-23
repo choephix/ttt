@@ -30,6 +30,8 @@ type EditorAPI interface {
 	BufferText() string
 	BufferLines() []string
 	CurrentLine() string
+	GetLine(n int) string
+	LineCount() int
 	CursorPos() (line, col int)
 	Selection() (active bool, startLine, startCol, endLine, endCol int)
 	SelectionText() string
@@ -37,11 +39,30 @@ type EditorAPI interface {
 	FileName() string
 	Language() string
 
+	Viewport() (topLine, bottomLine, height int)
+	ScrollTo(line int)
+	ScrollBy(delta int)
+
 	Insert(line, col int, text string)
+	SetLine(line int, text string)
 	Replace(startLine, startCol, endLine, endCol int, text string)
 	SetCursor(line, col int)
 	SetSelection(startLine, startCol, endLine, endCol int)
 	ClearSelection()
+	BeginUndoGroup()
+	EndUndoGroup()
+
+	AddCursor(line, col int)
+	GetCursors() []CursorPosition
+	ClearCursors()
+
+	SetSearch(pattern string, useRegex bool)
+	ClearSearch()
+}
+
+type CursorPosition struct {
+	Line int
+	Col  int
 }
 
 type FileEntry struct {
@@ -57,7 +78,9 @@ type FilesystemAPI interface {
 }
 
 type SystemAPI interface {
-	Exec(binary string, args []string) (stdout, stderr string, exitCode int, err error)
+	// Exec runs binary with args, writing stdin to the child's standard input
+	// (nothing is written when stdin is empty).
+	Exec(binary string, args []string, stdin string) (stdout, stderr string, exitCode int, err error)
 	Env(name string) string
 }
 

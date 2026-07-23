@@ -4,7 +4,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/term"
 	"log/slog"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 const DefaultSidebarWidth = 30

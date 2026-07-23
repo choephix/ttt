@@ -81,8 +81,17 @@ type Plugin struct {
 	QuitApp            func()
 	OpenFile           func(path string, line int)
 	Notify             func(message, level string)
+	SetStatusItem      func(side, id, text string, priority int, onClick func())
+	RemoveStatusItem   func(id string)
+	ExecCommand        func(id string) bool
+	ListCommands       func() []CommandInfo
 	PublishDiagnostics func(path string, items []DiagnosticItem)
 	ClearDiagnostics   func(path string)
+
+	ShowCommandLine    func(prefix, text string, onChange, onSubmit func(string), onCancel func())
+	HideCommandLine    func()
+	SetCommandLineText func(text string)
+	CommandLineActive  func() bool
 
 	EditorContextProvider *lua.LFunction
 
@@ -100,6 +109,11 @@ type Plugin struct {
 
 	timers      map[int]func()
 	nextTimerID int
+}
+
+type CommandInfo struct {
+	ID    string
+	Title string
 }
 
 type pendingDrawerCall struct {
@@ -238,8 +252,16 @@ func (p *Plugin) Destroy() {
 	p.DebugDumpToFile = nil
 	p.QuitApp = nil
 	p.Notify = nil
+	p.SetStatusItem = nil
+	p.RemoveStatusItem = nil
+	p.ExecCommand = nil
+	p.ListCommands = nil
 	p.PublishDiagnostics = nil
 	p.ClearDiagnostics = nil
+	p.ShowCommandLine = nil
+	p.HideCommandLine = nil
+	p.SetCommandLineText = nil
+	p.CommandLineActive = nil
 	p.EditorContextProvider = nil
 	p.EventListeners = nil
 }
@@ -252,6 +274,30 @@ func (p *Plugin) CallSidebarAction(cmd string) {
 	if p.sidebarMenuFunc != nil && p.State != nil {
 		p.CallLuaFunc(p.sidebarMenuFunc, lua.LString(cmd))
 	}
+}
+
+func (p *Plugin) DispatchKeyEvent(ev *lua.LTable) bool {
+	listeners := p.EventListeners["key.press"]
+	if len(listeners) == 0 || p.State == nil {
+		return false
+	}
+	for _, fn := range listeners {
+		err := p.State.CallByParam(lua.P{
+			Fn:      fn,
+			NRet:    1,
+			Protect: true,
+		}, ev)
+		if err != nil {
+			p.logError("event key.press", err)
+			continue
+		}
+		ret := p.State.Get(-1)
+		p.State.Pop(1)
+		if lua.LVAsBool(ret) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Plugin) DispatchEvent(name string, args ...lua.LValue) {

@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newMultiCursorEditor(lines []string, positions [][2]int) *EditorPaneWidget {
@@ -25,7 +25,7 @@ func TestMultiCursorTabInsertsAtEachCursor(t *testing.T) {
 		t.Fatal("expected multi-cursor mode to be active")
 	}
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyTab, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", 0))
 
 	if e.Buf.Lines[0] != "    foo" {
 		t.Fatalf("expected first line indented, got %q", e.Buf.Lines[0])
@@ -43,7 +43,7 @@ func TestMultiCursorBacktabIsNoOp(t *testing.T) {
 		t.Fatal("expected multi-cursor mode to be active")
 	}
 
-	e.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, 0, 0))
+	e.HandleEvent(tcell.NewEventKey(tcell.KeyBacktab, "", 0))
 
 	if e.Buf.Lines[0] != "    foo" || e.Buf.Lines[1] != "    bar" {
 		t.Fatalf("expected no change on multi-cursor backtab, got %q / %q", e.Buf.Lines[0], e.Buf.Lines[1])

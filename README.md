@@ -449,6 +449,14 @@ To use your terminal's native colors instead of the theme's, set foreground/back
 
 TTT supports Lua plugins that add sidebar panels, bottom panel tabs, commands, and keybindings. Plugins run in a sandboxed Lua VM with a permission system — users approve each plugin's capabilities on first load.
 
+#### Vim Mode
+
+Prefer modal editing? Install the [Vim Mode](https://github.com/eugenioenko/ttt-vim) plugin for a Vim compatibility layer: Normal, Insert and Visual modes, the operator/motion/text-object grammar, registers, marks, macros, dot-repeat, a `:` command line and `/` search. It is a single Lua plugin with no core changes of its own, and it enables or disables like any other plugin.
+
+It does rely on plugin API additions that landed in ttt 1.1.0 (the key interceptor's precedence over Escape, needed to leave Insert mode, and the command-line API for `:` and `/`), so it requires ttt 1.1.0 or newer. Its manifest declares `api: 2`, so an older editor refuses to load it rather than running it half-broken.
+
+Install it from the **Plugins** sidebar tab by searching for "vim", or run **Plugins: Install from URL** with `https://github.com/eugenioenko/ttt-vim`.
+
 #### Installing Plugins
 
 Open the **Plugins** sidebar tab to browse and install from the community registry, or use **Plugins: Install from URL** from the command palette to install from any git repository.
@@ -495,7 +503,9 @@ Config files are loaded from `<exe-dir>/config/` (bundled defaults) or `~/.confi
 | [`keybindings.json`](config/keybindings.json) | Custom keybindings (VS Code key format) |
 | `themes/*.json` | Custom color themes |
 
-You can also open these directly from the command palette (**Ctrl+P**): **Preferences: Open Settings** and **Preferences: Open Keyboard Shortcuts**.
+Most settings can be edited from a form instead of by hand: **View → Settings**, **Ctrl+K ,**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). The form is grouped into **Editor**, **Appearance**, **Completion** and **Advanced** (explorer, terminal, search and plugin options live under Advanced). Changes are held until you press **Apply** (also **Settings: Apply Changes**), which writes `settings.json` and applies everything that does not need a restart; **Cancel** (also **Settings: Discard Changes**) closes the tab and drops them. Settings marked *(restart)* take effect on next launch. LSP settings and external formatters are not exposed in the form — those stay JSON-only.
+
+To edit the raw files, use **Settings: Open settings.json** and **Settings: Open keybindings.json**.
 
 #### Settings
 
@@ -504,7 +514,8 @@ You can also open these directly from the command palette (**Ctrl+P**): **Prefer
 | `tabSize` | int | `4` | Number of spaces per indentation level |
 | `insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
 | `wordWrap` | bool | `false` | Wrap long lines at the editor width |
-| `autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line (indentation inheritance and indent after `{ ( [ :` always apply) |
+| `autoIndent` | bool | `true` | Inherit the previous line's indent on Enter, plus one level after `{ ( [ :` (turn off for `noautoindent` behavior) |
+| `autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line |
 | `lineNumbers` | bool | `true` | Show line numbers in the gutter |
 | `sidebarVisible` | bool | `true` | Show the sidebar on startup |
 | `sidebarWidth` | int | `30` | Width of the sidebar in columns |
@@ -534,6 +545,7 @@ Example `~/.config/ttt/settings.json` (also available at [`config/settings.json`
   "tabSize": 4,
   "insertSpaces": true,
   "wordWrap": false,
+  "autoIndent": true,
   "autoDedent": true,
   "lineNumbers": true,
   "sidebarVisible": true,
@@ -700,7 +712,7 @@ All test levels run in CI on every push and pull request.
 
 ### Chaos Monkey (Fuzz Testing)
 
-A randomized fuzz tester that hammers the editor with thousands of random events — keypresses, mouse clicks, resizes, clipboard operations, and command palette commands — to find panics and crashes that normal testing misses. It runs against a `tcell.SimulationScreen` so no real terminal is needed.
+A randomized fuzz tester that hammers the editor with thousands of random events — keypresses, mouse clicks, resizes, clipboard operations, and command palette commands — to find panics and crashes that normal testing misses. It runs against an in-memory simulated screen (`term.SimScreen`) so no real terminal is needed.
 
 All chaos targets run in Docker: the random command stream can write files, persist settings, and open browser tabs, so the harness refuses to run unsandboxed (set `CHAOS_ALLOW_HOST=1` to force a host run, e.g. under a debugger).
 

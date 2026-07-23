@@ -3,10 +3,10 @@ package terminal
 import (
 	"io"
 	"os"
-	"os/exec"
+	"runtime"
 	"sync"
 
-	"github.com/creack/pty"
+	"github.com/aymanbagabas/go-pty"
 	"github.com/eugenioenko/vt10x"
 )
 
@@ -21,8 +21,8 @@ const (
 type Terminal struct {
 	mu         sync.Mutex
 	vt         vt10x.Terminal
-	ptm        *os.File
-	cmd        *exec.Cmd
+	pt         pty.Pty
+	cmd        *pty.Cmd
 	cols, rows int
 	done       chan struct{}
 	closed     bool
@@ -33,10 +33,7 @@ type Terminal struct {
 
 func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) (*Terminal, error) {
 	if shell == "" {
-		shell = os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/sh"
-		}
+		shell = defaultShell()
 	}
 	if scrollbackMax <= 0 {
 		scrollbackMax = 1000
@@ -50,9 +47,14 @@ func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) 
 
 	t.vt = vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithScrollback(scrollbackMax))
 
-	cmd := exec.Command(shell)
+	pt, err := pty.New()
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := pt.Command(shell)
 	// Verify dir exists before setting it — chaos monkey and random commands can
-	// delete the workspace dir, causing pty.Start to fail with "no such file or directory"
+	// delete the workspace dir, causing Start to fail with "no such file or directory"
 	if dir != "" {
 		if _, err := os.Stat(dir); err == nil {
 			cmd.Dir = dir
@@ -61,19 +63,29 @@ func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) 
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 
-	ptm, err := pty.Start(cmd)
-	if err != nil {
+	if err := cmd.Start(); err != nil {
+		pt.Close()
 		return nil, err
 	}
-	t.ptm = ptm
+	t.pt = pt
 	t.cmd = cmd
 
-	pty.Setsize(ptm, &pty.Winsize{
-		Cols: uint16(cols),
-		Rows: uint16(rows),
-	})
+	pt.Resize(cols, rows)
 
 	return t, nil
+}
+
+func defaultShell() string {
+	if runtime.GOOS == "windows" {
+		if comspec := os.Getenv("COMSPEC"); comspec != "" {
+			return comspec
+		}
+		return "powershell.exe"
+	}
+	if shell := os.Getenv("SHELL"); shell != "" {
+		return shell
+	}
+	return "/bin/sh"
 }
 
 func (t *Terminal) Run() {
@@ -84,7 +96,7 @@ func (t *Terminal) readLoop() {
 	defer close(t.done)
 	buf := make([]byte, 4096)
 	for {
-		n, err := t.ptm.Read(buf)
+		n, err := t.pt.Read(buf)
 		if n > 0 {
 			t.mu.Lock()
 			t.vt.Write(buf[:n])
@@ -106,7 +118,7 @@ func (t *Terminal) readLoop() {
 }
 
 func (t *Terminal) WriteString(s string) {
-	io.WriteString(t.ptm, s)
+	io.WriteString(t.pt, s)
 }
 
 func (t *Terminal) Resize(cols, rows int) {
@@ -115,10 +127,7 @@ func (t *Terminal) Resize(cols, rows int) {
 	t.cols = cols
 	t.rows = rows
 	t.vt.Resize(cols, rows)
-	pty.Setsize(t.ptm, &pty.Winsize{
-		Cols: uint16(cols),
-		Rows: uint16(rows),
-	})
+	t.pt.Resize(cols, rows)
 }
 
 func (t *Terminal) Snapshot(fn func(view vt10x.View)) {
@@ -149,7 +158,7 @@ func (t *Terminal) Close() {
 	t.closed = true
 	t.mu.Unlock()
 
-	t.ptm.Close()
+	t.pt.Close()
 	if t.cmd.Process != nil {
 		t.cmd.Process.Kill()
 		t.cmd.Wait()

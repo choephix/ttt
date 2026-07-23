@@ -10,14 +10,28 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/config"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
-// RunExecScript parses a semicolon-separated script string and executes
-// each command sequentially. Intended to be run in a goroutine after
-// the event loop starts.
+// DefaultExecSeparator splits exec scripts when no override is given.
+const DefaultExecSeparator = ";"
+
+// RunExecScript parses a separator-delimited script string and executes each
+// command sequentially. Intended to be run in a goroutine after the event loop
+// starts.
 func RunExecScript(a *App, script string) {
-	commands := strings.Split(script, ";")
+	RunExecScriptSep(a, script, DefaultExecSeparator)
+}
+
+// RunExecScriptSep is RunExecScript with a caller-chosen separator. Semicolons
+// are unusable when the script must type or send one -- `;` is a Vim motion,
+// for instance -- so callers can pick a delimiter that cannot collide with
+// their payload.
+func RunExecScriptSep(a *App, script, sep string) {
+	if sep == "" {
+		sep = DefaultExecSeparator
+	}
+	commands := strings.Split(script, sep)
 	for _, raw := range commands {
 		cmd := strings.TrimSpace(raw)
 		if cmd == "" {
@@ -184,7 +198,7 @@ func execKey(a *App, args string) {
 
 	for _, step := range steps {
 		key, mod, ch := comboToTcell(step)
-		a.Screen.PostEvent(tcell.NewEventKey(key, ch, mod))
+		a.Screen.PostEvent(tcell.NewEventKey(key, keyEventStr(ch), mod))
 		time.Sleep(30 * time.Millisecond)
 	}
 }
@@ -192,7 +206,7 @@ func execKey(a *App, args string) {
 func execType(a *App, args string) {
 	text := stripQuotes(args)
 	for _, r := range text {
-		a.Screen.PostEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone))
+		a.Screen.PostEvent(tcell.NewEventKey(tcell.KeyRune, string(r), tcell.ModNone))
 		time.Sleep(10 * time.Millisecond)
 	}
 }

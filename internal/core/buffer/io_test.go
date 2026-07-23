@@ -24,6 +24,58 @@ func TestLoadAndSaveFile(t *testing.T) {
 	}
 }
 
+func TestLoadShowTrailingNewline(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "trailing.txt")
+	os.WriteFile(fname, []byte("aaa\nbbb\nccc\n"), 0644)
+
+	b := &Buffer{ShowTrailingNewline: true}
+	if err := b.LoadFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Lines) != 4 || b.Lines[3] != "" {
+		t.Errorf("with ShowTrailingNewline=true, expected 4 lines (trailing empty), got %d: %v", len(b.Lines), b.Lines)
+	}
+}
+
+func TestLoadNoShowTrailingNewline(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "notrailing.txt")
+	os.WriteFile(fname, []byte("aaa\nbbb\nccc\n"), 0644)
+
+	b := &Buffer{ShowTrailingNewline: false}
+	if err := b.LoadFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Lines) != 3 {
+		t.Errorf("with ShowTrailingNewline=false, expected 3 lines, got %d: %v", len(b.Lines), b.Lines)
+	}
+	if b.Lines[2] != "ccc" {
+		t.Errorf("expected last line 'ccc', got %q", b.Lines[2])
+	}
+}
+
+func TestShowTrailingNewlineDoesNotAffectSave(t *testing.T) {
+	dir := t.TempDir()
+	fname := filepath.Join(dir, "save.txt")
+	os.WriteFile(fname, []byte("aaa\nbbb\n"), 0644)
+
+	b := &Buffer{ShowTrailingNewline: false, InsertFinalNewline: true}
+	if err := b.LoadFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Lines) != 2 {
+		t.Errorf("expected 2 lines on load, got %d", len(b.Lines))
+	}
+	if err := b.SaveFile(fname); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(fname)
+	if string(data) != "aaa\nbbb\n" {
+		t.Errorf("expected saved file to have trailing newline, got %q", string(data))
+	}
+}
+
 func TestSavePreservesPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("permission bits not meaningful on Windows")

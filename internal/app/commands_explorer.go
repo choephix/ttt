@@ -61,6 +61,12 @@ func (a *App) ExplorerCopyRelativePath() {
 	a.FileOpCopyRelativePath(path)
 }
 
+func (a *App) ExplorerReveal() {
+	path := a.explorerNodePath()
+	a.ExplorerContextNode = nil
+	a.FileOpReveal(path)
+}
+
 func (a *App) ExplorerRemoveRoot() {
 	path := a.explorerNodePath()
 	a.ExplorerContextNode = nil
@@ -155,6 +161,12 @@ func registerExplorerCommands(app *App) {
 		ID: "file.copyRelativePath", Title: "File: Copy Relative Path",
 		Keywords: []string{"file", "path", "copy", "clipboard", "relative"},
 		Handler:  app.CopyRelativePath,
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.reveal", Title: "Explorer: Reveal in File Manager",
+		Keywords: []string{"explorer", "file", "reveal", "manager", "folder", "finder", "open"},
+		Handler:  app.ExplorerReveal,
 	})
 
 	reg.Register(command.Command{

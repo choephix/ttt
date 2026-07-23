@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type Rect struct {
@@ -61,6 +61,21 @@ type PopupRenderer interface {
 	HasPopup() bool
 	PopupRect() Rect
 	RenderPopup(surface Surface)
+}
+
+// PopupBounder is implemented by widgets whose popup should be constrained to a
+// container's rect. Containers that render popups call it before PopupRect.
+type PopupBounder interface {
+	SetPopupBounds(r Rect)
+}
+
+// widgetBorders returns the widget's configured border set, falling back to the
+// rounded default.
+func widgetBorders(b BoxModel) term.BorderSet {
+	if b.Borders.Horizontal != 0 {
+		return b.Borders
+	}
+	return term.RoundedBorderSet()
 }
 
 type HeightForWidther interface {

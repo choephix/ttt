@@ -258,6 +258,76 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 0
 		}))
 
+		L.SetField(mod, "set_status_item", L.NewFunction(func(L *lua.LState) int {
+			side := L.CheckString(1)
+			id := L.CheckString(2)
+			text := L.CheckString(3)
+			priority := 1000
+			var onClick func()
+			if opts := L.OptTable(4, nil); opts != nil {
+				if pv := L.GetField(opts, "priority"); pv != lua.LNil {
+					if n, ok := pv.(lua.LNumber); ok {
+						priority = int(n)
+					}
+				}
+				if cb := L.GetField(opts, "on_click"); cb != lua.LNil {
+					if fn, ok := cb.(*lua.LFunction); ok {
+						onClick = func() {
+							if err := L.CallByParam(lua.P{Fn: fn, Protect: true}); err != nil {
+								p.logError("status_item.on_click", err)
+							}
+						}
+					}
+				}
+			}
+			if p.SetStatusItem != nil {
+				p.SetStatusItem(side, p.Name+":"+id, text, priority, onClick)
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "remove_status_item", L.NewFunction(func(L *lua.LState) int {
+			id := L.CheckString(1)
+			if p.RemoveStatusItem != nil {
+				p.RemoveStatusItem(p.Name + ":" + id)
+			}
+			return 0
+		}))
+
+		L.SetField(mod, "exec_command", L.NewFunction(func(L *lua.LState) int {
+			if err := p.Granted.Check("commands"); err != nil {
+				L.ArgError(1, "commands permission not granted")
+				return 0
+			}
+			id := L.CheckString(1)
+			ok := false
+			if p.ExecCommand != nil {
+				ok = p.ExecCommand(id)
+			}
+			L.Push(lua.LBool(ok))
+			return 1
+		}))
+
+		L.SetField(mod, "command_line", newCommandLineModule(L, p))
+
+		L.SetField(mod, "list_commands", L.NewFunction(func(L *lua.LState) int {
+			if err := p.Granted.Check("commands"); err != nil {
+				L.ArgError(1, "commands permission not granted")
+				return 0
+			}
+			tbl := L.NewTable()
+			if p.ListCommands != nil {
+				for _, cmd := range p.ListCommands() {
+					entry := L.NewTable()
+					L.SetField(entry, "id", lua.LString(cmd.ID))
+					L.SetField(entry, "title", lua.LString(cmd.Title))
+					tbl.Append(entry)
+				}
+			}
+			L.Push(tbl)
+			return 1
+		}))
+
 		L.SetField(mod, "show_info", L.NewFunction(func(L *lua.LState) int {
 			title := L.CheckString(1)
 			tbl := L.CheckTable(2)

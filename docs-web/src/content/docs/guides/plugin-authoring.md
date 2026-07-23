@@ -278,6 +278,142 @@ Use `notify` for lightweight, non-blocking feedback (a linter's "binary missing"
 hint, "added to dictionary", and so on). For anything the user must respond to,
 use [`ttt.confirm`](#ttt-confirm) or [`ttt.show_info`](#ttt-show_info) instead.
 
+### `ttt.set_status_item(side, id, text, [opts])`
+
+Add or update a status bar segment. Requires the `commands` permission.
+
+| Parameter | Type   | Required | Description                                                        |
+|-----------|--------|----------|--------------------------------------------------------------------|
+| `side`    | string | yes      | `"left"` or `"right"` — which side of the status bar.              |
+| `id`      | string | yes      | Unique segment identifier (scoped per plugin: stored as `pluginName:id`). |
+| `text`    | string | yes      | Text to display in the segment.                                    |
+| `opts`    | table  | no       | Options table (see below).                                         |
+
+**Options:**
+
+| Field      | Type     | Default | Description                                      |
+|------------|----------|---------|--------------------------------------------------|
+| `priority` | number   | `1000`  | Lower = closer to the edge. Core segments use 100–500. |
+| `on_click` | function | nil     | Callback when the segment is clicked.            |
+
+```lua
+-- Simple status item
+ttt.set_status_item("left", "mode", "NORMAL")
+
+-- With priority and click handler
+ttt.set_status_item("right", "stats", "Ln 42", {
+  priority = 50,
+  on_click = function()
+    ttt.exec_command("editor.goToLine")
+  end,
+})
+```
+
+### `ttt.remove_status_item(id)`
+
+Remove a status bar segment previously added with `set_status_item`. The `id` is scoped per plugin (same `id` used when creating). Requires the `commands` permission.
+
+```lua
+ttt.remove_status_item("mode")
+```
+
+### `ttt.exec_command(id)`
+
+Execute any registered command by its ID (the same IDs shown in the command palette). Requires the `commands` permission.
+
+**Returns:** `true` if the command was found and executed, `false` otherwise.
+
+```lua
+local ok = ttt.exec_command("editor.undo")
+if not ok then
+  ttt.log("warn", "command not found")
+end
+```
+
+### `ttt.list_commands()`
+
+Return a list of all registered commands. Requires the `commands` permission.
+
+**Returns:** An array of tables, each with `id` (string) and `title` (string) fields.
+
+```lua
+local cmds = ttt.list_commands()
+for _, cmd in ipairs(cmds) do
+  ttt.log(cmd.id .. " — " .. cmd.title)
+end
+```
+
+### `ttt.command_line` Module
+
+A single-line, framed input docked directly above the status bar — the `:` prompt of a modal editor. It is drawn as a modal overlay, so opening it never resizes the editor underneath and the buffer does not jump.
+
+All four functions require the `keybindings` permission: taking the command line is a keyboard-focus grab, the same class of capability as claiming a key binding.
+
+While the command line is open it consumes **all** keys. In particular, a plugin's `key.press` listener stops receiving events until it closes — so a modal plugin goes silent for free, with no mode flag to track.
+
+#### `ttt.command_line.show(config)`
+
+Open the command line and move focus to it. If one is already open, it is replaced rather than stacked. The call is a no-op while another overlay (a dialog, the command palette, a menu) is up.
+
+| Field       | Type     | Description                                                        |
+|-------------|----------|--------------------------------------------------------------------|
+| `prefix`    | string   | Prompt character shown before the text. Default `":"`. Typically `":"`, `"/"`, or `"?"`. |
+| `text`      | string   | Initial text. Default empty.                                       |
+| `on_change` | function | Called with the full text after every edit. Use for incremental search. |
+| `on_submit` | function | Called with the full text when Enter is pressed. The command line closes first. |
+| `on_cancel` | function | Called when Escape is pressed. The command line closes first.      |
+
+```lua
+local ttt = require("ttt")
+local events = require("ttt.events")
+
+events.on("key.press", function(ev)
+  if ev.key == ":" then
+    ttt.command_line.show({
+      prefix = ":",
+      on_submit = function(text)
+        if text == "w" then
+          ttt.exec_command("file.save")
+        elseif text == "q" then
+          ttt.exec_command("tab.close")
+        end
+      end,
+    })
+    return true
+  end
+  return false
+end)
+```
+
+Incremental search, using `on_change`:
+
+```lua
+ttt.command_line.show({
+  prefix = "/",
+  on_change = function(query)
+    highlight_matches(query)   -- runs on every keystroke
+  end,
+  on_submit = function(query)
+    jump_to_first_match(query)
+  end,
+  on_cancel = clear_highlights,
+})
+```
+
+Focus returns to whatever was focused before `show` — normally the editor — on submit, on cancel, and on `hide()`.
+
+#### `ttt.command_line.hide()`
+
+Close the command line without firing `on_submit` or `on_cancel`. No-op if none is open.
+
+#### `ttt.command_line.set_text(text)`
+
+Replace the current text. Fires `on_change`, exactly as typing would. No-op if no command line is open.
+
+#### `ttt.command_line.active()`
+
+**Returns:** `true` while a command line is open, `false` otherwise.
+
 ### `ttt.open_drawer(config)`
 
 Open a drawer panel anchored to the left or right side of the editor. Requires `panel.drawer` permission.
@@ -1273,6 +1409,9 @@ Require the `editor.read` permission.
 | `editor.buffer_text()` | string                                                    | Full buffer content as a single string. |
 | `editor.buffer_lines()`| table of strings                                          | Array of lines.                      |
 | `editor.current_line()`| string                                                    | Text of the line at cursor.          |
+| `editor.get_line(n)`   | string                                                    | Text of line `n` (1-based).          |
+| `editor.line_count()`  | number                                                    | Total number of lines in the buffer. |
+| `editor.viewport()`    | `{top_line, bottom_line, height}`                         | Visible viewport range (1-based lines) and height in rows. |
 | `editor.cursor()`      | `{line, col}`                                             | Current cursor position (1-based).   |
 | `editor.selection()`   | `{active, start_line, start_col, end_line, end_col}`     | Selection state (1-based). `active` is boolean. |
 | `editor.selection_text()` | string                                                 | Selected text (empty if no selection).|
@@ -1281,6 +1420,7 @@ Require the `editor.read` permission.
 | `editor.language()`    | string                                                    | Detected language (e.g. `"go"`, `"lua"`). |
 | `editor.byte_to_col(text, byte)` | number                                          | Convert a 1-based **byte** offset in `text` to a 1-based **rune column**. |
 | `editor.col_to_byte(text, col)`  | number                                          | Convert a 1-based **rune column** in `text` to a 1-based **byte** offset. |
+| `editor.get_cursors()`           | table of `{line, col}`                          | All cursor positions (1-based). Returns a single-element table when no extra cursors are active. |
 
 > **Columns are runes, not bytes.** The editor — and every position in the
 > `editor.replace` and diagnostics APIs — uses 1-based **rune (visual) columns**.
@@ -1305,10 +1445,17 @@ Require the `editor.write` permission.
 | Function                                          | Description                                    |
 |---------------------------------------------------|------------------------------------------------|
 | `editor.insert(line, col, text)`                  | Insert text at position (1-based).             |
+| `editor.set_line(line, text)`                     | Replace the entire content of line `line` (1-based). |
+| `editor.scroll_to(line)`                          | Scroll so that `line` (1-based) is at the top of the viewport. |
+| `editor.scroll_by(delta)`                         | Scroll up/down by `delta` lines (negative = up). |
 | `editor.replace(start_line, start_col, end_line, end_col, text)` | Replace a range with text (1-based). |
 | `editor.set_cursor(line, col)`                    | Move the cursor (1-based).                     |
 | `editor.set_selection(start_line, start_col, end_line, end_col)` | Set selection range (1-based).     |
 | `editor.clear_selection()`                        | Clear the current selection.                   |
+| `editor.begin_undo_group()`                       | Start grouping subsequent edits into a single undo step. |
+| `editor.end_undo_group()`                         | Close the group; all edits since `begin` undo/redo as one operation. |
+| `editor.add_cursor(line, col)`                    | Add a cursor at position (1-based). Duplicates are ignored. |
+| `editor.clear_cursors()`                          | Collapse back to a single cursor (the primary). |
 
 All write operations go through the undo system — they can be undone with Ctrl+Z.
 
@@ -1481,7 +1628,7 @@ The `ttt.system` module provides command execution and environment variable acce
 local sys = require("ttt.system")
 ```
 
-### `sys.exec(binary, [args])`
+### `sys.exec(binary, [args], [opts])`
 
 Execute a command synchronously. Requires the `system.exec` permission with the binary listed in the allowlist.
 
@@ -1489,6 +1636,13 @@ Execute a command synchronously. Requires the `system.exec` permission with the 
 |-----------|--------|----------|------------------------------------------|
 | `binary`  | string | yes      | Command to execute. Must be in the `system.exec` permission allowlist. |
 | `args`    | table  | no       | Array of string arguments.               |
+| `opts`    | table  | no       | Options table. Only `stdin` is supported. |
+
+**Options:**
+
+| Field   | Type   | Description                                                      |
+|---------|--------|------------------------------------------------------------------|
+| `stdin` | string | Written to the command's standard input. Nothing is written when omitted or empty. |
 
 **Returns** a table:
 
@@ -1505,9 +1659,23 @@ if result.exit_code == 0 then
 end
 ```
 
+Many tools read the text they operate on from standard input rather than from a
+file argument — formatters like `prettier` and `gofmt`, and checkers like
+`aspell`. Pass it with `stdin`:
+
+```lua
+local result = sys.exec("aspell", {"pipe", "--mode=markdown"}, {
+  stdin = "!\n^" .. line .. "\n",
+})
+```
+
+Prefer `stdin` over passing document text as an argument. Arguments are capped
+by the OS (`ARG_MAX`, commonly 2 MB) and are visible to every process on the
+machine via `ps`; standard input has neither limit.
+
 Arguments are validated before execution: shell-injection patterns and dangerous git flags (e.g. `--upload-pack`, `core.fsmonitor`) are rejected.
 
-### `sys.exec_async(binary, [args], callback)`
+### `sys.exec_async(binary, [args], [opts], callback)`
 
 Execute a command asynchronously. The callback receives the same result table and is called on the main thread when the command completes. The UI remains responsive during execution.
 
@@ -1515,6 +1683,7 @@ Execute a command asynchronously. The callback receives the same result table an
 |------------|----------|----------|----------------------------------------------|
 | `binary`   | string   | yes      | Command to execute.                          |
 | `args`     | table    | no       | Array of string arguments. May be omitted — the callback can be the second argument. |
+| `opts`     | table    | no       | Options table, same fields as `sys.exec`. Requires `args` to be passed too. |
 | `callback` | function | yes      | Receives the result table when done.         |
 
 ```lua
@@ -1528,6 +1697,11 @@ end)
 -- Without arguments:
 sys.exec_async("uptime", function(result)
   panel:redraw()
+end)
+
+-- With stdin:
+sys.exec_async("aspell", {"pipe"}, {stdin = text}, function(result)
+  -- parse result.stdout
 end)
 ```
 
@@ -1680,7 +1854,44 @@ Register an event listener. Multiple listeners can be registered for the same ev
 | `cursor.change` | Cursor position changed (line or column). |
 | `tab.change`    | The active file changed — a tab switch, or a file opened from the CLI. Useful for re-scanning the newly active file. |
 
-All callbacks receive the file path of the affected file as their single argument.
+File and editor callbacks receive the file path of the affected file as their single argument.
+
+**Key events** (require `keybindings` permission):
+
+| Event       | Description                                    |
+|-------------|------------------------------------------------|
+| `key.press` | A key was pressed while the editor has focus.  |
+
+`key.press` is the hook for modal editing: it lets a plugin own the keyboard. The callback receives an event table and its return value decides what happens to the key.
+
+| Field  | Type   | Description                                                                 |
+|--------|--------|-----------------------------------------------------------------------------|
+| `type` | string | Always `"key"`.                                                             |
+| `key`  | string | For printable keys, the character itself (`"j"`, `":"`). Otherwise the key name (`"Enter"`, `"Escape"`, `"Ctrl-D"`). |
+| `rune` | string | The character, present only for printable keys.                             |
+| `mod`  | string | Active modifiers joined by `+` (`"ctrl"`, `"ctrl+shift"`, `"alt"`). Absent when there are none. |
+
+**Returning `true` consumes the key** — the editor never sees it. Returning `false` (or nothing) lets it through to normal handling.
+
+Note that control keys set **both** fields: `ctrl+d` arrives as `{ key = "Ctrl-D", mod = "ctrl" }`. Match on `key`, and check `mod` only when you need to distinguish (for example `"j"` from `alt+j`).
+
+```lua
+local events = require("ttt.events")
+
+events.on("key.press", function(ev)
+  if ev.key == "u" and not ev.mod then
+    ttt.exec_command("editor.undo")
+    return true    -- consumed
+  end
+  if ev.key == "Ctrl-D" then
+    ttt.exec_command("editor.deleteLine")
+    return true
+  end
+  return false     -- passed through
+end)
+```
+
+`key.press` fires only when the editor itself has focus, and it is bypassed entirely while an overlay is open — a dialog, the command palette, or `ttt.command_line`. Force keys (such as the terminal toggle) and any chord already in flight also outrank it, so a plugin can never trap the user.
 
 **Example:**
 
@@ -1932,7 +2143,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `set_status_item`, `remove_status_item`, `exec_command`, `list_commands`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.diagnostics` | Publish editor diagnostics (squiggles) |

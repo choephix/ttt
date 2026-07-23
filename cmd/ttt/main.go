@@ -22,7 +22,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/widgets"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 var (
@@ -67,6 +67,7 @@ type cliFlags struct {
 	configFile   string
 	pluginFile   string
 	exec         string
+	execSplitOn  string
 	sizeW, sizeH int
 	debug        bool
 }
@@ -89,6 +90,11 @@ func parseFlags() cliFlags {
 		case "--exec":
 			if i+1 < len(args) {
 				f.exec = args[i+1]
+				i++
+			}
+		case "--exec-split-on":
+			if i+1 < len(args) {
+				f.execSplitOn = args[i+1]
 				i++
 			}
 		case "--size":
@@ -115,7 +121,7 @@ func initSimulationScreen(w, h int) *term.TcellScreen {
 	if w <= 0 || h <= 0 {
 		w, h = 80, 25
 	}
-	sim := tcell.NewSimulationScreen("")
+	sim := term.NewSimScreen()
 	_ = sim.Init()
 	sim.SetSize(w, h)
 	return term.NewTcellScreenFrom(sim)
@@ -141,6 +147,8 @@ Options:
   --workspace <file>  Open a saved workspace (.ttt file)
   --config <file>     Use a custom config file
   --exec "commands"   Execute semicolon-separated commands after startup
+  --exec-split-on <s> Split --exec on <s> instead of ";" (for scripts that
+                      need to send a literal semicolon)
 
 Examples:
   ttt                                           Open current directory
@@ -335,7 +343,7 @@ Docs: https://tttedit.dev
 	}
 
 	if flags.exec != "" {
-		go app.RunExecScript(editor, flags.exec)
+		go app.RunExecScriptSep(editor, flags.exec, flags.execSplitOn)
 	}
 
 	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)

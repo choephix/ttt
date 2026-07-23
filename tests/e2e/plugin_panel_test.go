@@ -8,7 +8,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestPluginPanelSidebarEvents(t *testing.T) {
@@ -132,13 +132,13 @@ func TestPluginPanelSidebarEvents(t *testing.T) {
 	h.app.Root.SetFocus(h.app.Sidebar)
 
 	// Arrow down should work
-	downKey := tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	downKey := tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone)
 	keyResult := h.app.Root.HandleEvent(downKey)
 	t.Logf("arrow down result: %d", keyResult)
 	h.redraw()
 
 	// Tab should cycle focus
-	tabKey := tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	tabKey := tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone)
 	tabResult := h.app.Root.HandleEvent(tabKey)
 	t.Logf("tab result: %d", tabResult)
 	h.redraw()

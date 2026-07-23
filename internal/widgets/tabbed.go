@@ -1,7 +1,7 @@
 package widgets
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type TabbedWidget struct {
@@ -9,7 +9,10 @@ type TabbedWidget struct {
 	Tabs     *TabsWidget
 	Children []Widget
 	OnChange func(index int)
-	active   int
+	// Fill propagates a flexible (zero) height from the active child, so an
+	// enclosing stack treats this container as greedy rather than fixed.
+	Fill   bool
+	active int
 }
 
 func NewTabbedWidget(tabs *TabsWidget, children []Widget) *TabbedWidget {
@@ -51,6 +54,11 @@ func (t *TabbedWidget) SetActive(index int) {
 }
 
 func (t *TabbedWidget) Height() int {
+	// Opt-in: existing callers want a concrete height, so only a Fill container
+	// forwards its child's "grow to fit" request upward.
+	if t.Fill && t.active < len(t.Children) && t.Children[t.active].Height() == 0 {
+		return 0
+	}
 	h := t.Tabs.Height() + t.BoxOverheadH()
 	if t.active < len(t.Children) {
 		h += t.Children[t.active].Height()

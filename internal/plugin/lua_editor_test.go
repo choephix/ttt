@@ -38,7 +38,12 @@ type mockEditorAPI struct {
 	setSelEL int
 	setSelEC int
 
-	selCleared bool
+	selCleared   bool
+	extraCursors []CursorPosition
+
+	searchPattern string
+	searchRegex   bool
+	searchCleared bool
 }
 
 func (m *mockEditorAPI) BufferText() string { return m.bufText }
@@ -48,6 +53,13 @@ func (m *mockEditorAPI) BufferLines() []string {
 	return result
 }
 func (m *mockEditorAPI) CurrentLine() string { return m.curLine }
+func (m *mockEditorAPI) GetLine(n int) string {
+	if n < 0 || n >= len(m.bufLines) {
+		return ""
+	}
+	return m.bufLines[n]
+}
+func (m *mockEditorAPI) LineCount() int { return len(m.bufLines) }
 func (m *mockEditorAPI) CursorPos() (int, int) {
 	return m.cursorLine, m.cursorCol
 }
@@ -58,6 +70,14 @@ func (m *mockEditorAPI) SelectionText() string { return m.selText }
 func (m *mockEditorAPI) FilePath() string      { return m.filePath }
 func (m *mockEditorAPI) FileName() string      { return m.fileName }
 func (m *mockEditorAPI) Language() string      { return m.language }
+func (m *mockEditorAPI) Viewport() (int, int, int) { return 0, 24, 25 }
+func (m *mockEditorAPI) ScrollTo(line int)          {}
+func (m *mockEditorAPI) ScrollBy(delta int)         {}
+func (m *mockEditorAPI) SetLine(line int, text string) {
+	if line >= 0 && line < len(m.bufLines) {
+		m.bufLines[line] = text
+	}
+}
 func (m *mockEditorAPI) Insert(line, col int, text string) {
 	m.insertedLine = line
 	m.insertedCol = col
@@ -82,6 +102,26 @@ func (m *mockEditorAPI) SetSelection(sl, sc, el, ec int) {
 }
 func (m *mockEditorAPI) ClearSelection() {
 	m.selCleared = true
+}
+func (m *mockEditorAPI) BeginUndoGroup() {}
+func (m *mockEditorAPI) EndUndoGroup()   {}
+func (m *mockEditorAPI) AddCursor(line, col int) {
+	m.extraCursors = append(m.extraCursors, CursorPosition{Line: line, Col: col})
+}
+func (m *mockEditorAPI) GetCursors() []CursorPosition {
+	result := []CursorPosition{{Line: m.cursorLine, Col: m.cursorCol}}
+	result = append(result, m.extraCursors...)
+	return result
+}
+func (m *mockEditorAPI) ClearCursors() {
+	m.extraCursors = nil
+}
+func (m *mockEditorAPI) SetSearch(pattern string, useRegex bool) {
+	m.searchPattern = pattern
+	m.searchRegex = useRegex
+}
+func (m *mockEditorAPI) ClearSearch() {
+	m.searchCleared = true
 }
 
 func setupTestPluginWithEditor(perms PermissionSet, editor *mockEditorAPI) (*Plugin, func()) {
@@ -289,5 +329,62 @@ func TestEditorSelection(t *testing.T) {
 	}
 	if p.State.GetGlobal("text").String() != "selected text" {
 		t.Errorf("expected 'selected text', got %q", p.State.GetGlobal("text").String())
+	}
+}
+
+func TestEditorSetSearch(t *testing.T) {
+	mock := &mockEditorAPI{}
+	p, cleanup := setupTestPluginWithEditor(PermissionSet{EditorWrite: true}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local editor = require("ttt.editor")
+		editor.set_search("hello")
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if mock.searchPattern != "hello" {
+		t.Errorf("expected pattern 'hello', got %q", mock.searchPattern)
+	}
+	if mock.searchRegex {
+		t.Error("expected useRegex false")
+	}
+}
+
+func TestEditorSetSearchRegex(t *testing.T) {
+	mock := &mockEditorAPI{}
+	p, cleanup := setupTestPluginWithEditor(PermissionSet{EditorWrite: true}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local editor = require("ttt.editor")
+		editor.set_search("\\bfoo\\b", true)
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if mock.searchPattern != `\bfoo\b` {
+		t.Errorf("expected pattern '\\bfoo\\b', got %q", mock.searchPattern)
+	}
+	if !mock.searchRegex {
+		t.Error("expected useRegex true")
+	}
+}
+
+func TestEditorClearSearch(t *testing.T) {
+	mock := &mockEditorAPI{}
+	p, cleanup := setupTestPluginWithEditor(PermissionSet{EditorWrite: true}, mock)
+	defer cleanup()
+
+	err := p.State.DoString(`
+		local editor = require("ttt.editor")
+		editor.clear_search()
+	`)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if !mock.searchCleared {
+		t.Error("expected ClearSearch to be called")
 	}
 }

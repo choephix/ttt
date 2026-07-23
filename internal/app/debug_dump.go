@@ -429,12 +429,16 @@ func (a *App) Screenshot() string {
 	var lines []string
 	for y := 0; y < h; y++ {
 		var line strings.Builder
-		for x := 0; x < w; x++ {
-			ch, _, _, _ := a.Screen.GetContent(x, y)
-			if ch == 0 {
-				ch = ' '
+		for x := 0; x < w; {
+			str, _, width := a.Screen.GetContent(x, y)
+			if str == "" {
+				str = " "
 			}
-			line.WriteRune(ch)
+			line.WriteString(str)
+			if width < 1 {
+				width = 1
+			}
+			x += width
 		}
 		lines = append(lines, strings.TrimRight(line.String(), " "))
 	}

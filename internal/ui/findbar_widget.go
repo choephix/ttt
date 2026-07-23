@@ -5,7 +5,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/term"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type FindMatch struct {
@@ -271,7 +271,7 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 	}
 
 	if kev.Modifiers()&tcell.ModAlt != 0 && kev.Key() == tcell.KeyRune {
-		switch kev.Rune() {
+		switch term.KeyRune(kev) {
 		case 'c':
 			f.Options.CaseSensitive = !f.Options.CaseSensitive
 			f.syncActions()
@@ -287,7 +287,7 @@ func (f *FindBarWidget) handleKey(kev *tcell.EventKey) EventResult {
 		}
 	}
 
-	if f.Input.HandleEvent(tcell.NewEventKey(kev.Key(), kev.Rune(), kev.Modifiers())) == EventConsumed {
+	if f.Input.HandleEvent(tcell.NewEventKey(kev.Key(), kev.Str(), kev.Modifiers())) == EventConsumed {
 		return EventConsumed
 	}
 

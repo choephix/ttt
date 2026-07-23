@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // ---------------------------------------------------------------------------
@@ -347,7 +347,7 @@ func TestDialogEscapeWithoutOnDismiss(t *testing.T) {
 	d.Build()
 	// No OnDismiss set — should not panic
 
-	result := d.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone))
+	result := d.HandleEvent(tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Error("Escape should return EventConsumed even without OnDismiss")
 	}
@@ -366,7 +366,7 @@ func TestDialogEnterActivatesFocusedButton(t *testing.T) {
 	// Focus the first button
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
 
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if clicked != "ok" {
 		t.Fatalf("Enter on focused 'OK' button should trigger its handler, got '%s'", clicked)
 	}
@@ -390,7 +390,7 @@ func TestDialogLeftRightNavigateButtons(t *testing.T) {
 	btn0.SetFocused(true)
 
 	// Right: A -> B
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if btn0.IsFocused() {
 		t.Error("A should not be focused after Right")
 	}
@@ -399,7 +399,7 @@ func TestDialogLeftRightNavigateButtons(t *testing.T) {
 	}
 
 	// Right: B -> C
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if !btn2.IsFocused() {
 		t.Error("C should be focused after second Right")
 	}
@@ -408,13 +408,13 @@ func TestDialogLeftRightNavigateButtons(t *testing.T) {
 	}
 
 	// Right on last: no wrap, C stays
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if !btn2.IsFocused() {
 		t.Error("C should remain focused on Right at end (no wrap)")
 	}
 
 	// Left: C -> B
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if !btn1.IsFocused() {
 		t.Error("B should be focused after Left from C")
 	}
@@ -423,13 +423,13 @@ func TestDialogLeftRightNavigateButtons(t *testing.T) {
 	}
 
 	// Left: B -> A
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if !btn0.IsFocused() {
 		t.Error("A should be focused after Left from B")
 	}
 
 	// Left on first: no wrap, A stays
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if !btn0.IsFocused() {
 		t.Error("A should remain focused on Left at start (no wrap)")
 	}
@@ -447,9 +447,9 @@ func TestDialogEnterOnSecondButton(t *testing.T) {
 
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
 	// Move right to Cancel
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if clicked != "cancel" {
 		t.Fatalf("Enter should activate focused Cancel button, got '%s'", clicked)
 	}
@@ -465,7 +465,7 @@ func TestDialogSpaceActivatesButton(t *testing.T) {
 
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
 
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRune, " ", tcell.ModNone))
 	if !clicked {
 		t.Error("Space on focused button should activate it")
 	}
@@ -477,12 +477,12 @@ func TestDialogArrowKeyConsumedResult(t *testing.T) {
 	d.Build()
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
 
-	result := d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	result := d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Error("Right arrow should return EventConsumed")
 	}
 
-	result = d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	result = d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Error("Left arrow should return EventConsumed")
 	}
@@ -509,17 +509,17 @@ func TestDialogSingleButtonNavigation(t *testing.T) {
 	btn.SetFocused(true)
 
 	// Left/Right should be no-ops on single button
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if !btn.IsFocused() {
 		t.Error("single button should remain focused after Right")
 	}
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if !btn.IsFocused() {
 		t.Error("single button should remain focused after Left")
 	}
 
 	// Enter triggers the handler
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if !clicked {
 		t.Error("Enter on single focused button should trigger handler")
 	}
@@ -541,14 +541,14 @@ func TestDialogThreeButtonsNavigateToLast(t *testing.T) {
 
 	// Focus first button, navigate to third
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 
 	if !d.footer.Children[2].(FocusableWidget).IsFocused() {
 		t.Error("third button should be focused after two Rights")
 	}
 
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 	if clicked != "cancel" {
 		t.Fatalf("expected 'cancel', got '%s'", clicked)
 	}
@@ -571,12 +571,12 @@ func TestDialogNoButtonsNoFooter(t *testing.T) {
 	}
 
 	// Arrow keys should not panic (footer is nil, Left/Right skip)
-	result := d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+	result := d.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Error("dialog should still consume key events even without buttons")
 	}
 
-	result = d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
+	result = d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
 	if result != EventConsumed {
 		t.Error("dialog should still consume Right key even without buttons")
 	}
@@ -764,11 +764,11 @@ func TestDialogMultipleButtonHandlers(t *testing.T) {
 
 	// Activate A
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 
 	// Move to B and activate
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone))
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyRight, "", tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 
 	if len(calls) != 2 || calls[0] != "a" || calls[1] != "b" {
 		t.Fatalf("expected [a, b], got %v", calls)
@@ -789,7 +789,7 @@ func TestDialogButtonNilHandlerNoPanic(t *testing.T) {
 	d.footer.Children[0].(FocusableWidget).SetFocused(true)
 
 	// Should not panic
-	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+	d.HandleEvent(tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone))
 }
 
 // ---------------------------------------------------------------------------
@@ -806,7 +806,7 @@ func TestDialogConsumesAllKeyEvents(t *testing.T) {
 		tcell.KeyUp, tcell.KeyDown, tcell.KeyBackspace, tcell.KeyDelete,
 	}
 	for _, k := range keys {
-		result := d.HandleEvent(tcell.NewEventKey(k, 0, tcell.ModNone))
+		result := d.HandleEvent(tcell.NewEventKey(k, "", tcell.ModNone))
 		if result != EventConsumed {
 			t.Errorf("dialog should consume all key events (modal), but key %v was not consumed", k)
 		}

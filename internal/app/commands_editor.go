@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
+	"github.com/eugenioenko/ttt/internal/core/diff"
 )
 
 func (a *App) editorPathLang() (string, string) {
@@ -228,8 +229,88 @@ func (a *App) Quit() {
 	})
 }
 
+// hunkStarts returns the buffer-line indices (0-based) at which each diff hunk
+// begins. A hunk is a maximal run of consecutive non-Unchanged lines; its start
+// is the first line of that run.
+func hunkStarts(changes []diff.LineChangeKind) []int {
+	var starts []int
+	for i := 0; i < len(changes); i++ {
+		if changes[i] != diff.LineUnchanged && (i == 0 || changes[i-1] == diff.LineUnchanged) {
+			starts = append(starts, i)
+		}
+	}
+	return starts
+}
+
+// DiffNextHunk moves the cursor to the start of the next changed hunk after the
+// current cursor line. No-op when git-gutter data is unavailable or there is no
+// following hunk.
+func (a *App) DiffNextHunk() {
+	if !a.EditorGroup.IsEditorActive() {
+		return
+	}
+	changes := a.EditorGroup.Editor.LineChanges
+	if len(changes) == 0 {
+		a.StatusNotify("No changes in this file")
+		return
+	}
+	line, _ := a.EditorGroup.ActiveCursor() // 0-based
+	target := -1
+	for _, s := range hunkStarts(changes) {
+		if s > line {
+			target = s
+			break
+		}
+	}
+	if target < 0 {
+		a.StatusNotify("No more changes below")
+		return
+	}
+	a.EditorGroup.GoToLine(target + 1) // GoToLine is 1-based
+}
+
+// DiffPrevHunk moves the cursor to the start of the previous changed hunk before
+// the current cursor line. No-op when git-gutter data is unavailable or there is
+// no preceding hunk.
+func (a *App) DiffPrevHunk() {
+	if !a.EditorGroup.IsEditorActive() {
+		return
+	}
+	changes := a.EditorGroup.Editor.LineChanges
+	if len(changes) == 0 {
+		a.StatusNotify("No changes in this file")
+		return
+	}
+	line, _ := a.EditorGroup.ActiveCursor() // 0-based
+	target := -1
+	for _, s := range hunkStarts(changes) {
+		if s < line {
+			target = s
+		} else {
+			break
+		}
+	}
+	if target < 0 {
+		a.StatusNotify("No more changes above")
+		return
+	}
+	a.EditorGroup.GoToLine(target + 1) // GoToLine is 1-based
+}
+
 func registerEditorCommands(app *App) {
 	reg := app.Reg
+
+	reg.Register(command.Command{
+		ID: "diff.nextHunk", Title: "Git: Next Changed Hunk",
+		Keywords: []string{"git", "diff", "hunk", "change", "navigate"},
+		Handler:  app.DiffNextHunk,
+	})
+
+	reg.Register(command.Command{
+		ID: "diff.prevHunk", Title: "Git: Previous Changed Hunk",
+		Keywords: []string{"git", "diff", "hunk", "change", "navigate"},
+		Handler:  app.DiffPrevHunk,
+	})
 
 	reg.Register(command.Command{
 		ID: "editor.focus", Title: "View: Focus Editor",

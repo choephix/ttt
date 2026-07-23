@@ -61,6 +61,22 @@ func (e *PluginEditorAPI) CurrentLine() string {
 	return ""
 }
 
+func (e *PluginEditorAPI) GetLine(n int) string {
+	buf := e.eg.ActiveBuffer()
+	if buf == nil || n < 0 || n >= len(buf.Lines) {
+		return ""
+	}
+	return buf.Lines[n]
+}
+
+func (e *PluginEditorAPI) LineCount() int {
+	buf := e.eg.ActiveBuffer()
+	if buf == nil {
+		return 0
+	}
+	return len(buf.Lines)
+}
+
 func (e *PluginEditorAPI) CursorPos() (int, int) {
 	return e.eg.ActiveCursor()
 }
@@ -98,6 +114,56 @@ func (e *PluginEditorAPI) Language() string {
 		return ""
 	}
 	return ed.Highlighter.Language()
+}
+
+func (e *PluginEditorAPI) Viewport() (int, int, int) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Viewport == nil {
+		return 0, 0, 0
+	}
+	top := ed.Viewport.TopLine
+	height := ed.Viewport.Height
+	bottom := top + height - 1
+	buf := e.eg.ActiveBuffer()
+	if buf != nil && bottom >= len(buf.Lines) {
+		bottom = len(buf.Lines) - 1
+	}
+	return top, bottom, height
+}
+
+func (e *PluginEditorAPI) ScrollTo(line int) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Viewport == nil {
+		return
+	}
+	if line < 0 {
+		line = 0
+	}
+	ed.Viewport.TopLine = line
+}
+
+func (e *PluginEditorAPI) ScrollBy(delta int) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Viewport == nil {
+		return
+	}
+	newTop := ed.Viewport.TopLine + delta
+	if newTop < 0 {
+		newTop = 0
+	}
+	ed.Viewport.TopLine = newTop
+}
+
+func (e *PluginEditorAPI) SetLine(line int, text string) {
+	ed := e.eg.Editor
+	if ed == nil || ed.Buf == nil || ed.Undo == nil {
+		return
+	}
+	if line < 0 || line >= len(ed.Buf.Lines) {
+		return
+	}
+	runes := []rune(ed.Buf.Lines[line])
+	e.Replace(line, 0, line, len(runes), text)
 }
 
 func (e *PluginEditorAPI) Insert(line, col int, text string) {
@@ -193,6 +259,60 @@ func (e *PluginEditorAPI) ClearSelection() {
 		return
 	}
 	ed.Selection.Clear()
+}
+
+func (e *PluginEditorAPI) BeginUndoGroup() {
+	ed := e.eg.Editor
+	if ed == nil || ed.Undo == nil {
+		return
+	}
+	ed.Undo.BeginTransaction()
+}
+
+func (e *PluginEditorAPI) EndUndoGroup() {
+	ed := e.eg.Editor
+	if ed == nil || ed.Undo == nil {
+		return
+	}
+	ed.Undo.EndTransaction()
+}
+
+func (e *PluginEditorAPI) AddCursor(line, col int) {
+	e.eg.AddCursor(line, col)
+}
+
+func (e *PluginEditorAPI) GetCursors() []plugin.CursorPosition {
+	states := e.eg.GetCursors()
+	if states == nil {
+		line, col := e.eg.ActiveCursor()
+		return []plugin.CursorPosition{{Line: line, Col: col}}
+	}
+	result := make([]plugin.CursorPosition, len(states))
+	for i, cs := range states {
+		result[i] = plugin.CursorPosition{Line: cs.Line, Col: cs.Col}
+	}
+	return result
+}
+
+func (e *PluginEditorAPI) ClearCursors() {
+	e.eg.CollapseMultiCursor()
+}
+
+func (e *PluginEditorAPI) SetSearch(pattern string, useRegex bool) {
+	if !e.eg.IsEditorActive() {
+		return
+	}
+	buf := e.eg.ActiveBuffer()
+	if buf == nil {
+		return
+	}
+	opts := ui.SearchOptions{UseRegex: useRegex, CaseSensitive: true}
+	matches, _ := ui.FindInLines(buf.Lines, pattern, opts)
+	e.eg.SetSearch(pattern, matches)
+}
+
+func (e *PluginEditorAPI) ClearSearch() {
+	e.eg.ClearSearch()
 }
 
 // PluginFilesystemAPI implements plugin.FilesystemAPI with path restrictions.
@@ -305,7 +425,7 @@ func (s *PluginSystemAPI) validateArgs(binary string, args []string) error {
 	return nil
 }
 
-func (s *PluginSystemAPI) Exec(binary string, args []string) (string, string, int, error) {
+func (s *PluginSystemAPI) Exec(binary string, args []string, stdin string) (string, string, int, error) {
 	if err := s.validateArgs(binary, args); err != nil {
 		return "", "", -1, err
 	}
@@ -313,6 +433,9 @@ func (s *PluginSystemAPI) Exec(binary string, args []string) (string, string, in
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	err := cmd.Run()
 	exitCode := 0
 	if err != nil {

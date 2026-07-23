@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type TerminalPanelWidget struct {
@@ -51,9 +51,14 @@ func (tp *TerminalPanelWidget) SetFocused(focused bool) {
 	}
 }
 
+// AddTerminal and RemoveTerminal focus the widget they make active, as SetActive
+// does. Leaving that to a following Root.SetFocus only worked while SetFocus
+// blindly re-asserted focus on the already-focused panel.
 func (tp *TerminalPanelWidget) AddTerminal(w Widget) {
+	tp.blurActive()
 	tp.widgets = append(tp.widgets, w)
 	tp.active = len(tp.widgets) - 1
+	tp.focusActive()
 	tp.syncTabBar()
 }
 
@@ -68,23 +73,27 @@ func (tp *TerminalPanelWidget) RemoveTerminal(index int) {
 	if tp.active < 0 {
 		tp.active = 0
 	}
+	tp.focusActive()
 	tp.syncTabBar()
 }
 
 func (tp *TerminalPanelWidget) SetActive(index int) {
 	if index >= 0 && index < len(tp.widgets) && tp.active != index {
-		if old := tp.ActiveWidget(); old != nil {
-			if setter, ok := old.(interface{ SetFocused(bool) }); ok {
-				setter.SetFocused(false)
-			}
-		}
+		tp.blurActive()
 		tp.active = index
-		if w := tp.ActiveWidget(); w != nil {
-			if setter, ok := w.(interface{ SetFocused(bool) }); ok {
-				setter.SetFocused(true)
-			}
-		}
+		tp.focusActive()
 		tp.syncTabBar()
+	}
+}
+
+func (tp *TerminalPanelWidget) blurActive()  { tp.setActiveFocus(false) }
+func (tp *TerminalPanelWidget) focusActive() { tp.setActiveFocus(true) }
+
+func (tp *TerminalPanelWidget) setActiveFocus(focused bool) {
+	if w := tp.ActiveWidget(); w != nil {
+		if setter, ok := w.(interface{ SetFocused(bool) }); ok {
+			setter.SetFocused(focused)
+		}
 	}
 }
 

@@ -230,7 +230,8 @@ func (a *App) ShowKeybindings() {
 			{Key: "Enter", Value: "Edit selected shortcut"},
 			{Key: "Backspace", Value: "Reset to default"},
 			{Key: "Delete", Value: "Clear shortcut"},
-			{Key: "Up/Down", Value: "Navigate list"},
+			{Key: "Up / k", Value: "Move up"},
+			{Key: "Down / j", Value: "Move down"},
 			{Key: "Esc", Value: "Close"},
 		})
 		dialog := widgets.NewDialogWidget(50)

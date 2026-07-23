@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/app"
-	"github.com/gdamore/tcell/v2"
+	"github.com/eugenioenko/ttt/internal/term"
 )
 
 func TestBracketPairColorization(t *testing.T) {
@@ -39,10 +39,10 @@ func main() {
 	for y := 0; y < 24; y++ {
 		for x := 0; x < w-3; x++ {
 			idx := y*w + x
-			if len(cells[idx].Runes) > 0 && cells[idx].Runes[0] == 'f' &&
-				len(cells[idx+1].Runes) > 0 && cells[idx+1].Runes[0] == 'o' &&
-				len(cells[idx+2].Runes) > 0 && cells[idx+2].Runes[0] == 'o' &&
-				len(cells[idx+3].Runes) > 0 && cells[idx+3].Runes[0] == '(' {
+			if runeAt(cells, idx) == 'f' &&
+				runeAt(cells, idx+1) == 'o' &&
+				runeAt(cells, idx+2) == 'o' &&
+				runeAt(cells, idx+3) == '(' {
 				fooRow = y
 				fooCol = x + 3
 				break
@@ -63,9 +63,9 @@ func main() {
 	innerOpenCol := middleOpenCol + 4
 	innerOpenCell := cells[fooRow*w+innerOpenCol]
 
-	outerFg, _, _ := outerOpenCell.Style.Decompose()
-	middleFg, _, _ := middleOpenCell.Style.Decompose()
-	innerFg, _, _ := innerOpenCell.Style.Decompose()
+	outerFg := outerOpenCell.Style.GetForeground()
+	middleFg := middleOpenCell.Style.GetForeground()
+	innerFg := innerOpenCell.Style.GetForeground()
 
 	// All three should have different foreground colors (different nesting depths)
 	if outerFg == middleFg {
@@ -85,9 +85,9 @@ func main() {
 	outerCloseCol := middleCloseCol + 1
 	outerCloseCell := cells[fooRow*w+outerCloseCol]
 
-	innerCloseFg, _, _ := innerCloseCell.Style.Decompose()
-	middleCloseFg, _, _ := middleCloseCell.Style.Decompose()
-	outerCloseFg, _, _ := outerCloseCell.Style.Decompose()
+	innerCloseFg := innerCloseCell.Style.GetForeground()
+	middleCloseFg := middleCloseCell.Style.GetForeground()
+	outerCloseFg := outerCloseCell.Style.GetForeground()
 
 	if innerFg != innerCloseFg {
 		t.Errorf("inner open (%v) and close (%v) bracket colors should match", innerFg, innerCloseFg)
@@ -124,10 +124,10 @@ func main() {
 	for y := 0; y < 24; y++ {
 		for x := 0; x < w-3; x++ {
 			idx := y*w + x
-			if len(cells[idx].Runes) > 0 && cells[idx].Runes[0] == 'f' &&
-				len(cells[idx+1].Runes) > 0 && cells[idx+1].Runes[0] == 'o' &&
-				len(cells[idx+2].Runes) > 0 && cells[idx+2].Runes[0] == 'o' &&
-				len(cells[idx+3].Runes) > 0 && cells[idx+3].Runes[0] == '(' {
+			if runeAt(cells, idx) == 'f' &&
+				runeAt(cells, idx+1) == 'o' &&
+				runeAt(cells, idx+2) == 'o' &&
+				runeAt(cells, idx+3) == '(' {
 				parenRow = y
 				parenCol = x + 3
 				break
@@ -142,7 +142,7 @@ func main() {
 		t.Fatal("could not find 'foo(' on screen")
 	}
 
-	colorizedFg, _, _ := cells[parenRow*w+parenCol].Style.Decompose()
+	colorizedFg := cells[parenRow*w+parenCol].Style.GetForeground()
 
 	h.exec("options.toggleBracketColors")
 	cells, _, _ = h.screen.GetContents()
@@ -157,7 +157,7 @@ func main() {
 	}
 
 	cells, _, _ = h.screen.GetContents()
-	reenabled, _, _ := cells[parenRow*w+parenCol].Style.Decompose()
+	reenabled := cells[parenRow*w+parenCol].Style.GetForeground()
 
 	if colorizedFg != reenabled {
 		t.Errorf("re-enabled bracket color %v should match original %v", reenabled, colorizedFg)
@@ -217,17 +217,17 @@ var x = (1 + 2)
 		t.Fatal("could not find '(1' on screen")
 	}
 
-	stringBracketFg, _, _ := cells[stringParenRow*w+stringParenCol].Style.Decompose()
-	freeBracketFg, _, _ := cells[freeParenRow*w+freeParenCol].Style.Decompose()
+	stringBracketFg := cells[stringParenRow*w+stringParenCol].Style.GetForeground()
+	freeBracketFg := cells[freeParenRow*w+freeParenCol].Style.GetForeground()
 
 	if stringBracketFg == freeBracketFg {
 		t.Errorf("bracket in string (%v) should have different color than free bracket (%v)", stringBracketFg, freeBracketFg)
 	}
 }
 
-func runeAt(cells []tcell.SimCell, idx int) rune {
-	if idx < len(cells) && len(cells[idx].Runes) > 0 {
-		return cells[idx].Runes[0]
+func runeAt(cells []term.SimCell, idx int) rune {
+	if idx < len(cells) && cells[idx].Str != "" {
+		return []rune(cells[idx].Str)[0]
 	}
 	return 0
 }

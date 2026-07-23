@@ -3,7 +3,7 @@ package widgets
 import (
 	"testing"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ func TestButtonAcceleratorParsing(t *testing.T) {
 
 	// Lowercase 's' should trigger
 	renderWidget(btn, 0, 0, 10, 3)
-	ev := tcell.NewEventKey(tcell.KeyRune, 's', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "s", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("lowercase accel rune should trigger button")
@@ -40,7 +40,7 @@ func TestButtonAcceleratorParsing(t *testing.T) {
 
 	// Uppercase 'S' should also trigger
 	clicked = false
-	ev = tcell.NewEventKey(tcell.KeyRune, 'S', tcell.ModNone)
+	ev = tcell.NewEventKey(tcell.KeyRune, "S", tcell.ModNone)
 	result = btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("uppercase accel rune should trigger button")
@@ -65,7 +65,7 @@ func TestButtonNoAccelerator(t *testing.T) {
 
 	// Random rune should not trigger
 	renderWidget(btn, 0, 0, 10, 3)
-	ev := tcell.NewEventKey(tcell.KeyRune, 'c', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "c", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("button without accelerator should ignore rune keys")
@@ -135,7 +135,7 @@ func TestButtonKeyboardTriggersFocused(t *testing.T) {
 	renderWidget(btn, 0, 0, 10, 1)
 
 	// Enter triggers
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("Enter should trigger focused button")
@@ -145,7 +145,7 @@ func TestButtonKeyboardTriggersFocused(t *testing.T) {
 	}
 
 	// Space triggers
-	ev = tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone)
+	ev = tcell.NewEventKey(tcell.KeyRune, " ", tcell.ModNone)
 	result = btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("Space should trigger focused button")
@@ -155,7 +155,7 @@ func TestButtonKeyboardTriggersFocused(t *testing.T) {
 	}
 
 	// Non-matching key should be ignored (no accelerator on this button)
-	ev = tcell.NewEventKey(tcell.KeyRune, 'x', tcell.ModNone)
+	ev = tcell.NewEventKey(tcell.KeyRune, "x", tcell.ModNone)
 	result = btn.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("non-matching key should be ignored by focused button without accel")
@@ -172,7 +172,7 @@ func TestButtonKeyboardIgnoredUnfocused(t *testing.T) {
 	renderWidget(btn, 0, 0, 10, 1)
 
 	// Enter should NOT trigger unfocused button
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("Enter should not trigger unfocused button")
@@ -192,7 +192,7 @@ func TestButtonAccelTriggersUnfocused(t *testing.T) {
 	renderWidget(btn, 0, 0, 10, 1)
 
 	// Accel rune triggers even when unfocused
-	ev := tcell.NewEventKey(tcell.KeyRune, 'd', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "d", tcell.ModNone)
 	result := btn.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("accel key should trigger even when unfocused")
@@ -248,7 +248,7 @@ func TestCheckboxKeyEventsFocused(t *testing.T) {
 	renderWidget(cb, 0, 0, 20, 1)
 
 	// Enter toggles
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := cb.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("Enter should be consumed when focused")
@@ -258,7 +258,7 @@ func TestCheckboxKeyEventsFocused(t *testing.T) {
 	}
 
 	// Space toggles back
-	ev = tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone)
+	ev = tcell.NewEventKey(tcell.KeyRune, " ", tcell.ModNone)
 	result = cb.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("Space should be consumed when focused")
@@ -273,7 +273,7 @@ func TestCheckboxKeyEventsUnfocused(t *testing.T) {
 	cb.SetFocused(false)
 	renderWidget(cb, 0, 0, 20, 1)
 
-	ev := tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEnter, "", tcell.ModNone)
 	result := cb.HandleEvent(ev)
 	if result != EventIgnored {
 		t.Error("Enter should be ignored when unfocused")
@@ -338,7 +338,7 @@ func TestDialogEscapeDismissal(t *testing.T) {
 	d.OnDismiss = func() { dismissed = true }
 	d.Build()
 
-	ev := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyEscape, "", tcell.ModNone)
 	result := d.HandleEvent(ev)
 	if result != EventConsumed {
 		t.Error("Escape should return EventConsumed")
@@ -354,9 +354,9 @@ func TestDialogModalEventSwallowing(t *testing.T) {
 
 	// Regular key events should be consumed (dialog is modal)
 	keys := []tcell.Key{tcell.KeyRune, tcell.KeyEnter, tcell.KeyTab, tcell.KeyUp}
-	runes := []rune{'a', 0, 0, 0}
+	strs := []string{"a", "", "", ""}
 	for i, key := range keys {
-		ev := tcell.NewEventKey(key, runes[i], tcell.ModNone)
+		ev := tcell.NewEventKey(key, strs[i], tcell.ModNone)
 		result := d.HandleEvent(ev)
 		if result != EventConsumed {
 			t.Errorf("dialog should consume key event %v (modal), got EventIgnored", key)
@@ -380,7 +380,7 @@ func TestDialogButtonCallback(t *testing.T) {
 	renderWidget(d, 0, 0, 60, 20)
 
 	// The footer is an HStack of buttons. Use the accelerator key to trigger.
-	ev := tcell.NewEventKey(tcell.KeyRune, 'o', tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyRune, "o", tcell.ModNone)
 	d.HandleEvent(ev)
 
 	if !okClicked {

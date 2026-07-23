@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/gdamore/tcell/v2"
+import "github.com/gdamore/tcell/v3"
 
 type ListAction int
 

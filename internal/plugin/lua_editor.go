@@ -15,6 +15,9 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "buffer_text", L.NewFunction(editorBufferText(p)))
 			L.SetField(mod, "buffer_lines", L.NewFunction(editorBufferLines(p)))
 			L.SetField(mod, "current_line", L.NewFunction(editorCurrentLine(p)))
+			L.SetField(mod, "get_line", L.NewFunction(editorGetLine(p)))
+			L.SetField(mod, "line_count", L.NewFunction(editorLineCount(p)))
+			L.SetField(mod, "viewport", L.NewFunction(editorViewport(p)))
 			L.SetField(mod, "cursor", L.NewFunction(editorCursor(p)))
 			L.SetField(mod, "selection", L.NewFunction(editorSelection(p)))
 			L.SetField(mod, "selection_text", L.NewFunction(editorSelectionText(p)))
@@ -24,14 +27,24 @@ func setupEditorModule(L *lua.LState, p *Plugin) {
 			L.SetField(mod, "byte_to_col", L.NewFunction(editorByteToCol(p)))
 			L.SetField(mod, "col_to_byte", L.NewFunction(editorColToByte(p)))
 			L.SetField(mod, "register_context_menu", L.NewFunction(editorRegisterContextMenu(p)))
+			L.SetField(mod, "get_cursors", L.NewFunction(editorGetCursors(p)))
 		}
 
 		if hasWrite {
+			L.SetField(mod, "scroll_to", L.NewFunction(editorScrollTo(p)))
+			L.SetField(mod, "scroll_by", L.NewFunction(editorScrollBy(p)))
 			L.SetField(mod, "insert", L.NewFunction(editorInsert(p)))
+			L.SetField(mod, "set_line", L.NewFunction(editorSetLine(p)))
 			L.SetField(mod, "replace", L.NewFunction(editorReplace(p)))
 			L.SetField(mod, "set_cursor", L.NewFunction(editorSetCursor(p)))
 			L.SetField(mod, "set_selection", L.NewFunction(editorSetSelection(p)))
 			L.SetField(mod, "clear_selection", L.NewFunction(editorClearSelection(p)))
+			L.SetField(mod, "begin_undo_group", L.NewFunction(editorBeginUndoGroup(p)))
+			L.SetField(mod, "end_undo_group", L.NewFunction(editorEndUndoGroup(p)))
+			L.SetField(mod, "add_cursor", L.NewFunction(editorAddCursor(p)))
+			L.SetField(mod, "clear_cursors", L.NewFunction(editorClearCursors(p)))
+			L.SetField(mod, "set_search", L.NewFunction(editorSetSearch(p)))
+			L.SetField(mod, "clear_search", L.NewFunction(editorClearSearch(p)))
 		}
 
 		L.Push(mod)
@@ -78,6 +91,30 @@ func editorCurrentLine(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		L.Push(lua.LString(p.Editor.CurrentLine()))
+		return 1
+	}
+}
+
+func editorGetLine(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		n := int(L.CheckNumber(1)) - 1
+		L.Push(lua.LString(p.Editor.GetLine(n)))
+		return 1
+	}
+}
+
+func editorLineCount(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNumber(0))
+			return 1
+		}
+		L.Push(lua.LNumber(p.Editor.LineCount()))
 		return 1
 	}
 }
@@ -225,6 +262,59 @@ func editorColToByte(p *Plugin) lua.LGFunction {
 	}
 }
 
+func editorViewport(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		top, bottom, height := p.Editor.Viewport()
+		tbl := L.NewTable()
+		L.SetField(tbl, "top_line", lua.LNumber(top+1))
+		L.SetField(tbl, "bottom_line", lua.LNumber(bottom+1))
+		L.SetField(tbl, "height", lua.LNumber(height))
+		L.Push(tbl)
+		return 1
+	}
+}
+
+func editorScrollTo(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		line := int(L.CheckNumber(1)) - 1
+		p.Editor.ScrollTo(line)
+		return 0
+	}
+}
+
+func editorScrollBy(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		delta := int(L.CheckNumber(1))
+		p.Editor.ScrollBy(delta)
+		return 0
+	}
+}
+
+func editorSetLine(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		n := int(L.CheckNumber(1)) - 1
+		text := L.CheckString(2)
+		p.Editor.SetLine(n, text)
+		return 0
+	}
+}
+
 func editorInsert(p *Plugin) lua.LGFunction {
 	return func(L *lua.LState) int {
 		if p.Editor == nil {
@@ -365,6 +455,93 @@ func editorClearSelection(p *Plugin) lua.LGFunction {
 			return 2
 		}
 		p.Editor.ClearSelection()
+		return 0
+	}
+}
+
+func editorBeginUndoGroup(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.BeginUndoGroup()
+		return 0
+	}
+}
+
+func editorEndUndoGroup(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.EndUndoGroup()
+		return 0
+	}
+}
+
+func editorAddCursor(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		line := int(L.CheckNumber(1)) - 1
+		col := int(L.CheckNumber(2)) - 1
+		p.Editor.AddCursor(line, col)
+		return 0
+	}
+}
+
+func editorGetCursors(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("editor API not available"))
+			return 2
+		}
+		cursors := p.Editor.GetCursors()
+		tbl := L.NewTable()
+		for _, c := range cursors {
+			entry := L.NewTable()
+			L.SetField(entry, "line", lua.LNumber(c.Line+1))
+			L.SetField(entry, "col", lua.LNumber(c.Col+1))
+			tbl.Append(entry)
+		}
+		L.Push(tbl)
+		return 1
+	}
+}
+
+func editorClearCursors(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.ClearCursors()
+		return 0
+	}
+}
+
+func editorSetSearch(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		pattern := L.CheckString(1)
+		useRegex := false
+		if L.GetTop() >= 2 {
+			useRegex = L.OptBool(2, false)
+		}
+		p.Editor.SetSearch(pattern, useRegex)
+		return 0
+	}
+}
+
+func editorClearSearch(p *Plugin) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if p.Editor == nil {
+			return 0
+		}
+		p.Editor.ClearSearch()
 		return 0
 	}
 }

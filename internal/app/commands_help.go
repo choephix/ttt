@@ -13,14 +13,16 @@ var explorerHelpEntries = []widgets.KeyValueEntry{
 	{Key: "Space", Value: "Open file or toggle folder"},
 	{Key: "Shift+Enter", Value: "Open context menu"},
 	{Key: "Menu*", Value: "Open context menu (terminal-dependent)"},
-	{Key: "Left", Value: "Collapse folder"},
-	{Key: "Right", Value: "Expand folder"},
-	{Key: "Up / Down", Value: "Navigate items"},
+	{Key: "Up / k", Value: "Move up"},
+	{Key: "Down / j", Value: "Move down"},
+	{Key: "Left / h", Value: "Collapse folder"},
+	{Key: "Right / l", Value: "Expand folder"},
 }
 
 var searchHelpEntries = []widgets.KeyValueEntry{
 	{Key: "Enter", Value: "Activate selected result"},
-	{Key: "Up / Down", Value: "Navigate results"},
+	{Key: "Up / k", Value: "Move up"},
+	{Key: "Down / j", Value: "Move down"},
 	{Key: "Tab", Value: "Next input field"},
 	{Key: "Shift+Tab", Value: "Previous input field"},
 	{Key: "Alt+c", Value: "Toggle case sensitivity"},
@@ -38,7 +40,8 @@ var changesHelpEntries = []widgets.KeyValueEntry{
 	{Key: "c", Value: "Open compact diff"},
 	{Key: "e", Value: "Open extended diff"},
 	{Key: "Enter", Value: "Open compact diff"},
-	{Key: "Up / Down", Value: "Navigate files"},
+	{Key: "Up / k", Value: "Move up"},
+	{Key: "Down / j", Value: "Move down"},
 }
 
 func (a *App) ShowPanelHelp(title string, entries []widgets.KeyValueEntry, description ...string) {

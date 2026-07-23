@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/ui"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestStartup(t *testing.T) {

@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -121,9 +122,24 @@ func TestLoadManifestAPIVersionSupported(t *testing.T) {
 	}
 }
 
-func TestLoadManifestAPIVersionTooNew(t *testing.T) {
+func TestLoadManifestAPIVersion2Supported(t *testing.T) {
 	dir := t.TempDir()
 	data := `{"name": "test", "entry": "init.lua", "api": 2}`
+	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
+
+	m, err := LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("api 2 should be supported: %v", err)
+	}
+	if m.API != 2 {
+		t.Errorf("expected api 2, got %d", m.API)
+	}
+}
+
+func TestLoadManifestAPIVersionTooNew(t *testing.T) {
+	dir := t.TempDir()
+	// One past the supported version, whatever that currently is.
+	data := fmt.Sprintf(`{"name": "test", "entry": "init.lua", "api": %d}`, SupportedAPIVersion+1)
 	os.WriteFile(filepath.Join(dir, "plugin.ttt.json"), []byte(data), 0644)
 
 	_, err := LoadManifest(dir)

@@ -7,7 +7,16 @@ sidebar:
 
 Settings are stored in `~/.config/ttt/settings.json`. A complete example is available at [`config/settings.json`](https://github.com/eugenioenko/ttt/blob/main/config/settings.json) in the repository.
 
-You can open your settings file directly from the command palette (**Ctrl+P**) with **Preferences: Open Settings**.
+## Editing settings
+
+There are two ways to change settings:
+
+- **Settings editor** — **View → Settings**, **Ctrl+K ,**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). Opens a form in an editor tab, grouped into **Editor**, **Appearance**, **Completion** and **Advanced** (explorer, terminal, search and plugin options live under Advanced). Edits are held until you press **Apply** (also available as **Settings: Apply Changes**), which writes `settings.json` and live-applies everything that does not require a restart. **Cancel** (also **Settings: Discard Changes**) closes the tab and drops them. Rows marked *(restart)* only take effect on next launch.
+- **Raw JSON** — **Settings: Open settings.json** opens the file itself. Needed for the `lsp` settings and `formatters`, neither of which is exposed in the form.
+
+Closing the settings tab with unapplied edits discards them.
+
+Both write the same file, so you can move between them freely.
 
 ## Top-level
 
@@ -26,7 +35,8 @@ All editor settings are nested under the `editor` key.
 | `editor.tabSize` | int | `4` | Number of spaces per indentation level |
 | `editor.insertSpaces` | bool | `true` | Use spaces instead of tabs for indentation |
 | `editor.wordWrap` | bool | `false` | Wrap long lines at the editor width |
-| `editor.autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line (indentation inheritance and indent after `{ ( [ :` always apply) |
+| `editor.autoIndent` | bool | `true` | Inherit the previous line's indent on Enter, plus one level after `{ ( [ :` (turn off for `noautoindent` behavior) |
+| `editor.autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line |
 | `editor.lineNumbers` | bool | `true` | Show line numbers in the gutter |
 | `editor.cursorStyle` | string | `""` | Cursor style: `"block"`, `"underline"`, or `"bar"` |
 | `editor.formatOnSave` | bool | `false` | Auto-format the document via LSP on save |
@@ -128,6 +138,7 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
     "tabSize": 4,
     "insertSpaces": true,
     "wordWrap": false,
+    "autoIndent": true,
     "autoDedent": true,
     "lineNumbers": true,
     "cursorStyle": "",

@@ -100,12 +100,17 @@ export function snapshot() {
   return idx;
 }
 
+// ASCII unit separator: cannot appear in a key name or typed text, so tests are
+// free to send a literal ";" (a Vim motion, among other things) without it
+// being mistaken for a command boundary.
+const SEP = "\x1f";
+
 export function run(timeout = 15000) {
   commands.push("quit");
-  const script = commands.join("; ");
+  const script = commands.join(SEP);
 
   try {
-    execFileSync(BINARY, ["--size", size, "--exec", script, ...args], {
+    execFileSync(BINARY, ["--size", size, "--exec-split-on", SEP, "--exec", script, ...args], {
       encoding: "utf8",
       timeout,
       stdio: "pipe",

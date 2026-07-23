@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type CheckboxConfig struct {
@@ -40,8 +40,12 @@ func (c *CheckboxWidget) Render(surface Surface) {
 	if style == 0 {
 		style = term.StyleDefault
 	}
+
+	// Focus shows in the brackets alone, matching the input widget's "❯" prefix.
+	// The mark and label keep their own colour so the checked state stays legible.
+	bracket := term.StyleBorder
 	if c.focused {
-		style = term.StyleButtonFocused
+		bracket = term.StyleBorderActive
 	}
 
 	for x := range w {
@@ -52,11 +56,9 @@ func (c *CheckboxWidget) Render(surface Surface) {
 	if c.Config.Checked {
 		mark = 'x'
 	}
-	inner.SetCell(0, 0, term.Cell{Ch: ' ', Style: style})
-	inner.SetCell(1, 0, term.Cell{Ch: '[', Style: style})
+	inner.SetCell(1, 0, term.Cell{Ch: '[', Style: bracket})
 	inner.SetCell(2, 0, term.Cell{Ch: mark, Style: style})
-	inner.SetCell(3, 0, term.Cell{Ch: ']', Style: style})
-	inner.SetCell(4, 0, term.Cell{Ch: ' ', Style: style})
+	inner.SetCell(3, 0, term.Cell{Ch: ']', Style: bracket})
 
 	x := 5
 	for _, ch := range c.Config.Label {
@@ -81,7 +83,7 @@ func (c *CheckboxWidget) HandleEvent(ev tcell.Event) EventResult {
 		if !c.focused {
 			return EventIgnored
 		}
-		if tev.Key() == tcell.KeyEnter || (tev.Key() == tcell.KeyRune && tev.Rune() == ' ') {
+		if tev.Key() == tcell.KeyEnter || (tev.Key() == tcell.KeyRune && term.KeyRune(tev) == ' ') {
 			c.toggle()
 			return EventConsumed
 		}

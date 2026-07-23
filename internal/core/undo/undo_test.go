@@ -752,3 +752,58 @@ func TestReplaceLinesCommandExpandLines(t *testing.T) {
 		t.Errorf("expected ['aaa', 'bbb', 'ccc'], got %v", b.Lines)
 	}
 }
+
+// --- Transaction (undo grouping) ---
+
+func TestTransactionGroupsMultipleEdits(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{"hello world"}}
+	s := &UndoStack{}
+
+	s.BeginTransaction()
+
+	del := &DeleteSelectionCommand{StartLine: 0, StartCol: 6, EndLine: 0, EndCol: 11}
+	del.Apply(b)
+	s.Push(del)
+
+	ins := &InsertStringCommand{Line: 0, Col: 6, Text: "there"}
+	ins.Apply(b)
+	s.Push(ins)
+
+	if b.Lines[0] != "hello there" {
+		t.Fatalf("expected 'hello there', got '%s'", b.Lines[0])
+	}
+
+	s.EndTransaction()
+
+	s.Undo(b)
+	if b.Lines[0] != "hello world" {
+		t.Errorf("expected 'hello world' after single undo, got '%s'", b.Lines[0])
+	}
+
+	s.Redo(b)
+	if b.Lines[0] != "hello there" {
+		t.Errorf("expected 'hello there' after redo, got '%s'", b.Lines[0])
+	}
+}
+
+func TestTransactionNoEdits(t *testing.T) {
+	b := &buffer.Buffer{Lines: []string{"abc"}}
+	s := &UndoStack{}
+
+	cmd := &InsertRuneCommand{Line: 0, Col: 3, Rune: '!'}
+	cmd.Apply(b)
+	s.Push(cmd)
+
+	s.BeginTransaction()
+	s.EndTransaction()
+
+	s.Undo(b)
+	if b.Lines[0] != "abc" {
+		t.Errorf("expected 'abc', got '%s'", b.Lines[0])
+	}
+}
+
+func TestEndTransactionWithoutBegin(t *testing.T) {
+	s := &UndoStack{}
+	s.EndTransaction()
+}

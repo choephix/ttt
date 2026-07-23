@@ -35,7 +35,7 @@ func (b *Buffer) LoadFile(filename string) error {
 	if len(lines) == 0 {
 		lines = []string{""}
 	}
-	if b.InsertFinalNewline && (len(lines) == 0 || lines[len(lines)-1] != "") {
+	if b.ShowTrailingNewline && (len(lines) == 0 || lines[len(lines)-1] != "") {
 		lines = append(lines, "")
 	}
 	b.Lines = lines
@@ -93,6 +93,9 @@ func (b *Buffer) SaveFile(filename string) error {
 	}
 	if b.InsertFinalNewline && (len(b.Lines) == 0 || b.Lines[len(b.Lines)-1] != "") {
 		b.Lines = append(b.Lines, "")
+	}
+	if !b.InsertFinalNewline && b.ShowTrailingNewline && len(b.Lines) > 1 && b.Lines[len(b.Lines)-1] == "" {
+		b.Lines = b.Lines[:len(b.Lines)-1]
 	}
 
 	// Resolve symlinks so we write through to the real file rather than

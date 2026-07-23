@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 func TestScrollbarThumbAtTop(t *testing.T) {
@@ -223,7 +223,7 @@ func TestScrollbarKeyEventIgnored(t *testing.T) {
 		TopItem:    0,
 	}
 
-	ev := tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	ev := tcell.NewEventKey(tcell.KeyDown, "", tcell.ModNone)
 	_, consumed := sb.HandleEvent(ev)
 	if consumed {
 		t.Fatal("key events should not be consumed by scrollbar")

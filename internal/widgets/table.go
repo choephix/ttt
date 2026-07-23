@@ -2,7 +2,7 @@ package widgets
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
-	"github.com/gdamore/tcell/v2"
+	"github.com/gdamore/tcell/v3"
 )
 
 type TableColumn struct {
@@ -390,7 +390,7 @@ func (t *TableWidget) handleKey(ev *tcell.EventKey) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyRune:
-		if t.handleShortcutKey(ev.Rune()) == EventConsumed {
+		if t.handleShortcutKey(term.KeyRune(ev)) == EventConsumed {
 			return EventConsumed
 		}
 	}
