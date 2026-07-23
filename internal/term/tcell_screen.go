@@ -157,19 +157,20 @@ func (t *TcellScreen) SetCursorStyle(style CursorStyle) {
 // PostEvent; the queue channel is written directly). The send is non-blocking:
 // PostEvent is occasionally called from the event-loop goroutine itself (e.g.
 // plugin redraw requests), which also drains this queue, so a blocking send
-// on a full queue would deadlock. When the queue is full (cap 128 in tcell
-// v3's tScreen) the event is delivered from a goroutine instead of being
-// dropped — async wakeups must never be lost, and strict ordering only
-// degrades under a burst that v2 would have dropped outright.
+// on a full queue would deadlock. When the queue is full the event is
+// delivered from a goroutine instead of being dropped — async wakeups must
+// never be lost.
+//
+// Fini closes the queue, and a send on a closed channel panics even inside a
+// select with a default case. Async posters (PTY output, LSP, file watcher)
+// can race shutdown, so both send paths recover and drop the event instead.
 func (t *TcellScreen) PostEvent(ev tcell.Event) error {
+	defer func() { _ = recover() }()
 	q := t.scr.EventQ()
 	select {
 	case q <- ev:
 	default:
 		go func() {
-			// tScreen.Fini closes the event queue; a goroutine still blocked
-			// here at shutdown would panic with "send on closed channel".
-			// Dropping the event is fine at that point — recover and exit.
 			defer func() { _ = recover() }()
 			q <- ev
 		}()
