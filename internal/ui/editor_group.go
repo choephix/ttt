@@ -910,6 +910,23 @@ func (g *EditorGroupWidget) GoToLine(line int) {
 	g.Editor.scrollViewport()
 }
 
+// GoToLineCol moves the cursor to a 1-based line and column. The column is
+// clamped to the line's rune length; col 0 or 1 leaves the cursor at the
+// start of the line, matching GoToLine.
+func (g *EditorGroupWidget) GoToLineCol(line, col int) {
+	g.GoToLine(line)
+	if !g.IsEditorActive() || col <= 1 {
+		return
+	}
+	lineLen := len([]rune(g.Editor.Buf.Lines[g.Editor.Cursor.Line]))
+	c := col - 1
+	if c > lineLen {
+		c = lineLen
+	}
+	g.Editor.Cursor.Col = c
+	g.Editor.scrollViewport()
+}
+
 func (g *EditorGroupWidget) ScrollToCursor() {
 	if g.IsEditorActive() {
 		g.Editor.scrollViewport()

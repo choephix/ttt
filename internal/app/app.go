@@ -230,6 +230,18 @@ func (a *App) SpawnTerminal() {
 	}
 
 	tw := ui.NewTerminalWidget(t, a.Palette)
+	tw.WorkDir = a.Workspace.Primary()
+	tw.OnOpenURL = func(url string) {
+		OpenURL(url)
+	}
+	tw.OnOpenFile = func(path string, line, col int) {
+		a.EditorGroup.OpenFile(path)
+		if line > 0 {
+			a.EditorGroup.GoToLineCol(line, col)
+		}
+		a.FocusEditor()
+	}
+
 	panelID := fmt.Sprintf("terminal-%d", len(a.Terminals))
 	a.Terminals = append(a.Terminals, TerminalTab{ID: panelID, Term: t, Widget: tw})
 	a.TerminalPanel.AddTerminal(tw)
