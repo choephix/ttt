@@ -111,6 +111,30 @@ describe("settings editor", () => {
     expect(tabBar.match(/Settings x/g)).toHaveLength(1);
   });
 
+  // Regression for issue #414: Ctrl+C (editor.copy) while the settings tab was
+  // active crashed with a nil dereference — settings tabs have no buffer,
+  // cursor, or selection. The copy must be a safe no-op and the app must keep
+  // rendering the settings UI.
+  it("survives editor clipboard keys while the settings tab is active", () => {
+    openEditor();
+
+    tui.exec("Settings: Open Editor Settings");
+    tui.waitStable();
+    tui.press("ctrl+c");
+    tui.press("ctrl+x");
+    tui.press("ctrl+v");
+    tui.press("ctrl+a");
+    tui.waitStable();
+    const s0 = tui.snapshot();
+
+    const { snapshots } = tui.run();
+    // A crash would leave an empty/errored snapshot; the settings UI must
+    // still be on screen and intact.
+    expect(snapshots[s0]).toContain("Settings");
+    expect(snapshots[s0]).toContain("Word wrap");
+    expect(snapshots[s0]).toContain("Apply");
+  });
+
   it("still offers the raw JSON path", () => {
     openEditor();
 
