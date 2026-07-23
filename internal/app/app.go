@@ -234,10 +234,10 @@ func (a *App) SpawnTerminal() {
 	tw.OnOpenURL = func(url string) {
 		OpenURL(url)
 	}
-	tw.OnOpenFile = func(path string, line int) {
+	tw.OnOpenFile = func(path string, line, col int) {
 		a.EditorGroup.OpenFile(path)
 		if line > 0 {
-			a.EditorGroup.GoToLine(line)
+			a.EditorGroup.GoToLineCol(line, col)
 		}
 		a.FocusEditor()
 	}

@@ -34,12 +34,18 @@ type linkSpan struct {
 	IsFile   bool
 	FilePath string
 	Line     int // 1-based line number for file links (0 = no line)
+	Col      int // 1-based column number for file links (0 = no column)
 }
 
 var (
 	urlRe      = regexp.MustCompile(`https?://[^\s)>\]'"` + "`" + `]+`)
-	fileLineRe = regexp.MustCompile(`(?:^|[\s(])([./~]?[^\s:*?"<>|]*\.[a-zA-Z0-9]+):(\d+)(?::(\d+))?`)
+	fileLineRe = regexp.MustCompile(`(?:^|[\s(])([^\s:*?"<>|]+):(\d+)(?::(\d+))?`)
 )
+
+// linkMemoMax bounds the per-widget link detection memo. When the memo grows
+// past this many unique line texts it is reset, so long sessions with lots of
+// distinct output do not accumulate memory indefinitely.
+const linkMemoMax = 512
 
 type TerminalWidget struct {
 	BaseWidget
@@ -54,10 +60,11 @@ type TerminalWidget struct {
 	selCurrent   termSelPos
 
 	OnOpenURL  func(url string)
-	OnOpenFile func(path string, line int)
+	OnOpenFile func(path string, line, col int)
 	WorkDir    string
 	ctrlHeld   bool
 	linkCache  map[int][]linkSpan
+	linkMemo   map[string][]linkSpan
 }
 
 func NewTerminalWidget(t *terminal.Terminal, palette *TerminalColorPalette) *TerminalWidget {
@@ -140,8 +147,12 @@ func detectLinks(text string, workDir string) []linkSpan {
 		}
 
 		spanEnd := match[5]
+		colNum := 0
 		if match[6] != -1 {
 			spanEnd = match[7]
+			if c, err := strconv.Atoi(text[match[6]:match[7]]); err == nil {
+				colNum = c
+			}
 		}
 
 		startCol := byteToRunePos(text, match[2])
@@ -163,6 +174,7 @@ func detectLinks(text string, workDir string) []linkSpan {
 			IsFile:   true,
 			FilePath: resolvedPath,
 			Line:     lineNum,
+			Col:      colNum,
 		})
 	}
 
@@ -234,6 +246,22 @@ func extractLineText(view vt10x.View, unifiedLine int, maxCols int) string {
 	return sb.String()
 }
 
+// linksForLine returns the link spans for a line of terminal text, memoized
+// by the line's text. Detection runs the regexes plus an os.Stat per file
+// candidate, so caching per unique text keeps Render cheap while Ctrl is held
+// (unchanged lines cost a map lookup per frame instead of stats).
+func (tw *TerminalWidget) linksForLine(text string) []linkSpan {
+	if spans, ok := tw.linkMemo[text]; ok {
+		return spans
+	}
+	if tw.linkMemo == nil || len(tw.linkMemo) >= linkMemoMax {
+		tw.linkMemo = make(map[string][]linkSpan)
+	}
+	spans := detectLinks(text, tw.WorkDir)
+	tw.linkMemo[text] = spans
+	return spans
+}
+
 func (tw *TerminalWidget) linkAt(unifiedLine, col int) *linkSpan {
 	spans, ok := tw.linkCache[unifiedLine]
 	if !ok {
@@ -288,7 +316,7 @@ func (tw *TerminalWidget) Render(surface Surface) {
 				unifiedLine := sbLen + y
 				if tw.ctrlHeld {
 					lineText := extractLineText(view, unifiedLine, contentW)
-					tw.linkCache[unifiedLine] = detectLinks(lineText, tw.WorkDir)
+					tw.linkCache[unifiedLine] = tw.linksForLine(lineText)
 				}
 
 				for x := 0; x < contentW && x < cols; x++ {
@@ -317,7 +345,7 @@ func (tw *TerminalWidget) Render(surface Surface) {
 				srcLine := startLine + screenY
 				if tw.ctrlHeld {
 					lineText := extractLineText(view, srcLine, contentW)
-					tw.linkCache[srcLine] = detectLinks(lineText, tw.WorkDir)
+					tw.linkCache[srcLine] = tw.linksForLine(lineText)
 				}
 
 				if srcLine < sbLen {
@@ -515,7 +543,7 @@ func (tw *TerminalWidget) HandleEvent(ev tcell.Event) EventResult {
 				pos := tw.screenToLine(mx, my)
 				if link := tw.linkAt(pos.Line, pos.Col); link != nil {
 					if link.IsFile && tw.OnOpenFile != nil {
-						tw.OnOpenFile(link.FilePath, link.Line)
+						tw.OnOpenFile(link.FilePath, link.Line, link.Col)
 					} else if !link.IsFile && tw.OnOpenURL != nil {
 						tw.OnOpenURL(link.URL)
 					}

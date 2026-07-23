@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -90,12 +91,16 @@ func TestDetectLinks_FileReferences(t *testing.T) {
 	subFile := filepath.Join(subDir, "util.go")
 	os.WriteFile(subFile, []byte("package internal\n"), 0644)
 
+	makeFile := filepath.Join(tmpDir, "Makefile")
+	os.WriteFile(makeFile, []byte("all:\n"), 0644)
+
 	tests := []struct {
 		name     string
 		input    string
 		workDir  string
 		wantFile string
 		wantLine int
+		wantCol  int
 	}{
 		{
 			name:     "relative file:line",
@@ -110,6 +115,7 @@ func TestDetectLinks_FileReferences(t *testing.T) {
 			workDir:  tmpDir,
 			wantFile: subFile,
 			wantLine: 10,
+			wantCol:  5,
 		},
 		{
 			name:     "absolute file path",
@@ -138,6 +144,7 @@ func TestDetectLinks_FileReferences(t *testing.T) {
 			workDir:  tmpDir,
 			wantFile: testFile,
 			wantLine: 7,
+			wantCol:  2,
 		},
 		{
 			name:     "bare nested relative path",
@@ -145,6 +152,20 @@ func TestDetectLinks_FileReferences(t *testing.T) {
 			workDir:  tmpDir,
 			wantFile: subFile,
 			wantLine: 3,
+		},
+		{
+			name:     "extensionless file (Makefile)",
+			input:    "Makefile:12: recipe failed",
+			workDir:  tmpDir,
+			wantFile: makeFile,
+			wantLine: 12,
+		},
+		{
+			name:     "extensionless token that is not a file",
+			input:    "warning:42 something happened",
+			workDir:  tmpDir,
+			wantFile: "",
+			wantLine: 0,
 		},
 	}
 
@@ -172,6 +193,9 @@ func TestDetectLinks_FileReferences(t *testing.T) {
 			}
 			if got.Line != tt.wantLine {
 				t.Errorf("Line = %d, want %d", got.Line, tt.wantLine)
+			}
+			if got.Col != tt.wantCol {
+				t.Errorf("Col = %d, want %d", got.Col, tt.wantCol)
 			}
 		})
 	}
@@ -238,5 +262,45 @@ func TestResolveFilePath_Empty(t *testing.T) {
 	result := resolveFilePath("", "/some/dir")
 	if result != "" {
 		t.Errorf("expected empty result for empty path, got %q", result)
+	}
+}
+
+func TestLinksForLine_Memoizes(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "main.go")
+	os.WriteFile(testFile, []byte("package main\n"), 0644)
+
+	tw := &TerminalWidget{WorkDir: tmpDir}
+	line := "err at ./main.go:3"
+
+	first := tw.linksForLine(line)
+	if len(first) != 1 || first[0].FilePath != testFile {
+		t.Fatalf("expected one link to %s, got %+v", testFile, first)
+	}
+	if _, ok := tw.linkMemo[line]; !ok {
+		t.Fatal("expected memo entry for line text")
+	}
+
+	// Deleting the file must not affect the memoized result: detection is
+	// served from the memo, no re-stat.
+	os.Remove(testFile)
+	second := tw.linksForLine(line)
+	if len(second) != 1 || second[0].FilePath != testFile {
+		t.Fatalf("expected memoized link, got %+v", second)
+	}
+}
+
+func TestLinksForLine_MemoCap(t *testing.T) {
+	tw := &TerminalWidget{}
+	for i := 0; i < linkMemoMax; i++ {
+		tw.linksForLine("line " + strconv.Itoa(i))
+	}
+	if len(tw.linkMemo) != linkMemoMax {
+		t.Fatalf("expected memo len %d, got %d", linkMemoMax, len(tw.linkMemo))
+	}
+	// The next unique line resets the memo instead of growing it.
+	tw.linksForLine("one more line")
+	if len(tw.linkMemo) != 1 {
+		t.Fatalf("expected memo reset to 1 entry, got %d", len(tw.linkMemo))
 	}
 }
