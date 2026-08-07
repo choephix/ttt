@@ -362,6 +362,29 @@ Open the command line and move focus to it. If one is already open, it is replac
 | `on_change` | function | Called with the full text after every edit. Use for incremental search. |
 | `on_submit` | function | Called with the full text when Enter is pressed. The command line closes first. |
 | `on_cancel` | function | Called when Escape is pressed. The command line closes first.      |
+| `on_key`    | function | Called with a key event **before** the input handles it. Return `true` to consume the key, `false` to let it through. |
+
+##### `on_key`: driving the prompt yourself
+
+`on_change` and `on_submit` are enough for a "type a string, press Enter" prompt. They are not enough when the *keys themselves* are the interface — an Emacs-style incremental search binds `Ctrl+S` to "next match", `Ctrl+G` to "abort back to where I started", and Backspace to "undo the last search step, not the last character". None of those are recoverable from watching the text change.
+
+`on_key` receives the same event table as a [`key.press`](#keypress) listener — `{ type, key, rune, mod }` — so whatever key-normalisation a plugin already has works unchanged in both places. It sees **every** key including Enter and Escape, so it can preempt `on_submit` and `on_cancel`.
+
+```lua
+ttt.command_line.show({
+  prefix = "I-search: ",
+  on_key = function(ev)
+    if ev.key == "Ctrl-S" then
+      next_match()
+      return true            -- consumed; the input never sees it
+    end
+    return false             -- fall through to normal editing
+  end,
+  on_change = function(text) search(text) end,
+})
+```
+
+An `on_key` that raises an error declines the key rather than consuming it, so a broken hook cannot wedge the prompt with no way to type or cancel.
 
 ```lua
 local ttt = require("ttt")
@@ -823,6 +846,30 @@ panel:button({
 |------------|----------|----------|------------------------------------------------|
 | `label`    | string   | yes      | Button text. Use `&` for an accelerator: `"&Save"` underlines S. |
 | `on_click` | function | no       | Callback when the button is pressed.           |
+
+### Checkbox
+
+Boolean toggle that renders `[x]` / `[ ]` with focus styling on the brackets. Responds to Enter, Space, and mouse click.
+
+```lua
+panel:checkbox({
+  label = "Word wrap",
+  checked = true,
+  style = "muted",
+  on_change = function(checked)
+    -- called with the new boolean value
+  end,
+})
+```
+
+**Checkbox config fields:**
+
+| Field       | Type     | Default | Description                                    |
+|-------------|----------|---------|------------------------------------------------|
+| `label`     | string   | `""`    | Text displayed next to the checkbox.           |
+| `checked`   | boolean  | `false` | Whether the checkbox is checked.               |
+| `style`     | string   | default | Named style (e.g. `"muted"`, `"bold"`).        |
+| `on_change` | function | nil     | Called when toggled. Receives the new checked state (boolean). |
 
 ### Input
 
@@ -1318,7 +1365,7 @@ The widget system uses a **reconciliation** algorithm to preserve interactive st
 
 The plugin panel manages its own focus system. When the plugin panel is focused:
 
-- **Tab** / **Shift+Tab** cycles focus between focusable widgets (trees, lists, tables, inputs, buttons, dropdowns).
+- **Tab** / **Shift+Tab** cycles focus between focusable widgets (trees, lists, tables, inputs, buttons, checkboxes, dropdowns).
 - **Arrow keys** navigate within the focused widget (e.g., up/down in a tree).
 - **Enter** / **Space** activate the focused widget (select tree node, press button, submit input).
 - **Shift+Enter** opens the context menu on the selected tree/list node (if `node_menu` is defined).

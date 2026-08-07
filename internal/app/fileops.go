@@ -76,6 +76,7 @@ func (a *App) renamePath(path, newName string, reload func()) bool {
 		a.StatusError("Error: " + err.Error())
 		return false
 	}
+	a.EditorGroup.RenamePath(path, newPath)
 	reload()
 	return true
 }

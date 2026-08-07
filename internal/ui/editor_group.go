@@ -84,6 +84,7 @@ type EditorGroupWidget struct {
 	InsertFinalNewline      bool
 	ShowTrailingNewline     bool
 	TrimTrailingWhitespace  bool
+	UndoDeleteCursorStart   bool
 	Borders                 *term.BorderSet
 	OnFileOpen              func(path, lang, text string)
 	OnFileChange            func(path, lang, text string)
@@ -132,7 +133,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	tabBar.OnNextTab = func() { g.NextTab() }
 	tabBar.OnPrevTab = func() { g.PrevTab() }
 	tabBar.OnEmptySpaceClick = func() { g.NewFile() }
-	undoStack := &undo.UndoStack{}
+	undoStack := g.newUndoStack()
 	sel := &selection.Selection{}
 	editor.Undo = undoStack
 	editor.Selection = sel
@@ -147,6 +148,18 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	}}
 	g.syncTabs()
 	return g
+}
+
+func (g *EditorGroupWidget) newUndoStack() *undo.UndoStack {
+	return &undo.UndoStack{DeleteCursorStart: g.UndoDeleteCursorStart}
+}
+
+func (g *EditorGroupWidget) ApplyUndoDeleteCursorStart(v bool) {
+	for i := range g.tabs {
+		if g.tabs[i].Undo != nil {
+			g.tabs[i].Undo.DeleteCursorStart = v
+		}
+	}
 }
 
 func (g *EditorGroupWidget) Focusable() bool { return true }
@@ -261,7 +274,7 @@ func (g *EditorGroupWidget) openFile(path string, pinned bool) {
 		Buf:      newBuf,
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
-		Undo:     &undo.UndoStack{},
+		Undo:     g.newUndoStack(),
 		Sel:      &selection.Selection{},
 		Folds:    folds,
 		TabSize:  tabSize,
@@ -293,7 +306,7 @@ func (g *EditorGroupWidget) NewFile() {
 		Buf:      &buffer.Buffer{Lines: []string{""}},
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
-		Undo:     &undo.UndoStack{},
+		Undo:     g.newUndoStack(),
 		Sel:      &selection.Selection{},
 		Virtual:  true,
 	})
@@ -375,7 +388,7 @@ func (g *EditorGroupWidget) ClosePluginTab(id string) {
 					Buf:      &buffer.Buffer{Lines: []string{""}},
 					Cur:      &cursor.Cursor{},
 					Vp:       &view.Viewport{},
-					Undo:     &undo.UndoStack{},
+					Undo:     g.newUndoStack(),
 					Sel:      &selection.Selection{},
 					Virtual:  true,
 				}}
@@ -394,7 +407,7 @@ func (g *EditorGroupWidget) ReloadFile(path string) {
 		if g.tabs[i].FilePath == path && g.tabs[i].Buf != nil {
 			g.tabs[i].Buf.LoadFile(path)
 			g.tabs[i].Buf.Dirty = false
-			g.tabs[i].Undo = &undo.UndoStack{}
+			g.tabs[i].Undo = g.newUndoStack()
 			if g.tabs[i].Folds != nil {
 				g.tabs[i].Folds.SetRanges(fold.ComputeIndentRanges(g.tabs[i].Buf.Lines))
 			}
@@ -602,7 +615,7 @@ func (g *EditorGroupWidget) CloseTabAt(index int) {
 			Buf:      &buffer.Buffer{Lines: []string{""}},
 			Cur:      &cursor.Cursor{},
 			Vp:       &view.Viewport{},
-			Undo:     &undo.UndoStack{},
+			Undo:     g.newUndoStack(),
 			Sel:      &selection.Selection{},
 			Virtual:  true,
 		}}
@@ -677,7 +690,7 @@ func (g *EditorGroupWidget) CloseAllTabs() {
 		Buf:      &buffer.Buffer{Lines: []string{""}},
 		Cur:      &cursor.Cursor{},
 		Vp:       &view.Viewport{},
-		Undo:     &undo.UndoStack{},
+		Undo:     g.newUndoStack(),
 		Sel:      &selection.Selection{},
 		Virtual:  true,
 	}}
@@ -750,6 +763,55 @@ func (g *EditorGroupWidget) SaveAs(path string) {
 		t.Highlighter = nil
 	}
 	g.syncTabs()
+}
+
+// RenamePath repoints open tabs after a path is renamed on disk. oldPath may be
+// a file, matched exactly, or a folder, in which case every tab beneath it moves
+// with it. Without this a renamed file's tab keeps pointing at the path it no
+// longer occupies, so the next save writes the old name back out as a duplicate.
+//
+// Buffer, cursor, selection and undo history are deliberately preserved: the
+// document did not change, only its name. Path-derived state (the syntax
+// highlighter, and the language server's notion of which document this is) is
+// rebuilt, since a rename can change the extension.
+func (g *EditorGroupWidget) RenamePath(oldPath, newPath string) bool {
+	if oldPath == "" || newPath == "" || oldPath == newPath {
+		return false
+	}
+	prefix := oldPath + string(filepath.Separator)
+	renamed := false
+	for i := range g.tabs {
+		t := &g.tabs[i]
+		if t.Virtual || t.Content != nil || t.Buf == nil {
+			continue
+		}
+		var updated string
+		switch {
+		case t.FilePath == oldPath:
+			updated = newPath
+		case strings.HasPrefix(t.FilePath, prefix):
+			updated = filepath.Join(newPath, strings.TrimPrefix(t.FilePath, prefix))
+		default:
+			continue
+		}
+		if g.OnFileClose != nil && t.Highlighter != nil {
+			g.OnFileClose(t.FilePath, t.Highlighter.Language())
+		}
+		t.FilePath = updated
+		if g.SyntaxHighlight {
+			t.Highlighter = highlight.New(updated)
+		} else {
+			t.Highlighter = nil
+		}
+		if g.OnFileOpen != nil && t.Highlighter != nil {
+			g.OnFileOpen(updated, t.Highlighter.Language(), strings.Join(t.Buf.Lines, "\n"))
+		}
+		renamed = true
+	}
+	if renamed {
+		g.syncTabs()
+	}
+	return renamed
 }
 
 func (g *EditorGroupWidget) ActiveFilePath() string {

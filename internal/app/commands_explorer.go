@@ -20,8 +20,12 @@ func (a *App) ExplorerNewFolder() {
 	a.FileOpNewFolder(a.explorerNodePath(), a.explorerReload)
 }
 
+// ExplorerRename starts the inline rename editor. The keystrokes that follow
+// have to reach the tree, so the explorer takes focus once the editor is open.
 func (a *App) ExplorerRename() {
-	a.Explorer.BeginRename(a.explorerNodePath())
+	if a.Explorer.BeginRename(a.explorerNodePath()) {
+		a.ShowPanel("explorer", a.Explorer.Adapter)
+	}
 }
 
 func (a *App) ExplorerDelete() {

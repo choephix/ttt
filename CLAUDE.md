@@ -45,6 +45,8 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 - **`internal/ui/`** — Window manager and pane system. `Window` binds a `Rect`, `Viewport`, and `Buffer` together. `WindowManager` tracks focus across windows. Also contains `terminal_widget.go` (renders vt10x grid as direct-color cells, handles key-to-VT translation), `root.go` (ForceKeys and RawKeyConsumer interface for terminal key routing), and `content_split.go` (OnTopClick/OnBottomClick for focus routing between editor and bottom panel).
 
+- **`internal/textwidth/`** — Display-width measurement (`Rune`, `String`, `Runes`). The single source of truth for how many terminal columns text occupies. Wraps `clipperhouse/displaywidth` with the same options tcell v3 uses internally, including the `RUNEWIDTH_EASTASIAN` toggle, so ttt's layout always matches what tcell draws.
+
 - **`internal/workspace/`** — Multi-folder workspace management. `Folder` and `Workspace` types track one or more project roots, with `IsRepo` git-detection, `FolderForFile` lookup (longest-prefix match), and JSON-based workspace file loading/saving (`.ttt` files). The editor falls back to `cwd` when no folders are explicitly provided.
 
 - **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw. Accepts a `--workspace <file>` flag to open a saved workspace, or folder/file paths as positional arguments.
@@ -56,7 +58,12 @@ The codebase follows a strict layered architecture: **core → view → render �
 
 ### Key Design Constraints
 
-- Cursor `Col` is a visual column (rune-based), not a byte index — all line-length calculations use `[]rune()`.
+- Cursor `Col` is a rune index, not a byte index — all line-length calculations use `[]rune()`. It is **not** a terminal column: a fullwidth rune advances `Col` by 1 and the screen by 2.
+- **Never compute display width by hand.** No `len([]rune(s))`, `visCol++`, or `x++` as a stand-in for terminal columns — use `textwidth.String`/`textwidth.Rune`. Fullwidth East Asian runes occupy two columns, and tcell advances the terminal cursor by the rune's width when it draws: a layout that assumes one column per rune writes the next character into a cell the terminal never displays, so it vanishes (issue #434). Three distinct quantities must not be conflated:
+  - **byte offset** ↔ **rune index** — `editor.byte_to_col`/`col_to_byte` in the Lua API (`internal/plugin/lua_editor.go`); no width involved.
+  - **rune index** ↔ **terminal column** — `bufColToVisualCol`/`visualColToBufCol` (`internal/ui/editor_widget_utils.go`); width-aware.
+  - A widget that draws left to right should take its width from what `DrawText` returns rather than measuring the same string a second time.
+- A fullwidth rune must never be drawn in the last column of a clip region: the terminal paints it across two columns regardless of clipping, so it bleeds over the border or scrollbar to its right. `DrawText` substitutes a space in that case.
 - The renderer uses double-buffering (prev/curr cell grids) to minimize terminal writes.
 - `Screen` interface keeps tcell isolated — the rest of the codebase never imports tcell directly (except `cmd/ttt/main.go` for event types).
 - **Never hardcode colors.** All colors must go through the theme system (`internal/config/theme.go` → `StyleDef` → `term.Style` constants → `buildStyleMap`). Add a new `StyleDef` field to `ThemeConfig`, a `term.Style` constant, and wire it in `buildStyleMap()`. Widgets reference `term.Style*` constants, never color values. The one exception is the integrated terminal, which uses direct RGB color rendering via `DirectColor`/`CellAttr` to support 256-color output.
@@ -104,6 +111,7 @@ Lua plugins render UI in sidebar panels, bottom-panel tabs, drawers, and editor 
 | `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands`, `truncate_left` | Expandable tree view. Items are `{id, label, icon, badge, muted, expandable, expanded, children}` tables. `key_commands` maps single chars to commands via `on_command`. `truncate_left` truncates overflowing labels from the left (`…tail`) so the end stays visible. |
 | `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu`, `key_commands`, `truncate_left` | Flat list (backed by TreeWidget, no indentation). `truncate_left` keeps label tails visible on overflow. |
 | `p:button({...})` | `label`, `on_click` | Clickable button. Label is immutable after creation (accelerator parsing). |
+| `p:checkbox({...})` | `label`, `checked`, `style`, `on_change(checked)` | Boolean toggle. Renders `[x]`/`[ ]` with focus styling on brackets. Supports box model. |
 | `p:input({...})` | `placeholder`, `prefix`, `clear_on_submit`, `on_change(text)`, `on_submit(text)` | Text input field. `clear_on_submit` (bool) clears text after submit. |
 | `p:vstack({...})` | `render(child_panel)`, `gap` | Vertical stack container. The `render` function receives a child panel proxy to emit nested widgets. |
 | `p:keyvalue({{key,value}, ...})` | array of `{key, value}` tables | Key-value list. The argument table IS the entries array (not an `entries` field); box model fields go on the same table. |
