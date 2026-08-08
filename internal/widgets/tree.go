@@ -392,15 +392,16 @@ func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
 }
 
 // drawRunesRightAligned draws runes ending at column rightX, laying them out
-// right to left, and returns the column just left of what it drew.
-func drawRunesRightAligned(surface Surface, rightX, y, w int, runes []rune, style term.Style) int {
+// right to left, and returns the column just left of what it drew. bgStyle
+// keeps a highlighted row's background behind runes that carry their own color.
+func drawRunesRightAligned(surface Surface, rightX, y, w int, runes []rune, style, bgStyle term.Style) int {
 	for i := len(runes) - 1; i >= 0; i-- {
 		cw := textwidth.Rune(runes[i])
 		// Runes are laid out right to left, so a fullwidth rune starts one
 		// column further left than the cursor.
 		startX := rightX - cw + 1
 		if startX >= 0 && startX < w {
-			surface.SetCell(startX, y, term.Cell{Ch: runes[i], Style: style})
+			surface.SetCell(startX, y, term.Cell{Ch: runes[i], Style: style, BgStyle: bgStyle})
 		}
 		rightX -= cw
 	}
@@ -476,20 +477,21 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		}
 		x = maxX
 	} else {
-		labelStyle := style
-		if idx != t.selected {
-			switch {
-			case node.LabelStyle != term.StyleDefault:
-				labelStyle = node.LabelStyle
-			case node.Muted:
-				labelStyle = term.StyleMuted
-			}
+		// A node with its own label color keeps it on a highlighted row and
+		// borrows only the highlight's background, so a selected symlink still
+		// reads as a symlink.
+		labelStyle, labelBg := style, term.StyleDefault
+		switch {
+		case node.LabelStyle != term.StyleDefault:
+			labelStyle, labelBg = node.LabelStyle, style
+		case node.Muted && idx != t.selected:
+			labelStyle = term.StyleMuted
 		}
 		labelRunes := []rune(node.Label)
 		if t.Config.TruncateLeft {
 			labelRunes = truncateRunesLeft(labelRunes, maxX-x)
 		}
-		x = drawRunesClipped(surface, x, y, maxX, labelRunes, labelStyle)
+		x = drawRunesClippedBg(surface, x, y, maxX, labelRunes, labelStyle, labelBg)
 
 		if node.Badge != "" {
 			badgeStyle := node.BadgeStyle
@@ -541,7 +543,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		actionStyle = term.StyleMuted
 	}
 	for i := len(node.Actions) - 1; i >= 0; i-- {
-		rightX = drawRunesRightAligned(surface, rightX, y, w, []rune(node.Actions[i].Icon), actionStyle)
+		rightX = drawRunesRightAligned(surface, rightX, y, w, []rune(node.Actions[i].Icon), actionStyle, term.StyleDefault)
 		if i > 0 {
 			if rightX >= 0 && rightX < w {
 				surface.SetCell(rightX, y, term.Cell{Ch: ' ', Style: style})
@@ -551,14 +553,16 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 	}
 
 	if node.RightIcon != "" {
-		iconStyle := node.RightIconStyle
-		if iconStyle == term.StyleDefault || idx == t.selected {
+		iconStyle, iconBg := node.RightIconStyle, term.StyleDefault
+		if iconStyle == term.StyleDefault {
 			iconStyle = style
+		} else {
+			iconBg = style
 		}
 		if rightX < w-2 {
 			rightX--
 		}
-		drawRunesRightAligned(surface, rightX, y, w, []rune(node.RightIcon), iconStyle)
+		drawRunesRightAligned(surface, rightX, y, w, []rune(node.RightIcon), iconStyle, iconBg)
 	}
 }
 

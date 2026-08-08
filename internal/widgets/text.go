@@ -34,6 +34,12 @@ func drawTextWidthAware(surface Surface, x, y int, text string, maxW, surfaceW i
 // by display width. When the runes do not fit, the last column that would be
 // drawn becomes an ellipsis. Returns the column after the last one written.
 func drawRunesClipped(surface Surface, x, y, maxX int, runes []rune, style term.Style) int {
+	return drawRunesClippedBg(surface, x, y, maxX, runes, style, term.StyleDefault)
+}
+
+// drawRunesClippedBg is drawRunesClipped with a separate background style, for
+// text that keeps its own color while sitting on a highlighted row.
+func drawRunesClippedBg(surface Surface, x, y, maxX int, runes []rune, style, bgStyle term.Style) int {
 	fits := x+textwidth.Runes(runes) <= maxX
 	for i, ch := range runes {
 		w := textwidth.Rune(ch)
@@ -41,10 +47,10 @@ func drawRunesClipped(surface Surface, x, y, maxX int, runes []rune, style term.
 			break
 		}
 		if !fits && x+w >= maxX && i < len(runes)-1 {
-			surface.SetCell(x, y, term.Cell{Ch: '…', Style: style})
+			surface.SetCell(x, y, term.Cell{Ch: '…', Style: style, BgStyle: bgStyle})
 			return x + 1
 		}
-		surface.SetCell(x, y, term.Cell{Ch: ch, Style: style})
+		surface.SetCell(x, y, term.Cell{Ch: ch, Style: style, BgStyle: bgStyle})
 		x += w
 	}
 	return x
