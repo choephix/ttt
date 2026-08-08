@@ -150,6 +150,14 @@ func (n *NavigationPanel) loadChildren(node *widgets.TreeNode) {
 			Expandable: de.IsDir,
 			Muted:      de.GitIgnored || strings.HasPrefix(de.Name, "."),
 		}
+		switch {
+		case de.Broken:
+			child.LabelStyle = term.StyleDanger
+			child.RightIcon, child.RightIconStyle = "↛", term.StyleDanger
+		case de.IsSymlink:
+			child.LabelStyle = term.StyleSymlink
+			child.RightIcon, child.RightIconStyle = "→", term.StyleSymlink
+		}
 		node.Children = append(node.Children, child)
 	}
 }

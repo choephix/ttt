@@ -152,6 +152,7 @@ Workspace files use the `.ttt` extension and store a list of folders as relative
 Multi-root file tree in the sidebar (Ctrl+K E). When multiple folders are open, each root is shown as a collapsible group.
 
 - Directories sorted before files, both alphabetically
+- Symlinks are colored (`sidebar.symlink`) and marked `→` at the right edge; broken ones show `↛` in the danger color
 - Expand/collapse with Enter or arrow keys
 - Right-click context menu: **New File**, **New Folder**, **Rename**, **Delete**
 - Sidebar actions button for **Refresh** and **New File**
@@ -369,7 +370,8 @@ TTT supports fully customizable themes via JSON files. You can change every colo
   "sidebar": {
     "header":   { "fg": "#ffffff", "bold": true },
     "item":     {},
-    "selected": { "fg": "#ffffff", "bg": "#37373d" }
+    "selected": { "fg": "#ffffff", "bg": "#37373d" },
+    "symlink":  { "fg": "#4ec9b0" }
   },
   "dialog": {
     "input":    {},

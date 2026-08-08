@@ -9,16 +9,19 @@ import (
 )
 
 type TreeNode struct {
-	ID         string      `json:"id"`
-	Label      string      `json:"label"`
-	Icon       string      `json:"icon,omitempty"`
-	IconStyle  term.Style  `json:"-"`
-	Badge      string      `json:"badge,omitempty"`
-	BadgeStyle term.Style  `json:"-"`
-	Children   []*TreeNode `json:"children,omitempty"`
-	Actions    []Action    `json:"actions,omitempty"`
-	Muted      bool        `json:"-"`
-	Expandable bool        `json:"-"`
+	ID             string      `json:"id"`
+	Label          string      `json:"label"`
+	LabelStyle     term.Style  `json:"-"`
+	Icon           string      `json:"icon,omitempty"`
+	IconStyle      term.Style  `json:"-"`
+	Badge          string      `json:"badge,omitempty"`
+	BadgeStyle     term.Style  `json:"-"`
+	RightIcon      string      `json:"rightIcon,omitempty"`
+	RightIconStyle term.Style  `json:"-"`
+	Children       []*TreeNode `json:"children,omitempty"`
+	Actions        []Action    `json:"actions,omitempty"`
+	Muted          bool        `json:"-"`
+	Expandable     bool        `json:"-"`
 
 	Expanded bool `json:"-"`
 	depth    int
@@ -382,7 +385,26 @@ func (t *TreeWidget) rightSideWidth(node *TreeNode) int {
 			rw++
 		}
 	}
+	if node.RightIcon != "" {
+		rw += textwidth.String(node.RightIcon) + 1
+	}
 	return rw
+}
+
+// drawRunesRightAligned draws runes ending at column rightX, laying them out
+// right to left, and returns the column just left of what it drew.
+func drawRunesRightAligned(surface Surface, rightX, y, w int, runes []rune, style term.Style) int {
+	for i := len(runes) - 1; i >= 0; i-- {
+		cw := textwidth.Rune(runes[i])
+		// Runes are laid out right to left, so a fullwidth rune starts one
+		// column further left than the cursor.
+		startX := rightX - cw + 1
+		if startX >= 0 && startX < w {
+			surface.SetCell(startX, y, term.Cell{Ch: runes[i], Style: style})
+		}
+		rightX -= cw
+	}
+	return rightX
 }
 
 func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) {
@@ -455,8 +477,13 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		x = maxX
 	} else {
 		labelStyle := style
-		if node.Muted && idx != t.selected {
-			labelStyle = term.StyleMuted
+		if idx != t.selected {
+			switch {
+			case node.LabelStyle != term.StyleDefault:
+				labelStyle = node.LabelStyle
+			case node.Muted:
+				labelStyle = term.StyleMuted
+			}
 		}
 		labelRunes := []rune(node.Label)
 		if t.Config.TruncateLeft {
@@ -514,24 +541,24 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		actionStyle = term.StyleMuted
 	}
 	for i := len(node.Actions) - 1; i >= 0; i-- {
-		action := node.Actions[i]
-		iconRunes := []rune(action.Icon)
-		for j := len(iconRunes) - 1; j >= 0; j-- {
-			cw := textwidth.Rune(iconRunes[j])
-			// Icons are laid out right to left, so a fullwidth rune starts one
-			// column further left than the cursor.
-			startX := rightX - cw + 1
-			if startX >= 0 && startX < w {
-				surface.SetCell(startX, y, term.Cell{Ch: iconRunes[j], Style: actionStyle})
-			}
-			rightX -= cw
-		}
+		rightX = drawRunesRightAligned(surface, rightX, y, w, []rune(node.Actions[i].Icon), actionStyle)
 		if i > 0 {
 			if rightX >= 0 && rightX < w {
 				surface.SetCell(rightX, y, term.Cell{Ch: ' ', Style: style})
 			}
 			rightX--
 		}
+	}
+
+	if node.RightIcon != "" {
+		iconStyle := node.RightIconStyle
+		if iconStyle == term.StyleDefault || idx == t.selected {
+			iconStyle = style
+		}
+		if rightX < w-2 {
+			rightX--
+		}
+		drawRunesRightAligned(surface, rightX, y, w, []rune(node.RightIcon), iconStyle)
 	}
 }
 

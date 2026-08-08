@@ -63,6 +63,7 @@ const (
 	StyleButton
 	StyleButtonFocused
 	StyleSelectedTab
+	StyleSymlink
 	styleCount
 )
 

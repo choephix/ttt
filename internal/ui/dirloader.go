@@ -14,6 +14,8 @@ type DirEntry struct {
 	Name       string
 	Path       string
 	IsDir      bool
+	IsSymlink  bool
+	Broken     bool // symlink whose target cannot be resolved
 	GitIgnored bool
 }
 
@@ -47,9 +49,13 @@ func LoadDirEntries(dirPath string, settings config.ExplorerSettings) []DirEntry
 		}
 
 		isDir := entry.IsDir()
-		if entry.Type()&os.ModeSymlink != 0 {
+		isSymlink := entry.Type()&os.ModeSymlink != 0
+		broken := false
+		if isSymlink {
 			if info, err := os.Stat(childPath); err == nil {
 				isDir = info.IsDir()
+			} else {
+				broken = true
 			}
 		}
 
@@ -57,6 +63,8 @@ func LoadDirEntries(dirPath string, settings config.ExplorerSettings) []DirEntry
 			Name:       name,
 			Path:       childPath,
 			IsDir:      isDir,
+			IsSymlink:  isSymlink,
+			Broken:     broken,
 			GitIgnored: isIgnored,
 		}
 
