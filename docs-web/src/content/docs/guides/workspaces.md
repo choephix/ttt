@@ -8,6 +8,7 @@ description: Working with files, folders, and multi-root workspaces.
 The file explorer lives in the sidebar (**Ctrl+B** to toggle, **Ctrl+K E** to focus).
 
 - Directories are sorted before files, both alphabetically
+- Symlinks are colored (`sidebar.symlink`) and marked `→` at the right edge; broken ones show `↛` in the danger color
 - Expand/collapse with Enter or arrow keys
 - Right-click context menu: **New File**, **New Folder**, **Rename**, **Delete**
 - Sidebar actions button for **Refresh** and **New File**

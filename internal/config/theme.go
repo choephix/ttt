@@ -30,6 +30,7 @@ type SidebarStyles struct {
 	Header   StyleDef `json:"header"`
 	Item     StyleDef `json:"item"`
 	Selected StyleDef `json:"selected"`
+	Symlink  StyleDef `json:"symlink"`
 }
 
 type DialogStyles struct {
@@ -296,6 +297,10 @@ func (t *ThemeConfig) ResolveColors() {
 	fillFg(&t.Button.Item, t.Default.Fg)
 	fillBg(&t.Button.Focused, t.Sidebar.Selected.Bg)
 	fillFg(&t.Button.Focused, t.Sidebar.Selected.Fg)
+	// Symlinks borrow the theme's type color — teal/cyan in every bundled
+	// theme — so themes get a sane symlink hue without declaring the key.
+	fillFg(&t.Sidebar.Symlink, t.Syntax.Type.Fg)
+	fillFg(&t.Sidebar.Symlink, "#4ec9b0")
 	fillFg(&t.BorderActive, t.Default.Fg)
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")

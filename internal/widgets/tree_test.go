@@ -1564,3 +1564,36 @@ func TestTreeInlineEditFailureRemainsActiveUntilEscape(t *testing.T) {
 		t.Fatal("inline input remained active after Escape")
 	}
 }
+
+func TestTreeRenderLabelStyleAndRightIcon(t *testing.T) {
+	tree := NewTreeWidget(TreeConfig{
+		Items: []*TreeNode{
+			{ID: "a", Label: "a", LabelStyle: term.StyleSymlink, RightIcon: "→", RightIconStyle: term.StyleSymlink},
+			{ID: "b", Label: "b", LabelStyle: term.StyleSymlink, Muted: true, RightIcon: "→", RightIconStyle: term.StyleSymlink},
+			{ID: "c", Label: "c", Muted: true},
+		},
+	})
+	tree.SetFocused(true)
+	s := renderWidget(tree, 0, 0, 20, 5)
+
+	// Row 0 is selected: selection styling wins over both label and icon styles.
+	if s.cells[0][0].Style != term.StyleSidebarSelected {
+		t.Errorf("selected label style = %v, want StyleSidebarSelected", s.cells[0][0].Style)
+	}
+	if s.cells[0][18].Ch != '→' || s.cells[0][18].Style != term.StyleSidebarSelected {
+		t.Errorf("selected right icon = %q/%v, want →/StyleSidebarSelected", s.cells[0][18].Ch, s.cells[0][18].Style)
+	}
+
+	// Row 1 is unselected: LabelStyle takes precedence over Muted.
+	if s.cells[1][0].Style != term.StyleSymlink {
+		t.Errorf("label style = %v, want StyleSymlink", s.cells[1][0].Style)
+	}
+	if s.cells[1][18].Ch != '→' || s.cells[1][18].Style != term.StyleSymlink {
+		t.Errorf("right icon = %q/%v, want →/StyleSymlink", s.cells[1][18].Ch, s.cells[1][18].Style)
+	}
+
+	// Row 2 has no LabelStyle, so muted styling still applies.
+	if s.cells[2][0].Style != term.StyleMuted {
+		t.Errorf("muted label style = %v, want StyleMuted", s.cells[2][0].Style)
+	}
+}

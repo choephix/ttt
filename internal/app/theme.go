@@ -34,6 +34,7 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	}
 	applyStyleDef(&m, term.StyleSelectedTab, selectedTab)
 	applyStyleDef(&m, term.StyleSidebarSelected, theme.Sidebar.Selected)
+	applyStyleDef(&m, term.StyleSymlink, theme.Sidebar.Symlink)
 	applyStyleDef(&m, term.StylePaletteItem, theme.Dialog.Item)
 	applyStyleDef(&m, term.StylePaletteSelected, theme.Dialog.Selected)
 	applyStyleDef(&m, term.StyleLineNumber, theme.Editor.LineNumber)
