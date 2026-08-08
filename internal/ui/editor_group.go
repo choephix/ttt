@@ -132,7 +132,7 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	}
 	tabBar.OnNextTab = func() { g.NextTab() }
 	tabBar.OnPrevTab = func() { g.PrevTab() }
-	tabBar.OnEmptySpaceClick = func() { g.NewFile() }
+	tabBar.OnEmptySpaceDoubleClick = func() { g.NewFile() }
 	undoStack := g.newUndoStack()
 	sel := &selection.Selection{}
 	editor.Undo = undoStack

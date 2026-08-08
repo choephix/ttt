@@ -26,32 +26,51 @@ type Tab struct {
 
 type TabBarWidget struct {
 	BaseWidget
-	Tabs              []Tab
-	Borders           *term.BorderSet
-	ScrollOffset      int
-	MoreButton        *MoreButtonWidget
-	OnTabClick        func(index int)
-	OnTabClose        func(index int)
-	OnTabDoubleClick  func(index int)
-	OnTabRightClick   func(index, screenX, screenY int)
-	OnPrevTab         func()
-	OnNextTab         func()
-	OnEmptySpaceClick func()
-	tabSpans          []tabSpan
-	renderArrowW      int // arrow-gutter width from the last Render, reused by HandleEvent
-	renderInnerRight  int // right edge of the tab zone from the last Render, reused by HandleEvent
-	hasOverflowLeft   bool
-	hasOverflowRight  bool
-	totalTabWidth     int
-	closeDownX        int // screen X where mouse-down hit a close button, -1 if none
-	closeDownY        int
-	wasPressed        bool
-	lastTabClickTime  int64
-	lastTabClick      int
+	Tabs                    []Tab
+	Borders                 *term.BorderSet
+	ScrollOffset            int
+	MoreButton              *MoreButtonWidget
+	OnTabClick              func(index int)
+	OnTabClose              func(index int)
+	OnTabDoubleClick        func(index int)
+	OnTabRightClick         func(index, screenX, screenY int)
+	OnPrevTab               func()
+	OnNextTab               func()
+	OnEmptySpaceDoubleClick func()
+	tabSpans                []tabSpan
+	renderArrowW            int // arrow-gutter width from the last Render, reused by HandleEvent
+	renderInnerRight        int // right edge of the tab zone from the last Render, reused by HandleEvent
+	hasOverflowLeft         bool
+	hasOverflowRight        bool
+	totalTabWidth           int
+	closeDownX              int // screen X where mouse-down hit a close button, -1 if none
+	closeDownY              int
+	wasPressed              bool
+	lastClickTime           int64
+	lastClickTarget         int // tab index of the previous click, or emptySpaceTarget
 }
 
+// emptySpaceTarget stands in for the strip's empty space in the double-click
+// tracker, which otherwise keys on tab index.
+const emptySpaceTarget = -1
+
 func NewTabBarWidget() *TabBarWidget {
-	return &TabBarWidget{closeDownX: -1, lastTabClick: -1}
+	return &TabBarWidget{closeDownX: -1, lastClickTarget: emptySpaceTarget}
+}
+
+// isDoubleClick reports whether this click completes a double-click on target,
+// and consumes the pair so a third click starts a new one. A first click can
+// never match: lastClickTime is zero until a click is recorded, and no real
+// timestamp sits within DoubleClickMs of the epoch.
+func (t *TabBarWidget) isDoubleClick(target int) bool {
+	now := time.Now().UnixMilli()
+	if target == t.lastClickTarget && now-t.lastClickTime < DoubleClickMs {
+		t.lastClickTime = 0
+		return true
+	}
+	t.lastClickTarget = target
+	t.lastClickTime = now
+	return false
 }
 
 func (t *TabBarWidget) SetTabs(tabs []Tab) {
@@ -324,7 +343,7 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 	}
 
 	// Clicks in the reserved ◀/▶ arrow columns are consumed here so they never
-	// fall through to the empty-space click handler and spawn a tab (the
+	// fall through to the empty-space double-click handler and spawn a tab (the
 	// "jumping to the other side" bug when clicking a hidden chevron).
 	// Scroll only when there is something hidden in that direction; the overflow
 	// flag is set only when the active tab isn't already at that end, so it can't
@@ -354,17 +373,12 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 					return EventConsumed
 				}
 			}
-			now := time.Now().UnixMilli()
-			if i == t.lastTabClick && now-t.lastTabClickTime < DoubleClickMs {
-				t.lastTabClick = -1
-				t.lastTabClickTime = 0
+			if t.isDoubleClick(i) {
 				if t.OnTabDoubleClick != nil {
 					t.OnTabDoubleClick(i)
 				}
 				return EventConsumed
 			}
-			t.lastTabClick = i
-			t.lastTabClickTime = now
 			if t.OnTabClick != nil {
 				t.OnTabClick(i)
 			}
@@ -372,8 +386,8 @@ func (t *TabBarWidget) HandleEvent(ev tcell.Event) EventResult {
 		}
 	}
 
-	if t.OnEmptySpaceClick != nil {
-		t.OnEmptySpaceClick()
+	if t.isDoubleClick(emptySpaceTarget) && t.OnEmptySpaceDoubleClick != nil {
+		t.OnEmptySpaceDoubleClick()
 	}
 	return EventConsumed
 }
