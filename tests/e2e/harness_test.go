@@ -57,6 +57,10 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 		Settings:    config.DefaultSettings(),
 		Theme:       config.DefaultTheme(),
 	}
+	// config.Load resolves the theme before anything renders (config.go), so the
+	// harness must too, or every fallback colour fillFg/fillBg derives stays
+	// empty and styles that only exist after resolution render as default.
+	cfg.Theme.ResolveColors()
 	config.ParseKeyBindings(cfg.Keybindings)
 
 	screen := term.NewTcellScreenFrom(sim)
