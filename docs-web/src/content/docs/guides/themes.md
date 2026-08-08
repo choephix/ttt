@@ -101,7 +101,7 @@ Below is a complete theme file showing every configurable section. All color val
       "bg": "#3e3d32"
     },
     "symlink": {
-      "fg": "#66d9ef"
+      "fg": "#d0f7f2"
     }
   },
   "dialog": {
@@ -178,10 +178,10 @@ Below is a complete theme file showing every configurable section. All color val
       "fg": "#a6e22e"
     },
     "type": {
-      "fg": "#66d9ef"
+      "fg": "#d0f7f2"
     },
     "builtin": {
-      "fg": "#66d9ef"
+      "fg": "#d0f7f2"
     },
     "variable": {
       "fg": "#f8f8f2"
@@ -238,7 +238,7 @@ Below is a complete theme file showing every configurable section. All color val
 | `border` | Color for UI borders and dividers |
 | `statusBar` | Status bar at the bottom of the editor |
 | `tabs` | Active and inactive editor tab colors |
-| `sidebar` | File explorer sidebar: section headers, items, selected item, and `symlink` entry color (defaults to `syntax.type`) |
+| `sidebar` | File explorer sidebar: section headers, items, selected item, and `symlink` entry color (defaults to the theme's terminal cyan, lightened toward the background's paper color) |
 | `dialog` | Command palette and dialog boxes: input field, items, selection, muted text |
 | `editor` | Editor pane: line numbers, active line highlight, selection, search matches, and bracket pair colors. `bracketColors` accepts terminal color names (`yellow`, `magenta`, `cyan`, `red`, `green`, `blue`, `black`, `white`, `brightRed`, `brightGreen`, `brightYellow`, `brightBlue`, `brightMagenta`, `brightCyan`, `brightBlack`, `brightWhite`), syntax style names (`keyword`, `function`, `type`, `comment`, `string`, `number`, `operator`, `builtin`, `variable`, `punctuation`, `tag`, `attribute`), or hex colors (`#rrggbb`). Up to 6 colors cycle by nesting depth. |
 | `menu` | Menu bar dropdown items and active/hovered item |

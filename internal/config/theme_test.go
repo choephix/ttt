@@ -122,6 +122,31 @@ func TestResolveColors(t *testing.T) {
 	}
 }
 
+// The symlink color tracks the theme's own cyan, lightened toward white on
+// dark backgrounds and darkened toward black on light ones, so it stays close
+// to the lightness of normal text instead of reading as a saturated accent.
+func TestResolveColorsSymlinkFollowsTerminalCyan(t *testing.T) {
+	dark := DefaultTheme()
+	dark.ResolveColors()
+	if dark.Sidebar.Symlink.Fg != "#a7e4d8" {
+		t.Errorf("dark symlink = %q, want #a7e4d8 (cyan #4ec9b0 mixed with white)", dark.Sidebar.Symlink.Fg)
+	}
+
+	light := DefaultTheme()
+	light.Default.Bg = "#ffffff"
+	light.ResolveColors()
+	if light.Sidebar.Symlink.Fg != "#276558" {
+		t.Errorf("light symlink = %q, want #276558 (cyan #4ec9b0 mixed with black)", light.Sidebar.Symlink.Fg)
+	}
+
+	custom := DefaultTheme()
+	custom.Sidebar.Symlink = StyleDef{Fg: "#123456"}
+	custom.ResolveColors()
+	if custom.Sidebar.Symlink.Fg != "#123456" {
+		t.Errorf("explicit symlink color overwritten: %q", custom.Sidebar.Symlink.Fg)
+	}
+}
+
 func TestResolveColorsPreservesExisting(t *testing.T) {
 	th := DefaultTheme()
 	th.Success.Fg = "#custom"

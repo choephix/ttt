@@ -1,5 +1,10 @@
 package config
 
+import (
+	"fmt"
+	"strconv"
+)
+
 type StyleDef struct {
 	Fg     string `json:"fg,omitempty"`
 	Bg     string `json:"bg,omitempty"`
@@ -297,10 +302,11 @@ func (t *ThemeConfig) ResolveColors() {
 	fillFg(&t.Button.Item, t.Default.Fg)
 	fillBg(&t.Button.Focused, t.Sidebar.Selected.Bg)
 	fillFg(&t.Button.Focused, t.Sidebar.Selected.Fg)
-	// Symlinks borrow the theme's type color — teal/cyan in every bundled
-	// theme — so themes get a sane symlink hue without declaring the key.
-	fillFg(&t.Sidebar.Symlink, t.Syntax.Type.Fg)
-	fillFg(&t.Sidebar.Symlink, "#4ec9b0")
+	// `ls` marks symlinks cyan (ln=01;36), so symlinks follow the theme's own
+	// cyan — pulled halfway to the paper color so they read as a tint of
+	// normal text rather than a saturated accent.
+	fillFg(&t.Sidebar.Symlink, mixHex(t.Terminal.Cyan, paperColor(t.Default.Bg), 0.5))
+	fillFg(&t.Sidebar.Symlink, "#a7e4d8")
 	fillFg(&t.BorderActive, t.Default.Fg)
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")
@@ -336,4 +342,37 @@ func fillBg(s *StyleDef, color string) {
 	if s.Bg == "" {
 		s.Bg = color
 	}
+}
+
+// paperColor is the extreme a color is lightened toward: white over a dark
+// background, black over a light one.
+func paperColor(bg string) string {
+	r, g, b, ok := parseHexColor(bg)
+	if ok && 0.299*float64(r)+0.587*float64(g)+0.114*float64(b) >= 128 {
+		return "#000000"
+	}
+	return "#ffffff"
+}
+
+// mixHex blends two #rrggbb colors, where t is the weight of b. An
+// unparseable input yields a, so callers can chain a literal fallback.
+func mixHex(a, b string, t float64) string {
+	ar, ag, ab, aok := parseHexColor(a)
+	br, bg, bb, bok := parseHexColor(b)
+	if !aok || !bok {
+		return a
+	}
+	mix := func(x, y byte) byte { return byte(float64(x)*(1-t) + float64(y)*t + 0.5) }
+	return fmt.Sprintf("#%02x%02x%02x", mix(ar, br), mix(ag, bg), mix(ab, bb))
+}
+
+func parseHexColor(s string) (r, g, b byte, ok bool) {
+	if len(s) != 7 || s[0] != '#' {
+		return 0, 0, 0, false
+	}
+	v, err := strconv.ParseUint(s[1:], 16, 32)
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	return byte(v >> 16), byte(v >> 8), byte(v), true
 }
