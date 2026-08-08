@@ -1576,20 +1576,24 @@ func TestTreeRenderLabelStyleAndRightIcon(t *testing.T) {
 	tree.SetFocused(true)
 	s := renderWidget(tree, 0, 0, 20, 5)
 
-	// Row 0 is selected: selection styling wins over both label and icon styles.
-	if s.cells[0][0].Style != term.StyleSidebarSelected {
-		t.Errorf("selected label style = %v, want StyleSidebarSelected", s.cells[0][0].Style)
+	// Row 0 is selected: the node keeps its own color and takes only the
+	// selection's background.
+	if s.cells[0][0].Style != term.StyleSymlink || s.cells[0][0].BgStyle != term.StyleSidebarSelected {
+		t.Errorf("selected label = %v on %v, want StyleSymlink on StyleSidebarSelected",
+			s.cells[0][0].Style, s.cells[0][0].BgStyle)
 	}
-	if s.cells[0][18].Ch != '→' || s.cells[0][18].Style != term.StyleSidebarSelected {
-		t.Errorf("selected right icon = %q/%v, want →/StyleSidebarSelected", s.cells[0][18].Ch, s.cells[0][18].Style)
+	if s.cells[0][18].Ch != '→' || s.cells[0][18].Style != term.StyleSymlink || s.cells[0][18].BgStyle != term.StyleSidebarSelected {
+		t.Errorf("selected right icon = %q %v on %v, want → StyleSymlink on StyleSidebarSelected",
+			s.cells[0][18].Ch, s.cells[0][18].Style, s.cells[0][18].BgStyle)
 	}
 
 	// Row 1 is unselected: LabelStyle takes precedence over Muted.
 	if s.cells[1][0].Style != term.StyleSymlink {
 		t.Errorf("label style = %v, want StyleSymlink", s.cells[1][0].Style)
 	}
-	if s.cells[1][18].Ch != '→' || s.cells[1][18].Style != term.StyleSymlink {
-		t.Errorf("right icon = %q/%v, want →/StyleSymlink", s.cells[1][18].Ch, s.cells[1][18].Style)
+	if s.cells[1][18].Ch != '→' || s.cells[1][18].Style != term.StyleSymlink || s.cells[1][18].BgStyle != term.StyleDefault {
+		t.Errorf("right icon = %q %v on %v, want → StyleSymlink with no background override",
+			s.cells[1][18].Ch, s.cells[1][18].Style, s.cells[1][18].BgStyle)
 	}
 
 	// Row 2 has no LabelStyle, so muted styling still applies.
