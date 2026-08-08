@@ -34,6 +34,9 @@
     "selected": {
       "fg": "#111111",
       "bg": "#e8e8e8"
+    },
+    "symlink": {
+      "fg": "#13404d"
     }
   },
   "dialog": {
