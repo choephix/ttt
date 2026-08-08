@@ -371,7 +371,7 @@ TTT supports fully customizable themes via JSON files. You can change every colo
     "header":   { "fg": "#ffffff", "bold": true },
     "item":     {},
     "selected": { "fg": "#ffffff", "bg": "#37373d" },
-    "symlink":  { "fg": "#a7e4d8" }
+    "symlink":  { "fg": "#7ad7c4" }
   },
   "dialog": {
     "input":    {},

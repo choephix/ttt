@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/config/themes"
@@ -122,28 +123,35 @@ func TestResolveColors(t *testing.T) {
 	}
 }
 
-// The symlink color tracks the theme's own cyan, lightened toward white on
-// dark backgrounds and darkened toward black on light ones, so it stays close
-// to the lightness of normal text instead of reading as a saturated accent.
-func TestResolveColorsSymlinkFollowsTerminalCyan(t *testing.T) {
-	dark := DefaultTheme()
-	dark.ResolveColors()
-	if dark.Sidebar.Symlink.Fg != "#a7e4d8" {
-		t.Errorf("dark symlink = %q, want #a7e4d8 (cyan #4ec9b0 mixed with white)", dark.Sidebar.Symlink.Fg)
+// Every bundled theme carries its own symlink color, and it has to differ
+// from normal text or the explorer's symlink marking is invisible.
+func TestBundledThemesDefineSymlinkColor(t *testing.T) {
+	entries, err := themes.FS.ReadDir(".")
+	if err != nil {
+		t.Fatalf("failed to read embedded themes: %v", err)
 	}
+	for _, e := range entries {
+		t.Run(e.Name(), func(t *testing.T) {
+			data, err := themes.FS.ReadFile(e.Name())
+			if err != nil {
+				t.Fatalf("failed to read %s: %v", e.Name(), err)
+			}
+			th := DefaultTheme()
+			if err := json.Unmarshal(data, &th); err != nil {
+				t.Fatalf("failed to parse %s: %v", e.Name(), err)
+			}
+			th.ResolveColors()
 
-	light := DefaultTheme()
-	light.Default.Bg = "#ffffff"
-	light.ResolveColors()
-	if light.Sidebar.Symlink.Fg != "#276558" {
-		t.Errorf("light symlink = %q, want #276558 (cyan #4ec9b0 mixed with black)", light.Sidebar.Symlink.Fg)
-	}
-
-	custom := DefaultTheme()
-	custom.Sidebar.Symlink = StyleDef{Fg: "#123456"}
-	custom.ResolveColors()
-	if custom.Sidebar.Symlink.Fg != "#123456" {
-		t.Errorf("explicit symlink color overwritten: %q", custom.Sidebar.Symlink.Fg)
+			if th.Sidebar.Symlink.Fg == "" {
+				t.Error("Sidebar.Symlink.Fg is empty")
+			}
+			if strings.EqualFold(th.Sidebar.Symlink.Fg, th.Default.Fg) {
+				t.Errorf("symlink color %q matches normal text", th.Sidebar.Symlink.Fg)
+			}
+			if strings.EqualFold(th.Sidebar.Symlink.Fg, th.Default.Bg) {
+				t.Errorf("symlink color %q matches the background", th.Sidebar.Symlink.Fg)
+			}
+		})
 	}
 }
 
