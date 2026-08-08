@@ -27,13 +27,17 @@ describe("new file", () => {
     expect(snapshots[s0]).toContain("untitled");
   });
 
-  it("should create a new untitled tab by clicking empty tab-bar space", () => {
+  // The gating itself (one click must not spawn a tab) is covered
+  // deterministically by TestTabBarEmptySpaceDoubleClick; this only proves the
+  // real binary wires the double-click through to a new tab.
+  it("should create a new untitled tab by double-clicking empty tab-bar space", () => {
     dir = createTempDir();
     const file = createTempFile(dir, "existing.txt", "Existing content");
 
     tui.start(file);
     tui.waitFor("existing.txt");
 
+    tui.click(40, 2);
     tui.click(40, 2);
     tui.waitFor("untitled");
 

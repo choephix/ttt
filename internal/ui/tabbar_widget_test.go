@@ -76,20 +76,33 @@ func TestTabBarDoubleClickTargetsTab(t *testing.T) {
 	}
 }
 
-func TestTabBarEmptySpaceClick(t *testing.T) {
+func TestTabBarEmptySpaceDoubleClick(t *testing.T) {
 	tb := NewTabBarWidget()
 	tb.SetTabs([]Tab{{Name: "main.go", Active: true}})
 	tb.SetRect(Rect{X: 0, Y: 0, W: 30, H: 3})
 	tb.Render(NewRenderSurface(makeGrid(30, 3), Rect{X: 0, Y: 0, W: 30, H: 3}))
 
 	clicks := 0
-	tb.OnEmptySpaceClick = func() { clicks++ }
+	tb.OnEmptySpaceDoubleClick = func() { clicks++ }
 	x := tb.tabSpans[0].end + 1
 	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.Button1, 0))
 	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.ButtonNone, 0))
+	if clicks != 0 {
+		t.Fatalf("single click on empty space fired %d times, want 0", clicks)
+	}
 
+	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.Button1, 0))
+	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.ButtonNone, 0))
 	if clicks != 1 {
-		t.Fatalf("empty-space click fired %d times, want 1", clicks)
+		t.Fatalf("empty-space double-click fired %d times, want 1", clicks)
+	}
+
+	// A tab click between two empty-space clicks breaks the pair.
+	tb.HandleEvent(tcell.NewEventMouse(tb.tabSpans[0].start, 1, tcell.Button1, 0))
+	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.Button1, 0))
+	tb.HandleEvent(tcell.NewEventMouse(x, 1, tcell.ButtonNone, 0))
+	if clicks != 1 {
+		t.Fatalf("interleaved tab click still completed a double-click: fired %d times, want 1", clicks)
 	}
 }
 
@@ -275,7 +288,7 @@ func TestTabBarNoOverScrollAfterClose(t *testing.T) {
 
 // TestTabBarGutterClickDoesNotSpawnTab: at the first tab the ◀ is hidden but its
 // gutter is still reserved. Clicking that empty gutter must be a no-op — it
-// must NOT fall through to the empty-space click handler and spawn a tab (which
+// must NOT fall through to the empty-space handler and spawn a tab (which
 // looked like "jumping to the other side").
 func TestTabBarGutterClickDoesNotSpawnTab(t *testing.T) {
 	tb := NewTabBarWidget()
@@ -289,7 +302,7 @@ func TestTabBarGutterClickDoesNotSpawnTab(t *testing.T) {
 	tb.SetTabs(tabs)
 
 	emptySpaceClicks, prevTabs := 0, 0
-	tb.OnEmptySpaceClick = func() { emptySpaceClicks++ }
+	tb.OnEmptySpaceDoubleClick = func() { emptySpaceClicks++ }
 	tb.OnPrevTab = func() { prevTabs++ }
 
 	r := Rect{X: 0, Y: 0, W: 40, H: 3}
@@ -300,12 +313,15 @@ func TestTabBarGutterClickDoesNotSpawnTab(t *testing.T) {
 			tb.hasOverflowLeft, tb.renderArrowW)
 	}
 
-	// Click the empty left gutter where ◀ would be.
-	tb.HandleEvent(tcell.NewEventMouse(r.X+1, 1, tcell.Button1, 0))
-	tb.HandleEvent(tcell.NewEventMouse(r.X+1, 1, tcell.ButtonNone, 0))
+	// Double-click the empty left gutter where ◀ would be: one click could never
+	// spawn a tab now that empty space needs a pair.
+	for range 2 {
+		tb.HandleEvent(tcell.NewEventMouse(r.X+1, 1, tcell.Button1, 0))
+		tb.HandleEvent(tcell.NewEventMouse(r.X+1, 1, tcell.ButtonNone, 0))
+	}
 
 	if emptySpaceClicks != 0 {
-		t.Fatalf("gutter click spawned a tab (OnEmptySpaceClick fired %d times)", emptySpaceClicks)
+		t.Fatalf("gutter click spawned a tab (OnEmptySpaceDoubleClick fired %d times)", emptySpaceClicks)
 	}
 	if prevTabs != 0 {
 		t.Fatalf("gutter click on a hidden ◀ scrolled (OnPrevTab fired %d times)", prevTabs)
