@@ -96,15 +96,15 @@ func (inp *InputWidget) ResetScroll() {
 }
 
 func (inp *InputWidget) PasteText(text string) {
-	if inp.hasSelection() {
-		inp.deleteSelection()
-	}
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 	text = strings.TrimRight(text, "\n")
 	text = strings.ReplaceAll(text, "\n", " ")
 	if text == "" {
 		return
+	}
+	if inp.hasSelection() {
+		inp.deleteSelection()
 	}
 	runes := []rune(inp.text)
 	pasted := []rune(text)
@@ -411,16 +411,16 @@ func (inp *InputWidget) handleKey(ev *tcell.EventKey) EventResult {
 		}
 		return EventConsumed
 	case tcell.KeyCtrlV:
-		inp.pasteClipboard()
+		inp.PasteClipboard()
 		return EventConsumed
 	case tcell.KeyCtrlA:
 		inp.selectAll()
 		return EventConsumed
 	case tcell.KeyCtrlC:
-		inp.copySelection()
+		inp.CopySelection()
 		return EventConsumed
 	case tcell.KeyCtrlX:
-		inp.cutSelection()
+		inp.CutSelection()
 		return EventConsumed
 	}
 	return EventIgnored
@@ -544,7 +544,7 @@ func (inp *InputWidget) selectAll() {
 	inp.cursorPos = len(runes)
 }
 
-func (inp *InputWidget) copySelection() {
+func (inp *InputWidget) CopySelection() {
 	if !inp.hasSelection() {
 		return
 	}
@@ -553,15 +553,15 @@ func (inp *InputWidget) copySelection() {
 	clipboard.Set(string(runes[lo:hi]))
 }
 
-func (inp *InputWidget) cutSelection() {
+func (inp *InputWidget) CutSelection() {
 	if !inp.hasSelection() {
 		return
 	}
-	inp.copySelection()
+	inp.CopySelection()
 	inp.deleteSelection()
 }
 
-func (inp *InputWidget) pasteClipboard() {
+func (inp *InputWidget) PasteClipboard() {
 	inp.PasteText(clipboard.Get())
 }
 

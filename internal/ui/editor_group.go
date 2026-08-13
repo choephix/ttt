@@ -525,6 +525,20 @@ func (g *EditorGroupWidget) DiffTabSources() []DiffSearchSource {
 	return result
 }
 
+// FocusedInput delegates to the active content tab's focus owner. The editor
+// itself is not a widgets.InputWidget, so regular editor tabs return nil.
+func (g *EditorGroupWidget) FocusedInput() *widgets.InputWidget {
+	t := g.activeTab()
+	if t == nil || t.Content == nil {
+		return nil
+	}
+	holder, ok := t.Content.(WidgetInputHolder)
+	if !ok {
+		return nil
+	}
+	return holder.FocusedInput()
+}
+
 func (g *EditorGroupWidget) CursorPosition() (int, int, bool) {
 	// Content tabs (settings, plugin panels) own their own cursor.
 	if t := g.activeTab(); t != nil && t.Content != nil {

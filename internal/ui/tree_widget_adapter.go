@@ -75,6 +75,13 @@ func (a *WidgetAdapter) wireTabbedCallbacks(w widgets.Widget) {
 
 func (a *WidgetAdapter) Inner() widgets.Widget { return a.W }
 
+// FocusedInput returns the input currently owned by the adapter's focus
+// manager, or nil when another kind of widget is focused.
+func (a *WidgetAdapter) FocusedInput() *widgets.InputWidget {
+	input, _ := a.focus.Focused().(*widgets.InputWidget)
+	return input
+}
+
 func (a *WidgetAdapter) Focusable() bool { return true }
 
 func (a *WidgetAdapter) SetFocused(focused bool) {

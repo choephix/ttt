@@ -130,6 +130,45 @@ func TestInputClickOutsideRect(t *testing.T) {
 	}
 }
 
+func TestInputPasteSanitizedEmptyPreservesSelection(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+	}{
+		{name: "empty", text: ""},
+		{name: "newlines", text: "\r\n\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			changes := 0
+			inp := NewInputWidget(InputConfig{OnChange: func(string) { changes++ }})
+			inp.SetText("modal text")
+			inp.SetFocused(true)
+			changes = 0
+			for range 4 {
+				inp.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModShift))
+			}
+			selStart, selEnd, cursorPos := inp.selStart, inp.selEnd, inp.cursorPos
+
+			inp.PasteText(tt.text)
+
+			if got := inp.Text(); got != "modal text" {
+				t.Fatalf("text changed to %q", got)
+			}
+			if inp.selStart != selStart || inp.selEnd != selEnd || inp.cursorPos != cursorPos {
+				t.Fatalf(
+					"selection changed from (%d, %d, %d) to (%d, %d, %d)",
+					selStart, selEnd, cursorPos, inp.selStart, inp.selEnd, inp.cursorPos,
+				)
+			}
+			if changes != 0 {
+				t.Fatalf("OnChange called %d times", changes)
+			}
+		})
+	}
+}
+
 func TestTabbedTabSwitchFocus(t *testing.T) {
 	// Tab 0: a tree
 	tree := NewTreeWidget(TreeConfig{})

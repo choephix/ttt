@@ -25,6 +25,13 @@ type CursorProvider interface {
 	CursorPosition() (x, y int, visible bool)
 }
 
+// WidgetInputHolder is implemented by focus-owning containers that host the
+// newer widgets.InputWidget. FocusedInput may return nil when another kind of
+// widget is focused.
+type WidgetInputHolder interface {
+	FocusedInput() *widgets.InputWidget
+}
+
 // RawKeyConsumer indicates a widget that wants all key events
 // sent directly to it, bypassing global key bindings.
 // Used by the terminal widget.
