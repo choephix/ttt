@@ -5,7 +5,7 @@
   { "key": "ctrl+g", "command": "editor.goToLine" },
   { "key": "ctrl+p", "command": "command.palette" },
   { "key": "ctrl+k p", "command": "file.quickOpen" },
-  { "key": "ctrl+o", "command": "workspace.openFolder" },
+  { "key": "ctrl+o", "command": "file.open" },
   { "key": "ctrl+n", "command": "file.new" },
   { "key": "ctrl+s", "command": "file.save" },
   { "key": "ctrl+z", "command": "editor.undo" },

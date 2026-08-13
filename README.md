@@ -600,7 +600,7 @@ All keybindings are customizable via [`keybindings.json`](config/keybindings.jso
 | F6 / Shift+F6 | Focus next / previous group |
 | | **File** |
 | Ctrl+N | New file |
-| Ctrl+O | Open folder |
+| Ctrl+O | Open File... |
 | Ctrl+S | Save |
 | Ctrl+K S | Save as |
 | | **Editor** |

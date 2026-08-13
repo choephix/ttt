@@ -25,7 +25,7 @@ You can open your keybindings file from the command palette (**Ctrl+P**) with **
 | Shortcut | Command | Description |
 |----------|---------|-------------|
 | Ctrl+N | `file.new` | New file |
-| Ctrl+O | `workspace.openFolder` | Open folder |
+| Ctrl+O | `file.open` | Open File... |
 | Ctrl+S | `file.save` | Save |
 | Ctrl+K S | `file.saveAs` | Save as |
 
