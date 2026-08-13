@@ -2,11 +2,13 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/diff"
+	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
 func (a *App) editorPathLang() (string, string) {
@@ -151,6 +153,33 @@ func (a *App) CloseAllTabs() {
 
 func (a *App) NewFile() {
 	a.EditorGroup.NewFile()
+	a.Root.SetFocus(a.EditorGroup)
+}
+
+func (a *App) OpenFile() {
+	a.ShowInputDialogEx("Open File", "File path", "", "Open", a.openFilePath)
+}
+
+func (a *App) openFilePath(path string) {
+	abs, err := filepath.Abs(workspace.ExpandPath(path))
+	if err != nil {
+		a.StatusError("Error: " + err.Error())
+		return
+	}
+	info, err := os.Stat(abs)
+	if os.IsNotExist(err) {
+		a.StatusError("File not found: " + abs)
+		return
+	}
+	if err != nil {
+		a.StatusError("Error: " + err.Error())
+		return
+	}
+	if !info.Mode().IsRegular() {
+		a.StatusError("Not a regular file: " + abs)
+		return
+	}
+	a.EditorGroup.OpenFile(abs)
 	a.Root.SetFocus(a.EditorGroup)
 }
 
@@ -514,6 +543,12 @@ func registerEditorCommands(app *App) {
 		ID: "file.new", Title: "New File",
 		Keywords: []string{"file", "create"},
 		Handler:  app.NewFile,
+	})
+
+	reg.Register(command.Command{
+		ID: "file.open", Title: "Open File...",
+		Keywords: []string{"file", "open", "path"},
+		Handler:  app.OpenFile,
 	})
 
 	reg.Register(command.Command{

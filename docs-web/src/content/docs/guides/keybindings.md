@@ -16,7 +16,7 @@ You can open your keybindings file directly from the command palette (**Ctrl+P**
 | Ctrl+Q | Quit |
 | Ctrl+P | Command palette |
 | Ctrl+K P | Quick open file |
-| Ctrl+O | Open folder / workspace |
+| Ctrl+O | Open File... |
 | Escape | Focus editor |
 
 ### File

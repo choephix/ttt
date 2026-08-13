@@ -123,6 +123,18 @@ func TestDefaultKeybindingsParse(t *testing.T) {
 	}
 }
 
+func TestDefaultCtrlOBindingOpensFile(t *testing.T) {
+	for _, binding := range DefaultKeybindings() {
+		if binding.Key == "ctrl+o" {
+			if binding.Command != "file.open" {
+				t.Fatalf("ctrl+o command: got %q, want %q", binding.Command, "file.open")
+			}
+			return
+		}
+	}
+	t.Fatal("default keybindings do not contain ctrl+o")
+}
+
 func TestIsChord(t *testing.T) {
 	kb := []KeyBinding{
 		{Key: "ctrl+k ctrl+c", Command: "test.chord"},

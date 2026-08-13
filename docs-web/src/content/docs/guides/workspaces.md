@@ -17,7 +17,8 @@ When multiple folders are open, each root is shown as a collapsible group.
 
 ## Quick Navigation
 
-- **Ctrl+O** to open a folder (`workspace.openFolder`)
+- **Ctrl+O** to open a file (`file.open`)
+- **Open Folder** from the File menu or command palette (`workspace.openFolder`)
 - **Ctrl+K P** for quick file open with fuzzy search (`file.quickOpen`)
 
 ## Opening Files and Folders

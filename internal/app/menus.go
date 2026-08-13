@@ -17,6 +17,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 	// File
 	{
 		{Label: "New File", Command: "file.new"},
+		{Label: "Open File...", Command: "file.open"},
 		ui.MenuSep(),
 		{Label: "Save", Command: "file.save"},
 		{Label: "Save As...", Command: "file.saveAs"},

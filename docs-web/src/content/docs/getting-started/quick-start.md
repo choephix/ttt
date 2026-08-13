@@ -22,7 +22,7 @@ ttt https://github.com/owner/repo/pull/123  # review a PR
 - **Ctrl+P** opens the command palette
 - **Ctrl+K P** opens quick file open
 - **Ctrl+B** toggles the sidebar
-- **Ctrl+O** opens a folder
+- **Ctrl+O** opens a file
 - **Ctrl+T** toggles the terminal (half screen)
 - **Alt+T** toggles the terminal fullscreen
 - **Ctrl+G** opens Go to Line
