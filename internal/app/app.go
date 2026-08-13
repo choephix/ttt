@@ -503,7 +503,19 @@ func (a *App) FlushEditorOnChange() {
 	}
 }
 
+func (a *App) focusedWidgetInput() *widgets.InputWidget {
+	holder, ok := a.Root.Focused.(ui.WidgetInputHolder)
+	if !ok {
+		return nil
+	}
+	return holder.FocusedInput()
+}
+
 func (a *App) Copy() {
+	if inp := a.focusedWidgetInput(); inp != nil {
+		inp.CopySelection()
+		return
+	}
 	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
 		if inp := holder.FocusedInput(); inp != nil {
 			inp.CopySelection()
@@ -514,6 +526,10 @@ func (a *App) Copy() {
 }
 
 func (a *App) Cut() {
+	if inp := a.focusedWidgetInput(); inp != nil {
+		inp.CutSelection()
+		return
+	}
 	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
 		if inp := holder.FocusedInput(); inp != nil {
 			inp.CutSelection()
@@ -524,6 +540,10 @@ func (a *App) Cut() {
 }
 
 func (a *App) Paste() {
+	if inp := a.focusedWidgetInput(); inp != nil {
+		inp.PasteClipboard()
+		return
+	}
 	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {
 		if inp := holder.FocusedInput(); inp != nil {
 			inp.PasteClipboard()
@@ -538,6 +558,10 @@ func (a *App) PasteText(text string) {
 		if tw, ok := tp.ActiveWidget().(*ui.TerminalWidget); ok {
 			tw.PasteText(text)
 		}
+		return
+	}
+	if inp := a.focusedWidgetInput(); inp != nil {
+		inp.PasteText(text)
 		return
 	}
 	if holder, ok := a.Root.Focused.(ui.InputHolder); ok {

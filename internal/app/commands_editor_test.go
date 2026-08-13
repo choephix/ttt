@@ -7,10 +7,12 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
+	"github.com/gdamore/tcell/v3"
 )
 
 func newOpenFileTestApp(t *testing.T) *App {
@@ -141,6 +143,119 @@ func TestOpenFileCommandRegistrationAndDialog(t *testing.T) {
 	}
 	if len(dialog.Buttons) != 2 || dialog.Buttons[1].Label != "&Open" {
 		t.Fatalf("dialog buttons: got %+v", dialog.Buttons)
+	}
+}
+
+func TestOpenFileDialogTerminalPasteRoutesToInput(t *testing.T) {
+	a := newOpenFileTestApp(t)
+	a.OpenFile()
+
+	adapter := a.Root.TopOverlayWidget().(*ui.WidgetAdapter)
+	dialog := adapter.W.(*widgets.DialogWidget)
+	input := dialog.Content.(*widgets.InputWidget)
+
+	a.PasteText("/tmp/pasted.txt")
+
+	if got := input.Text(); got != "/tmp/pasted.txt" {
+		t.Fatalf("open file input text: got %q, want %q", got, "/tmp/pasted.txt")
+	}
+}
+
+func TestGlobalClipboardCommandsRouteToAdapterInputSelection(t *testing.T) {
+	clipboard.DisableSystem()
+	a := newOpenFileTestApp(t)
+	a.OpenFile()
+
+	adapter := a.Root.TopOverlayWidget().(*ui.WidgetAdapter)
+	dialog := adapter.W.(*widgets.DialogWidget)
+	input := dialog.Content.(*widgets.InputWidget)
+	input.SetText("alpha beta")
+
+	for range 4 {
+		adapter.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModShift))
+	}
+	clipboard.Set("sentinel")
+	a.Copy()
+	if got := clipboard.Get(); got != "beta" {
+		t.Fatalf("copied text: got %q, want %q", got, "beta")
+	}
+
+	clipboard.Set("gamma")
+	a.Paste()
+	if got := input.Text(); got != "alpha gamma" {
+		t.Fatalf("text after paste: got %q, want %q", got, "alpha gamma")
+	}
+
+	for range 5 {
+		adapter.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModShift))
+	}
+	a.Cut()
+	if got := input.Text(); got != "alpha " {
+		t.Fatalf("text after cut: got %q, want %q", got, "alpha ")
+	}
+	if got := clipboard.Get(); got != "gamma" {
+		t.Fatalf("cut text: got %q, want %q", got, "gamma")
+	}
+}
+
+func TestSettingsContentAdapterRoutesPasteAndGlobalClipboardCommands(t *testing.T) {
+	clipboard.DisableSystem()
+	a := newOpenFileTestApp(t)
+	a.ShowSettings()
+
+	if a.Root.Focused != a.EditorGroup {
+		t.Fatalf("focused widget is %T, want editor group", a.Root.Focused)
+	}
+	adapter := a.settingsView.adapter
+	adapter.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
+	input := adapter.FocusedInput()
+	if input == nil {
+		t.Fatal("settings adapter has no focused input")
+	}
+
+	input.SetText("")
+	a.PasteText("12")
+	if got := input.Text(); got != "12" {
+		t.Fatalf("text after terminal paste: got %q, want %q", got, "12")
+	}
+
+	input.SetText("alpha beta")
+	for range 4 {
+		adapter.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModShift))
+	}
+	clipboard.Set("sentinel")
+	a.Copy()
+	if got := clipboard.Get(); got != "beta" {
+		t.Fatalf("copied text: got %q, want %q", got, "beta")
+	}
+
+	clipboard.Set("gamma")
+	a.Paste()
+	if got := input.Text(); got != "alpha gamma" {
+		t.Fatalf("text after clipboard paste: got %q, want %q", got, "alpha gamma")
+	}
+
+	for range 5 {
+		adapter.HandleEvent(tcell.NewEventKey(tcell.KeyLeft, "", tcell.ModShift))
+	}
+	a.Cut()
+	if got := input.Text(); got != "alpha " {
+		t.Fatalf("text after cut: got %q, want %q", got, "alpha ")
+	}
+	if got := clipboard.Get(); got != "gamma" {
+		t.Fatalf("cut text: got %q, want %q", got, "gamma")
+	}
+}
+
+func TestAdapterWithoutFocusedInputPreservesEditorPasteFallback(t *testing.T) {
+	a := newOpenFileTestApp(t)
+	button := widgets.NewButtonWidget(widgets.ButtonConfig{Label: "Action"})
+	a.ShowDialog(ui.NewWidgetAdapter(button))
+
+	a.PasteText("editor fallback")
+
+	if got := a.EditorGroup.Editor.Buf.Lines[0]; got != "editor fallback" {
+		t.Fatalf("editor text: got %q, want %q", got, "editor fallback")
 	}
 }
 
