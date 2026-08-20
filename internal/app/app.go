@@ -85,11 +85,13 @@ type App struct {
 	PendingPluginApprovals []*plugin.Plugin
 	PluginsPanel           *PluginsPanel
 	Output                 *ui.OutputWidget
-	pluginDetailWidgets    map[string]*pluginDetailState
-	pluginDrawer           ui.Widget
-	commandLine            *ui.CommandLineWidget
-	commandLinePrevFocus   ui.Widget
-	settingsView           *settingsView
+	// runningRepoOp is the progress label of the in-flight task, empty when idle.
+	runningRepoOp        string
+	pluginDetailWidgets  map[string]*pluginDetailState
+	pluginDrawer         ui.Widget
+	commandLine          *ui.CommandLineWidget
+	commandLinePrevFocus ui.Widget
+	settingsView         *settingsView
 	// appliedSettings is the last value ApplySettings acted on. Callers routinely
 	// mutate a.Settings before calling it, so a.Settings cannot serve as "before".
 	appliedSettings config.Settings
@@ -462,6 +464,16 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		}
 	}
 
+	lspManager.OnLog = func(server, level, message string) {
+		a.LogOutputAsync(level, "lsp:"+server, message)
+	}
+
+	// A server can die at any time; waking the loop redraws the status bar so
+	// the indicator does not keep claiming the server is up.
+	lspManager.OnStateChange = func() {
+		screen.PostEvent(tcell.NewEventInterrupt(&LSPStateChanged{}))
+	}
+
 	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {
 		path := URIToPath(params.URI)
 		diags := LspToUIDiagnostics(params.Diagnostics)
@@ -475,6 +487,7 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 
 func (a *App) statusMessage(msg string, level view.NotifyLevel) {
 	a.Status.SetNotification(msg, level, 5*time.Second)
+	a.LogOutput(outputLevelForNotify(level), "notice", msg)
 	time.AfterFunc(5*time.Second, func() {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	})

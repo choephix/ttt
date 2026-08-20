@@ -8,6 +8,8 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
+	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -83,12 +85,6 @@ func registerPluginCommands(app *App) {
 		Handler:  func() { app.pluginReloadAll() },
 	})
 
-	reg.Register(command.Command{
-		ID:       "plugin.clearOutput",
-		Title:    "Plugins: Clear Output",
-		Keywords: []string{"plugin", "output", "clear", "log"},
-		Handler:  func() { app.Output.Clear() },
-	})
 }
 
 func (a *App) showPluginList() {
@@ -352,17 +348,35 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		}
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
-	p.OpenFile = func(path string, line int) {
+	p.OpenFile = func(path string, line int, readonly bool) {
 		absPath := path
 		if !filepath.IsAbs(path) {
 			if cwd, err := os.Getwd(); err == nil {
 				absPath = filepath.Join(cwd, path)
 			}
 		}
-		a.EditorGroup.OpenFile(absPath)
+		if readonly {
+			a.EditorGroup.OpenFileReadOnly(absPath, "")
+		} else {
+			a.EditorGroup.OpenFile(absPath)
+		}
 		if line > 0 {
 			a.EditorGroup.GoToLine(line)
 		}
+	}
+	p.OpenDiff = func(title string, oldLines, newLines []string, filePath string, extended bool, diffText string) {
+		path := filePath
+		if path == "" {
+			path = title
+		}
+		fd := diff.FileDiff{}
+		if diffText != "" {
+			fd = diff.Parse(diffText)
+		}
+		a.EditorGroup.OpenDiff(path, fd, oldLines, newLines, extended)
+	}
+	p.OpenReadOnly = func(title, filePath string, lines []string) {
+		a.EditorGroup.OpenBufferReadOnly(title, filePath, lines)
 	}
 	p.Notify = func(message, level string) {
 		switch level {
@@ -385,6 +399,9 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 	}
 	p.RemoveStatusItem = func(id string) {
 		a.Status.RemoveSegment(id)
+	}
+	p.ClipboardWrite = func(text string) {
+		clipboard.Set(text)
 	}
 	p.SetEcho = func(text string) {
 		a.Status.EchoText = text
