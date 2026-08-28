@@ -25,7 +25,10 @@ fmt:
 	gofmt -w .
 
 lint:
-	golint ./...
+	golangci-lint run
+
+vet:
+	go vet ./...
 
 chaos: chaos-docker-build
 	mkdir -p chaos-output

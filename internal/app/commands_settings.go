@@ -4,7 +4,22 @@ import (
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/ui"
 )
+
+func configuredDiffMode(mode string) ui.DiffMode {
+	if mode == config.DiffModeUnified {
+		return ui.DiffModeUnified
+	}
+	return ui.DiffModeSplit
+}
+
+func configuredDiffContext(contextMode string) ui.DiffContextMode {
+	if contextMode == config.DiffContextFull {
+		return ui.DiffContextFullFile
+	}
+	return ui.DiffContextChangesOnly
+}
 
 func (a *App) ReloadSettings() {
 	s := config.LoadSettings()
@@ -33,9 +48,15 @@ func (a *App) ApplySettings(s config.Settings) {
 	a.EditorGroup.ShowTrailingNewline = s.Editor.IsShowTrailingNewlineEnabled()
 	a.EditorGroup.TrimTrailingWhitespace = s.Editor.TrimTrailingWhitespace
 	a.EditorGroup.WordWrap = s.Editor.WordWrap
+	a.EditorGroup.SetDiffDefaults(configuredDiffMode(s.Editor.DiffMode), configuredDiffContext(s.Editor.DiffContext), s.Editor.DiffWordWrap)
+	a.EditorGroup.SetDiffHighContrast(s.Editor.DiffHighContrast)
+	a.EditorGroup.SetDiffCollapsedEmphasis(s.Editor.DiffCollapsedEmphasis)
 	a.EditorGroup.BracketPairColorization = s.Editor.BracketPairColorization
 	a.EditorGroup.UndoDeleteCursorStart = s.Editor.UndoDeleteCursorStart
 	a.EditorGroup.ApplyUndoDeleteCursorStart(s.Editor.UndoDeleteCursorStart)
+	if a.Sidebar != nil {
+		a.Sidebar.SetPanelOrder(s.Sidebar.PanelOrder)
+	}
 
 	if a.EditorGroup.Editor != nil {
 		a.EditorGroup.Editor.TabSize = s.Editor.TabSize
@@ -71,6 +92,9 @@ func (a *App) ApplySettings(s config.Settings) {
 	if a.Explorer != nil && a.Explorer.Settings != s.Explorer {
 		a.Explorer.Settings = s.Explorer
 		a.Explorer.Reload()
+	}
+	if a.Changes != nil {
+		a.Changes.SetFileView(s.Git.FileView)
 	}
 
 	// An empty theme name means the built-in default, and must still be applied —

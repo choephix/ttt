@@ -8,6 +8,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 
 	"github.com/gdamore/tcell/v3"
+	"github.com/gdamore/tcell/v3/color"
 )
 
 func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
@@ -26,6 +27,7 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	m[term.StyleSelection] = base.Reverse(true)
 
 	applyStyleDef(&m, term.StyleStatusBar, theme.StatusBar)
+	applyStyleDef(&m, term.StyleCommitHeader, theme.CommitHeader)
 	applyStyleDef(&m, term.StyleActiveTab, theme.Tabs.Active)
 	applyStyleDef(&m, term.StyleInactiveTab, theme.Tabs.Inactive)
 	selectedTab := theme.Tabs.Selected
@@ -49,6 +51,12 @@ func BuildStyleMap(theme config.ThemeConfig) term.StyleMap {
 	applyStyleDef(&m, term.StyleDiffAdded, theme.Diff.Added)
 	applyStyleDef(&m, term.StyleDiffDeleted, theme.Diff.Deleted)
 	applyStyleDef(&m, term.StyleDiffModified, theme.Diff.Modified)
+	applyStyleDef(&m, term.StyleDiffCollapsedEmphasis, theme.Diff.CollapsedEmphasis)
+	collapsedHover := theme.Diff.CollapsedHover
+	if collapsedHover.Bg == "" {
+		collapsedHover.Bg = theme.Editor.ActiveLine.Bg
+	}
+	applyStyleDef(&m, term.StyleDiffCollapsedHover, collapsedHover)
 	applyStyleDef(&m, term.StyleGutterAdded, theme.Diff.GutterAdded)
 	applyStyleDef(&m, term.StyleGutterDeleted, theme.Diff.GutterDeleted)
 	applyStyleDef(&m, term.StyleGutterModified, theme.Diff.GutterModified)
@@ -168,11 +176,11 @@ func applyStyleDef(m *term.StyleMap, idx term.Style, def config.StyleDef) {
 }
 
 func applyDiagStyle(m *term.StyleMap, idx term.Style, def config.StyleDef) {
-	color := tcell.ColorRed
+	c := color.XTerm9
 	if def.Fg != "" {
-		color = tcell.GetColor(def.Fg)
+		c = tcell.GetColor(def.Fg)
 	}
-	m[idx] = tcell.StyleDefault.Underline(tcell.UnderlineStyleCurly, color)
+	m[idx] = tcell.StyleDefault.Underline(tcell.UnderlineStyleCurly, c)
 }
 
 func BuildTerminalPalettePtr(theme config.ThemeConfig) *ui.TerminalColorPalette {

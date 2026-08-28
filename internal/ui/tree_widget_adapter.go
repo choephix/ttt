@@ -7,9 +7,12 @@ import (
 
 type WidgetAdapter struct {
 	BaseWidget
-	W      widgets.Widget
-	focus  *widgets.FocusManager
-	popups []widgets.PopupRenderer
+	W                         widgets.Widget
+	focus                     *widgets.FocusManager
+	popups                    []widgets.PopupRenderer
+	capturedWidget            widgets.Widget
+	pointerCaptureInvalidated func()
+	cancelingPointerCapture   bool
 }
 
 func NewWidgetAdapter(w widgets.Widget) *WidgetAdapter {
@@ -69,6 +72,13 @@ func (a *WidgetAdapter) wireTabbedCallbacks(w widgets.Widget) {
 	case *widgets.ScrollViewWidget:
 		if v.Child != nil {
 			a.wireTabbedCallbacks(v.Child)
+		}
+	case *ContentSplitWidget:
+		if v.Top != nil {
+			a.wireTabbedCallbacks(v.Top)
+		}
+		if v.Bottom != nil {
+			a.wireTabbedCallbacks(v.Bottom)
 		}
 	}
 }
@@ -150,15 +160,95 @@ func (a *WidgetAdapter) CursorPosition() (int, int, bool) {
 }
 
 func (a *WidgetAdapter) HandleEvent(ev tcell.Event) EventResult {
+	if tev, ok := ev.(*tcell.EventMouse); ok && a.capturedWidget != nil {
+		result := a.capturedWidget.HandleEvent(ev)
+		if tev.Buttons() == tcell.ButtonNone {
+			a.capturedWidget = nil
+		}
+		return result
+	}
 	// Popups are painted over the tree, so they must claim clicks over the rows
 	// they cover before those rows get a chance at them.
 	if tev, ok := ev.(*tcell.EventMouse); ok {
 		if w := a.popupAt(tev.Position()); w != nil {
-			return w.HandleEvent(ev)
+			result := w.HandleEvent(ev)
+			if result == EventCaptured {
+				a.captureWidget(w)
+			}
+			return result
 		}
 	}
 	if result := a.focus.HandleEvent(ev); result != EventIgnored {
+		if result == EventCaptured {
+			a.captureWidget(a.focus.LastEventTarget())
+		}
 		return result
 	}
-	return a.W.HandleEvent(ev)
+	result := a.W.HandleEvent(ev)
+	if result == EventCaptured {
+		a.captureWidget(a.W)
+	}
+	return result
+}
+
+func (a *WidgetAdapter) captureWidget(owner widgets.Widget) {
+	if owner == nil {
+		return
+	}
+	a.capturedWidget = owner
+	widgets.SetPointerCaptureInvalidated(owner, func() {
+		if a.capturedWidget != owner || a.cancelingPointerCapture {
+			return
+		}
+		a.capturedWidget = nil
+		if a.pointerCaptureInvalidated != nil {
+			a.pointerCaptureInvalidated()
+		}
+	})
+}
+
+func (a *WidgetAdapter) CancelPointerCapture() bool {
+	captured := a.capturedWidget
+	canceled := captured != nil
+	a.capturedWidget = nil
+	a.cancelingPointerCapture = true
+	if captured != nil {
+		canceled = widgets.CancelPointerCapture(captured) || canceled
+	}
+	a.cancelingPointerCapture = false
+	if canceled && a.pointerCaptureInvalidated != nil {
+		a.pointerCaptureInvalidated()
+	}
+	return canceled
+}
+
+func (a *WidgetAdapter) OwnsPointerCapture() bool {
+	if a.capturedWidget == nil {
+		return false
+	}
+	owner, ok := a.capturedWidget.(widgets.PointerCaptureOwner)
+	if !ok || owner.OwnsPointerCapture() {
+		return true
+	}
+	a.capturedWidget = nil
+	return false
+}
+
+func (a *WidgetAdapter) InvalidatePointerInteraction() bool {
+	captured := a.capturedWidget
+	invalidated := captured != nil
+	a.capturedWidget = nil
+	a.cancelingPointerCapture = true
+	if captured != nil {
+		invalidated = widgets.InvalidatePointerInteraction(captured) || invalidated
+	}
+	a.cancelingPointerCapture = false
+	if invalidated && a.pointerCaptureInvalidated != nil {
+		a.pointerCaptureInvalidated()
+	}
+	return invalidated
+}
+
+func (a *WidgetAdapter) SetPointerCaptureInvalidated(invalidated func()) {
+	a.pointerCaptureInvalidated = invalidated
 }

@@ -1,12 +1,37 @@
 package config
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
 	"github.com/eugenioenko/ttt/internal/config/themes"
 )
+
+func testColorLuminance(color string) float64 {
+	b, err := hex.DecodeString(strings.TrimPrefix(color, "#"))
+	if err != nil || len(b) != 3 {
+		return -1
+	}
+	channel := func(v byte) float64 {
+		x := float64(v) / 255
+		if x <= 0.04045 {
+			return x / 12.92
+		}
+		return math.Pow((x+0.055)/1.055, 2.4)
+	}
+	return 0.2126*channel(b[0]) + 0.7152*channel(b[1]) + 0.0722*channel(b[2])
+}
+
+func testColorContrast(fg, bg string) float64 {
+	a, b := testColorLuminance(fg), testColorLuminance(bg)
+	if a < b {
+		a, b = b, a
+	}
+	return (a + 0.05) / (b + 0.05)
+}
 
 func TestDefaultTheme(t *testing.T) {
 	th := DefaultTheme()
@@ -18,6 +43,9 @@ func TestDefaultTheme(t *testing.T) {
 	}
 	if th.Border.Fg != "#555555" {
 		t.Fatalf("expected Border.Fg '#555555', got '%s'", th.Border.Fg)
+	}
+	if !th.Diff.CollapsedEmphasis.Bold {
+		t.Fatal("expected collapsed diff emphasis to default to bold")
 	}
 }
 
@@ -66,11 +94,81 @@ func TestBundledThemesLoad(t *testing.T) {
 			if err := json.Unmarshal(data, &th); err != nil {
 				t.Fatalf("failed to parse %s: %v", name, err)
 			}
+			var source ThemeConfig
+			if err := json.Unmarshal(data, &source); err != nil {
+				t.Fatalf("failed to inspect %s: %v", name, err)
+			}
 			th.ResolveColors()
 
 			// After resolving, verify critical fields are non-empty
 			if th.Default.Fg == "" {
 				t.Errorf("%s: Default.Fg is empty after resolve", name)
+			}
+			expectedHoverBg := source.Diff.CollapsedHover.Bg
+			if source.Diff.CollapsedHover == (StyleDef{}) && source.Diff.Collapsed != (StyleDef{}) {
+				expectedHoverBg = source.Diff.Collapsed.Bg
+			}
+			if expectedHoverBg == "" {
+				expectedHoverBg = th.Editor.ActiveLine.Bg
+			}
+			if th.Diff.CollapsedHover.Bg != expectedHoverBg {
+				t.Errorf("%s: collapsed hover background = %q, want %q from explicit or inherited source", name, th.Diff.CollapsedHover.Bg, expectedHoverBg)
+			}
+			emphasisBg := th.Diff.CollapsedEmphasis.Bg
+			if emphasisBg == "" {
+				emphasisBg = th.Default.Bg
+			}
+			if ratio := testColorContrast(th.Diff.CollapsedEmphasis.Fg, emphasisBg); ratio < 4.5 {
+				t.Errorf("%s: collapsed emphasis contrast %.2f:1 (%s on %s), want >=4.5:1", name, ratio, th.Diff.CollapsedEmphasis.Fg, emphasisBg)
+			}
+		})
+	}
+}
+
+func TestBundledThemeSemanticDiffForegroundsMeetNormalTextContrast(t *testing.T) {
+	entries, err := themes.FS.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		data, err := themes.FS.ReadFile(entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		theme := DefaultTheme()
+		if err := json.Unmarshal(data, &theme); err != nil {
+			t.Fatal(err)
+		}
+		theme.ResolveColors()
+		for _, pair := range []struct{ name, fg, bg string }{
+			{"added", theme.Diff.GutterAdded.Fg, theme.Diff.Added.Bg},
+			{"deleted", theme.Diff.GutterDeleted.Fg, theme.Diff.Deleted.Bg},
+		} {
+			if ratio := testColorContrast(pair.fg, pair.bg); ratio < 4.5 {
+				t.Errorf("%s %s contrast %.2f:1 (%s on %s), want >=4.5:1", entry.Name(), pair.name, ratio, pair.fg, pair.bg)
+			}
+		}
+	}
+}
+
+func TestContrastSafeForegroundPreservesSemanticChannel(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		foreground string
+		background string
+		semantic   func(themeRGB) bool
+	}{
+		{"added", "#73c991", "#e8f5e8", func(color themeRGB) bool { return color.g > color.r && color.g > color.b }},
+		{"deleted", "#f14c4c", "#f5e8e8", func(color themeRGB) bool { return color.r > color.g && color.r > color.b }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resolved := contrastSafeForeground(test.foreground, test.background, "#000000")
+			if ratio := testColorContrast(resolved, test.background); ratio < 4.5 {
+				t.Fatalf("resolved contrast = %.2f:1 (%s on %s)", ratio, resolved, test.background)
+			}
+			color, ok := parseThemeRGB(resolved)
+			if !ok || !test.semantic(color) {
+				t.Fatalf("resolved color %s lost %s semantic channel", resolved, test.name)
 			}
 		})
 	}
@@ -82,6 +180,7 @@ func TestResolveColors(t *testing.T) {
 	th.Diff.Added.Bg = ""
 	th.Diff.Deleted.Bg = ""
 	th.Diff.Modified.Bg = ""
+	th.Diff.CollapsedHover.Bg = ""
 	th.Success.Fg = ""
 	th.Danger.Fg = ""
 	th.Warning.Fg = ""
@@ -99,6 +198,9 @@ func TestResolveColors(t *testing.T) {
 	}
 	if th.Diff.Modified.Bg == "" {
 		t.Error("expected Diff.Modified.Bg to be filled by ResolveColors")
+	}
+	if th.Diff.CollapsedHover.Bg != th.Editor.ActiveLine.Bg {
+		t.Errorf("expected Diff.CollapsedHover background to inherit Editor.ActiveLine, got %+v", th.Diff.CollapsedHover)
 	}
 	if th.Success.Fg == "" {
 		t.Error("expected Success.Fg to be filled by ResolveColors")
@@ -160,6 +262,7 @@ func TestResolveColorsPreservesExisting(t *testing.T) {
 	th.Success.Fg = "#custom"
 	th.Danger.Fg = "#custom2"
 	th.Diff.Added.Bg = "#custom3"
+	th.Diff.CollapsedHover = StyleDef{Fg: "#custom4", Bg: "#custom5", Bold: true}
 
 	th.ResolveColors()
 
@@ -171,6 +274,46 @@ func TestResolveColorsPreservesExisting(t *testing.T) {
 	}
 	if th.Diff.Added.Bg != "#custom3" {
 		t.Errorf("expected Diff.Added.Bg to remain '#custom3', got %q", th.Diff.Added.Bg)
+	}
+	if th.Diff.CollapsedHover.Fg != "#custom4" || th.Diff.CollapsedHover.Bg != "#custom5" || !th.Diff.CollapsedHover.Bold {
+		t.Errorf("expected explicit Diff.CollapsedHover to remain unchanged, got %+v", th.Diff.CollapsedHover)
+	}
+}
+
+func TestResolveColorsMigratesLegacyCollapsedStyle(t *testing.T) {
+	theme := DefaultTheme()
+	if err := json.Unmarshal([]byte(`{"diff":{"collapsed":{"fg":"#123456","bg":"#654321","bold":true}}}`), &theme); err != nil {
+		t.Fatal(err)
+	}
+	theme.ResolveColors()
+	if got := theme.Diff.CollapsedHover; got != (StyleDef{Fg: "#123456", Bg: "#654321", Bold: true}) {
+		t.Fatalf("migrated collapsed hover style = %+v", got)
+	}
+	if got := theme.Diff.CollapsedEmphasis; got.Fg == "#123456" || got.Bg == "#654321" {
+		t.Fatalf("legacy collapsed field leaked into new emphasis contract: %+v", got)
+	}
+}
+
+func TestResolveColorsKeepsCollapsedEmphasisIndependentFromLegacyCollapsed(t *testing.T) {
+	theme := DefaultTheme()
+	if err := json.Unmarshal([]byte(`{"diff":{"collapsed":{"bg":"#111111"},"collapsedEmphasis":{"fg":"#ffffff","bg":"#222222","italic":true}}}`), &theme); err != nil {
+		t.Fatal(err)
+	}
+	theme.ResolveColors()
+	want := StyleDef{Fg: "#ffffff", Bg: "#222222", Bold: true, Italic: true}
+	if got := theme.Diff.CollapsedEmphasis; got != want {
+		t.Fatalf("collapsed emphasis = %+v, want %+v", got, want)
+	}
+}
+
+func TestResolveColorsPrefersExplicitCollapsedHover(t *testing.T) {
+	theme := DefaultTheme()
+	if err := json.Unmarshal([]byte(`{"diff":{"collapsed":{"bg":"#legacy"},"collapsedHover":{"bg":"#current"}}}`), &theme); err != nil {
+		t.Fatal(err)
+	}
+	theme.ResolveColors()
+	if got := theme.Diff.CollapsedHover.Bg; got != "#current" {
+		t.Fatalf("collapsed hover background = %q, want explicit current value", got)
 	}
 }
 

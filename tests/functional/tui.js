@@ -22,6 +22,7 @@ let args = [];
 let snapCount = 0;
 let tmpDir = "";
 let size = "120x40";
+let extraEnv = {};
 
 export function start(...startArgs) {
   commands = [];
@@ -29,9 +30,14 @@ export function start(...startArgs) {
   size = "120x40";
   tmpDir = mkdtempSync(join(tmpdir(), "ttt-bb-"));
   args = [];
+  extraEnv = {};
   for (const a of startArgs) {
     args.push(a);
   }
+}
+
+export function setEnv(vars) {
+  extraEnv = { ...extraEnv, ...vars };
 }
 
 // Override the terminal size for this run (default 120x40). Reset by start().
@@ -42,6 +48,10 @@ export function setSize(w, h) {
 // Simulate a mouse click at screen coordinates (col x, row y).
 export function click(x, y) {
   commands.push(`click ${x} ${y}`);
+}
+
+export function drag(x1, y1, x2, y2) {
+  commands.push(`drag ${x1} ${y1} ${x2} ${y2}`);
 }
 
 // Simulate a right-click (opens context menus) at screen coordinates.
@@ -94,16 +104,12 @@ export function panel(id) {
   commands.push(`panel ${id}`);
 }
 
-export function wait(ms = 200) {
+export function elapse(ms) {
   commands.push(`wait ${ms}`);
 }
 
-export function waitFor(_text) {
-  commands.push("wait 200");
-}
-
-export function waitStable(ms = 200) {
-  commands.push(`wait ${ms}`);
+export function waitFor(text) {
+  commands.push(`wait-for ${JSON.stringify(String(text))}`);
 }
 
 export function snapshot() {
@@ -121,6 +127,7 @@ const SEP = "\x1f";
 export function run(timeout = 15000) {
   commands.push("quit");
   const script = commands.join(SEP);
+  let runError;
 
   try {
     execFileSync(BINARY, ["--size", size, "--exec-split-on", SEP, "--exec", script, ...args], {
@@ -128,12 +135,10 @@ export function run(timeout = 15000) {
       timeout,
       stdio: "pipe",
       // Isolate from the real ~/.config/ttt — settings toggles persist and race across test files.
-      env: { ...process.env, TTT_CONFIG_DIR: join(tmpDir, "config") },
+      env: { ...process.env, TTT_CONFIG_DIR: join(tmpDir, "config"), ...extraEnv },
     });
   } catch (err) {
-    if (err.status !== null && err.status !== 0 && err.status !== undefined) {
-      // non-zero exit is ok for quit-confirm tests etc.
-    }
+    runError = err;
   }
 
   const snapshots = [];
@@ -146,6 +151,7 @@ export function run(timeout = 15000) {
   }
 
   cleanup();
+  if (runError) throw runError;
   return { snapshots };
 }
 

@@ -6,6 +6,23 @@ import (
 	"testing"
 )
 
+func TestOpenPluginTabReplacementClosesPreviousContent(t *testing.T) {
+	group := NewEditorGroupWidget(nil, 4, true, "relative")
+	closed := false
+	notified := ""
+	group.OnContentTabClose = func(id string) { notified = id }
+	first := NewCommitDetailWidget("/repo", "ref", "abcdef0", false)
+	first.OnClose = func() { closed = true }
+	group.OpenPluginTab("commit", "Commit", first)
+	group.OpenPluginTab("commit", "Replacement", NewCommitDetailWidget("/repo", "other", "1234567", false))
+	if !closed {
+		t.Fatal("replacing a content tab did not close its previous incarnation")
+	}
+	if notified != "commit" {
+		t.Fatalf("replacement close notification = %q, want commit", notified)
+	}
+}
+
 func TestInitialTabIsVirtual(t *testing.T) {
 	g := NewEditorGroupWidget(nil, 4, false, "extended")
 	if !g.tabs[0].Virtual {
@@ -111,7 +128,7 @@ func TestEditorGroupOpenFileSuccess(t *testing.T) {
 	}
 }
 
-func TestEditorGroupPreviewReusesUnpinnedTab(t *testing.T) {
+func TestEditorGroupPreviewReusesUncommittedTab(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.txt")
 	second := filepath.Join(dir, "second.txt")
@@ -129,12 +146,12 @@ func TestEditorGroupPreviewReusesUnpinnedTab(t *testing.T) {
 	if len(g.tabs) != 1 {
 		t.Fatalf("preview should reuse one tab, got %d", len(g.tabs))
 	}
-	if g.tabs[0].FilePath != second || g.tabs[0].Pinned {
-		t.Fatalf("active preview = %#v, want unpinned %q", g.tabs[0], second)
+	if g.tabs[0].FilePath != second || !g.tabs[0].Preview {
+		t.Fatalf("active preview = %#v, want uncommitted %q", g.tabs[0], second)
 	}
 }
 
-func TestEditorGroupCommittedOpenPinsTab(t *testing.T) {
+func TestEditorGroupCommittedOpenPreservesTab(t *testing.T) {
 	dir := t.TempDir()
 	preview := filepath.Join(dir, "preview.txt")
 	next := filepath.Join(dir, "next.txt")
@@ -152,15 +169,15 @@ func TestEditorGroupCommittedOpenPinsTab(t *testing.T) {
 	if len(g.tabs) != 2 {
 		t.Fatalf("preview after committed tab should create a second tab, got %d", len(g.tabs))
 	}
-	if !g.tabs[0].Pinned || g.tabs[0].FilePath != preview {
-		t.Fatal("committed file was not preserved as a pinned tab")
+	if g.tabs[0].Preview || g.tabs[0].FilePath != preview {
+		t.Fatal("committed file was not preserved")
 	}
-	if g.tabs[1].Pinned || g.tabs[1].FilePath != next {
-		t.Fatal("new preview should remain unpinned")
+	if !g.tabs[1].Preview || g.tabs[1].FilePath != next {
+		t.Fatal("new preview should remain uncommitted")
 	}
 }
 
-func TestEditorGroupDoubleClickPinsPreviewTab(t *testing.T) {
+func TestEditorGroupDoubleClickCommitsPreviewTab(t *testing.T) {
 	dir := t.TempDir()
 	preview := filepath.Join(dir, "preview.txt")
 	next := filepath.Join(dir, "next.txt")
@@ -174,8 +191,8 @@ func TestEditorGroupDoubleClickPinsPreviewTab(t *testing.T) {
 	g.PreviewFile(preview)
 	g.TabBar.OnTabDoubleClick(0)
 
-	if !g.tabs[0].Pinned || g.TabBar.Tabs[0].Preview {
-		t.Fatal("double-clicked preview should become a pinned, non-preview tab")
+	if g.tabs[0].Preview || g.TabBar.Tabs[0].Preview {
+		t.Fatal("double-clicked preview should become a committed tab")
 	}
 	g.PreviewFile(next)
 	if len(g.tabs) != 2 || g.tabs[0].FilePath != preview {
@@ -183,7 +200,7 @@ func TestEditorGroupDoubleClickPinsPreviewTab(t *testing.T) {
 	}
 }
 
-func TestEditorGroupDirtyPreviewBecomesPinned(t *testing.T) {
+func TestEditorGroupDirtyPreviewBecomesCommitted(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "preview.txt")
 	if err := os.WriteFile(path, []byte("content"), 0o644); err != nil {
 		t.Fatal(err)
@@ -194,8 +211,8 @@ func TestEditorGroupDirtyPreviewBecomesPinned(t *testing.T) {
 	g.tabs[g.active].Buf.Dirty = true
 	g.syncTabs()
 
-	if !g.tabs[g.active].Pinned {
-		t.Fatal("editing a preview should pin it")
+	if g.tabs[g.active].Preview {
+		t.Fatal("editing a preview should commit it")
 	}
 	if g.TabBar.Tabs[g.active].Preview {
 		t.Fatal("edited tab should no longer render as a preview")

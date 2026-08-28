@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,6 +27,9 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "Add Folder", Command: "workspace.addFolder"},
 			{Label: "Refresh", Command: "explorer.refresh"},
 			ui.MenuSep(),
+			{Label: "Expand All", Command: "explorer.expandAll"},
+			{Label: "Collapse All", Command: "explorer.collapseAll"},
+			ui.MenuSep(),
 			{Label: "Help", Command: "explorer.help"},
 		}
 	case "search":
@@ -43,17 +48,7 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 			{Label: "Help", Command: "search.help"},
 		}
 	case "changes":
-		items = []ui.ContextMenuItem{
-			{Label: "Refresh", Command: "changes.refresh"},
-			ui.MenuSep(),
-			{Label: "Pull", Command: "git.pull"},
-			{Label: "Push", Command: "git.push"},
-			{Label: "Sync", Command: "git.sync"},
-			ui.MenuSep(),
-			{Label: "Open PR Diff", Command: "pr.openDiff"},
-			ui.MenuSep(),
-			{Label: "Help", Command: "changes.help"},
-		}
+		items = a.BuildChangesPanelMenu()
 	case "outline":
 		items = []ui.ContextMenuItem{
 			{Label: "Refresh", Command: "sidebar.outline"},
@@ -69,21 +64,66 @@ func (a *App) ShowSidebarMoreMenu(sx, sy int) {
 		if a.PluginManager != nil {
 			for _, p := range a.PluginManager.Plugins() {
 				if a.Sidebar.ActivePanel == "plugin."+p.Name && len(p.SidebarMenuEntries) > 0 {
-					for _, e := range p.SidebarMenuEntries {
-						items = append(items, ui.ContextMenuItem{
-							Label:   e.Label,
-							Command: e.Command,
-							IsSep:   e.Separator,
-						})
-					}
+					items = contextMenuItemsFromWidgetEntries(p.SidebarMenuEntries)
 					break
 				}
 			}
 		}
 	}
+	moveItems := a.sidebarMoveMenuItems()
+	if len(moveItems) > 0 {
+		if len(items) > 0 && !items[len(items)-1].IsSep {
+			items = append(items, ui.MenuSep())
+		}
+		items = append(items, moveItems...)
+	}
 	if len(items) > 0 {
 		openContextMenu(a, items, sx, sy)
 	}
+}
+
+func (a *App) BuildChangesPanelMenu() []ui.ContextMenuItem {
+	return []ui.ContextMenuItem{
+		{Label: "Open Current Changes", Command: "changes.viewAll"},
+		ui.MenuSep(),
+		{Label: "Refresh", Command: "changes.refresh"},
+		{Label: "Git Files", Submenu: a.BuildChangesGitFileOptions()},
+		{Label: "Diff Views", Submenu: a.BuildDiffViewOptions()},
+		ui.MenuSep(),
+		{Label: "Pull", Command: "git.pull"},
+		{Label: "Push", Command: "git.push"},
+		{Label: "Sync", Command: "git.sync"},
+		ui.MenuSep(),
+		{Label: "Open PR Diff", Command: "pr.openDiff"},
+		ui.MenuSep(),
+		{Label: "Help", Command: "changes.help"},
+	}
+}
+
+func (a *App) BuildChangesContextMenu() []ui.ContextMenuItem {
+	return []ui.ContextMenuItem{
+		{Label: "Open Current Changes", Command: "changes.viewAll"},
+		ui.MenuSep(),
+		{Label: "Refresh", Command: "changes.refresh"},
+		{Label: "Git Files", Submenu: a.BuildChangesGitFileOptions()},
+		{Label: "Diff Views", Submenu: a.BuildDiffViewOptions()},
+	}
+}
+
+func (a *App) ShowChangesContextMenu(sx, sy int) {
+	openContextMenu(a, a.BuildChangesContextMenu(), sx, sy)
+}
+
+func (a *App) ShowChangesFileContextMenu(_ string, status git.FileStatus, sx, sy int) {
+	var items []ui.ContextMenuItem
+	if status.Staged {
+		items = append(items, changesContextMenuStaged...)
+	} else {
+		items = append(items, changesContextMenuUnstaged...)
+	}
+	items = append(items, ui.MenuSep())
+	items = append(items, a.BuildChangesContextMenu()...)
+	openContextMenu(a, items, sx, sy)
 }
 
 func (a *App) DiffSearchSources() []ui.DiffSearchSource {
@@ -169,6 +209,7 @@ func (a *App) ApplySearchReplace(filePath string, matches []ui.SearchMatch, repl
 		a.StatusWarn("Cannot write file: " + err.Error())
 		return
 	}
+	a.invalidateRepositoryPath(filePath, RepositoryWorktree)
 	a.EditorGroup.ReloadFile(filePath)
 	a.Search.Refresh()
 	a.StatusNotify(fmt.Sprintf("Replaced %d matches in %s", len(matches), filepath.Base(filePath)))
@@ -185,6 +226,7 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 		func() { a.DismissDialog() },
 		func() {
 			a.DismissDialog()
+			invalidatePath := ""
 			for filePath, matches := range allMatches {
 				data, err := os.ReadFile(filePath)
 				if err != nil {
@@ -198,33 +240,19 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 				if err := os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
 					continue
 				}
+				if invalidatePath == "" {
+					invalidatePath = filePath
+				}
 				a.EditorGroup.ReloadFile(filePath)
 			}
+			a.invalidateRepositoryPath(invalidatePath, RepositoryWorktree)
 			a.Search.Refresh()
 			a.StatusNotify(fmt.Sprintf("Replaced %d matches across %d files", totalMatches, totalFiles))
 		},
 	})
 }
 
-func (a *App) openSelectedDiff(extended bool) {
-	g := a.Changes.SelectedGroup()
-	if g != nil {
-	} else {
-	}
-	if g != nil && g.IsPR {
-		_, status, ok := a.Changes.SelectedFile()
-		if ok && a.Changes.OnOpenPRDiff != nil {
-			a.Changes.OnOpenPRDiff(g, status, extended)
-		} else {
-		}
-	} else {
-		dir, status, ok := a.Changes.SelectedFile()
-		if ok && a.Changes.OnOpenDiff != nil {
-			a.Changes.OnOpenDiff(dir, status, extended)
-		} else {
-		}
-	}
-}
+func (a *App) openSelectedDiff(extended bool) { a.Changes.OpenSelectedDiff(extended) }
 
 func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	fullPath := filepath.Join(dir, status.Path)
@@ -270,6 +298,56 @@ func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
 	a.FocusEditorIfEnabled()
 }
 
+func (a *App) OpenCommitDiff(dir, ref, short string, status git.FileStatus, extended bool) {
+	a.startDiffOpen(func(ctx context.Context) *DiffOpenResult {
+		return readCommitDiff(ctx, dir, ref, short, status, extended)
+	})
+}
+
+func readCommitDiff(ctx context.Context, dir, ref, short string, status git.FileStatus, extended bool) *DiffOpenResult {
+	diffText, err := git.CommitFileDiffContext(ctx, dir, ref, status)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return &DiffOpenResult{Canceled: true}
+		}
+		return &DiffOpenResult{Warn: fmt.Sprintf("Could not read %s at %s", status.Path, short)}
+	}
+	parsed := diff.Parse(diffText)
+	if len(parsed.Hunks) == 0 {
+		return &DiffOpenResult{Warn: fmt.Sprintf("No line changes for %s in %s", status.Path, short)}
+	}
+	oldPath := status.Path
+	if status.OldPath != "" {
+		oldPath = status.OldPath
+	}
+	oldLines := gitFileLines(ctx, dir, oldPath, ref+"^")
+	newLines := gitFileLines(ctx, dir, status.Path, ref)
+	if ctx.Err() != nil {
+		return &DiffOpenResult{Canceled: true}
+	}
+	return &DiffOpenResult{
+		TabName:  fmt.Sprintf("%s:%s (diff)", ref, status.Path),
+		Title:    fmt.Sprintf("%s @ %s", filepath.Base(status.Path), short),
+		Path:     status.Path,
+		Diff:     parsed,
+		OldLines: oldLines,
+		NewLines: newLines,
+		Extended: extended,
+	}
+}
+
+func gitFileLines(ctx context.Context, dir, path, ref string) []string {
+	content, err := git.ShowFileContext(ctx, dir, path, ref)
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(content, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
 func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
 	diffText, ok := group.PRDiffs[status.Path]
 	if !ok || diffText == "" {
@@ -283,9 +361,9 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended
 	}
 	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, false)
 	if dv := a.EditorGroup.ActiveDiffWidget(); dv != nil {
-		dv.OnFetchExtended = func(dv *ui.DiffViewWidget) {
+		dv.SetExtendedFetcher(func(dv *ui.DiffViewWidget) {
 			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
-		}
+		})
 		if extended {
 			dv.SetExtended(true)
 		}
@@ -295,7 +373,7 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended
 
 func (a *App) fetchPRFileContent(dv *ui.DiffViewWidget, owner, repo, baseSHA, headSHA, path string) {
 	if owner == "" || baseSHA == "" {
-		dv.Loading = false
+		dv.FailLoading()
 		return
 	}
 	tabName := path + " (diff)"
@@ -430,6 +508,7 @@ func registerWidgetCallbacks(app *App) {
 	app.Sidebar.Tabs.Config.Actions = []widgets.TabAction{
 		{Icon: "⋮", OnClick: app.ShowSidebarMoreMenu},
 	}
+	app.Sidebar.OnPanelReorder = app.persistSidebarPanelOrder
 
 	app.Sidebar.Tabs.Config.OnOverflow = func(sx, sy int) {
 		ids, titles := app.Sidebar.HiddenTabs()
@@ -452,9 +531,7 @@ func registerWidgetCallbacks(app *App) {
 		} else {
 			app.EditorGroup.ClearSearch()
 		}
-		if id == "changes" {
-			app.Changes.Refresh()
-		}
+		app.syncRepositoryObservation()
 		if id == "outline" {
 			app.RefreshSymbols()
 		}
@@ -480,6 +557,11 @@ func registerWidgetCallbacks(app *App) {
 
 	app.EditorGroup.TabBar.OnTabClose = app.CloseTabAt
 
+	app.EditorGroup.TabBar.OnTabUnpin = func(index int) {
+		app.EditorGroup.SwitchTab(index)
+		app.EditorGroup.TogglePinTab()
+	}
+
 	app.EditorGroup.TabBar.MoreButton.OnClick = func(sx, sy int) {
 		moreMenu := []ui.ContextMenuItem{
 			{Label: "Close All", Command: "tab.closeAll"},
@@ -490,27 +572,30 @@ func registerWidgetCallbacks(app *App) {
 
 	app.EditorGroup.TabBar.OnTabRightClick = func(index, sx, sy int) {
 		app.EditorGroup.SwitchTab(index)
+		pinLabel := "Pin Tab"
+		if app.EditorGroup.IsActiveTabPinned() {
+			pinLabel = "Unpin Tab"
+		}
 		tabContextMenu := []ui.ContextMenuItem{
 			{Label: "Close", Shortcut: app.KeyFor("tab.close"), Command: "tab.close"},
-			{Label: "Close Others", Shortcut: "", Command: "tab.closeOthers"},
-			{Label: "Close All", Shortcut: "", Command: "tab.closeAll"},
-			{Label: "Close All Saved", Shortcut: "", Command: "tab.closeAllSaved"},
+			{Label: "Close Others", Command: "tab.closeOthers"},
+			{Label: "Close All", Command: "tab.closeAll"},
+			{Label: "Close All Saved", Command: "tab.closeAllSaved"},
 			ui.MenuSep(),
-			{Label: "Copy Absolute Path", Command: "file.copyAbsolutePath"},
-			{Label: "Copy Relative Path", Command: "file.copyRelativePath"},
+			{Label: pinLabel, Shortcut: app.KeyFor("tab.pin"), Command: "tab.pin"},
 		}
-		if dv := app.EditorGroup.ActiveDiffWidget(); dv != nil {
-			cmd := "diff.extendedView"
-			label := "Extended Diff"
-			if dv.IsExtended() {
-				cmd = "diff.compactView"
-				label = "Compact Diff"
-			}
-			tabContextMenu = append(tabContextMenu,
-				ui.MenuSep(),
-				ui.ContextMenuItem{Label: label, Command: cmd},
-			)
+		if app.EditorGroup.CanMoveActiveTab(-1) {
+			tabContextMenu = append(tabContextMenu, ui.ContextMenuItem{Label: "Move Tab Left", Command: "tab.moveLeft"})
 		}
+		if app.EditorGroup.CanMoveActiveTab(1) {
+			tabContextMenu = append(tabContextMenu, ui.ContextMenuItem{Label: "Move Tab Right", Command: "tab.moveRight"})
+		}
+		tabContextMenu = append(tabContextMenu,
+			ui.MenuSep(),
+			ui.ContextMenuItem{Label: "Copy Absolute Path", Command: "file.copyAbsolutePath"},
+			ui.ContextMenuItem{Label: "Copy Relative Path", Command: "file.copyRelativePath"},
+		)
+		tabContextMenu = app.withActiveDiffViewSubmenu(tabContextMenu)
 		openContextMenu(app, tabContextMenu, sx, sy)
 	}
 
@@ -540,6 +625,9 @@ func registerWidgetCallbacks(app *App) {
 			ui.MenuSep(),
 			{Label: "Rename", Command: "explorer.rename"},
 			{Label: "Delete", Command: "explorer.delete"},
+			ui.MenuSep(),
+			{Label: "Expand All", Command: "explorer.expandAll"},
+			{Label: "Collapse All", Command: "explorer.collapseAll"},
 		}
 		openContextMenu(app, items, sx, sy)
 	}
@@ -550,6 +638,9 @@ func registerWidgetCallbacks(app *App) {
 			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
 			ui.MenuSep(),
 			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
+			ui.MenuSep(),
+			{Label: "Expand All", Command: "explorer.expandAll"},
+			{Label: "Collapse All", Command: "explorer.collapseAll"},
 		}
 		openContextMenu(app, items, sx, sy)
 	}
@@ -566,13 +657,8 @@ func registerWidgetCallbacks(app *App) {
 	app.Search.OnReplace = app.ApplySearchReplace
 	app.Search.OnReplaceAll = app.ApplySearchReplaceAll
 
-	app.Changes.OnRightClick = func(dir string, status git.FileStatus, sx, sy int) {
-		if status.Staged {
-			openContextMenu(app, changesContextMenuStaged, sx, sy)
-		} else {
-			openContextMenu(app, changesContextMenuUnstaged, sx, sy)
-		}
-	}
+	app.Changes.OnRightClick = app.ShowChangesFileContextMenu
+	app.Changes.OnPanelMenu = app.ShowChangesContextMenu
 
 	app.Changes.OnOpenFile = func(path string) {
 		app.EditorGroup.OpenFile(path)
@@ -581,6 +667,9 @@ func registerWidgetCallbacks(app *App) {
 	app.Changes.OnOpenDiff = func(dir string, status git.FileStatus, extended bool) {
 		app.OpenChangeDiff(dir, status, extended)
 	}
+	app.Changes.OnOpenCommitDiff = app.OpenCommitDiff
+	app.Changes.OnOpenCommit = app.OpenCommitDetail
+	app.Changes.OnOpenPRDetail = app.OpenPRDetail
 	app.Changes.OnOpenPRDiff = func(group *ui.ChangesGroup, status git.FileStatus, extended bool) {
 		app.OpenPRDiff(group, status, extended)
 	}
@@ -590,6 +679,16 @@ func registerWidgetCallbacks(app *App) {
 	app.Changes.OnCommit = app.CommitChanges
 	app.Changes.OnConfirmDiscard = app.ConfirmDiscard
 	app.Changes.OnError = app.StatusError
+	app.Changes.OnRefresh = app.RefreshChanges
+	app.Changes.OnStatusChanged = func() {
+		app.invalidateAllRepositories(RepositoryWorktree)
+	}
+	app.Changes.OnHistoryResult = func(err error) {
+		if app.Repository != nil {
+			app.Repository.HandleHistory(err)
+		}
+	}
+	app.Changes.Split.OnResize = app.persistCommitHistoryHeight
 
 	app.ContentSplit.OnResize = func(height int) {
 		if height <= 0 {
@@ -599,6 +698,8 @@ func registerWidgetCallbacks(app *App) {
 			app.ContentSplit.BottomH = height
 			if len(app.Terminals) == 0 {
 				app.SpawnTerminal()
+			} else {
+				resizeTerminals(app)
 			}
 		}
 	}
@@ -613,9 +714,7 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
-	app.SplitPanel.OnResize = func(width int) {
-		app.SetSidebarWidth(width)
-	}
+	app.SplitPanel.OnResize = app.persistSidebarWidth
 
 	app.BottomPanel.Tabs.Config.OnTabClick = func(index int) {
 		panels := app.BottomPanel.PanelIDs()

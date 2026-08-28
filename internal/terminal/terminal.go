@@ -18,6 +18,8 @@ const (
 	AttrBlink     int16 = 32
 )
 
+const rawTailMax = 64 * 1024
+
 type Terminal struct {
 	mu         sync.Mutex
 	vt         vt10x.Terminal
@@ -25,8 +27,10 @@ type Terminal struct {
 	cmd        *pty.Cmd
 	cols, rows int
 	done       chan struct{}
+	started    bool
 	closed     bool
 	exited     bool
+	rawTail    []byte
 	OnUpdate   func()
 	OnExit     func()
 }
@@ -63,14 +67,17 @@ func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) 
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 
+	if err := pt.Resize(cols, rows); err != nil {
+		pt.Close()
+		return nil, err
+	}
+
 	if err := cmd.Start(); err != nil {
 		pt.Close()
 		return nil, err
 	}
 	t.pt = pt
 	t.cmd = cmd
-
-	pt.Resize(cols, rows)
 
 	return t, nil
 }
@@ -89,6 +96,9 @@ func defaultShell() string {
 }
 
 func (t *Terminal) Run() {
+	t.mu.Lock()
+	t.started = true
+	t.mu.Unlock()
 	go t.readLoop()
 }
 
@@ -100,6 +110,7 @@ func (t *Terminal) readLoop() {
 		if n > 0 {
 			t.mu.Lock()
 			t.vt.Write(buf[:n])
+			t.appendRawTail(buf[:n])
 			t.mu.Unlock()
 			if t.OnUpdate != nil {
 				t.OnUpdate()
@@ -156,6 +167,7 @@ func (t *Terminal) Close() {
 		return
 	}
 	t.closed = true
+	started := t.started
 	t.mu.Unlock()
 
 	t.pt.Close()
@@ -163,7 +175,9 @@ func (t *Terminal) Close() {
 		t.cmd.Process.Kill()
 		t.cmd.Wait()
 	}
-	<-t.done
+	if started {
+		<-t.done
+	}
 }
 
 func (t *Terminal) ScrollbackLen() int {
@@ -176,4 +190,26 @@ func (t *Terminal) Mode() vt10x.ModeFlag {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.vt.Mode()
+}
+
+// appendRawTail must be called with t.mu held.
+func (t *Terminal) appendRawTail(b []byte) {
+	if len(b) >= rawTailMax {
+		t.rawTail = append(t.rawTail[:0], b[len(b)-rawTailMax:]...)
+		return
+	}
+	if excess := len(t.rawTail) + len(b) - rawTailMax; excess > 0 {
+		copy(t.rawTail, t.rawTail[excess:])
+		t.rawTail = t.rawTail[:len(t.rawTail)-excess]
+	}
+	t.rawTail = append(t.rawTail, b...)
+}
+
+// RawTail returns the most recent bytes read from the PTY, unparsed by vt10x.
+func (t *Terminal) RawTail() []byte {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]byte, len(t.rawTail))
+	copy(out, t.rawTail)
+	return out
 }

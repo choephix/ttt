@@ -5,10 +5,11 @@ description: Drive plugins headlessly with --plugin and --exec to test them like
 
 TTT ships a scripted-interaction harness that lets you load a plugin, click and type through it, and read back both the rendered screen and the editor's internal state — all headless, in a single command, no real terminal required. It's the fastest way to develop and regression-test a plugin, and it's how the built-in plugins are tested.
 
-## The two flags
+## The flags
 
 - **`--plugin FILE`** loads a single Lua file as a plugin on startup, granted **all permissions** (no approval dialog). Use it to iterate on a plugin without installing it. `ttt.plugin_dir()` resolves to the file's directory.
 - **`--exec "commands"`** runs a semicolon-separated script after startup, then the editor exits. Combine with `--size WxH` for deterministic layout.
+- **`--listen`** starts an HTTP server on `127.0.0.1:4242` instead — `POST /exec` accepts the same script format, run synchronously against an **already-running** editor. Useful when a bug only reproduces from live, organic interaction and you want to capture a screenshot or debug dump at the moment it happens instead of scripting the repro in advance. See [Driving a running editor with `--listen`](#driving-a-running-editor-with---listen) below.
 
 ```sh
 bin/ttt --size 100x30 --plugin ./my-plugin/init.lua README.md \
@@ -22,6 +23,7 @@ The plugin's name (used for its panel id, `plugin.<name>`) is the Lua file's bas
 | Command | Description |
 |---------|-------------|
 | `wait MS` | Pause (let timers, async callbacks, and renders settle) |
+| `wait-for TEXT [timeout=MS]` | Wait until text is visible on screen (default timeout: 5000ms) |
 | `panel ID` | Open a bottom-panel tab by id (e.g. `panel output`, `panel plugin.init`) |
 | `key COMBO` | Press a key or chord (`key enter`, `key ctrl+k p`, `key tab`) |
 | `type TEXT` | Type a string |
@@ -31,7 +33,21 @@ The plugin's name (used for its panel id, `plugin.<name>`) is the Lua file's bas
 | `exec "Command Name"` | Run a command by its palette title |
 | `screenshot PATH` | Write the current screen (plain text) to a file |
 | `debug PATH` | Write the editor's full state as JSON to a file |
-| `quit` | Exit |
+| `quit` / `shutdown` | Exit |
+
+Prefer `wait-for` when a visible state has a reliable text marker. Quote text that contains whitespace or escapes: `wait-for "Indexing complete" timeout=10000`. Scripted input and commands are acknowledged after the main event loop handles and redraws them, so the condition checks the rendered screen rather than whether an event was merely posted. Invalid actions and timeouts stop the script; CLI `--exec` exits nonzero with stderr and `POST /exec` returns a non-2xx response with the error.
+
+## Driving a running editor with `--listen`
+
+`--exec` only runs its script once, at startup, then exits. `--listen` keeps the editor running and lets you POST the same commands to it at any point:
+
+```sh
+bin/ttt --listen &
+curl -X POST --data "type hi; wait-for hi; screenshot /tmp/screen.txt" http://127.0.0.1:4242/exec
+curl -X POST --data "shutdown" http://127.0.0.1:4242/exec
+```
+
+This is for bugs that only show up during real, organic interaction (typing, clicking, a live child process in the integrated terminal) — you drive the editor by hand until the bug happens, then fire a `debug`/`screenshot` command over `--listen` to capture it, instead of trying to script the repro blind. The server binds to `127.0.0.1` only. Pass `?sep=` to use a separator other than `;`, mirroring `--exec-split-on`.
 
 ## Reading results: screen vs. state
 
@@ -62,6 +78,8 @@ TTT_CONFIG_DIR=/tmp/ttt-test bin/ttt --plugin ./init.lua --exec "..."
 ```
 
 Always do this in any automated test — a scripted run of a settings-toggling command will otherwise persist into your real config.
+
+Headless `--exec` sessions use a process-local clipboard, so parallel scripts cannot overwrite the desktop clipboard or each other's copied text. Interactive sessions, including `--listen`, continue to use the system clipboard.
 
 ## Testing a scoped plugin (with a manifest)
 

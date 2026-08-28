@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"log/slog"
 
 	"github.com/gdamore/tcell/v3"
@@ -16,18 +17,20 @@ const MinSidebarWidth = 10
 
 type SplitPanelWidget struct {
 	BaseWidget
-	Left              Widget
-	Right             Widget
-	DividerPos        int
-	Borders           *term.BorderSet
-	ShowLeft          bool
-	RightBorderStartY int
-	OnResize          func(width int)
-	OnLeftClick       func()
-	OnRightClick      func()
-	dragging          bool
-	wasPressed        bool
-	capturedChild     Widget
+	Left                      Widget
+	Right                     Widget
+	DividerPos                int
+	Borders                   *term.BorderSet
+	ShowLeft                  bool
+	RightBorderStartY         int
+	OnResize                  func(width int)
+	OnLeftClick               func()
+	OnRightClick              func()
+	dragging                  bool
+	wasPressed                bool
+	capturedChild             Widget
+	pointerCaptureInvalidated func()
+	cancelingPointerCapture   bool
 }
 
 func NewSplitPanelWidget() *SplitPanelWidget {
@@ -42,6 +45,7 @@ func (s *SplitPanelWidget) Focusable() bool { return false }
 func (s *SplitPanelWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	if w < 4 || h < 3 {
+		s.InvalidatePointerInteraction()
 		return
 	}
 
@@ -53,17 +57,15 @@ func (s *SplitPanelWidget) Render(surface Surface) {
 	r := s.GetRect()
 
 	if !s.ShowLeft {
+		widgets.InvalidatePointerInteraction(s.Left)
+		if s.capturedChild == s.Left {
+			s.capturedChild = nil
+		}
 		s.renderSinglePanel(surface, w, h, b, bs)
 		return
 	}
 
-	divX := s.DividerPos + 1
-	if divX < 2 {
-		divX = 2
-	}
-	if divX >= w-2 {
-		divX = w - 3
-	}
+	divX := s.clampedDividerX(w)
 
 	// Top border — left side only: ┌───┐
 	surface.SetCell(0, 0, term.Cell{Ch: b.TopLeft, Style: bs})
@@ -113,6 +115,8 @@ func (s *SplitPanelWidget) Render(surface Surface) {
 		s.Left.SetRect(Rect{X: r.X + 1, Y: r.Y + 1, W: leftW, H: leftH})
 		leftSurface := surface.Sub(Rect{X: 1, Y: 1, W: leftW, H: leftH})
 		s.Left.Render(leftSurface)
+	} else {
+		widgets.InvalidatePointerInteraction(s.Left)
 	}
 
 	// Right content — right of divider, full height (no top border), above bottom border
@@ -123,6 +127,8 @@ func (s *SplitPanelWidget) Render(surface Surface) {
 		s.Right.SetRect(Rect{X: r.X + rightX, Y: r.Y, W: rightW, H: rightH})
 		rightSurface := surface.Sub(Rect{X: rightX, Y: 0, W: rightW, H: rightH})
 		s.Right.Render(rightSurface)
+	} else {
+		widgets.InvalidatePointerInteraction(s.Right)
 	}
 }
 
@@ -282,7 +288,92 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 	return EventIgnored
 }
 
+// clampedDividerX mirrors the divider clamp applied in Render, so hit
+// testing lines up with what's actually drawn when a restored DividerPos
+// exceeds the viewport.
+func (s *SplitPanelWidget) clampedDividerX(w int) int {
+	divX := s.DividerPos + 1
+	if divX < 2 {
+		divX = 2
+	}
+	if divX >= w-2 {
+		divX = w - 3
+	}
+	return divX
+}
+
 func (s *SplitPanelWidget) DividerScreenX() int {
 	r := s.GetRect()
-	return r.X + s.DividerPos + 1
+	return r.X + s.clampedDividerX(r.W)
+}
+
+func (s *SplitPanelWidget) CancelPointerCapture() bool {
+	canceled := s.dragging || s.capturedChild != nil
+	s.dragging = false
+	s.wasPressed = false
+	s.capturedChild = nil
+	s.cancelingPointerCapture = true
+	for _, child := range []Widget{s.Left, s.Right} {
+		if child == nil {
+			continue
+		}
+		canceled = widgets.CancelPointerCapture(child) || canceled
+	}
+	s.cancelingPointerCapture = false
+	if canceled && s.pointerCaptureInvalidated != nil {
+		s.pointerCaptureInvalidated()
+	}
+	return canceled
+}
+
+func (s *SplitPanelWidget) InvalidatePointerInteraction() bool {
+	invalidated := s.dragging || s.capturedChild != nil
+	s.dragging = false
+	s.wasPressed = false
+	s.capturedChild = nil
+	s.cancelingPointerCapture = true
+	invalidated = widgets.InvalidatePointerInteraction(s.Left) || invalidated
+	invalidated = widgets.InvalidatePointerInteraction(s.Right) || invalidated
+	s.cancelingPointerCapture = false
+	if invalidated && s.pointerCaptureInvalidated != nil {
+		s.pointerCaptureInvalidated()
+	}
+	return invalidated
+}
+
+func (s *SplitPanelWidget) SetPointerCaptureInvalidated(invalidated func()) {
+	s.pointerCaptureInvalidated = invalidated
+	for _, child := range []Widget{s.Left, s.Right} {
+		capturedChild := child
+		widgets.SetPointerCaptureInvalidated(child, func() {
+			if s.capturedChild != capturedChild {
+				return
+			}
+			s.capturedChild = nil
+			s.wasPressed = false
+			if !s.cancelingPointerCapture && s.pointerCaptureInvalidated != nil {
+				s.pointerCaptureInvalidated()
+			}
+		})
+	}
+}
+
+func (s *SplitPanelWidget) OwnsPointerCapture() bool {
+	if s.dragging {
+		return true
+	}
+	if s.capturedChild != nil {
+		owner, ok := s.capturedChild.(widgets.PointerCaptureOwner)
+		if !ok || owner.OwnsPointerCapture() {
+			return true
+		}
+		s.capturedChild = nil
+		s.wasPressed = false
+	}
+	for _, child := range []Widget{s.Left, s.Right} {
+		if owner, ok := child.(widgets.PointerCaptureOwner); ok && owner.OwnsPointerCapture() {
+			return true
+		}
+	}
+	return false
 }

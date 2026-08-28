@@ -10,6 +10,18 @@ import (
 var (
 	GutterStyles = []string{"minimal", "compact", "extended"}
 	BorderStyles = []string{"default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none"}
+	DiffModes    = []string{"split", "unified"}
+	DiffContexts = []string{"changes", "full"}
+	GitFileViews = []string{"tree", "list"}
+)
+
+const (
+	DiffModeSplit      = "split"
+	DiffModeUnified    = "unified"
+	DiffContextChanges = "changes"
+	DiffContextFull    = "full"
+	GitFileViewTree    = "tree"
+	GitFileViewList    = "list"
 )
 
 type TerminalSettings struct {
@@ -77,6 +89,11 @@ type EditorSettings struct {
 	TabSize                 int    `json:"tabSize"`
 	InsertSpaces            bool   `json:"insertSpaces"`
 	WordWrap                bool   `json:"wordWrap"`
+	DiffMode                string `json:"diffMode"`
+	DiffContext             string `json:"diffContext"`
+	DiffWordWrap            bool   `json:"diffWordWrap"`
+	DiffHighContrast        bool   `json:"diffHighContrast,omitempty"`
+	DiffCollapsedEmphasis   bool   `json:"diffEmphasizeCollapsedRows,omitempty"`
 	LineNumbers             bool   `json:"lineNumbers"`
 	CursorStyle             string `json:"cursorStyle,omitempty"`
 	FormatOnSave            bool   `json:"formatOnSave"`
@@ -123,6 +140,8 @@ func DefaultEditorSettings() EditorSettings {
 	return EditorSettings{
 		TabSize:                 4,
 		InsertSpaces:            true,
+		DiffMode:                DiffModeSplit,
+		DiffContext:             DiffContextChanges,
 		LineNumbers:             true,
 		InsertFinalNewline:      true,
 		GutterStyle:             "compact",
@@ -144,6 +163,20 @@ func DefaultSearchSettings() SearchSettings {
 type ExplorerSettings struct {
 	ShowHidden     bool `json:"showHidden"`
 	ShowGitIgnored bool `json:"showGitIgnored"`
+}
+
+type SidebarSettings struct {
+	PanelOrder          []string `json:"panelOrder,omitempty"`
+	Width               int      `json:"width,omitempty"`
+	CommitHistoryHeight int      `json:"commitHistoryHeight,omitempty"`
+}
+
+type GitSettings struct {
+	FileView string `json:"fileView"`
+}
+
+func DefaultGitSettings() GitSettings {
+	return GitSettings{FileView: GitFileViewList}
 }
 
 func DefaultExplorerSettings() ExplorerSettings {
@@ -181,6 +214,8 @@ type Settings struct {
 	Editor       EditorSettings       `json:"editor"`
 	Search       SearchSettings       `json:"search"`
 	Explorer     ExplorerSettings     `json:"explorer"`
+	Sidebar      SidebarSettings      `json:"sidebar,omitzero"`
+	Git          GitSettings          `json:"git"`
 	Terminal     TerminalSettings     `json:"terminal"`
 	LSP          LSPSettings          `json:"lsp"`
 	Autocomplete AutocompleteSettings `json:"autocomplete"`
@@ -200,7 +235,7 @@ type Settings struct {
 // Any other top-level key is preserved via Settings.Extra.
 var knownSettingsKeys = map[string]bool{
 	"version": true, "theme": true, "debugMode": true, "editor": true,
-	"search": true, "explorer": true, "terminal": true, "lsp": true,
+	"search": true, "explorer": true, "sidebar": true, "git": true, "terminal": true, "lsp": true,
 	"autocomplete": true, "markdown": true, "plugins": true, "formatters": true,
 }
 
@@ -254,6 +289,7 @@ func DefaultSettings() Settings {
 		Editor:       DefaultEditorSettings(),
 		Search:       DefaultSearchSettings(),
 		Explorer:     DefaultExplorerSettings(),
+		Git:          DefaultGitSettings(),
 		Terminal:     DefaultTerminalSettings(),
 		LSP:          DefaultLSPSettings(),
 		Autocomplete: DefaultAutocompleteSettings(),
@@ -274,6 +310,31 @@ func normalizeSettings(s *Settings) {
 	}
 	if !slices.Contains(BorderStyles, s.Editor.BorderStyle) {
 		s.Editor.BorderStyle = "default"
+	}
+	seenPanels := make(map[string]bool)
+	panelOrder := s.Sidebar.PanelOrder[:0]
+	for _, id := range s.Sidebar.PanelOrder {
+		if id == "" || seenPanels[id] {
+			continue
+		}
+		seenPanels[id] = true
+		panelOrder = append(panelOrder, id)
+	}
+	s.Sidebar.PanelOrder = panelOrder
+	if s.Sidebar.Width < 0 {
+		s.Sidebar.Width = 0
+	}
+	if s.Sidebar.CommitHistoryHeight < 0 {
+		s.Sidebar.CommitHistoryHeight = 0
+	}
+	if !slices.Contains(DiffModes, s.Editor.DiffMode) {
+		s.Editor.DiffMode = DiffModeSplit
+	}
+	if !slices.Contains(DiffContexts, s.Editor.DiffContext) {
+		s.Editor.DiffContext = DiffContextChanges
+	}
+	if !slices.Contains(GitFileViews, s.Git.FileView) {
+		s.Git.FileView = GitFileViewList
 	}
 }
 

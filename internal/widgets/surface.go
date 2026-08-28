@@ -43,6 +43,42 @@ type CursorPositioner interface {
 	CursorPosition() (x, y int, visible bool)
 }
 
+type PointerCaptureCanceler interface {
+	CancelPointerCapture() bool
+}
+
+type PointerCaptureOwner interface {
+	OwnsPointerCapture() bool
+}
+
+type PointerInteractionInvalidator interface {
+	InvalidatePointerInteraction() bool
+}
+
+type PointerCaptureInvalidationSetter interface {
+	SetPointerCaptureInvalidated(func())
+}
+
+func CancelPointerCapture(w Widget) bool {
+	if canceler, ok := w.(PointerCaptureCanceler); ok {
+		return canceler.CancelPointerCapture()
+	}
+	return false
+}
+
+func InvalidatePointerInteraction(w Widget) bool {
+	if invalidator, ok := w.(PointerInteractionInvalidator); ok {
+		return invalidator.InvalidatePointerInteraction()
+	}
+	return CancelPointerCapture(w)
+}
+
+func SetPointerCaptureInvalidated(w Widget, invalidated func()) {
+	if setter, ok := w.(PointerCaptureInvalidationSetter); ok {
+		setter.SetPointerCaptureInvalidated(invalidated)
+	}
+}
+
 func hasFocusedChild(w Widget) bool {
 	if fw, ok := w.(FocusableWidget); ok && fw.IsFocused() {
 		return true
@@ -131,6 +167,18 @@ type BaseWidget struct {
 func (b *BaseWidget) SetRect(r Rect)          { b.rect = r }
 func (b *BaseWidget) GetRect() Rect           { return b.rect }
 func (b *BaseWidget) SetBoxModel(bm BoxModel) { b.Box = bm }
+
+func (b *BaseWidget) contentOrigin() (int, int) {
+	x := b.rect.X + b.Box.MarginLeft + b.Box.PaddingLeft
+	y := b.rect.Y + b.Box.MarginTop + b.Box.PaddingTop
+	if b.Box.BorderLeft {
+		x++
+	}
+	if b.Box.BorderTop {
+		y++
+	}
+	return x, y
+}
 
 func (b *BaseWidget) BoxOverheadH() int {
 	h := b.Box.MarginTop + b.Box.MarginBottom + b.Box.PaddingTop + b.Box.PaddingBottom

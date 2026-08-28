@@ -1,9 +1,12 @@
 package git
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -109,6 +112,20 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	}
 }
 
+func TestShowIndexFileBytesContextUsesExplicitStageZero(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "2:notes.txt", "stage zero\n")
+	gitRun(t, dir, "add", "--", "2:notes.txt")
+
+	got, err := ShowIndexFileBytesContext(context.Background(), dir, "2:notes.txt", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "stage zero\n" {
+		t.Fatalf("index content = %q", got)
+	}
+}
+
 func writeFile(t *testing.T, dir, name, content string) {
 	t.Helper()
 	path := filepath.Join(dir, name)
@@ -137,6 +154,152 @@ func TestStatusFilesEmpty(t *testing.T) {
 	}
 	if len(files) != 0 {
 		t.Errorf("expected no files, got %d: %+v", len(files), files)
+	}
+}
+
+func TestStatusFilesContextHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := StatusFilesContext(ctx, setupTestRepo(t)); err == nil {
+		t.Fatal("canceled status context returned success")
+	}
+}
+
+func TestRevisionIdentityTracksHead(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "initial.txt", "hello\n")
+	gitRun(t, dir, "add", "initial.txt")
+	gitRun(t, dir, "commit", "-m", "init")
+	initial := RevisionIdentity(dir)
+	if initial == "" {
+		t.Fatal("committed repository has an empty revision identity")
+	}
+	writeFile(t, dir, "next.txt", "next\n")
+	gitRun(t, dir, "add", "next.txt")
+	gitRun(t, dir, "commit", "-m", "next")
+	if next := RevisionIdentity(dir); next == initial || next == "" {
+		t.Fatalf("revision identity after commit = %q, initial = %q", next, initial)
+	}
+}
+
+func TestRevisionIdentityAllowsUnbornRepository(t *testing.T) {
+	dir := setupTestRepo(t)
+	identity, err := RevisionIdentityContext(context.Background(), dir)
+	if err != nil || identity != "" {
+		t.Fatalf("unborn repository identity = (%q, %v), want empty success", identity, err)
+	}
+	if branch, err := BranchNameContext(context.Background(), dir); err != nil || branch == "" {
+		t.Fatalf("unborn repository branch = (%q, %v), want symbolic branch", branch, err)
+	}
+}
+
+func TestReadRepositoryIdentityFindsLinkedWorktreeFromNestedDirectory(t *testing.T) {
+	repo := setupTestRepo(t)
+	writeFile(t, repo, "initial.txt", "initial\n")
+	gitRun(t, repo, "add", "initial.txt")
+	gitRun(t, repo, "commit", "-m", "initial")
+
+	linkedBase := canonicalTestPath(t, t.TempDir())
+	linked := filepath.Join(linkedBase, "linked")
+	gitRun(t, repo, "worktree", "add", "-q", "-b", "linkedbranch", linked)
+	info, err := os.Stat(filepath.Join(linked, ".git"))
+	if err != nil || !info.Mode().IsRegular() {
+		t.Fatalf("linked worktree .git = (%v, %v), want regular file", info, err)
+	}
+	nested := filepath.Join(linked, "nested", "deeper")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	identity, err := ReadRepositoryIdentityContext(context.Background(), nested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Root != linked || identity.Branch != "linkedbranch" {
+		t.Fatalf("linked identity = %+v, want root %q branch linkedbranch", identity, linked)
+	}
+}
+
+func canonicalTestPath(t *testing.T, path string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}
+
+func TestRevisionIdentityRequiresVerifiedUnbornHead(t *testing.T) {
+	bin := t.TempDir()
+	script := `#!/bin/sh
+case "$*" in
+  *"rev-parse --verify HEAD"*) exit 73 ;;
+  *"symbolic-ref -q HEAD"*) printf 'refs/heads/main\n'; exit 0 ;;
+  *"show-ref --verify --quiet refs/heads/main"*) exit 0 ;;
+esac
+exit 99
+`
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+
+	if identity, err := RevisionIdentityContext(context.Background(), "/repo"); err == nil {
+		t.Fatalf("failed HEAD read returned empty success: identity=%q", identity)
+	}
+	if entries, err := LogWithErrorContext(context.Background(), "/repo", 10); err == nil {
+		t.Fatalf("failed HEAD read returned successful empty log: entries=%v", entries)
+	}
+}
+
+func TestLogPageUsesExactHeadSnapshotWithoutOverlap(t *testing.T) {
+	dir := setupTestRepo(t)
+	for index := 0; index < 13; index++ {
+		gitRun(t, dir, "commit", "--allow-empty", "-m", fmt.Sprintf("history %02d", index))
+	}
+	anchor, err := RevisionObjectIDContext(context.Background(), dir)
+	if err != nil || anchor == "" {
+		t.Fatalf("history anchor = %q, err=%v", anchor, err)
+	}
+	first, err := LogPageContext(context.Background(), dir, anchor, 0, 5)
+	if err != nil || len(first.Entries) != 5 || !first.HasMore {
+		t.Fatalf("first page = %+v, err=%v", first, err)
+	}
+
+	gitRun(t, dir, "commit", "--allow-empty", "-m", "new moving head")
+	second, err := LogPageContext(context.Background(), dir, anchor, 5, 5)
+	if err != nil || len(second.Entries) != 5 || !second.HasMore {
+		t.Fatalf("second anchored page = %+v, err=%v", second, err)
+	}
+	seen := make(map[string]bool)
+	for _, entry := range append(append([]LogEntry(nil), first.Entries...), second.Entries...) {
+		if seen[entry.Ref] {
+			t.Fatalf("duplicate paged commit %s", entry.Ref)
+		}
+		seen[entry.Ref] = true
+		if entry.Message == "new moving head" {
+			t.Fatal("page anchored to the old HEAD included the new HEAD commit")
+		}
+		if (len(entry.Ref) != 40 && len(entry.Ref) != 64) || strings.Trim(entry.Ref, "0123456789abcdef") != "" {
+			t.Fatalf("paged ref is not a full object ID: %q", entry.Ref)
+		}
+	}
+
+	last, err := LogPageContext(context.Background(), dir, anchor, 10, 5)
+	if err != nil || len(last.Entries) != 3 || last.HasMore {
+		t.Fatalf("last page = %+v, err=%v", last, err)
+	}
+	empty, err := LogPageContext(context.Background(), dir, anchor, 13, 5)
+	if err != nil || len(empty.Entries) != 0 || empty.HasMore {
+		t.Fatalf("empty terminal page = %+v, err=%v", empty, err)
+	}
+}
+
+func TestLogPageRejectsSymbolicOrAbbreviatedAnchors(t *testing.T) {
+	for _, anchor := range []ObjectID{"HEAD", "abc1234", ObjectID(strings.Repeat("g", 40))} {
+		if _, err := LogPageContext(context.Background(), t.TempDir(), anchor, 0, 5); err == nil {
+			t.Fatalf("LogPageContext accepted non-full anchor %q", anchor)
+		}
 	}
 }
 
@@ -325,7 +488,6 @@ func TestStatusFilesWithSpaces(t *testing.T) {
 	gitRun(t, dir, "commit", "-m", "init")
 
 	// Create a file with spaces in the name.
-	// Git --porcelain wraps such names in double quotes.
 	writeFile(t, dir, "file with spaces.txt", "content\n")
 
 	files, err := StatusFiles(dir)
@@ -335,15 +497,120 @@ func TestStatusFilesWithSpaces(t *testing.T) {
 
 	found := false
 	for _, f := range files {
-		// git status --porcelain quotes paths with spaces:
-		// ?? "file with spaces.txt"
-		// The parser takes line[3:] and trims whitespace, leaving the quoted form.
-		if f.Path == `"file with spaces.txt"` && f.Status == "?" {
+		if f.Path == "file with spaces.txt" && f.Status == "?" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected untracked file with spaces (possibly quoted), got %+v", files)
+		t.Errorf("expected raw untracked file with spaces, got %+v", files)
+	}
+}
+
+func TestStatusFilesReturnsRawPathIdentity(t *testing.T) {
+	dir := setupTestRepo(t)
+	tracked := map[string]string{
+		"ordinary.txt":        "ordinary\n",
+		"界-wide.txt":          "wide\n",
+		"delete-staged.txt":   "delete staged\n",
+		"delete-unstaged.txt": "delete unstaged\n",
+		"rename-old.txt":      "rename\n",
+	}
+	for path, content := range tracked {
+		writeFile(t, dir, path, content)
+	}
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-m", "raw paths")
+
+	writeFile(t, dir, "ordinary.txt", "staged\n")
+	gitRun(t, dir, "add", "--", "ordinary.txt")
+	writeFile(t, dir, "ordinary.txt", "staged and unstaged\n")
+	writeFile(t, dir, "界-wide.txt", "changed\n")
+	if err := os.Remove(filepath.Join(dir, "delete-staged.txt")); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "--", "delete-staged.txt")
+	if err := os.Remove(filepath.Join(dir, "delete-unstaged.txt")); err != nil {
+		t.Fatal(err)
+	}
+	renamePath := "rename -> new\n界.txt"
+	gitRun(t, dir, "mv", "rename-old.txt", renamePath)
+
+	untracked := []string{
+		"quote\"name.txt",
+		"line\nbreak.txt",
+		`back\slash.txt`,
+		"colon:name.txt",
+		"-leading.txt",
+		"新規/深い/同名.go",
+	}
+	for _, path := range untracked {
+		fullPath := filepath.Join(dir, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fullPath, []byte(path), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files, err := StatusFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStatus := func(path, oldPath, status string, staged bool) {
+		t.Helper()
+		for _, file := range files {
+			if file.Path == path && file.OldPath == oldPath && file.Status == status && file.Staged == staged {
+				return
+			}
+		}
+		t.Errorf("missing raw status path=%q old=%q status=%q staged=%v in %+v", path, oldPath, status, staged, files)
+	}
+	assertStatus("ordinary.txt", "", "M", true)
+	assertStatus("ordinary.txt", "", "M", false)
+	assertStatus("界-wide.txt", "", "M", false)
+	assertStatus("delete-staged.txt", "", "D", true)
+	assertStatus("delete-unstaged.txt", "", "D", false)
+	assertStatus(renamePath, "rename-old.txt", "R", true)
+	for _, path := range untracked {
+		assertStatus(path, "", "?", false)
+	}
+}
+
+func TestParseStatusPorcelainZUsesDestinationThenSourceForRenameAndCopy(t *testing.T) {
+	files := parseStatusPorcelainZ([]byte("R  renamed\n界.txt\x00old:name.txt\x00 C copied\\name.txt\x00source\"name.txt\x00"))
+	if len(files) != 2 {
+		t.Fatalf("rename/copy statuses = %+v", files)
+	}
+	if got := files[0]; got.Status != "R" || !got.Staged || got.Path != "renamed\n界.txt" || got.OldPath != "old:name.txt" {
+		t.Fatalf("rename order = %+v", got)
+	}
+	if got := files[1]; got.Status != "C" || got.Staged || got.Path != `copied\name.txt` || got.OldPath != `source"name.txt` {
+		t.Fatalf("copy order = %+v", got)
+	}
+}
+
+func TestParseStatusPorcelainZRejectsEmptyPaths(t *testing.T) {
+	valid := "?? valid\n界.txt\x00"
+	tests := []struct {
+		name string
+		tail string
+	}{
+		{name: "ordinary destination", tail: " M \x00"},
+		{name: "rename destination", tail: "R  \x00old.txt\x00"},
+		{name: "rename source", tail: "R  new.txt\x00\x00"},
+		{name: "staged copy destination", tail: "C  \x00old.txt\x00"},
+		{name: "staged copy source", tail: "C  new.txt\x00\x00"},
+		{name: "unstaged copy destination", tail: " C \x00old.txt\x00"},
+		{name: "unstaged copy source", tail: " C new.txt\x00\x00"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			files := parseStatusPorcelainZ([]byte(valid + tt.tail))
+			if len(files) != 1 || files[0].Path != "valid\n界.txt" || files[0].Status != "?" || files[0].Staged {
+				t.Fatalf("statuses = %+v, want only valid prefix", files)
+			}
+		})
 	}
 }
 
@@ -788,5 +1055,32 @@ func TestStageReportsError(t *testing.T) {
 	dir := setupTestRepo(t)
 	if err := Stage(dir, "does-not-exist.txt"); err == nil {
 		t.Error("expected an error staging a missing path")
+	}
+}
+
+func TestDiffWorkingTreeFileContextUsesExplicitRevisionAndRawPath(t *testing.T) {
+	dir := setupTestRepo(t)
+	rawPath := "raw\n\t界.txt"
+	writeFile(t, dir, rawPath, "original\n")
+	gitRun(t, dir, "add", rawPath)
+	gitRun(t, dir, "commit", "-m", "initial")
+	revision := RevisionIdentity(dir)
+	writeFile(t, dir, rawPath, "staged\n")
+	gitRun(t, dir, "add", rawPath)
+	writeFile(t, dir, rawPath, "final working tree\n")
+
+	patch, err := DiffWorkingTreeFileContext(context.Background(), dir, revision, FileStatus{Status: "M", Path: rawPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(patch, "+final working tree") || strings.Contains(patch, "+staged") {
+		t.Fatalf("explicit-revision diff did not use final raw-path content:\n%s", patch)
+	}
+
+	unborn := setupTestRepo(t)
+	writeFile(t, unborn, rawPath, "untracked\n")
+	patch, err = DiffWorkingTreeFileContext(context.Background(), unborn, "", FileStatus{Status: "?", Path: rawPath})
+	if err != nil || !strings.Contains(patch, "+untracked") {
+		t.Fatalf("unborn raw-path diff err=%v:\n%s", err, patch)
 	}
 }

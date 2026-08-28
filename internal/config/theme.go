@@ -1,5 +1,12 @@
 package config
 
+import (
+	"encoding/hex"
+	"fmt"
+	"math"
+	"strings"
+)
+
 type StyleDef struct {
 	Fg     string `json:"fg,omitempty"`
 	Bg     string `json:"bg,omitempty"`
@@ -75,9 +82,14 @@ type EditorStyles struct {
 }
 
 type DiffStyles struct {
-	Added          StyleDef `json:"added"`
-	Deleted        StyleDef `json:"deleted"`
-	Modified       StyleDef `json:"modified"`
+	Added             StyleDef `json:"added"`
+	Deleted           StyleDef `json:"deleted"`
+	Modified          StyleDef `json:"modified"`
+	CollapsedEmphasis StyleDef `json:"collapsedEmphasis,omitempty"`
+	CollapsedHover    StyleDef `json:"collapsedHover,omitempty"`
+	// Collapsed is retained for themes created against the original collapsed-gap contract.
+	// Deprecated: use CollapsedHover.
+	Collapsed      StyleDef `json:"collapsed,omitempty"`
 	GutterAdded    StyleDef `json:"gutterAdded,omitempty"`
 	GutterDeleted  StyleDef `json:"gutterDeleted,omitempty"`
 	GutterModified StyleDef `json:"gutterModified,omitempty"`
@@ -201,6 +213,7 @@ type ThemeConfig struct {
 	Danger       StyleDef       `json:"danger"`
 	Warning      StyleDef       `json:"warning"`
 	StatusBar    StyleDef       `json:"statusBar"`
+	CommitHeader StyleDef       `json:"commitHeader"`
 	Tabs         TabStyles      `json:"tabs"`
 	Sidebar      SidebarStyles  `json:"sidebar"`
 	Dialog       DialogStyles   `json:"dialog"`
@@ -259,6 +272,9 @@ func DefaultTheme() ThemeConfig {
 			BracketColors: []string{"yellow", "magenta", "blue"},
 		},
 		Scrollbar: StyleDef{Fg: "#999999", Bg: "#555555"},
+		Diff: DiffStyles{
+			CollapsedEmphasis: StyleDef{Bold: true},
+		},
 
 		Syntax: SyntaxStyles{
 			Comment:     StyleDef{Fg: "#6a9955"},
@@ -292,6 +308,8 @@ func DefaultTheme() ThemeConfig {
 }
 
 func (t *ThemeConfig) ResolveColors() {
+	fillFg(&t.CommitHeader, t.Default.Fg)
+	fillBg(&t.CommitHeader, t.Default.Bg)
 	fillFg(&t.Dialog.Muted, t.Muted.Fg)
 	fillBg(&t.Input.Item, t.Default.Bg)
 	fillFg(&t.Input.Item, t.Default.Fg)
@@ -305,9 +323,21 @@ func (t *ThemeConfig) ResolveColors() {
 	fillBg(&t.Diff.Added, "#1e2e1e")
 	fillBg(&t.Diff.Deleted, "#2e1e1e")
 	fillBg(&t.Diff.Modified, "#2e2e1e")
+	fillFg(&t.Diff.CollapsedEmphasis, t.Default.Fg)
+	emphasisBg := t.Diff.CollapsedEmphasis.Bg
+	if emphasisBg == "" {
+		emphasisBg = t.Default.Bg
+	}
+	t.Diff.CollapsedEmphasis.Fg = contrastSafeForeground(t.Diff.CollapsedEmphasis.Fg, emphasisBg, t.Default.Fg)
+	if t.Diff.CollapsedHover == (StyleDef{}) && t.Diff.Collapsed != (StyleDef{}) {
+		t.Diff.CollapsedHover = t.Diff.Collapsed
+	}
+	fillBg(&t.Diff.CollapsedHover, t.Editor.ActiveLine.Bg)
 	fillFg(&t.Diff.GutterAdded, "#73c991")
 	fillFg(&t.Diff.GutterDeleted, "#f14c4c")
 	fillFg(&t.Diff.GutterModified, "#e2c08d")
+	t.Diff.GutterAdded.Fg = contrastSafeForeground(t.Diff.GutterAdded.Fg, t.Diff.Added.Bg, t.Default.Fg)
+	t.Diff.GutterDeleted.Fg = contrastSafeForeground(t.Diff.GutterDeleted.Fg, t.Diff.Deleted.Bg, t.Default.Fg)
 	fillFg(&t.Success, "#73c991")
 	fillFg(&t.Danger, "#f14c4c")
 	fillFg(&t.Warning, "#e2c08d")
@@ -336,4 +366,80 @@ func fillBg(s *StyleDef, color string) {
 	if s.Bg == "" {
 		s.Bg = color
 	}
+}
+
+type themeRGB struct {
+	r float64
+	g float64
+	b float64
+}
+
+func parseThemeRGB(color string) (themeRGB, bool) {
+	decoded, err := hex.DecodeString(strings.TrimPrefix(color, "#"))
+	if err != nil || len(decoded) != 3 {
+		return themeRGB{}, false
+	}
+	return themeRGB{r: float64(decoded[0]), g: float64(decoded[1]), b: float64(decoded[2])}, true
+}
+
+func themeRelativeLuminance(color themeRGB) float64 {
+	channel := func(value float64) float64 {
+		value /= 255
+		if value <= 0.04045 {
+			return value / 12.92
+		}
+		return math.Pow((value+0.055)/1.055, 2.4)
+	}
+	return 0.2126*channel(color.r) + 0.7152*channel(color.g) + 0.0722*channel(color.b)
+}
+
+func themeContrast(foreground, background themeRGB) float64 {
+	foregroundLuminance := themeRelativeLuminance(foreground)
+	backgroundLuminance := themeRelativeLuminance(background)
+	if foregroundLuminance < backgroundLuminance {
+		foregroundLuminance, backgroundLuminance = backgroundLuminance, foregroundLuminance
+	}
+	return (foregroundLuminance + 0.05) / (backgroundLuminance + 0.05)
+}
+
+func formatThemeRGB(color themeRGB) string {
+	return fmt.Sprintf("#%02x%02x%02x", int(math.Round(color.r)), int(math.Round(color.g)), int(math.Round(color.b)))
+}
+
+func contrastSafeForeground(foreground, background, fallback string) string {
+	bg, bgOK := parseThemeRGB(background)
+	if !bgOK {
+		return foreground
+	}
+	fg, fgOK := parseThemeRGB(foreground)
+	if !fgOK {
+		fg, fgOK = parseThemeRGB(fallback)
+		if !fgOK {
+			return foreground
+		}
+		foreground = fallback
+	}
+	if themeContrast(fg, bg) >= 4.5 {
+		return foreground
+	}
+
+	black := themeRGB{}
+	white := themeRGB{r: 255, g: 255, b: 255}
+	target := black
+	if themeContrast(white, bg) > themeContrast(black, bg) {
+		target = white
+	}
+	for step := 1; step <= 255; step++ {
+		amount := float64(step) / 255
+		candidate := themeRGB{
+			r: fg.r + (target.r-fg.r)*amount,
+			g: fg.g + (target.g-fg.g)*amount,
+			b: fg.b + (target.b-fg.b)*amount,
+		}
+		resolved, _ := parseThemeRGB(formatThemeRGB(candidate))
+		if themeContrast(resolved, bg) >= 4.5 {
+			return formatThemeRGB(resolved)
+		}
+	}
+	return formatThemeRGB(target)
 }

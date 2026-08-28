@@ -131,6 +131,7 @@ func (a *App) SaveWorkspace() {
 			a.StatusError("Error: " + err.Error())
 		} else {
 			a.Workspace.FilePath = abs
+			a.invalidateRepositoryPath(abs, RepositoryWorktree)
 			a.StatusNotify("Workspace saved: " + abs)
 		}
 	})
@@ -203,6 +204,14 @@ func (a *App) ChangesNextFile() { a.changesNavFile(1) }
 // wrapping around at the start of the list.
 func (a *App) ChangesPrevFile() { a.changesNavFile(-1) }
 
+func (a *App) RefreshChanges() {
+	if a.Repository != nil {
+		a.Repository.RefreshNow(RepositoryWorktree | RepositoryHistory)
+		return
+	}
+	a.Changes.Refresh()
+}
+
 func registerGitCommands(app *App) {
 	reg := app.Reg
 
@@ -219,7 +228,7 @@ func registerGitCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "changes.openDiff", Title: "Git: Open Compact Diff",
+		ID: "changes.openDiff", Title: "Git: Open Changes",
 		Keywords: []string{"git", "changes", "diff", "compare"},
 		Handler: func() {
 			app.openSelectedDiff(false)
@@ -227,7 +236,7 @@ func registerGitCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
-		ID: "changes.openExtendedDiff", Title: "Git: Open Extended Diff",
+		ID: "changes.openExtendedDiff", Title: "Git: Open Full Diff",
 		Keywords: []string{"git", "changes", "diff", "compare"},
 		Handler: func() {
 			app.openSelectedDiff(true)
@@ -243,11 +252,52 @@ func registerGitCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID:       "changes.viewAll",
+		Title:    "Git: Open Current Changes",
+		Keywords: []string{"git", "changes", "diff", "all", "working tree"},
+		Handler:  app.OpenCurrentChanges,
+	})
+
+	reg.Register(command.Command{
 		ID: "changes.refresh", Title: "Git: Refresh Changes",
 		Keywords: []string{"git", "changes", "reload"},
-		Handler: func() {
-			app.Changes.Refresh()
-		},
+		Handler:  app.RefreshChanges,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.expandAll", Title: "Git: Expand All File Trees",
+		Keywords: []string{"git", "changes", "history", "detail", "tree", "folder", "expand"},
+		Handler:  app.ExpandAllGitFiles,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.collapseAll", Title: "Git: Collapse All File Trees",
+		Keywords: []string{"git", "changes", "history", "detail", "tree", "folder", "collapse"},
+		Handler:  app.CollapseAllGitFiles,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.expandAllWorkingTree", Title: "Git: Expand All Changes Files",
+		Keywords: []string{"git", "changes", "working", "tree", "folder", "expand"},
+		Handler:  app.ExpandAllChangesFiles,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.collapseAllWorkingTree", Title: "Git: Collapse All Changes Files",
+		Keywords: []string{"git", "changes", "working", "tree", "folder", "collapse"},
+		Handler:  app.CollapseAllChangesFiles,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.expandAllCommitDetail", Title: "Git: Expand All Commit Detail Files",
+		Keywords: []string{"git", "commit", "detail", "file", "expand"},
+		Handler:  app.ExpandAllCommitDetailFiles,
+	})
+
+	reg.Register(command.Command{
+		ID: "changes.collapseAllCommitDetail", Title: "Git: Collapse All Commit Detail Files",
+		Keywords: []string{"git", "commit", "detail", "file", "collapse"},
+		Handler:  app.CollapseAllCommitDetailFiles,
 	})
 
 	reg.Register(command.Command{

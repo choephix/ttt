@@ -66,6 +66,12 @@ func settingsCategories() []settingsCategory {
 			{Label: "Word wrap", Kind: settingBool,
 				GetBool: func(s *config.Settings) bool { return s.Editor.WordWrap },
 				SetBool: func(s *config.Settings, v bool) { s.Editor.WordWrap = v }},
+			{Label: "Diff mode", Kind: settingEnum, Options: diffModeItems,
+				GetString: func(s *config.Settings) string { return s.Editor.DiffMode },
+				SetString: func(s *config.Settings, v string) { s.Editor.DiffMode = v }},
+			{Label: "Diff word wrap", Kind: settingBool,
+				GetBool: func(s *config.Settings) bool { return s.Editor.DiffWordWrap },
+				SetBool: func(s *config.Settings, v bool) { s.Editor.DiffWordWrap = v }},
 			{Label: "Line numbers", Kind: settingBool,
 				GetBool: func(s *config.Settings) bool { return s.Editor.LineNumbers },
 				SetBool: func(s *config.Settings, v bool) { s.Editor.LineNumbers = v }},
@@ -95,6 +101,15 @@ func settingsCategories() []settingsCategory {
 			{Label: "Theme", Kind: settingEnum, Options: themeItems,
 				GetString: func(s *config.Settings) string { return s.Theme },
 				SetString: func(s *config.Settings, v string) { s.Theme = v }},
+			{Label: "Diff context", Kind: settingEnum, Options: diffContextItems,
+				GetString: func(s *config.Settings) string { return s.Editor.DiffContext },
+				SetString: func(s *config.Settings, v string) { s.Editor.DiffContext = v }},
+			{Label: "High contrast diffs", Kind: settingBool,
+				GetBool: func(s *config.Settings) bool { return s.Editor.DiffHighContrast },
+				SetBool: func(s *config.Settings, v bool) { s.Editor.DiffHighContrast = v }},
+			{Label: "Emphasize collapsed diff rows", Kind: settingBool,
+				GetBool: func(s *config.Settings) bool { return s.Editor.DiffCollapsedEmphasis },
+				SetBool: func(s *config.Settings, v bool) { s.Editor.DiffCollapsedEmphasis = v }},
 			{Label: "Border style", Kind: settingEnum, Options: borderStyleItems,
 				GetString: func(s *config.Settings) string { return s.Editor.BorderStyle },
 				SetString: func(s *config.Settings, v string) { s.Editor.BorderStyle = v }},
@@ -134,10 +149,10 @@ func settingsCategories() []settingsCategory {
 				GetInt: func(s *config.Settings) int { return s.Autocomplete.Debounce },
 				SetInt: func(s *config.Settings, v int) { s.Autocomplete.Debounce = v }},
 		}},
-		// Explorer, terminal, search and plugin settings are a handful of fields
-		// each; separate tabs for them left the strip mostly empty. Labels here
-		// name their area, since the tab title no longer does.
 		{Title: "Advanced", Fields: []settingField{
+			{Label: "Git: file view", Kind: settingEnum, Options: gitFileViewItems,
+				GetString: func(s *config.Settings) string { return s.Git.FileView },
+				SetString: func(s *config.Settings, v string) { s.Git.FileView = v }},
 			{Label: "Explorer: hidden files", Kind: settingBool,
 				GetBool: func(s *config.Settings) bool { return s.Explorer.ShowHidden },
 				SetBool: func(s *config.Settings, v bool) { s.Explorer.ShowHidden = v }},
@@ -160,6 +175,13 @@ func settingsCategories() []settingsCategory {
 				GetBool: func(s *config.Settings) bool { return s.DebugMode },
 				SetBool: func(s *config.Settings, v bool) { s.DebugMode = v }},
 		}},
+	}
+}
+
+func gitFileViewItems() []widgets.SelectItem {
+	return []widgets.SelectItem{
+		{ID: config.GitFileViewTree, Label: "Tree"},
+		{ID: config.GitFileViewList, Label: "List"},
 	}
 }
 
@@ -228,7 +250,9 @@ func (v *settingsView) closeSelectsExcept(keep *widgets.SelectWidget) {
 func (a *App) ShowSettings() {
 	// Reopening while the tab is already open must not discard pending edits.
 	if v := a.settingsView; v != nil {
-		a.EditorGroup.OpenPluginTab(settingsTabID, "Settings", v.adapter)
+		if !a.EditorGroup.SwitchToTabByPath(settingsTabID) {
+			a.EditorGroup.OpenPluginTab(settingsTabID, "Settings", v.adapter)
+		}
 		a.FocusEditor()
 		v.adapter.SetFocused(true)
 		return

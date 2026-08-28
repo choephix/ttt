@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/eugenioenko/ttt/internal/config"
@@ -18,7 +19,71 @@ func isPRURL(arg string) bool {
 	return strings.Contains(arg, "github.com/") && strings.Contains(arg, "/pull/")
 }
 
-func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile string, prURLs []string) {
+// FileTarget is a file named on the command line, with the optional 1-based
+// cursor position parsed from a `path:line[:col]` argument. Line and Col are 0
+// when the argument carried no position.
+type FileTarget struct {
+	Path string
+	Line int
+	Col  int
+}
+
+// splitLineCol splits a `path:line[:col]` argument into its path and 1-based
+// line and column. Trailing colons are tolerated so text pasted straight from
+// tools like `grep -n` ("main.go:42:") works. At most two trailing numeric
+// fields are consumed, which leaves Windows paths such as `C:\src\main.go`
+// alone because the drive letter is not followed by a number. ok is false when
+// the argument carries no positional suffix.
+func splitLineCol(arg string) (path string, line, col int, ok bool) {
+	parts := strings.Split(strings.TrimRight(arg, ":"), ":")
+	if len(parts) < 2 {
+		return arg, 0, 0, false
+	}
+	var nums []int
+	end := len(parts)
+	for end > 1 && len(nums) < 2 {
+		n, err := strconv.Atoi(parts[end-1])
+		if err != nil || n < 1 {
+			break
+		}
+		nums = append([]int{n}, nums...)
+		end--
+	}
+	if len(nums) == 0 {
+		return arg, 0, 0, false
+	}
+	path = strings.Join(parts[:end], ":")
+	if path == "" {
+		return arg, 0, 0, false
+	}
+	line = nums[0]
+	if len(nums) > 1 {
+		col = nums[1]
+	}
+	return path, line, col, true
+}
+
+// resolveLineColArg interprets arg as `path:line[:col]` and reports the target
+// only when the stripped path actually names an existing file. Requiring the
+// file to exist keeps ambiguous arguments — a new file whose name contains a
+// colon and a number — behaving as they did before.
+func resolveLineColArg(arg string) (FileTarget, bool) {
+	path, line, col, ok := splitLineCol(arg)
+	if !ok {
+		return FileTarget{}, false
+	}
+	abs, err := filepath.Abs(workspace.ExpandPath(path))
+	if err != nil {
+		return FileTarget{}, false
+	}
+	info, err := os.Stat(abs)
+	if err != nil || info.IsDir() {
+		return FileTarget{}, false
+	}
+	return FileTarget{Path: abs, Line: line, Col: col}, true
+}
+
+func resolveArgs() (ws *workspace.Workspace, openFiles []FileTarget, configFile string, prURLs []string) {
 	var folders []string
 	var wsFile string
 
@@ -53,6 +118,9 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		if args[i] == "--debug" {
 			continue
 		}
+		if args[i] == "--listen" {
+			continue
+		}
 		if isPRURL(args[i]) {
 			if _, _, _, err := github.ParsePRURL(args[i]); err == nil {
 				prURLs = append(prURLs, args[i])
@@ -61,18 +129,27 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 		}
 		absPath, err := filepath.Abs(workspace.ExpandPath(args[i]))
 		if err != nil {
-			openFiles = append(openFiles, args[i])
+			openFiles = append(openFiles, FileTarget{Path: args[i]})
 			continue
 		}
 		info, err := os.Stat(absPath)
 		if err != nil {
-			openFiles = append(openFiles, absPath)
+			// Nothing exists at the path as written. Try it as `path:line[:col]`
+			// before falling back to creating a new file, so `ttt main.go:42`
+			// opens main.go at line 42 instead of a file named "main.go:42".
+			// A file that genuinely contains a colon still wins, because the
+			// stat above is attempted first.
+			if target, ok := resolveLineColArg(args[i]); ok {
+				openFiles = append(openFiles, target)
+				continue
+			}
+			openFiles = append(openFiles, FileTarget{Path: absPath})
 			continue
 		}
 		if info.IsDir() {
 			folders = append(folders, absPath)
 		} else {
-			openFiles = append(openFiles, absPath)
+			openFiles = append(openFiles, FileTarget{Path: absPath})
 		}
 	}
 
@@ -96,9 +173,9 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []string, configFile stri
 	return
 }
 
-func BuildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string) {
+func BuildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string, []FileTarget) {
 	ws, openFiles, _, prURLs := resolveArgs()
-	return BuildAppFromConfig(cfg, borders, ws, openFiles), prURLs
+	return BuildAppFromConfig(cfg, borders, ws, openFiles), prURLs, openFiles
 }
 
 var bracketColorSlots = []term.Style{
@@ -121,7 +198,7 @@ func ResolveBracketColorStyles(colors []string) []term.Style {
 	return bracketColorSlots[:n]
 }
 
-func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []string) *App {
+func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *workspace.Workspace, openFiles []FileTarget) *App {
 
 	bracketStyles := ResolveBracketColorStyles(cfg.Theme.Editor.BracketColors)
 
@@ -132,6 +209,11 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.TrimTrailingWhitespace = cfg.Settings.Editor.TrimTrailingWhitespace
 	editorGroup.SyntaxHighlight = cfg.Settings.Editor.IsSyntaxHighlightEnabled()
 	editorGroup.WordWrap = cfg.Settings.Editor.WordWrap
+	editorGroup.DiffMode = configuredDiffMode(cfg.Settings.Editor.DiffMode)
+	editorGroup.DiffContext = configuredDiffContext(cfg.Settings.Editor.DiffContext)
+	editorGroup.DiffWordWrap = cfg.Settings.Editor.DiffWordWrap
+	editorGroup.DiffHighContrast = cfg.Settings.Editor.DiffHighContrast
+	editorGroup.DiffCollapsedEmphasis = cfg.Settings.Editor.DiffCollapsedEmphasis
 	editorGroup.Editor.WordWrap = cfg.Settings.Editor.WordWrap
 	editorGroup.Editor.AutoDedent = cfg.Settings.Editor.IsAutoDedentEnabled()
 	editorGroup.Editor.AutoIndent = cfg.Settings.Editor.IsAutoIndentEnabled()
@@ -141,8 +223,15 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.BracketColorStyles = bracketStyles
 	editorGroup.Editor.BracketColorStyles = bracketStyles
 	for _, f := range openFiles {
-		editorGroup.OpenFile(f)
-		editorGroup.PinActiveTab()
+		editorGroup.OpenFile(f.Path)
+		editorGroup.CommitActiveTab()
+		// The tab just opened is the active one, so this lands on the right
+		// buffer without switching tabs. PlaceCursor rather than GoToLineCol:
+		// the viewport has no height yet, and ApplyFileTargets frames the file
+		// left active once the first render has run.
+		if f.Line > 0 {
+			editorGroup.PlaceCursor(f.Line, f.Col)
+		}
 	}
 
 	terminalPanel := ui.NewTerminalPanelWidget()
@@ -178,6 +267,11 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search.SetWorkDirs(ws.Paths())
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := NewChangesPanel(ws.Paths()...)
+	changes.SetFileView(cfg.Settings.Git.FileView)
+	if cfg.Settings.Sidebar.CommitHistoryHeight > 0 {
+		changes.Split.BottomH = cfg.Settings.Sidebar.CommitHistoryHeight
+		changes.Split.BottomRatio = 0
+	}
 	symbols := NewSymbolsPanel()
 
 	explorer := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
@@ -187,6 +281,8 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes.Adapter)
 	sidebar.AddPanel("outline", "Outline", symbols.Adapter)
+	sidebar.SetPanelOrder(cfg.Settings.Sidebar.PanelOrder)
+	sidebar.Tabs.Config.Reorderable = true
 	hasFolders := len(ws.Paths()) > 0
 	sidebar.Visible = hasFolders
 	sidebar.Borders = borders
@@ -196,9 +292,19 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	splitPanel.Right = contentSplit
 	splitPanel.Borders = borders
 	splitPanel.DividerPos = ui.DefaultSidebarWidth
+	if cfg.Settings.Sidebar.Width > 0 {
+		splitPanel.DividerPos = cfg.Settings.Sidebar.Width
+	}
 	splitPanel.ShowLeft = sidebar.Visible
 	splitPanel.RightBorderStartY = 2
 	contentSplit.RightBorderStartY = &splitPanel.RightBorderStartY
+	editorGroup.TabBar.PointerInteractionValid = func() bool {
+		return contentSplit.TopContentHeight() > 3
+	}
+	sidebar.Tabs.Config.PointerInteractionValid = func() bool {
+		r := sidebar.GetRect()
+		return sidebar.Visible && splitPanel.ShowLeft && r.W > 0 && r.H > 2
+	}
 
 	rootBox := widgets.NewVStackWidget(menuBar, splitPanel, statusBar)
 
@@ -232,9 +338,29 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		LspNotified:         make(map[string]bool),
 		pluginDetailWidgets: make(map[string]*pluginDetailState),
 	}
+	app.Repository = NewRepositoryState(changes, ws.Paths())
+	app.Repository.SetCurrentChangesHandler(app.ApplyCurrentChanges)
 	app.applyMenuBarVisibility(cfg.Settings.Editor.IsMenuBarVisible())
 	// Rebuild the Diagnostics panel whenever any source (LSP or a plugin)
 	// changes its diagnostics.
 	app.EditorGroup.OnDiagnosticsChanged = app.refreshProblems
 	return app
+}
+
+// ApplyFileTargets frames the file left active at startup. Every file's cursor
+// is already placed as it opens; the scroll has to wait until here because
+// GoToLineCol centres the line against the viewport height, which is zero until
+// the first render.
+//
+// Only the active file is framed. Scrolling a background tab means switching to
+// it and back, which leaves that tab's viewport shifted, so the other files
+// keep a correct cursor and an unscrolled view instead.
+func (a *App) ApplyFileTargets(targets []FileTarget) {
+	active := a.EditorGroup.ActiveFilePath()
+	for i := len(targets) - 1; i >= 0; i-- {
+		if targets[i].Line > 0 && targets[i].Path == active {
+			a.EditorGroup.GoToLineCol(targets[i].Line, targets[i].Col)
+			return
+		}
+	}
 }

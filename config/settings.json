@@ -5,6 +5,9 @@
     "tabSize": 4,
     "insertSpaces": true,
     "wordWrap": false,
+    "diffMode": "split",
+    "diffContext": "changes",
+    "diffWordWrap": false,
     "lineNumbers": true,
     "formatOnSave": false,
     "insertFinalNewline": true,
@@ -20,6 +23,9 @@
   "explorer": {
     "showHidden": true,
     "showGitIgnored": true
+  },
+  "git": {
+    "fileView": "list"
   },
   "terminal": {
     "scrollback": 1000

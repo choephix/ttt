@@ -15,6 +15,7 @@ func (a *App) ToggleTerminal() {
 			a.ContentSplit.BottomH = min(r.H/2, maxH)
 		}
 		a.showTerminalPanel()
+		resizeTerminals(a)
 	} else {
 		a.HideBottomPanel()
 	}
@@ -26,8 +27,10 @@ func (a *App) ToggleTerminalFullscreen() {
 	if a.ContentSplit.ShowBottom && a.ContentSplit.BottomH >= fullH {
 		a.HideBottomPanel()
 	} else {
+		a.EditorGroup.InvalidatePointerInteraction()
 		a.ContentSplit.BottomH = fullH
 		a.showTerminalPanel()
+		resizeTerminals(a)
 	}
 }
 
@@ -311,7 +314,6 @@ func registerViewCommands(app *App) {
 		ID: "sidebar.changes", Title: "Show Changes",
 		Keywords: []string{"view", "git", "diff", "source control"},
 		Handler: func() {
-			app.Changes.Refresh()
 			app.ShowPanel("changes", app.Changes.Adapter)
 		},
 	})
@@ -346,6 +348,18 @@ func registerViewCommands(app *App) {
 		ID: "sidebar.focus", Title: "View: Focus Sidebar",
 		Keywords: []string{"view"},
 		Handler:  app.FocusSidebar,
+	})
+
+	reg.Register(command.Command{
+		ID: "sidebar.movePanelLeft", Title: "View: Move Sidebar Panel Left",
+		Keywords: []string{"view", "sidebar", "panel", "tab", "reorder", "left"},
+		Handler:  func() { app.MoveActiveSidebarPanel(-1) },
+	})
+
+	reg.Register(command.Command{
+		ID: "sidebar.movePanelRight", Title: "View: Move Sidebar Panel Right",
+		Keywords: []string{"view", "sidebar", "panel", "tab", "reorder", "right"},
+		Handler:  func() { app.MoveActiveSidebarPanel(1) },
 	})
 
 	reg.Register(command.Command{

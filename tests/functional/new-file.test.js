@@ -57,10 +57,8 @@ describe("new file", () => {
     tui.press("ctrl+n");
     tui.waitFor("untitled");
     tui.type("some text");
-    tui.waitStable();
 
     tui.press("ctrl+n");
-    tui.waitStable();
 
     const s0 = tui.snapshot();
     const { snapshots } = tui.run();
@@ -87,7 +85,6 @@ describe("new file", () => {
 
     tui.type(newFile);
     tui.press("enter");
-    tui.waitStable();
 
     const { snapshots } = tui.run();
 

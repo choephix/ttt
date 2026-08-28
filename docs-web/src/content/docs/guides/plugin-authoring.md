@@ -520,7 +520,7 @@ No special permission is required — any plugin can open files.
 
 ### `ttt.open_diff(title, old_lines, new_lines, [file_path])`
 
-Open a native styled diff tab showing side-by-side differences between two sets of lines. Uses the same diff rendering as the Changes panel (added/deleted/modified backgrounds with syntax highlighting).
+Open a native styled diff tab showing differences between two sets of lines. It uses the shared diff presentation model and the user's saved split/unified, context, wrapping, and high-contrast preferences, with syntax highlighting layered on diff backgrounds.
 
 | Parameter   | Type   | Required | Description                                    |
 |-------------|--------|----------|------------------------------------------------|
@@ -573,6 +573,27 @@ local ok, err = fs.write(state_file, json.encode(state))
 ```
 
 Note: the plugin directory is a git clone that `Plugins: Update` pulls into, and it is deleted on uninstall — keep only regenerable state there.
+
+### `ttt.platform()` / `ttt.arch()` / `ttt.version()`
+
+Return the host OS, CPU architecture, and running ttt version. No permission required.
+
+| Function          | Returns                                                                 |
+|-------------------|--------------------------------------------------------------------------|
+| `ttt.platform()`  | Go `GOOS` value: `"linux"`, `"darwin"`, or `"windows"`.                 |
+| `ttt.arch()`      | Go `GOARCH` value, e.g. `"amd64"`, `"arm64"`.                           |
+| `ttt.version()`   | ttt's version string, e.g. `"1.2.3"` (`"dev"` for unreleased builds).   |
+
+```lua
+local ttt = require("ttt")
+local sys = require("ttt.system")
+
+if ttt.platform() == "windows" then
+  sys.exec("tasklist", {})
+else
+  sys.exec("ps", {"-eo", "pid,comm"})
+end
+```
 
 ### `ttt.set_timeout(ms, callback)` / `ttt.set_interval(ms, callback)`
 
@@ -1197,23 +1218,26 @@ Used in `items` arrays for both `tree` and `list` widgets.
 | `expandable` | boolean | `false` | Show expand/collapse chevron indicator. Auto-set to `true` if `children` is non-empty. |
 | `expanded`   | boolean | `false` | Initial expanded state (only used on first render — see [Reconciliation and State Preservation](#reconciliation-and-state-preservation)). |
 | `children`   | table   | `{}`    | Array of child node tables (recursive).      |
+| `actions`    | table   | `{}`    | Array of `{icon, command}` tables rendered as inline, always-visible icons on the right edge of the row — no submenu required. Clicking one triggers `on_command(command, node)`, same as `node_menu` and `key_commands`. Used by the Changes panel for its stage/unstage/discard icons. |
 
-**Callback argument:** `on_select` and `on_expand` callbacks receive a Lua table with the same fields as the node: `id`, `label`, `icon` (if non-empty), `badge` (if non-empty), `expanded`, `muted`, and `children` (if present). The `on_command` callback receives two arguments: `(command_string, node_table)`.
+**Callback argument:** `on_select` and `on_expand` callbacks receive a Lua table with the same fields as the node: `id`, `label`, `icon` (if non-empty), `badge` (if non-empty), `expanded`, `muted`, and `children` (if present). `expandable` and `actions` are not included — the node's `id` is enough to look the item back up, and `on_command`'s own `command_string` argument already tells you which action fired. The `on_command` callback receives two arguments: `(command_string, node_table)`, where `node_table` has the same shape.
 
 ### Menu Entry Format
 
-Used in `actions` (sidebar header menu), `node_menu` (tree/list context menu), and `entries` (dropdown).
+Used in `actions` (sidebar header menu), `menu` (title menu), `node_menu` (tree/list/table context menu), and `entries` (dropdown).
 
 | Field       | Type    | Required | Description                             |
 |-------------|---------|----------|-----------------------------------------|
 | `label`     | string  | yes*     | Display text of the menu item.          |
 | `command`   | string  | yes*     | Command identifier passed to the callback. |
 | `separator` | boolean | no       | If `true`, renders as a separator line instead of an item. When `true`, `label` and `command` are ignored. |
+| `checked`   | boolean | no       | If provided, reserves a check indicator: `true` shows a checkmark and `false` shows an empty slot. Omit it to keep the menu indicator-free with its existing spacing. |
 
 ```lua
 {
-  { label = "Start", command = "start" },
-  { label = "Stop", command = "stop" },
+  { label = "Active", command = "active", checked = true },
+  { label = "Available", command = "available", checked = false },
+  { label = "Legacy action", command = "legacy" },
   { separator = true },
   { label = "Remove", command = "remove" },
 }
@@ -2238,7 +2262,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 
 | Module         | Description                    |
 |----------------|--------------------------------|
-| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `set_status_item`, `remove_status_item`, `exec_command`, `list_commands`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
+| `ttt`          | Core module: `register`, `log`, `confirm`, `show_info`, `notify`, `set_status_item`, `remove_status_item`, `exec_command`, `list_commands`, `open_drawer`, `close_drawer`, `open_tab`, `close_tab`, `open_file`, `plugin_dir`, `platform`, `arch`, `version`, `set_timeout`, `set_interval`, `clear_timeout`, `clear_interval`, `on_install`, `on_uninstall`, `markdown`, `screenshot`, `debug`, `click`, `drag`, `quit` |
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.diagnostics` | Publish editor diagnostics (squiggles) |

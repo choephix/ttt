@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -63,6 +64,8 @@ type App struct {
 	AutocompleteTimer      *time.Timer
 	HoverTimer             *time.Timer
 	HoverGen               uint64
+	diffOpenGen            int
+	diffOpenCancel         context.CancelFunc
 	LastHoverLine          int
 	LastHoverCol           int
 	Problems               *ui.ProblemsWidget
@@ -72,6 +75,7 @@ type App struct {
 	Explorer               *NavigationPanel
 	ExplorerContextNode    *widgets.TreeNode
 	Changes                *ChangesPanel
+	Repository             *RepositoryState
 	Symbols                *SymbolsPanel
 	Reg                    *command.Registry
 	Running                *bool
@@ -80,21 +84,46 @@ type App struct {
 	Watcher                *watcher.Watcher
 	GitGutterGen           int
 	GitGutterTimer         *time.Timer
+	commitDetailMu         sync.Mutex
+	commitDetailNext       uint64
+	commitDetailRequests   map[string]commitDetailRequest
 	Version                string
 	PluginManager          *plugin.Manager
 	PendingPluginApprovals []*plugin.Plugin
-	PluginsPanel           *PluginsPanel
-	Output                 *ui.OutputWidget
+	// PendingFileTargets holds cursor positions parsed from `path:line[:col]`
+	// arguments. They are applied after the first render, once the viewport
+	// has a real height to scroll against.
+	PendingFileTargets []FileTarget
+	PluginsPanel       *PluginsPanel
+	Output             *ui.OutputWidget
 	// runningRepoOp is the progress label of the in-flight task, empty when idle.
-	runningRepoOp        string
-	pluginDetailWidgets  map[string]*pluginDetailState
-	pluginDrawer         ui.Widget
-	commandLine          *ui.CommandLineWidget
-	commandLinePrevFocus ui.Widget
-	settingsView         *settingsView
+	runningRepoOp             string
+	pluginDetailWidgets       map[string]*pluginDetailState
+	pluginDrawer              ui.Widget
+	commandLine               *ui.CommandLineWidget
+	commandLinePrevFocus      ui.Widget
+	settingsView              *settingsView
+	pendingCurrentChangesOpen bool
 	// appliedSettings is the last value ApplySettings acted on. Callers routinely
 	// mutate a.Settings before calling it, so a.Settings cannot serve as "before".
-	appliedSettings config.Settings
+	appliedSettings    config.Settings
+	eventLoopDoneOnce  sync.Once
+	eventLoopCloseOnce sync.Once
+	eventLoopDone      chan struct{}
+}
+
+func (a *App) eventLoopDoneSignal() chan struct{} {
+	a.eventLoopDoneOnce.Do(func() {
+		a.eventLoopDone = make(chan struct{})
+	})
+	return a.eventLoopDone
+}
+
+func (a *App) closeEventLoopDone() {
+	done := a.eventLoopDoneSignal()
+	a.eventLoopCloseOnce.Do(func() {
+		close(done)
+	})
 }
 
 func (a *App) KeyFor(cmd string) string {
@@ -127,12 +156,15 @@ func (a *App) ShowSidebar() {
 		a.SplitPanel.DividerPos = ui.DefaultSidebarWidth
 	}
 	a.applySearchHighlights()
+	a.syncRepositoryObservation()
 }
 
 func (a *App) HideSidebar() {
+	a.Sidebar.InvalidatePointerInteraction()
 	a.Sidebar.Visible = false
 	a.SplitPanel.ShowLeft = false
 	a.EditorGroup.ClearSearch()
+	a.syncRepositoryObservation()
 }
 
 func (a *App) applySearchHighlights() {
@@ -167,6 +199,14 @@ func (a *App) SetSidebarWidth(w int) {
 		a.ShowSidebar()
 	}
 	a.SplitPanel.DividerPos = w
+}
+
+func (a *App) persistSidebarWidth(w int) {
+	a.SetSidebarWidth(w)
+	a.Settings.Sidebar.Width = a.SplitPanel.DividerPos
+	if err := config.SaveSettings(*a.Settings); err != nil {
+		a.StatusError("Failed to save sidebar width: " + err.Error())
+	}
 }
 
 func (a *App) FocusEditor() {
@@ -218,7 +258,11 @@ func (a *App) ToggleBottomPanel() {
 func (a *App) SpawnTerminal() {
 	r := a.ContentSplit.GetRect()
 	cols := r.W - terminalStripWidth
-	rows := r.H - 3
+	bottomH := a.ContentSplit.BottomH
+	if bottomH <= 1 {
+		bottomH = min(r.H/2, r.H-4)
+	}
+	rows := bottomH - 2
 	if cols <= 0 {
 		cols = 80
 	}
@@ -305,7 +349,11 @@ func (a *App) refreshWorkspaceWidgets() {
 	a.Explorer.SetRoots(paths)
 
 	a.Search.SetWorkDirs(paths)
-	a.Changes.SetDirs(paths)
+	if a.Repository != nil {
+		a.Repository.SetDirs(paths)
+	} else {
+		a.Changes.SetDirs(paths)
+	}
 }
 
 func (a *App) refreshProblems() {
@@ -405,7 +453,26 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.Screen = screen
 	a.Renderer = renderer
 	a.LspManager = lspManager
+	a.EditorGroup.TabBar.PostDragAutoScrollTick = func(generation uint64) {
+		screen.PostEvent(tcell.NewEventInterrupt(&ui.TabDragAutoScrollTick{Generation: generation}))
+	}
 	a.StartWatcher()
+
+	if a.Changes != nil {
+		a.Changes.Screen = screen
+		a.Changes.OnRefreshed = func() {
+			a.Sidebar.SetPanelDirty("changes", a.Changes.TotalChanges() > 0)
+			if a.pendingCurrentChangesOpen && a.selectedChangesDir() != "" {
+				a.pendingCurrentChangesOpen = false
+				a.OpenCurrentChanges()
+			}
+		}
+	}
+	if a.Repository != nil {
+		a.Repository.SetPoster(screen)
+		a.Repository.Start()
+		a.syncRepositoryObservation()
+	}
 
 	a.EditorGroup.OnError = func(msg string) {
 		a.StatusError(msg)
@@ -455,9 +522,9 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 			lang = a.EditorGroup.Editor.Highlighter.Language()
 		}
 		text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
-		a.NotifyLSPChange(path, lang, text)
+		changeDone := a.NotifyLSPChange(path, lang, text)
 		a.ScheduleAutocomplete()
-		a.CheckSignatureHelpTrigger()
+		a.CheckSignatureHelpTrigger(changeDone)
 		a.ScheduleGitGutter()
 		if a.PluginManager != nil {
 			a.PluginManager.DispatchEvent("editor.change", path)

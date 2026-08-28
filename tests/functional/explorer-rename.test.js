@@ -22,11 +22,9 @@ afterEach(() => {
 // Submitting leaves focus in the explorer tree, where the rename started.
 function renameSelectedTo(oldName, newName) {
   tui.exec("Explorer: Rename");
-  tui.waitStable();
   for (let i = 0; i < oldName.length; i++) tui.press("backspace");
   tui.type(newName);
   tui.press("enter");
-  tui.waitStable();
 }
 
 describe("explorer rename", () => {
@@ -38,10 +36,8 @@ describe("explorer rename", () => {
     tui.waitFor("Explore");
 
     tui.press("ctrl+0");
-    tui.waitStable();
     tui.press("arrow_down");
     tui.press("enter");
-    tui.waitStable();
 
     renameSelectedTo("alpha.txt", "renamed.txt");
 
@@ -62,10 +58,8 @@ describe("explorer rename", () => {
     tui.waitFor("Explore");
 
     tui.press("ctrl+0");
-    tui.waitStable();
     tui.press("arrow_down");
     tui.press("enter");
-    tui.waitStable();
 
     renameSelectedTo("alpha.txt", "renamed.txt");
 
@@ -74,7 +68,6 @@ describe("explorer rename", () => {
 
     tui.type("EDITED ");
     tui.exec("Save File");
-    tui.waitStable();
     tui.run();
 
     expect(fileExists(join(dir, "alpha.txt"))).toBe(false);
@@ -90,10 +83,8 @@ describe("explorer rename", () => {
     tui.waitFor("Explore");
 
     tui.press("ctrl+0");
-    tui.waitStable();
     tui.press("arrow_down");
     tui.press("enter");
-    tui.waitStable();
 
     renameSelectedTo("alpha.txt", "renamed.txt");
 
@@ -113,13 +104,11 @@ describe("explorer refresh", () => {
     tui.waitFor("Explore");
 
     tui.press("ctrl+0");
-    tui.waitStable();
 
     // The explorer has already listed the directory; add a file behind its back.
     writeFileSync(join(dir, "created-outside.txt"), "outside");
 
     tui.press("r");
-    tui.waitStable();
 
     const s0 = tui.snapshot();
     const { snapshots } = tui.run();

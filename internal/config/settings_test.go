@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 )
 
@@ -36,6 +37,29 @@ func TestSettingsEmptyJSON(t *testing.T) {
 
 	if s.Editor.TabSize != 4 {
 		t.Fatalf("expected TabSize 4, got %d", s.Editor.TabSize)
+	}
+}
+
+func TestNormalizeSidebarPanelOrder(t *testing.T) {
+	s := DefaultSettings()
+	s.Sidebar.PanelOrder = []string{"changes", "", "explorer", "changes", "plugin.todo"}
+	normalizeSettings(&s)
+	want := []string{"changes", "explorer", "plugin.todo"}
+	if !slices.Equal(s.Sidebar.PanelOrder, want) {
+		t.Fatalf("panelOrder = %v, want %v", s.Sidebar.PanelOrder, want)
+	}
+}
+
+func TestNormalizeSidebarDimensionsRejectsNegative(t *testing.T) {
+	s := DefaultSettings()
+	s.Sidebar.Width = -5
+	s.Sidebar.CommitHistoryHeight = -5
+	normalizeSettings(&s)
+	if s.Sidebar.Width != 0 {
+		t.Errorf("sidebar.width = %d, want 0", s.Sidebar.Width)
+	}
+	if s.Sidebar.CommitHistoryHeight != 0 {
+		t.Errorf("sidebar.commitHistoryHeight = %d, want 0", s.Sidebar.CommitHistoryHeight)
 	}
 }
 
@@ -150,8 +174,54 @@ func TestDefaultEditorSettings(t *testing.T) {
 	if e.BracketPairColorization {
 		t.Error("expected BracketPairColorization false by default")
 	}
+	if e.DiffMode != DiffModeSplit || e.DiffContext != DiffContextChanges || e.DiffWordWrap || e.DiffHighContrast || e.DiffCollapsedEmphasis {
+		t.Errorf("legacy diff defaults = mode %q context %q wrap=%v contrast=%v emphasis=%v, want split/changes/false/false/false", e.DiffMode, e.DiffContext, e.DiffWordWrap, e.DiffHighContrast, e.DiffCollapsedEmphasis)
+	}
 	if !e.IsShowTrailingNewlineEnabled() {
 		t.Error("expected ShowTrailingNewline true by default (nil)")
+	}
+}
+
+func TestLegacySettingsJSONKeepsDiffDefaults(t *testing.T) {
+	s := DefaultSettings()
+	if err := json.Unmarshal([]byte(`{"editor":{"tabSize":2}}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	normalizeSettings(&s)
+	if s.Editor.DiffMode != DiffModeSplit || s.Editor.DiffContext != DiffContextChanges || s.Editor.DiffWordWrap || s.Editor.DiffHighContrast || s.Editor.DiffCollapsedEmphasis {
+		t.Fatalf("legacy settings diff presentation = %+v", s.Editor)
+	}
+}
+
+func TestNormalizeSettingsInvalidDiffPresentation(t *testing.T) {
+	s := DefaultSettings()
+	s.Editor.DiffMode = "sideways"
+	s.Editor.DiffContext = "summary"
+	normalizeSettings(&s)
+	if s.Editor.DiffMode != DiffModeSplit || s.Editor.DiffContext != DiffContextChanges {
+		t.Fatalf("normalized diff presentation = mode %q context %q", s.Editor.DiffMode, s.Editor.DiffContext)
+	}
+}
+
+func TestDiffPresentationSettingsRoundTrip(t *testing.T) {
+	s := DefaultSettings()
+	s.Editor.DiffMode = DiffModeUnified
+	s.Editor.DiffContext = DiffContextFull
+	s.Editor.DiffWordWrap = true
+	s.Editor.DiffHighContrast = true
+	s.Editor.DiffCollapsedEmphasis = true
+
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded := DefaultSettings()
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		t.Fatal(err)
+	}
+	normalizeSettings(&loaded)
+	if loaded.Editor.DiffMode != DiffModeUnified || loaded.Editor.DiffContext != DiffContextFull || !loaded.Editor.DiffWordWrap || !loaded.Editor.DiffHighContrast || !loaded.Editor.DiffCollapsedEmphasis {
+		t.Fatalf("round-tripped diff presentation = %+v", loaded.Editor)
 	}
 }
 

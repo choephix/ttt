@@ -70,6 +70,12 @@ type cliFlags struct {
 	execSplitOn  string
 	sizeW, sizeH int
 	debug        bool
+	listen       bool
+}
+
+type cliExecOutcome struct {
+	result app.ExecResult
+	err    error
 }
 
 func parseFlags() cliFlags {
@@ -104,6 +110,8 @@ func parseFlags() cliFlags {
 			}
 		case "--debug":
 			f.debug = true
+		case "--listen":
+			f.listen = true
 		}
 	}
 	return f
@@ -128,6 +136,13 @@ func initSimulationScreen(w, h int) *term.TcellScreen {
 }
 
 func main() {
+	exitCode := 0
+	defer func() {
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	}()
+
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "--help", "-h":
@@ -137,6 +152,7 @@ Usage: ttt [options] [files/folders/URLs...]
 
 Arguments:
   files               Open one or more files
+  file:line[:col]     Open a file with the cursor on that line (and column)
   folders             Open directories as workspace roots
   .                   Open the current directory
   PR URL              Open a GitHub pull request for review
@@ -147,12 +163,19 @@ Options:
   --workspace <file>  Open a saved workspace (.ttt file)
   --config <file>     Use a custom config file
   --exec "commands"   Execute semicolon-separated commands after startup
+                      (wait-for TEXT [timeout=MS] waits for visible text;
+                      invalid or failed actions exit nonzero)
   --exec-split-on <s> Split --exec on <s> instead of ";" (for scripts that
                       need to send a literal semicolon)
+  --plugin <file>     Load a Lua plugin file on startup with full permissions
+  --debug             Enable debug mode regardless of config setting
+  --listen            Start an HTTP command server on 127.0.0.1:4242
+                      (POST /exec accepts the same script format as --exec)
 
 Examples:
   ttt                                           Open current directory
   ttt main.go utils.go                          Open specific files
+  ttt internal/app/widgets.go:42:8              Open at line 42, column 8
   ttt ~/projectA ~/projectB                     Multi-root workspace
   ttt . https://github.com/o/r/pull/123         Review a PR with repo tree
 
@@ -189,6 +212,7 @@ Docs: https://tttedit.dev
 
 	var screen *term.TcellScreen
 	if flags.exec != "" {
+		clipboard.DisableSystem()
 		screen = initSimulationScreen(flags.sizeW, flags.sizeH)
 	} else {
 		screen = initTerminalScreen()
@@ -211,7 +235,7 @@ Docs: https://tttedit.dev
 	cmdRegistry := command.NewRegistry()
 	borders := app.BuildBorderSet(cfg.Theme.Borders)
 
-	editor, prURLs := app.BuildApp(&cfg, &borders)
+	editor, prURLs, fileTargets := app.BuildApp(&cfg, &borders)
 	editor.ApplyBorderStyle()
 	editor.Init(screen, renderer, lspManager)
 
@@ -238,6 +262,8 @@ Docs: https://tttedit.dev
 				screen.PostEvent(tcell.NewEventInterrupt(nil))
 			}
 		})
+		// Before LoadAll, so ttt.version() is available during plugin init.
+		pluginManager.SetAppVersion(editor.Version)
 
 		pendingApprovals := pluginManager.LoadAll()
 
@@ -334,13 +360,42 @@ Docs: https://tttedit.dev
 	}
 	editor.Root.SetSize(w, h)
 
+	editor.PendingFileTargets = fileTargets
+
 	if flags.pluginFile != "" {
 		app.LoadPluginFromFile(editor, flags.pluginFile)
 	}
 
+	if cfg.Settings.DebugMode {
+		editor.LogOutput("info", "ttt", "Debug mode enabled")
+	}
+
+	var execOutcome chan cliExecOutcome
 	if flags.exec != "" {
-		go app.RunExecScriptSep(editor, flags.exec, flags.execSplitOn)
+		execOutcome = make(chan cliExecOutcome, 1)
+		go func() {
+			result, err := app.RunExecScriptSep(editor, flags.exec, flags.execSplitOn)
+			execOutcome <- cliExecOutcome{result: result, err: err}
+			if err != nil || result.ShutdownRequested {
+				_ = app.StopExecLoop(editor)
+			}
+		}()
+	}
+
+	if flags.listen {
+		editor.LogOutput("info", "ttt", "Listening on "+app.ListenAddress()+" (POST /exec)")
+		go app.StartListenServer(editor)
 	}
 
 	app.RunEventLoop(screen, renderer, editor, &running, editor.CloseTerminal)
+	if execOutcome != nil {
+		select {
+		case outcome := <-execOutcome:
+			if outcome.err != nil {
+				fmt.Fprintf(os.Stderr, "ttt: --exec failed after %d action(s): %v\n", outcome.result.Completed, outcome.err)
+				exitCode = 1
+			}
+		default:
+		}
+	}
 }

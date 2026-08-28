@@ -23,6 +23,95 @@ func (a *App) ToggleWordWrap() {
 	a.SaveAndApplySettings()
 }
 
+func (a *App) UseSplitDiffByDefault() {
+	a.Settings.Editor.DiffMode = config.DiffModeSplit
+	a.SaveAndApplySettings()
+}
+
+func (a *App) UseUnifiedDiffByDefault() {
+	a.Settings.Editor.DiffMode = config.DiffModeUnified
+	a.SaveAndApplySettings()
+}
+
+func (a *App) UseChangesOnlyDiffByDefault() {
+	a.Settings.Editor.DiffContext = config.DiffContextChanges
+	a.SaveAndApplySettings()
+}
+
+func (a *App) UseFullFileDiffByDefault() {
+	a.Settings.Editor.DiffContext = config.DiffContextFull
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffWordWrapDefault() {
+	a.Settings.Editor.DiffWordWrap = !a.Settings.Editor.DiffWordWrap
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffHighContrast() {
+	a.Settings.Editor.DiffHighContrast = !a.Settings.Editor.DiffHighContrast
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffCollapsedEmphasis() {
+	a.Settings.Editor.DiffCollapsedEmphasis = !a.Settings.Editor.DiffCollapsedEmphasis
+	a.SaveAndApplySettings()
+}
+
+func (a *App) UseTreeGitFileView() {
+	a.Settings.Git.FileView = config.GitFileViewTree
+	a.SaveAndApplySettings()
+}
+
+func (a *App) UseListGitFileView() {
+	a.Settings.Git.FileView = config.GitFileViewList
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ExpandAllGitFiles() {
+	if detail := a.EditorGroup.ActiveCommitDetailWidget(); detail != nil {
+		detail.ExpandAllFiles()
+		return
+	}
+	if a.Sidebar.ActivePanel == "changes" {
+		a.Changes.ExpandAll()
+	}
+}
+
+func (a *App) CollapseAllGitFiles() {
+	if detail := a.EditorGroup.ActiveCommitDetailWidget(); detail != nil {
+		detail.CollapseAllFiles()
+		return
+	}
+	if a.Sidebar.ActivePanel == "changes" {
+		a.Changes.CollapseAll()
+	}
+}
+
+func (a *App) ExpandAllChangesFiles() {
+	if a.Changes != nil {
+		a.Changes.ExpandAll()
+	}
+}
+
+func (a *App) CollapseAllChangesFiles() {
+	if a.Changes != nil {
+		a.Changes.CollapseAll()
+	}
+}
+
+func (a *App) ExpandAllCommitDetailFiles() {
+	if detail := a.EditorGroup.ActiveCommitDetailWidget(); detail != nil {
+		detail.ExpandAllFiles()
+	}
+}
+
+func (a *App) CollapseAllCommitDetailFiles() {
+	if detail := a.EditorGroup.ActiveCommitDetailWidget(); detail != nil {
+		detail.CollapseAllFiles()
+	}
+}
+
 func (a *App) ToggleAutoDedent() {
 	enabled := !a.Settings.Editor.IsAutoDedentEnabled()
 	a.Settings.Editor.AutoDedent = &enabled
@@ -105,6 +194,20 @@ func borderStyleItems() []widgets.SelectItem {
 	return items
 }
 
+func diffModeItems() []widgets.SelectItem {
+	return []widgets.SelectItem{
+		{ID: config.DiffModeSplit, Label: "Split"},
+		{ID: config.DiffModeUnified, Label: "Unified"},
+	}
+}
+
+func diffContextItems() []widgets.SelectItem {
+	return []widgets.SelectItem{
+		{ID: config.DiffContextChanges, Label: "Changes Only"},
+		{ID: config.DiffContextFull, Label: "Full File"},
+	}
+}
+
 func (a *App) ShowGutterStylePicker() {
 	a.ShowSelectDialog("Gutter Style", gutterStyleItems(), func(id string) {
 		a.SetGutterStyle(id)
@@ -152,6 +255,26 @@ func (a *App) applyBorderStyle(themeBorders *term.BorderSet) {
 func (a *App) ShowBorderStylePicker() {
 	a.ShowSelectDialog("Border Style", borderStyleItems(), func(id string) {
 		a.SetBorderStyle(id)
+	}, nil)
+}
+
+func (a *App) ShowDiffViewModePicker() {
+	a.ShowSelectDialog("Diff View Mode", diffModeItems(), func(id string) {
+		if id == config.DiffModeUnified {
+			a.UseUnifiedDiffByDefault()
+			return
+		}
+		a.UseSplitDiffByDefault()
+	}, nil)
+}
+
+func (a *App) ShowDiffContextPicker() {
+	a.ShowSelectDialog("Diff Context", diffContextItems(), func(id string) {
+		if id == config.DiffContextFull {
+			a.UseFullFileDiffByDefault()
+			return
+		}
+		a.UseChangesOnlyDiffByDefault()
 	}, nil)
 }
 
@@ -212,15 +335,55 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		{Label: "Git Gutter", Command: "options.toggleGitGutter", Checked: gitGutterChecked},
 		{Label: "Menu Bar", Command: menuBarToggleCommand, Checked: menuBarChecked},
 		ui.MenuSep(),
+		{Label: "Diff Views", Submenu: a.BuildDiffViewOptions()},
+		{Label: "Git Files", Submenu: a.BuildGitFileOptions()},
+		ui.MenuSep(),
 		{Label: "Gutter Style", Command: "options.gutterStyle"},
 		{Label: "Border Style", Command: "options.borderStyle"},
 		{Label: "Indentation", Command: "options.indentation"},
 		ui.MenuSep(),
-		{Label: "Switch Theme", Command: "theme.switch"},
-		ui.MenuSep(),
-		{Label: "Open Settings", Command: "settings.openUI"},
+		{Label: "Settings", Command: "settings.openUI"},
 	}
 	return items
+}
+
+func menuChecked(checked bool) int {
+	if checked {
+		return ui.MenuChecked
+	}
+	return ui.MenuUnchecked
+}
+
+func (a *App) BuildDiffViewOptions() []ui.ContextMenuItem {
+	return []ui.ContextMenuItem{
+		{Label: "Split", Command: "options.useSplitDiff", Checked: menuChecked(a.Settings.Editor.DiffMode != config.DiffModeUnified)},
+		{Label: "Unified", Command: "options.useUnifiedDiff", Checked: menuChecked(a.Settings.Editor.DiffMode == config.DiffModeUnified)},
+		ui.MenuSep(),
+		{Label: "Changes Only", Command: "options.useChangesOnlyDiff", Checked: menuChecked(a.Settings.Editor.DiffContext != config.DiffContextFull)},
+		{Label: "Full File", Command: "options.useFullFileDiff", Checked: menuChecked(a.Settings.Editor.DiffContext == config.DiffContextFull)},
+		ui.MenuSep(),
+		{Label: "Wrap Lines", Command: "options.toggleDiffWordWrap", Checked: menuChecked(a.Settings.Editor.DiffWordWrap)},
+		{Label: "High Contrast", Command: "options.toggleDiffHighContrast", Checked: menuChecked(a.Settings.Editor.DiffHighContrast)},
+		{Label: "Emphasize Collapsed Rows", Command: "options.toggleDiffCollapsedEmphasis", Checked: menuChecked(a.Settings.Editor.DiffCollapsedEmphasis)},
+	}
+}
+
+func (a *App) BuildGitFileOptions() []ui.ContextMenuItem {
+	return a.buildGitFileOptions("changes.expandAll", "changes.collapseAll")
+}
+
+func (a *App) BuildChangesGitFileOptions() []ui.ContextMenuItem {
+	return a.buildGitFileOptions("changes.expandAllWorkingTree", "changes.collapseAllWorkingTree")
+}
+
+func (a *App) buildGitFileOptions(expandCommand, collapseCommand string) []ui.ContextMenuItem {
+	return []ui.ContextMenuItem{
+		{Label: "Tree", Command: "options.useGitFileTree", Checked: menuChecked(a.Settings.Git.FileView == config.GitFileViewTree)},
+		{Label: "List", Command: "options.useGitFileList", Checked: menuChecked(a.Settings.Git.FileView != config.GitFileViewTree)},
+		ui.MenuSep(),
+		{Label: "Expand All", Command: expandCommand},
+		{Label: "Collapse All", Command: collapseCommand},
+	}
 }
 
 func registerOptionsCommands(app *App) {
@@ -242,6 +405,72 @@ func registerOptionsCommands(app *App) {
 		ID: "options.toggleWordWrap", Title: "Toggle Word Wrap",
 		Keywords: []string{"preferences", "settings", "editor", "view"},
 		Handler:  app.ToggleWordWrap,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.diffViewMode", Title: "Change Diff View Mode",
+		Keywords: []string{"preferences", "settings", "git", "diff", "split", "unified", "mode"},
+		Handler:  app.ShowDiffViewModePicker,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.diffContext", Title: "Change Diff Context",
+		Keywords: []string{"preferences", "settings", "git", "diff", "changes", "full", "context"},
+		Handler:  app.ShowDiffContextPicker,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.useSplitDiff", Title: "Use Split Diff by Default",
+		Keywords: []string{"preferences", "settings", "git", "diff", "split", "default"},
+		Handler:  app.UseSplitDiffByDefault,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.useUnifiedDiff", Title: "Use Unified Diff by Default",
+		Keywords: []string{"preferences", "settings", "git", "diff", "unified", "default"},
+		Handler:  app.UseUnifiedDiffByDefault,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.useChangesOnlyDiff", Title: "Show Changes Only by Default",
+		Keywords: []string{"preferences", "settings", "git", "diff", "compact", "context", "default"},
+		Handler:  app.UseChangesOnlyDiffByDefault,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.useFullFileDiff", Title: "Show Full File Diff by Default",
+		Keywords: []string{"preferences", "settings", "git", "diff", "extended", "context", "default"},
+		Handler:  app.UseFullFileDiffByDefault,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffWordWrap", Title: "Toggle Diff Word Wrap Default",
+		Keywords: []string{"preferences", "settings", "git", "diff", "wrap", "default"},
+		Handler:  app.ToggleDiffWordWrapDefault,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffHighContrast", Title: "Toggle High Contrast Diffs",
+		Keywords: []string{"preferences", "settings", "git", "diff", "contrast", "color", "accessibility"},
+		Handler:  app.ToggleDiffHighContrast,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffCollapsedEmphasis", Title: "Toggle Collapsed Diff Row Emphasis",
+		Keywords: []string{"preferences", "settings", "git", "diff", "collapsed", "omitted", "visibility"},
+		Handler:  app.ToggleDiffCollapsedEmphasis,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.useGitFileTree", Title: "View Git Files as Tree",
+		Keywords: []string{"preferences", "settings", "git", "changes", "history", "files", "tree"},
+		Handler:  app.UseTreeGitFileView,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.useGitFileList", Title: "View Git Files as List",
+		Keywords: []string{"preferences", "settings", "git", "changes", "history", "files", "flat", "list"},
+		Handler:  app.UseListGitFileView,
 	})
 
 	reg.Register(command.Command{

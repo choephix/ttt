@@ -26,24 +26,32 @@ func RunEventLoop(
 	running *bool,
 	closeTerminal func(panelID string),
 ) {
+	app.eventLoopDoneSignal()
+	defer app.closeEventLoopDone()
+	defer app.Root.CancelPointerCapture()
+	defer app.ShutdownGitReads()
 	if app.Watcher != nil {
 		defer app.Watcher.Close()
+	}
+	if app.Repository != nil {
+		defer app.Repository.Close()
 	}
 
 	lastBlameLine := -1
 	lastBlameFile := ""
 	lastGutterFile := ""
+	lastGutterRepo := ""
 	lastTabFile := ""
 	lastOutlineFile := ""
 	lastOutlineLine := -1
 	lastCursorLine := -1
 	lastCursorCol := -1
 	lastCursorFile := ""
-	lastBranchDir := app.Workspace.Primary()
+	lastBlameRepo := ""
 	blameGen := 0
-	app.Status.SetSegment(view.StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: git.BranchName(lastBranchDir)})
 
 	syncStatus := func() {
+		app.syncRepositoryObservation()
 		line, col := app.EditorGroup.ActiveCursor()
 		filePath := app.EditorGroup.ActiveFilePath()
 		cursorCount := app.EditorGroup.MultiCursorCount()
@@ -86,25 +94,12 @@ func RunEventLoop(
 
 		app.SyncLanguageSegment()
 
-		repoDir := ""
-		if filePath != "" && !app.EditorGroup.IsActiveVirtual() {
-			if folder := app.Workspace.FolderForFile(filePath); folder != nil && folder.IsRepo {
-				repoDir = folder.Path
-			}
-		}
-
-		if repoDir != lastBranchDir {
-			lastBranchDir = repoDir
-			if repoDir != "" {
-				app.Status.SetSegment(view.StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: git.BranchName(repoDir)})
-			} else {
-				app.Status.SetSegment(view.StatusSegment{ID: "branch", Side: "left", Priority: 100, Text: ""})
-			}
-		}
+		repoDir := app.SyncRepositoryBranch()
 
 		// Trigger git gutter computation when switching to a new file
-		if filePath != lastGutterFile {
+		if filePath != lastGutterFile || repoDir != lastGutterRepo {
 			lastGutterFile = filePath
+			lastGutterRepo = repoDir
 			app.RequestGitGutterForActiveFile()
 		}
 
@@ -139,16 +134,21 @@ func RunEventLoop(
 			}
 		}
 
-		if filePath != lastBlameFile || line != lastBlameLine {
+		if filePath != lastBlameFile || line != lastBlameLine || repoDir != lastBlameRepo {
 			lastBlameFile = filePath
 			lastBlameLine = line
+			lastBlameRepo = repoDir
+			blameGen++
 			app.Status.SetSegment(view.StatusSegment{ID: "blame", Side: "left", Priority: 200, Text: ""})
 			if repoDir != "" {
-				blameGen++
 				gen := blameGen
 				blameLine := line + 1
+				blameFile, ok := app.Repository.gitRelativePath(repoDir, filePath)
 				go func() {
-					info := git.BlameLine(repoDir, filePath, blameLine)
+					var info *git.BlameInfo
+					if ok {
+						info = git.BlameLine(repoDir, blameFile, blameLine)
+					}
 					screen.PostEvent(tcell.NewEventInterrupt(&BlameResult{Gen: gen, Info: info}))
 				}()
 			}
@@ -161,7 +161,6 @@ func RunEventLoop(
 			cells[y] = make([]term.Cell, app.Root.Width)
 		}
 		app.Root.Render(cells)
-		resizeTerminals(app)
 		renderer.SetCurrent(cells)
 		if cx, cy, visible := app.Root.CursorPosition(); visible {
 			screen.ShowCursor(cx, cy)
@@ -169,6 +168,8 @@ func RunEventLoop(
 			screen.HideCursor()
 		}
 		renderer.Render(screen)
+		// Must run after Render/CursorPosition, else content and cursor read different Term states mid-frame.
+		resizeTerminals(app)
 	}
 
 	// Populate the status bar and register file watches for any files opened at
@@ -176,7 +177,50 @@ func RunEventLoop(
 	syncStatus()
 	redraw()
 
+	// Cursor positions from `path:line[:col]` arguments are applied here rather
+	// than at build time: GoToLineCol centres the target against the viewport
+	// height, which is only real once the first render has laid the widgets out.
+	if len(app.PendingFileTargets) > 0 {
+		app.ApplyFileTargets(app.PendingFileTargets)
+		app.PendingFileTargets = nil
+		syncStatus()
+		redraw()
+	}
+
 	app.ShowPendingPluginApprovals()
+
+	handleKey := func(tev *tcell.EventKey) {
+		app.cancelHoverTimer()
+		if app.EditorGroup.SignatureHelp != nil {
+			switch tev.Key() {
+			case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,
+				tcell.KeyHome, tcell.KeyEnd, tcell.KeyPgUp, tcell.KeyPgDn:
+				app.DismissSignatureHelp()
+			}
+		}
+		slog.Debug("key", "key", tev.Key(), "rune", string(term.KeyRune(tev)), "mod", tev.Modifiers())
+		app.Root.HandleEvent(tev)
+		app.FlushEditorOnChange()
+		app.RefreshAutocomplete()
+		syncStatus()
+	}
+
+	handleMouse := func(tev *tcell.EventMouse) {
+		mx, my := tev.Position()
+		btn := tev.Buttons()
+		slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
+		app.DismissSignatureHelp()
+		if app.EditorGroup.Hover == nil {
+			if btn == 0 {
+				app.checkMouseHover(mx, my)
+			}
+		} else if !app.isMouseOverHover(mx, my) && !app.EditorGroup.Hover.IsDragging() {
+			app.DismissHover()
+		}
+		app.Root.HandleEvent(tev)
+		app.FlushEditorOnChange()
+		syncStatus()
+	}
 
 	for *running {
 		ev := screen.PollEvent()
@@ -206,36 +250,11 @@ func RunEventLoop(
 			}
 
 		case *tcell.EventKey:
-			app.cancelHoverTimer()
-			if app.EditorGroup.SignatureHelp != nil {
-				switch tev.Key() {
-				case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,
-					tcell.KeyHome, tcell.KeyEnd, tcell.KeyPgUp, tcell.KeyPgDn:
-					app.DismissSignatureHelp()
-				}
-			}
-			slog.Debug("key", "key", tev.Key(), "rune", string(term.KeyRune(tev)), "mod", tev.Modifiers())
-			app.Root.HandleEvent(tev)
-			app.FlushEditorOnChange()
-			app.RefreshAutocomplete()
-			syncStatus()
+			handleKey(tev)
 			redraw()
 
 		case *tcell.EventMouse:
-			mx, my := tev.Position()
-			btn := tev.Buttons()
-			slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
-			app.DismissSignatureHelp()
-			if app.EditorGroup.Hover == nil {
-				if btn == 0 {
-					app.checkMouseHover(mx, my)
-				}
-			} else if !app.isMouseOverHover(mx, my) && !app.EditorGroup.Hover.IsDragging() {
-				app.DismissHover()
-			}
-			app.Root.HandleEvent(tev)
-			app.FlushEditorOnChange()
-			syncStatus()
+			handleMouse(tev)
 			redraw()
 
 		case *tcell.EventResize:
@@ -246,6 +265,8 @@ func RunEventLoop(
 			redraw()
 
 		case *tcell.EventInterrupt:
+			var execRequest *execRequestLifecycle
+			var execErr error
 			switch v := tev.Data().(type) {
 			case string:
 				if v != "" {
@@ -256,12 +277,32 @@ func RunEventLoop(
 					app.Status.SetSegment(view.StatusSegment{ID: "blame", Side: "left", Priority: 200, Text: fmt.Sprintf("%s, %s",
 						v.Info.Author, git.FormatRelativeTime(v.Info.Time))})
 				}
+			case *ui.TabDragAutoScrollTick:
+				app.EditorGroup.TabBar.HandleDragAutoScrollTick(v.Generation)
 			case *GitGutterResult:
 				if v.Gen == app.GitGutterGen {
 					app.EditorGroup.SetLineChanges(v.Path, v.Changes)
 				}
 			case *GitGutterTrigger:
 				app.RequestGitGutterForActiveFile()
+			case *execInputRequest:
+				if v.Lifecycle.claim() {
+					switch event := v.Event.(type) {
+					case *tcell.EventKey:
+						handleKey(event)
+					case *tcell.EventMouse:
+						handleMouse(event)
+					default:
+						execErr = failedExec("unsupported input event %T", v.Event)
+					}
+					execRequest = v.Lifecycle
+				}
+			case *execMainRequest:
+				if v.Lifecycle.claim() {
+					execErr = v.Run()
+					syncStatus()
+					execRequest = v.Lifecycle
+				}
 			case *AutocompleteTrigger:
 				triggerChar := app.charBeforeCursor()
 				isTrigger := triggerChar != "" && (len(app.CompletionTriggers) == 0 || app.isCompletionTrigger(triggerChar))
@@ -333,6 +374,34 @@ func RunEventLoop(
 				app.SyncLanguageSegment()
 			case *RepoOpResult:
 				app.HandleRepoOpResult(v)
+			case *RepositoryStatusResult:
+				app.Repository.HandleStatus(v)
+				syncStatus()
+			case *RepositoryIdentityResult:
+				app.Repository.HandleIdentity(v)
+				syncStatus()
+			case *CurrentChangesResult:
+				app.Repository.HandleCurrentChanges(v)
+			case *RepositoryInvalidationRequest:
+				app.handleRepositoryInvalidation(v)
+			case *DebugWriteRequest:
+				app.HandleDebugWriteRequest(v)
+			case *repositoryDebounceTick:
+				app.Repository.HandleDebounce(v)
+			case *repositoryIdentityDebounceTick:
+				app.Repository.HandleIdentityDebounce(v)
+			case *repositoryPollTick:
+				app.Repository.HandlePoll(v)
+			case *CommitLogResult:
+				app.Changes.ApplyCommitLog(v)
+			case *CommitFilesResult:
+				app.Changes.ApplyCommitFiles(v)
+			case *CommitDetailResult:
+				app.ApplyCommitDetail(v)
+			case *CommitDetailContextResult:
+				app.ApplyCommitDetailContext(v)
+			case *DiffOpenResult:
+				app.ApplyDiffOpen(v)
 			case *FileChangedResult:
 				app.HandleFileChanged(v.Path)
 			case *ui.SearchBatch:
@@ -341,8 +410,7 @@ func RunEventLoop(
 				if v.Err != nil {
 					app.StatusError("Failed to fetch file content: " + v.Err.Error())
 					if dv := app.EditorGroup.DiffWidgetByTab(v.TabName); dv != nil {
-						dv.Loading = false
-						dv.SetExtended(false)
+						dv.FailLoading()
 					}
 				} else {
 					if dv := app.EditorGroup.DiffWidgetByTab(v.TabName); dv != nil {
@@ -386,6 +454,9 @@ func RunEventLoop(
 				}
 			}
 			redraw()
+			if execRequest != nil {
+				execRequest.complete(execErr)
+			}
 		}
 	}
 }

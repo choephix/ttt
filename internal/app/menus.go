@@ -67,8 +67,9 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		{Label: "Toggle Terminal", Command: "terminal.toggle"},
 		{Label: "New Terminal", Command: "terminal.new"},
 		ui.MenuSep(),
+		{Label: "Theme", Command: "theme.switch"},
+		{Label: "Keybindings", Command: "view.keybindings"},
 		{Label: "Settings", Command: "settings.openUI"},
-		{Label: "Keyboard Shortcuts", Command: "view.keybindings"},
 	},
 	// Options (placeholder — replaced dynamically by openMenuBarDropdown)
 	nil,
@@ -109,27 +110,87 @@ var diffContextMenu = []ui.ContextMenuItem{
 	{Label: "Find", Command: "search.find"},
 }
 
+var commitDetailContextMenu = []ui.ContextMenuItem{
+	{Label: "Copy", Command: "editor.copy"},
+	ui.MenuSep(),
+	{Label: "Expand All Files", Command: "changes.expandAllCommitDetail"},
+	{Label: "Collapse All Files", Command: "changes.collapseAllCommitDetail"},
+}
+
 var changesContextMenuStaged = []ui.ContextMenuItem{
-	{Label: "Open Compact Diff", Command: "changes.openDiff"},
-	{Label: "Open Extended Diff", Command: "changes.openExtendedDiff"},
+	{Label: "Open Changes", Command: "changes.openDiff"},
+	{Label: "Open Full Diff", Command: "changes.openExtendedDiff"},
 	{Label: "Open File", Command: "changes.openFile"},
 	ui.MenuSep(),
 	{Label: "Unstage", Command: "changes.unstage"},
 }
 
 var changesContextMenuUnstaged = []ui.ContextMenuItem{
-	{Label: "Open Compact Diff", Command: "changes.openDiff"},
-	{Label: "Open Extended Diff", Command: "changes.openExtendedDiff"},
+	{Label: "Open Changes", Command: "changes.openDiff"},
+	{Label: "Open Full Diff", Command: "changes.openExtendedDiff"},
 	{Label: "Open File", Command: "changes.openFile"},
 	ui.MenuSep(),
 	{Label: "Stage", Command: "changes.stage"},
 	{Label: "Discard Changes", Command: "changes.discard"},
 }
 
+func (a *App) BuildActiveDiffViewMenu() []ui.ContextMenuItem {
+	var items []ui.ContextMenuItem
+	modeSurface := a.EditorGroup.ActiveDiffModeSurface()
+	contextSurface := a.EditorGroup.ActiveDiffContextSurface()
+	if modeSurface != nil {
+		items = append(items,
+			ui.ContextMenuItem{Label: "Split", Command: "diff.splitView", Checked: menuChecked(modeSurface.Mode() == ui.DiffModeSplit)},
+			ui.ContextMenuItem{Label: "Unified", Command: "diff.unifiedView", Checked: menuChecked(modeSurface.Mode() == ui.DiffModeUnified)},
+		)
+	}
+	if contextSurface != nil {
+		if len(items) > 0 {
+			items = append(items, ui.MenuSep())
+		}
+		items = append(items,
+			ui.ContextMenuItem{Label: "Changes Only", Command: "diff.changesOnlyView", Checked: menuChecked(contextSurface.ContextMode() == ui.DiffContextChangesOnly)},
+			ui.ContextMenuItem{Label: "Full File", Command: "diff.fullFileView", Checked: menuChecked(contextSurface.ContextMode() == ui.DiffContextFullFile)},
+		)
+	}
+	if modeSurface != nil {
+		if len(items) > 0 {
+			items = append(items, ui.MenuSep())
+		}
+		items = append(items, ui.ContextMenuItem{Label: "Wrap Lines", Command: "diff.toggleWrap", Checked: menuChecked(modeSurface.WrapMode() == ui.DiffWrapOn)})
+	}
+	return items
+}
+
+func (a *App) withActiveDiffViewMenu(items []ui.ContextMenuItem) []ui.ContextMenuItem {
+	controls := a.BuildActiveDiffViewMenu()
+	if len(controls) == 0 {
+		return items
+	}
+	combined := make([]ui.ContextMenuItem, 0, len(items)+1+len(controls))
+	combined = append(combined, items...)
+	combined = append(combined, ui.MenuSep())
+	return append(combined, controls...)
+}
+
+func (a *App) withActiveDiffViewSubmenu(items []ui.ContextMenuItem) []ui.ContextMenuItem {
+	controls := a.BuildActiveDiffViewMenu()
+	if len(controls) == 0 {
+		return items
+	}
+	combined := make([]ui.ContextMenuItem, 0, len(items)+2)
+	combined = append(combined, items...)
+	combined = append(combined, ui.MenuSep(), ui.ContextMenuItem{Label: "Diff View", Submenu: controls})
+	return combined
+}
+
 func resolveShortcuts(reg *command.Registry, items []ui.ContextMenuItem) []ui.ContextMenuItem {
 	resolved := make([]ui.ContextMenuItem, len(items))
 	for i, item := range items {
 		resolved[i] = item
+		if len(item.Submenu) > 0 {
+			resolved[i].Submenu = resolveShortcuts(reg, item.Submenu)
+		}
 		if item.Command != "" {
 			if cmd, ok := reg.Get(item.Command); ok && cmd.Shortcut != "" {
 				resolved[i].Shortcut = cmd.Shortcut
@@ -254,7 +315,10 @@ func handleRightClick(app *App, mx, my int) {
 			if my > sidebarR.Y+1 {
 				ev := tcell.NewEventMouse(mx, my, tcell.Button2, 0)
 				if w := app.Sidebar.ActiveWidget(); w != nil {
-					w.HandleEvent(ev)
+					result := w.HandleEvent(ev)
+					if result == ui.EventIgnored && app.Sidebar.ActivePanel == "changes" {
+						app.ShowChangesContextMenu(mx, my)
+					}
 				}
 			}
 			return
@@ -268,8 +332,10 @@ func handleRightClick(app *App, mx, my int) {
 		return
 	}
 
-	if app.EditorGroup.ActiveDiffWidget() != nil {
-		openContextMenu(app, diffContextMenu, mx, my)
+	if app.EditorGroup.ActiveCommitDetailWidget() != nil {
+		openContextMenu(app, app.withActiveDiffViewMenu(commitDetailContextMenu), mx, my)
+	} else if app.EditorGroup.ActiveDiffModeSurface() != nil || app.EditorGroup.ActiveDiffContextSurface() != nil {
+		openContextMenu(app, app.withActiveDiffViewMenu(diffContextMenu), mx, my)
 	} else {
 		openEditorContextMenu(app, mx, my)
 	}

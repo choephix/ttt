@@ -483,11 +483,22 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		fsRoots = append(fsRoots, p.Dir)
 	}
 	p.Filesystem = NewPluginFilesystemAPI(fsRoots...)
+	if fs, ok := p.Filesystem.(*PluginFilesystemAPI); ok {
+		fs.onWrite = func(path string) {
+			a.postRepositoryInvalidation(path, RepositoryWorktree)
+		}
+	}
 	p.System = NewPluginSystemAPI()
+	if system, ok := p.System.(*PluginSystemAPI); ok {
+		system.onExec = func() {
+			a.postRepositoryInvalidation("", RepositoryWorktree|RepositoryHistory)
+		}
+	}
 	p.Network = NewPluginNetworkAPI()
 	a.wirePluginLog(p)
 	p.Markdown = a.Settings.Markdown
 	p.Borders = a.Borders
+	p.AppVersion = a.Version
 	p.ShowInfoDialog = func(title string, entries []widgets.KeyValueEntry) {
 		a.ShowInfoDialog(title, entries)
 	}
@@ -501,14 +512,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		})
 	}
 	p.ShowContextMenu = func(entries []widgets.MenuEntry, x, y int, onCommand func(string)) {
-		items := make([]ui.ContextMenuItem, len(entries))
-		for i, e := range entries {
-			items[i] = ui.ContextMenuItem{
-				Label:   e.Label,
-				Command: e.Command,
-				IsSep:   e.Separator,
-			}
-		}
+		items := contextMenuItemsFromWidgetEntries(entries)
 		a.captureMenuFocus()
 		menu := ui.NewContextMenuWidget(items, x, y)
 		menu.Borders = a.Borders
@@ -769,14 +773,7 @@ func (a *App) handleRemoteRegistryResult(result *RemoteRegistryResult) {
 }
 
 func (a *App) ShowPluginDropdownMenu(entries []widgets.MenuEntry, x, y int) {
-	items := make([]ui.ContextMenuItem, len(entries))
-	for i, e := range entries {
-		items[i] = ui.ContextMenuItem{
-			Label:   e.Label,
-			Command: e.Command,
-			IsSep:   e.Separator,
-		}
-	}
+	items := contextMenuItemsFromWidgetEntries(entries)
 	a.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = a.Borders
@@ -791,6 +788,29 @@ func (a *App) ShowPluginDropdownMenu(entries []widgets.MenuEntry, x, y int) {
 	}
 	a.Root.PushOverlay(ui.Overlay{Widget: menu, Modal: true})
 	a.Root.SetFocus(menu)
+}
+
+func contextMenuItemFromWidgetEntry(entry widgets.MenuEntry) ui.ContextMenuItem {
+	item := ui.ContextMenuItem{
+		Label:   entry.Label,
+		Command: entry.Command,
+		IsSep:   entry.Separator,
+	}
+	if !entry.Separator && entry.Checked != nil {
+		item.Checked = ui.MenuUnchecked
+		if *entry.Checked {
+			item.Checked = ui.MenuChecked
+		}
+	}
+	return item
+}
+
+func contextMenuItemsFromWidgetEntries(entries []widgets.MenuEntry) []ui.ContextMenuItem {
+	items := make([]ui.ContextMenuItem, len(entries))
+	for i, entry := range entries {
+		items[i] = contextMenuItemFromWidgetEntry(entry)
+	}
+	return items
 }
 
 func (a *App) handlePluginDropdownCommand(cmd string) {

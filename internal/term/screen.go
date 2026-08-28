@@ -5,6 +5,7 @@ type Style int
 const (
 	StyleDefault Style = iota
 	StyleStatusBar
+	StyleCommitHeader
 	StyleActiveTab
 	StyleInactiveTab
 	StyleSidebarSelected
@@ -21,6 +22,8 @@ const (
 	StyleDiffAdded
 	StyleDiffDeleted
 	StyleDiffModified
+	StyleDiffCollapsedEmphasis
+	StyleDiffCollapsedHover
 	StyleScrollbar
 	StyleScrollbarThumb
 	StyleActiveLine

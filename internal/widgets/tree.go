@@ -22,10 +22,12 @@ type TreeNode struct {
 	Actions        []Action    `json:"actions,omitempty"`
 	Muted          bool        `json:"-"`
 	Expandable     bool        `json:"-"`
+	TruncateLeft   bool        `json:"-"`
 
 	Expanded bool `json:"-"`
 	depth    int
 	parent   *TreeNode
+	chevronX int
 }
 
 type Action struct {
@@ -37,6 +39,8 @@ type MenuEntry struct {
 	Label     string `json:"label"`
 	Command   string `json:"command"`
 	Separator bool   `json:"separator,omitempty"`
+	// Checked is nil for indicator-free entries; non-nil reserves a check slot.
+	Checked *bool `json:"checked,omitempty"`
 }
 
 type TreeConfig struct {
@@ -50,14 +54,16 @@ type TreeConfig struct {
 	SelectOnClick  bool        `json:"-"`
 	TruncateLeft   bool        `json:"truncateLeft,omitempty"` // truncate labels from the left (…tail) so the end stays visible
 
-	OnCommand     func(command string, node *TreeNode)
-	OnMenu        func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
-	OnExpand      func(node *TreeNode)
-	OnSelect      func(node *TreeNode)
-	OnClick       func(node *TreeNode)
-	OnDoubleClick func(node *TreeNode)
-	OnKey         func(ev *tcell.EventKey, node *TreeNode) bool
-	RenderItem    func(surface Surface, node *TreeNode, idx, y, w int, selected bool)
+	OnCommand          func(command string, node *TreeNode)
+	OnMenu             func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
+	OnExpand           func(node *TreeNode)
+	OnSelect           func(node *TreeNode)
+	OnFocus            func()
+	OnClick            func(node *TreeNode)
+	OnDoubleClick      func(node *TreeNode)
+	OnKey              func(ev *tcell.EventKey, node *TreeNode) bool
+	RenderItem         func(surface Surface, node *TreeNode, idx, y, w int, selected bool)
+	ActivateExpandable bool
 }
 
 type treeInlineEdit struct {
@@ -79,10 +85,11 @@ type TreeWidget struct {
 	lastClickID   string
 	inlineEdit    *treeInlineEdit
 
-	scrollbar scrollbar
-	contentX  int
-	contentY  int
-	contentW  int
+	scrollbar                 scrollbar
+	contentX                  int
+	contentY                  int
+	contentW                  int
+	pointerCaptureInvalidated func()
 }
 
 func NewTreeWidget(cfg TreeConfig) *TreeWidget {
@@ -107,6 +114,9 @@ func (t *TreeWidget) SetFocused(f bool) {
 	t.focused = f
 	if t.inlineEdit != nil {
 		t.inlineEdit.input.SetFocused(f)
+	}
+	if f && t.Config.OnFocus != nil {
+		t.Config.OnFocus()
 	}
 }
 func (t *TreeWidget) IsFocused() bool { return t.focused }
@@ -209,6 +219,78 @@ func (t *TreeWidget) SetActiveID(id string) {
 	t.Config.ActiveID = id
 }
 
+// CollapseAll closes every materialized branch while preserving the selected
+// node when it remains visible. A selection hidden inside a collapsed branch
+// falls back to the first visible row instead of drifting by numeric index.
+func (t *TreeWidget) CollapseAll() {
+	selectedID := t.selectedID()
+	setTreeExpanded(t.Config.Items, false)
+	t.flatten()
+	t.restoreVisibleSelection(selectedID)
+}
+
+// ExpandAll opens every branch currently represented in the model. Lazy trees
+// load one newly revealed level without recursively walking newly loaded nodes.
+func (t *TreeWidget) ExpandAll() {
+	t.ExpandAllWhere(func(*TreeNode) bool { return true })
+}
+
+func (t *TreeWidget) ExpandAllWhere(include func(*TreeNode) bool) {
+	selectedID := t.selectedID()
+	nodes := materializedTreeNodes(t.Config.Items)
+	for _, node := range nodes {
+		if !node.isExpandable() || !include(node) {
+			continue
+		}
+		node.Expanded = true
+		if len(node.Children) == 0 && t.Config.OnExpand != nil {
+			t.Config.OnExpand(node)
+		}
+	}
+	t.flatten()
+	t.restoreVisibleSelection(selectedID)
+}
+
+func (t *TreeWidget) selectedID() string {
+	if node := t.Selected(); node != nil {
+		return node.ID
+	}
+	return ""
+}
+
+func (t *TreeWidget) restoreVisibleSelection(id string) {
+	t.selected = 0
+	if id == "" {
+		t.clampSelected()
+		return
+	}
+	for i, node := range t.flatList {
+		if node.ID == id {
+			t.selected = i
+			return
+		}
+	}
+	t.clampSelected()
+}
+
+func setTreeExpanded(nodes []*TreeNode, expanded bool) {
+	for _, node := range nodes {
+		if node.isExpandable() {
+			node.Expanded = expanded
+		}
+		setTreeExpanded(node.Children, expanded)
+	}
+}
+
+func materializedTreeNodes(nodes []*TreeNode) []*TreeNode {
+	var result []*TreeNode
+	for _, node := range nodes {
+		result = append(result, node)
+		result = append(result, materializedTreeNodes(node.Children)...)
+	}
+	return result
+}
+
 func (t *TreeWidget) Reload() {
 	expanded := map[string]bool{}
 	t.CollectExpanded(expanded)
@@ -305,20 +387,13 @@ func (t *TreeWidget) Render(surface Surface) {
 	w, h := surface.Size()
 	surface.Fill(term.Cell{Ch: ' '})
 
+	t.contentX, t.contentY = t.contentOrigin()
+
 	if h <= 0 || w <= 0 {
+		_, invalidated := t.scrollbar.Render(surface, scrollbarGeometry{}, newScrollRange(0, len(t.flatList), t.scrollTop))
+		t.notifyPointerCaptureInvalidated(invalidated)
 		return
 	}
-
-	ox := t.Box.MarginLeft + t.Box.PaddingLeft
-	oy := t.Box.MarginTop + t.Box.PaddingTop
-	if t.Box.BorderLeft {
-		ox++
-	}
-	if t.Box.BorderTop {
-		oy++
-	}
-	t.contentX = t.rect.X + ox
-	t.contentY = t.rect.Y + oy
 
 	if len(t.flatList) == 0 && t.Config.EmptyText != "" {
 		x := 1
@@ -329,27 +404,17 @@ func (t *TreeWidget) Render(surface Surface) {
 			surface.SetCell(x, 0, term.Cell{Ch: ch, Style: term.StyleDefault})
 			x++
 		}
-		return
 	}
 
-	maxScroll := len(t.flatList) - h
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if t.scrollTop > maxScroll {
-		t.scrollTop = maxScroll
-	}
+	rangeModel := newScrollRange(h, len(t.flatList), t.scrollTop)
+	t.scrollTop = rangeModel.offset
 
 	t.ensureVisible(h)
-
-	t.scrollbar.X = t.contentX + w - 1
-	t.scrollbar.Y = t.contentY
-	t.scrollbar.Height = h
-	t.scrollbar.TotalItems = len(t.flatList)
-	t.scrollbar.TopItem = t.scrollTop
+	rangeModel = newScrollRange(h, len(t.flatList), t.scrollTop)
+	t.scrollTop = rangeModel.offset
 
 	t.contentW = w
-	if t.scrollbar.visible() {
+	if rangeModel.visible() {
 		t.contentW = w - 1
 	}
 	for i := range h {
@@ -361,7 +426,12 @@ func (t *TreeWidget) Render(surface Surface) {
 		t.renderNode(surface, node, idx, i, t.contentW)
 	}
 
-	t.scrollbar.Render(surface, w-1, 0)
+	geometry := scrollbarGeometry{
+		localTrack: Rect{X: w - 1, Y: 0, W: 1, H: h},
+		hitTrack:   Rect{X: t.contentX + w - 1, Y: t.contentY, W: 1, H: h},
+	}
+	_, invalidated := t.scrollbar.Render(surface, geometry, rangeModel)
+	t.notifyPointerCaptureInvalidated(invalidated)
 }
 
 func (t *TreeWidget) menuIconWidth() int {
@@ -418,6 +488,7 @@ func drawRunesRightAligned(surface Surface, rightX, y, w int, runes []rune, styl
 }
 
 func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) {
+	node.chevronX = -1
 	if t.Config.RenderItem != nil {
 		t.Config.RenderItem(surface, node, idx, y, w, idx == t.selected)
 		return
@@ -446,6 +517,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		}
 		if x < w {
 			surface.SetCell(x, y, term.Cell{Ch: chevron, Style: style})
+			node.chevronX = t.contentX + x
 		}
 		x++
 		if x < w {
@@ -497,7 +569,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 			labelStyle = term.StyleMuted
 		}
 		labelRunes := []rune(node.Label)
-		if t.Config.TruncateLeft {
+		if t.Config.TruncateLeft || node.TruncateLeft {
 			labelRunes = truncateRunesLeft(labelRunes, maxX-x)
 		}
 		x = drawRunesClippedBg(surface, x, y, maxX, labelRunes, labelStyle, labelBg)
@@ -608,12 +680,9 @@ func (t *TreeWidget) HandleEvent(ev tcell.Event) EventResult {
 	if result, handled := t.handleInlineEditEvent(ev); handled {
 		return result
 	}
-	if newTop, consumed := t.scrollbar.HandleEvent(ev); consumed {
+	if newTop, result := t.scrollbar.HandleEvent(ev); result != EventIgnored {
 		t.scrollTop = newTop
-		if t.scrollbar.isDragging() {
-			return EventCaptured
-		}
-		return EventConsumed
+		return result
 	}
 
 	prev := t.selected
@@ -630,6 +699,32 @@ func (t *TreeWidget) HandleEvent(ev tcell.Event) EventResult {
 		t.Config.OnSelect(t.Selected())
 	}
 	return result
+}
+
+func (t *TreeWidget) CancelPointerCapture() bool {
+	canceled := t.scrollbar.cancel()
+	if canceled && t.pointerCaptureInvalidated != nil {
+		t.pointerCaptureInvalidated()
+	}
+	return canceled
+}
+
+func (t *TreeWidget) OwnsPointerCapture() bool {
+	return t.scrollbar.isDragging()
+}
+
+func (t *TreeWidget) InvalidatePointerInteraction() bool {
+	return t.CancelPointerCapture()
+}
+
+func (t *TreeWidget) SetPointerCaptureInvalidated(invalidated func()) {
+	t.pointerCaptureInvalidated = invalidated
+}
+
+func (t *TreeWidget) notifyPointerCaptureInvalidated(invalidated bool) {
+	if invalidated && t.pointerCaptureInvalidated != nil {
+		t.pointerCaptureInvalidated()
+	}
 }
 
 func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
@@ -703,7 +798,15 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 
 		if t.Config.OnClick == nil && t.Config.OnDoubleClick == nil {
 			if !t.Config.SelectOnClick {
-				t.ActivateSelected()
+				if t.Config.ActivateExpandable && node.isExpandable() {
+					if mx == node.chevronX {
+						t.toggleExpandedSelected()
+					} else if t.Config.OnCommand != nil {
+						t.Config.OnCommand("activate", node)
+					}
+				} else {
+					t.ActivateSelected()
+				}
 			}
 			return EventConsumed
 		}
@@ -750,7 +853,11 @@ func (t *TreeWidget) handleKey(ev *tcell.EventKey) EventResult {
 			}
 			return EventConsumed
 		}
-		t.ActivateSelected()
+		if t.Config.ActivateExpandable {
+			t.activateSelectedNode()
+		} else {
+			t.ActivateSelected()
+		}
 		return EventConsumed
 	case tcell.KeyRune:
 		if t.Config.OnKey != nil && t.Config.OnKey(ev, t.Selected()) {
@@ -818,14 +925,32 @@ func (t *TreeWidget) ActivateSelected() {
 	}
 	node := t.flatList[t.selected]
 	if node.isExpandable() {
-		node.Expanded = !node.Expanded
-		if node.Expanded && t.Config.OnExpand != nil {
-			t.Config.OnExpand(node)
-		}
-		t.flatten()
+		t.toggleExpandedSelected()
 	} else if t.Config.OnCommand != nil {
 		t.Config.OnCommand("activate", node)
 	}
+}
+
+func (t *TreeWidget) toggleExpandedSelected() {
+	if t.selected < 0 || t.selected >= len(t.flatList) {
+		return
+	}
+	node := t.flatList[t.selected]
+	if !node.isExpandable() {
+		return
+	}
+	node.Expanded = !node.Expanded
+	if node.Expanded && t.Config.OnExpand != nil {
+		t.Config.OnExpand(node)
+	}
+	t.flatten()
+}
+
+func (t *TreeWidget) activateSelectedNode() {
+	if t.selected < 0 || t.selected >= len(t.flatList) || t.Config.OnCommand == nil {
+		return
+	}
+	t.Config.OnCommand("activate", t.flatList[t.selected])
 }
 
 func (t *TreeWidget) collapseOrParent() {

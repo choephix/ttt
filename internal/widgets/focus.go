@@ -5,10 +5,11 @@ import (
 )
 
 type FocusManager struct {
-	items   []FocusableWidget
-	focused int
-	active  bool
-	root    Widget
+	items           []FocusableWidget
+	focused         int
+	active          bool
+	root            Widget
+	lastEventTarget Widget
 	// OnFocusChange is called after focus moves (e.g. to scroll the widget into view).
 	OnFocusChange func(w FocusableWidget)
 }
@@ -67,24 +68,118 @@ func (fm *FocusManager) FocusNext() {
 	if len(fm.items) == 0 {
 		return
 	}
-	fm.setFocus((fm.focused + 1) % len(fm.items))
+	if next := fm.adjacentRendered(1); next >= 0 && next != fm.focused {
+		fm.setFocus(next)
+	}
 }
 
 func (fm *FocusManager) FocusPrev() {
 	if len(fm.items) == 0 {
 		return
 	}
-	next := fm.focused - 1
-	if next < 0 {
-		next = len(fm.items) - 1
+	if next := fm.adjacentRendered(-1); next >= 0 && next != fm.focused {
+		fm.setFocus(next)
 	}
-	fm.setFocus(next)
+}
+
+func (fm *FocusManager) hasRenderedGeometry(item FocusableWidget) bool {
+	if fm.root == nil {
+		return true
+	}
+	rootRect := fm.root.GetRect()
+	if rootRect.W <= 0 || rootRect.H <= 0 {
+		return true
+	}
+	path := make([]Widget, 0, 4)
+	if !collectWidgetPath(fm.root, item, &path) {
+		return false
+	}
+	for _, widget := range path {
+		r := widget.GetRect()
+		if r.W <= 0 || r.H <= 0 {
+			return false
+		}
+	}
+	visible := item.GetRect()
+	for i := len(path) - 2; i >= 0; i-- {
+		if _, scrolls := path[i].(*ScrollViewWidget); scrolls {
+			visible = path[i].GetRect()
+			continue
+		}
+		visible = intersectRects(visible, path[i].GetRect())
+		if visible.W <= 0 || visible.H <= 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func collectWidgetPath(widget, target Widget, path *[]Widget) bool {
+	*path = append(*path, widget)
+	if widget == target {
+		return true
+	}
+	if container, ok := widget.(ContainerWidget); ok {
+		for _, child := range container.WidgetChildren() {
+			if collectWidgetPath(child, target, path) {
+				return true
+			}
+		}
+	}
+	*path = (*path)[:len(*path)-1]
+	return false
+}
+
+func (fm *FocusManager) renderedItemCount() int {
+	count := 0
+	for _, item := range fm.items {
+		if fm.hasRenderedGeometry(item) {
+			count++
+		}
+	}
+	return count
+}
+
+func (fm *FocusManager) adjacentRendered(step int) int {
+	if len(fm.items) == 0 {
+		return -1
+	}
+	index := fm.focused
+	if index < 0 || index >= len(fm.items) {
+		if step > 0 {
+			index = -1
+		} else {
+			index = 0
+		}
+	}
+	for range len(fm.items) {
+		index = (index + step + len(fm.items)) % len(fm.items)
+		if fm.hasRenderedGeometry(fm.items[index]) {
+			return index
+		}
+	}
+	return -1
+}
+
+func (fm *FocusManager) ensureFocusedRendered() {
+	if fm.focused >= 0 && fm.focused < len(fm.items) && fm.hasRenderedGeometry(fm.items[fm.focused]) {
+		return
+	}
+	if next := fm.adjacentRendered(1); next >= 0 {
+		fm.setFocus(next)
+	}
 }
 
 // Items are collected pre-order, so a click inside a focusable container (a
 // scroll view, say) matches the container before the control the user aimed at.
 // The last match is the innermost one.
 func (fm *FocusManager) FocusByClick(mx, my int) {
+	if hit := fm.innermostVisibleHit(mx, my); hit >= 0 {
+		fm.setFocus(hit)
+	}
+}
+
+func (fm *FocusManager) innermostVisibleHit(mx, my int) int {
 	hit := -1
 	for i, fw := range fm.items {
 		r := VisibleRect(fm.root, fw)
@@ -92,9 +187,17 @@ func (fm *FocusManager) FocusByClick(mx, my int) {
 			hit = i
 		}
 	}
-	if hit >= 0 {
-		fm.setFocus(hit)
+	return hit
+}
+
+func (fm *FocusManager) firstVisibleHit(mx, my int) int {
+	for i, fw := range fm.items {
+		r := VisibleRect(fm.root, fw)
+		if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
+			return i
+		}
 	}
+	return -1
 }
 
 func (fm *FocusManager) setFocus(idx int) {
@@ -203,35 +306,45 @@ func (fm *FocusManager) Focused() Widget {
 	return nil
 }
 
+func (fm *FocusManager) LastEventTarget() Widget { return fm.lastEventTarget }
+
 func (fm *FocusManager) HandleEvent(ev tcell.Event) EventResult {
+	fm.lastEventTarget = nil
 	if len(fm.items) == 0 {
 		return EventIgnored
 	}
 	switch tev := ev.(type) {
 	case *tcell.EventKey:
-		if tev.Key() == tcell.KeyTab && len(fm.items) > 1 {
+		if tev.Key() == tcell.KeyTab && fm.renderedItemCount() > 1 {
 			fm.FocusNext()
 			return EventConsumed
 		}
-		if tev.Key() == tcell.KeyBacktab && len(fm.items) > 1 {
+		if tev.Key() == tcell.KeyBacktab && fm.renderedItemCount() > 1 {
 			fm.FocusPrev()
 			return EventConsumed
 		}
+		fm.ensureFocusedRendered()
 		if fw := fm.Focused(); fw != nil {
+			fm.lastEventTarget = fw
 			return fw.HandleEvent(ev)
 		}
 	case *tcell.EventMouse:
-		if tev.Buttons()&tcell.Button1 != 0 {
-			fm.FocusByClick(tev.Position())
-		}
 		mx, my := tev.Position()
-		for _, fw := range fm.items {
-			r := VisibleRect(fm.root, fw)
-			if mx >= r.X && mx < r.X+r.W && my >= r.Y && my < r.Y+r.H {
-				return fw.HandleEvent(ev)
+		var hit int
+		if tev.Buttons()&tcell.Button1 != 0 {
+			hit = fm.innermostVisibleHit(mx, my)
+			if hit >= 0 {
+				fm.setFocus(hit)
 			}
+		} else {
+			hit = fm.firstVisibleHit(mx, my)
+		}
+		if hit >= 0 {
+			fm.lastEventTarget = fm.items[hit]
+			return fm.items[hit].HandleEvent(ev)
 		}
 		if fw := fm.Focused(); fw != nil {
+			fm.lastEventTarget = fw
 			return fw.HandleEvent(ev)
 		}
 	}
