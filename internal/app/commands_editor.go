@@ -208,7 +208,7 @@ func (a *App) openFilePath(path string) {
 		a.StatusError("Not a regular file: " + abs)
 		return
 	}
-	a.EditorGroup.OpenFile(abs)
+	a.EditorGroup.OpenCommittedFile(abs)
 	a.Root.SetFocus(a.EditorGroup)
 }
 

@@ -8,18 +8,19 @@ description: Working with files, folders, and multi-root workspaces.
 The file explorer lives in the sidebar (**Ctrl+B** to toggle, **Ctrl+K E** to focus).
 
 - Directories are sorted before files, both alphabetically
-- Symlinks are colored (`sidebar.symlink`) and marked `→` at the right edge; broken ones show `↛` in the danger color
+- Symlinks are colored (`sidebar.symlink`) and marked `→` at the right edge; broken ones show `↛` in the danger color. Their colors survive selection and git-status refreshes; ordinary files use git-status colors.
 - Expand/collapse with Enter or arrow keys
 - Right-click context menu: **New File**, **New Folder**, **Rename**, **Delete**
 - Sidebar actions button for **Refresh** and **New File**
 - **Explorer: Reveal Active File** (`explorer.revealActiveFile`) expands the folders above the active file, selects it, and scrolls it into view without moving focus from the editor. Set `explorer.autoReveal` to `true` to do this every time the active file changes
 - File-type icons, which need a [Nerd Font](https://www.nerdfonts.com) in your terminal. They default off, since without one they'd render as boxes: turn them on with `"appearance": { "icons": "nerd-font" }`, **Options → Font Icons**, or **Icons** in the settings editor
+- Single-click a file to reuse a clean italic preview tab. Enter, editing, or double-clicking its editor tab makes it a normal tab; double-clicking the explorer entry starts inline rename.
 
 When multiple folders are open, each root is shown as a collapsible group.
 
 ## Quick Navigation
 
-- **Ctrl+O** to open a file (`file.open`)
+- **Ctrl+O** to open an exact file path in a normal tab (`file.open`)
 - **Open Folder** from the File menu or command palette (`workspace.openFolder`)
 - **Ctrl+K P** for quick file open with fuzzy search (`file.quickOpen`)
 
