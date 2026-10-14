@@ -10,6 +10,9 @@ type Range struct {
 type State struct {
 	ranges    []Range
 	collapsed map[int]bool
+	pending   func() []Range
+	stale     bool
+	gen       int
 
 	dirty          bool
 	cachedVisible  []int
@@ -35,7 +38,48 @@ func (s *State) SetRanges(ranges []Range) {
 	}
 	s.ranges = ranges
 	s.collapsed = keep
+	s.pending = nil
+	s.stale = false
 	s.dirty = true
+}
+
+// SetPending defers computing the ranges until Resolve, unless SetRanges
+// supplies them first. Until then the state has no ranges.
+func (s *State) SetPending(compute func() []Range) {
+	s.ranges = nil
+	s.pending = compute
+	s.stale = false
+	s.gen++
+	s.dirty = true
+}
+
+// MarkStale is SetPending that keeps the current ranges until Resolve or
+// SetRanges replaces them, so fold markers stay put while a recompute is
+// pending after an edit.
+func (s *State) MarkStale(compute func() []Range) {
+	s.pending = compute
+	s.stale = true
+	s.gen++
+}
+
+func (s *State) Pending() bool {
+	return s.pending != nil
+}
+
+func (s *State) Stale() bool {
+	return s.pending != nil && s.stale
+}
+
+// Generation changes with every SetPending and MarkStale, so a result
+// computed for one can be told apart from a later one.
+func (s *State) Generation() int {
+	return s.gen
+}
+
+func (s *State) Resolve() {
+	if s.pending != nil {
+		s.SetRanges(s.pending())
+	}
 }
 
 func (s *State) Toggle(line int) {
@@ -60,9 +104,26 @@ func (s *State) Toggle(line int) {
 }
 
 func (s *State) Expand(line int) {
-	if s.collapsed[line] {
-		delete(s.collapsed, line)
-		s.dirty = true
+	for i := len(s.ranges) - 1; i >= 0; i-- {
+		r := s.ranges[i]
+		if r.StartLine <= line && line <= r.EndLine && s.collapsed[r.StartLine] {
+			delete(s.collapsed, r.StartLine)
+			s.dirty = true
+			return
+		}
+	}
+}
+
+func (s *State) Collapse(line int) {
+	for i := len(s.ranges) - 1; i >= 0; i-- {
+		r := s.ranges[i]
+		if r.StartLine <= line && line <= r.EndLine {
+			if !s.collapsed[r.StartLine] {
+				s.collapsed[r.StartLine] = true
+				s.dirty = true
+			}
+			return
+		}
 	}
 }
 
@@ -78,6 +139,15 @@ func (s *State) ExpandAll() {
 	s.dirty = true
 }
 
+func (s *State) RemapCollapsed(fn func(line int) int) {
+	remapped := make(map[int]bool, len(s.collapsed))
+	for line := range s.collapsed {
+		remapped[fn(line)] = true
+	}
+	s.collapsed = remapped
+	s.dirty = true
+}
+
 func (s *State) IsCollapsed(startLine int) bool {
 	return s.collapsed[startLine]
 }
@@ -87,10 +157,9 @@ func (s *State) HasCollapsedFolds() bool {
 }
 
 func (s *State) FoldAt(line int) *Range {
-	for i := range s.ranges {
-		if s.ranges[i].StartLine == line {
-			return &s.ranges[i]
-		}
+	i := sort.Search(len(s.ranges), func(i int) bool { return s.ranges[i].StartLine >= line })
+	if i < len(s.ranges) && s.ranges[i].StartLine == line {
+		return &s.ranges[i]
 	}
 	return nil
 }

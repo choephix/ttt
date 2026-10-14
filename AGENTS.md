@@ -12,8 +12,13 @@ ttt is a terminal text editor written in Go, using tcell for terminal rendering.
 make build        # builds to bin/ttt
 make run          # build + run
 make test         # go test ./...
-make fmt          # gofmt -w .
-make lint         # golangci-lint run
+make fmt          # gofmt -w . (pinned Go version)
+make lint         # fmt-check + golangci-lint run
+make bench-editor # editor benchmarks per language (BENCH_LANG=ts, BENCH_TIME=5s)
+make bench-diff   # diff view benchmarks (BENCH_LANG=go or commit_detail)
+make bench-log    # open real 1, 128, and 256 MiB logs in the built binary, wrap off and on, plus a dirty edit in a repo: time and peak RSS
+make bench-log BENCH_LOG_SIZE=1024MiB # manual 1 GiB log benchmark
+make bench-code   # open, type, and press Enter in a 64 MiB Go file in the built binary: time and peak RSS
 go test ./internal/core/buffer/   # run tests for a single package
 
 # Open a multi-folder workspace
@@ -27,38 +32,64 @@ bin/ttt ~/projectA ~/projectB file.go
 
 [`ARCHITECTURE.md`](ARCHITECTURE.md) is the source of truth for package ownership and the architecture convergence plan. The codebase uses dependency zones rather than a strict linear layer chain: domain, services, presentation kernel, product presentation, application, plugin host, and platform.
 
-Known boundary violations and explicit boundary decisions are documented there. Highlighting is presentation-owned at `internal/highlight`; Chroma lexing, lexer-state detection, caching, and `term.Style` mapping stay together there. tcell events are intentionally used across `term`, `widgets`, `ui`, and narrow application/platform wiring. Do not create cosmetic wrappers merely to satisfy the old layer diagram.
+Known boundary violations and explicit boundary decisions are documented there. Highlighting is presentation-owned at `internal/highlight`; grammar selection, caching, and TextMate scope to `term.Style` mapping stay together there. tcell events are intentionally used across `term`, `widgets`, `ui`, and narrow application/platform wiring. Do not create cosmetic wrappers merely to satisfy the old layer diagram.
 
 ### Packages
 
-- **`internal/core/`** — UI-agnostic editor engine. Domain APIs must not introduce terminal or rendering dependencies.
-  - `buffer/` — Line-based text storage (`[]string`), rune-level insert/delete, file I/O (load/save)
-  - `cursor/` — Visual column cursor with goal-column preservation for vertical movement
-  - `undo/` — Command-pattern undo/redo via `EditCommand` interface (InsertRune, DeleteRange, InsertLine)
+Packages are grouped by the dependency zones in [`ARCHITECTURE.md`](ARCHITECTURE.md), which is the source of truth for zone membership and dependency direction.
 
-- **`internal/highlight/`** — Presentation-owned per-line syntax highlighting via `chroma/v2` lexers. Owns language selection, lexer-state detection, caching, and mapping Chroma token types to `term.Style`. Full-buffer re-lexing is a known performance trap — avoid it.
+**Domain** (`internal/core/`): UI-agnostic editor engine. Domain code must not start processes, access terminal state, render widgets, or coordinate application lifecycle.
 
-- **`internal/view/`** — Viewport (scrolling, cursor-to-screen mapping) and status bar rendering
+- **`core/buffer/`**: line-based text storage (`[]string`), rune-level insert/delete, file I/O (load/save).
+- **`core/cursor/`**: visual column cursor with goal-column preservation for vertical movement.
+- **`core/undo/`**: command-pattern undo/redo via the `EditCommand` interface; `BatchCommand` groups edits into one undo step.
+- **`core/selection/`**: selection ranges and text extraction.
+- **`core/multicursor/`**: multi-cursor state (add, dedupe, collapse).
+- **`core/fold/`**: indentation-based fold ranges and fold state.
+- **`core/diff/`**: line diffing, unified diff generation and parsing, and git gutter change kinds.
+- **`core/clipboard/`**: clipboard with system, OSC 52, and process-local backends. It starts processes, which the Domain rules forbid; treat it as an existing exception, not a pattern for new domain code.
 
-- **`internal/render/`** — Diff-based renderer: compares prev/curr cell grids and emits minimal updates
+**Services**: external-process and external-state integration, exposing typed operations and results without owning widgets.
 
-- **`internal/terminal/`** — Integrated terminal emulator. Wraps `eugenioenko/vt10x` (a fork of `hinshun/vt10x`) for VT escape sequence parsing and `aymanbagabas/go-pty` for PTY lifecycle management. Provides the backing state for terminal tabs.
+- **`internal/git/`**: git CLI wrapper (status, staging, commit, repo discovery).
+- **`internal/github/`**: `gh` CLI wrapper for pull requests.
+- **`internal/lsp/`**: language server client (see LSP Integration).
+- **`internal/terminal/`**: integrated terminal emulator. Wraps `eugenioenko/xterm-go` for VT parsing and `aymanbagabas/go-pty` for PTY lifecycle.
+- **`internal/watcher/`**: fsnotify-based reporting of on-disk changes to open files and watched directories.
+- **`internal/workspace/`**: multi-folder workspaces. `Folder` and `Workspace` track project roots, with `IsRepo` git detection, `FolderForFile` lookup (longest-prefix match), and JSON `.ttt` workspace files. Falls back to `cwd` when no folders are given.
 
-- **`internal/term/`** — Terminal abstraction via `Screen` interface. `TcellScreen` is the real implementation. `MockScreen` supports unit-level `Screen` and renderer tests; `SimScreen` implements tcell's screen contract for composed E2E and chaos tests. Also defines `DirectColor` and `CellAttr` types for direct RGB color rendering (used by the terminal emulator to bypass the style map for 256-color support).
+**Presentation kernel**: screen cells, styles, width measurement, rendering, layout, and reusable interaction primitives.
 
-- **`internal/ui/`** — Window manager and pane system. `Window` binds a `Rect`, `Viewport`, and `Buffer` together. `WindowManager` tracks focus across windows. Also contains `terminal_widget.go` (renders vt10x grid as direct-color cells, handles key-to-VT translation), `root.go` (ForceKeys and RawKeyConsumer interface for terminal key routing), and `content_split.go` (OnTopClick/OnBottomClick for focus routing between editor and bottom panel).
+- **`internal/term/`**: `Screen` interface. `TcellScreen` is the real implementation; `MockScreen` supports unit-level `Screen` and renderer tests; `SimScreen` implements tcell's screen contract for composed E2E and chaos tests. Also defines `DirectColor` and `CellAttr` for direct RGB rendering (used by the integrated terminal to bypass the style map for 256-color output).
+- **`internal/render/`**: diff-based renderer that compares prev/curr cell grids and emits minimal updates.
+- **`internal/textwidth/`**: display-width measurement (`Rune`, `String`, `Runes`), the single source of truth for how many terminal columns text occupies. Wraps `clipperhouse/displaywidth` with the same options tcell v3 uses internally, including the `RUNEWIDTH_EASTASIAN` toggle, so layout always matches what tcell draws.
+- **`internal/highlight/`**: presentation-owned syntax highlighting via [textmate-go](https://github.com/eugenioenko/textmate-go) (VS Code's TextMate engine, 124 embedded grammars). Owns grammar selection, the incremental document, caching, and mapping TextMate scopes to `term.Style` (the engine's token category, refined by the token's innermost scope). Full-buffer re-tokenizing is a known performance trap; the engine's `Document` avoids it. Lines far below what is tokenized are deferred: `HighlightLineAt` draws them with their last spans, or on their own, and the event loop runs `highlight.Step` between events until they catch up. Highlighters run only on the UI goroutine; there is no background worker.
+- **`internal/view/`**: viewport (scrolling, cursor-to-screen mapping) and the segment-based status bar.
+- **`internal/widgets/`**: reusable widget primitives backing both the Plugin Widget API and core panels (tree, table, list, input, dialog, dropdown, tabs, stacks, scrollview, markdown, and so on). `surface.go`/`virtual_surface.go` provide the drawing surface abstraction; `focus.go` handles focus traversal.
+- **`internal/markdown/`**: goldmark-based markdown to styled lines.
 
-- **`internal/textwidth/`** — Display-width measurement (`Rune`, `String`, `Runes`). The single source of truth for how many terminal columns text occupies. Wraps `clipperhouse/displaywidth` with the same options tcell v3 uses internally, including the `RUNEWIDTH_EASTASIAN` toggle, so ttt's layout always matches what tcell draws.
+**Product presentation**:
 
-- **`internal/workspace/`** — Multi-folder workspace management. `Folder` and `Workspace` types track one or more project roots, with `IsRepo` git-detection, `FolderForFile` lookup (longest-prefix match), and JSON-based workspace file loading/saving (`.ttt` files). The editor falls back to `cwd` when no folders are explicitly provided.
+- **`internal/ui/`**: editor and panel widgets: `EditorGroupWidget`/`EditorPaneWidget` (tabs and editing), sidebar, bottom panel, search, diffs (`DiffEditorWidget` for every diff tab and for each file in Commit Details, with the `editor_diff.go` overlay), menus, dialogs. Notable files: `root.go` (`Root`, overlays, key matching, force keys, and the `RawKeyConsumer` interface), `terminal_widget.go` (renders the terminal grid as direct-color cells, translates keys to VT sequences), `content_split.go` (focus routing between editor and bottom panel).
 
-- **`internal/app/`** — Application orchestration layer; the largest package in the codebase. `App` (`app.go`) owns wiring between all other layers. `commands*.go` files implement command handlers by domain (editor, explorer, git, search, settings, view, palette, debug, plugin, options, help). `eventloop.go` and `keys.go` handle the main event loop and key dispatch. Other notable files: `explorer.go`/`changes_panel.go` (file tree and git changes panel), `gitgutter.go`/`repo_ops.go`/`pr.go` (git integration), `output.go` (output panel, see Key Design Constraints), `plugin_api.go`/`plugins_panel.go`/`plugin_detail.go` (plugin host UI), `menubar.go`/`menus.go`, `formatter.go`, `symbols_go.go`/`symbols_panel.go` (LSP document symbols).
+**Application**:
 
-- **`internal/plugin/`** — Lua plugin engine (gopher-lua based). `manager.go`/`registry.go`/`registry_remote.go` handle plugin discovery, loading, and the remote community registry. `permissions.go`/`sandbox.go` enforce the plugin permission model. `lua_*.go` files bind Go functionality into the `ttt` Lua module by domain (editor, fs, net, events, commandline, diagnostics, settings, system, json, callbacks). `panel_widget.go`/`widget_builder.go`/`widget_desc.go` implement the Plugin Widget API (see below); `styles.go` maps named styles to `term.Style*`. User-facing plugin authoring docs live in `docs-web/src/content/docs/guides/plugin-authoring.md` (also `plugins.md`, `plugin-testing.md`) — check there before re-deriving plugin API usage from source.
+- **`internal/app/`**: application orchestration, the largest package. `App` (`app.go`) wires everything together. `commands*.go` implement command handlers by domain. `eventloop.go` and `keys.go` run the main event loop and key dispatch. Also: explorer and changes panel, git gutter and PR views, the output panel (`output.go`), plugin host UI, menus, formatter, LSP document symbols.
+- **`internal/command/`**: command `Registry` (register, look up, execute by ID).
 
-- **`internal/widgets/`** — Reusable UI widget primitives that back both the Plugin Widget API and core app panels: `tree.go`, `table.go`, `list_widget.go`, `input.go`, `dialog.go`, `dropdown.go`, `tabs.go`/`tabbed.go`, `hstack.go`/`vstack.go`, `scrollview.go`/`scrollbar.go`, `label.go`/`title.go`/`text.go`, `button.go`/`checkbox.go`, `progress.go`, `markdown.go`, `box.go`/`divider.go`. `surface.go`/`virtual_surface.go` provide the drawing surface abstraction; `focus.go` handles focus traversal; `builder.go` is shared construction plumbing.
+**Plugin host**:
 
-- **`cmd/ttt/main.go`** — Entry point with event loop. Wires all components together, handles key dispatch, viewport scrolling, and redraw. Accepts a `--workspace <file>` flag to open a saved workspace, or folder/file paths as positional arguments.
+- **`internal/plugin/`**: Lua plugin engine (gopher-lua). `manager.go`/`registry*.go` handle discovery, loading, and the community registry; `permissions.go`/`sandbox.go` enforce the permission model; `lua_*.go` bind the `ttt` Lua module by domain.
+
+**Platform**:
+
+- **`cmd/ttt/main.go`**: entry point. Parses flags (`--workspace`, `--exec`, `--size`, and so on), sets up the screen, logging, and panic handling, constructs `App`, and wires the plugin host APIs.
+
+**Not yet assigned a zone in ARCHITECTURE.md**:
+
+- **`internal/config/`**: settings, keybindings (`DefaultKeybindings()`), themes (`theme.go`), and `.editorconfig` support.
+- **`internal/image/`**: image decoding and Kitty graphics protocol placement.
+- **`internal/icons/`**: named UI glyphs in Nerd Font or plain form. **`internal/fileicons/`**: file name to Nerd Font glyph mapping (generated from nvim-web-devicons).
 
 ### Design Principles
 
@@ -75,13 +106,14 @@ Known boundary violations and explicit boundary decisions are documented there. 
 - A fullwidth rune must never be drawn in the last column of a clip region: the terminal paints it across two columns regardless of clipping, so it bleeds over the border or scrollbar to its right. `DrawText` substitutes a space in that case.
 - The renderer uses double-buffering (prev/curr cell grids) to minimize terminal writes.
 - `Screen` isolates terminal drawing and screen lifecycle. tcell events remain the shared presentation event model in `term`, `widgets`, `ui`, and narrow application/platform routing. Domain and service packages must not import tcell.
-- **Never hardcode colors.** All colors must go through the theme system (`internal/config/theme.go` → `StyleDef` → `term.Style` constants → `buildStyleMap`). Add a new `StyleDef` field to `ThemeConfig`, a `term.Style` constant, and wire it in `buildStyleMap()`. Widgets reference `term.Style*` constants, never color values. The one exception is the integrated terminal, which uses direct RGB color rendering via `DirectColor`/`CellAttr` to support 256-color output.
+- **Never hardcode colors.** All colors must go through the theme system (`internal/config/theme.go` → `StyleDef` → `term.Style` constants → `BuildStyleMap()` in `internal/app/theme.go`). Add a new `StyleDef` field to `ThemeConfig`, a `term.Style` constant, and wire it in `BuildStyleMap()`. Widgets reference `term.Style*` constants, never color values. The one exception is the integrated terminal, which uses direct RGB color rendering via `DirectColor`/`CellAttr` to support 256-color output.
 - **Terminal colors** are configured via the `terminal` field in `ThemeConfig` (`TerminalColors`), which holds 16 ANSI colors plus foreground/background defaults.
-- The diff view layers syntax highlighting on top of diff background colors using `BgStyle` layering.
+- Diff tabs and each file in Commit Details use `DiffEditorWidget` (`internal/ui/diff_editor_widget.go`): editor panes over read-only buffers, with a `DiffOverlay` that tints changed lines and adds deleted, filler and gap rows. Syntax highlighting stays on top of the diff tint through `BgStyle` layering; a search match replaces the tint.
+- Editable diffs ("Open Changes" on a working-tree file) bind the same widget to the file tab's own editor pane (`editor_group_diff.go`, `diff_editor_live.go`). Deleted lines are non-buffer rows the cursor skips; in changes-only context unchanged runs hide behind a gap line (`DiffOverlay.Hidden`), separate from the user's folds, which diff panes never apply. Edits replay through `Buffer.ChangesSince` so the overlay, gaps and split alignment move with the text until the debounced recompute in `internal/app/gitgutter.go` replaces them.
 - **RawKeyConsumer interface**: when the integrated terminal is focused, all key events are routed directly to the PTY. Only force-keys (Ctrl+`) bypass this to allow toggling the terminal panel.
 - Async PTY output wakes the event loop via `PostEvent`/`EventInterrupt`.
 - **Output panel** (`internal/app/output.go`) is a core surface, not a plugin console. Producers are plugin `ttt.log`, language servers (`lsp:<server>`), and every status bar notification (`notice`). Append via `App.LogOutput` on the main thread, or `App.LogOutputAsync` from a background goroutine — it routes through `OutputLineResult` on the event loop, because widget state must not be mutated off the main thread. `LogOutput` also mirrors to `slog`, so `ttt.log` (debug builds) stays a superset of the panel. The panel is capped at `outputMaxLines` and trims in chunks; append with `TreeWidget.AppendItem`, never by rebuilding the slice for `SetItems`.
-- **Global search** (`search_widget.go`) shells out to `rg` (ripgrep) with debounced input (`search.debounce` in settings.json, default 350ms). Uses a generation counter and mutex to prevent concurrent searches from racing. Editor search highlights are tied to the search panel lifecycle — cleared when switching away, re-applied from existing results when switching back.
+- **Global search** (`search_widget.go`) shells out to `rg` (ripgrep) with debounced input (`search.debounce` setting). Uses a generation counter and mutex to prevent concurrent searches from racing. Editor search highlights are tied to the search panel lifecycle — cleared when switching away, re-applied from existing results when switching back.
 
 ### Keybinding System & tcell Key Mapping
 
@@ -89,7 +121,7 @@ Keybindings are defined in `internal/config/keybindings.go` (`DefaultKeybindings
 
 **Critical: tcell control key behavior.** For Ctrl+letter, tcell v3 (legacy mode, which ttt uses) delivers events with **both** the `KeyCtrlA..Z` constant **and** `ModCtrl` set. When registering control key bindings in `comboToTcell`, do NOT strip `ModCtrl` — the registered modifier must match what tcell delivers, otherwise `matchKey()` will fail silently. Ctrl+punctuation control chars (space, backtick, `/`, `\`, `]`, `^`, `_`) have no `KeyCtrl*` constant in v3 — they arrive as `KeyRune` + `ModCtrl` + a printable string (the exact string differs between legacy terminals and kitty-protocol terminals). `foldCtrlEvent()` in `internal/ui/root.go` folds both encodings to the canonical registered form: ctrl+space and ctrl+backtick → `KeyNUL`+`ModCtrl`, ctrl+/ → `KeyUS`+`ModCtrl`. New ctrl+punctuation bindings need a fold entry there.
 
-**Ctrl+Backtick (`` ctrl+` ``):** On legacy terminals Ctrl+` sends NUL (0x00), same as Ctrl+Space — they are indistinguishable, and both fold to `KeyNUL`+`ModCtrl`. Kitty-protocol terminals (Ghostty, Kitty, WezTerm) do report them distinctly under tcell v3, but ttt currently folds both to the same canonical key, so they remain one binding. `terminal.toggle` is bound to `ctrl+t` by default (with `alt+t` for `terminal.fullscreen`); `ctrl+backtick` is currently unbound.
+**Ctrl+Backtick (`` ctrl+` ``):** On legacy terminals Ctrl+` sends NUL (0x00), same as Ctrl+Space — they are indistinguishable, and both fold to `KeyNUL`+`ModCtrl`. Kitty-protocol terminals (Ghostty, Kitty, WezTerm) do report them distinctly under tcell v3, but ttt currently folds both to the same canonical key, so they remain one binding.
 
 **Force keys:** Bindings for commands in the `config.ForceKeyCommands` map (`internal/config/keybindings.go`, registered via `root.AddForceKey()` in `internal/app/commands.go`) are checked even when a `RawKeyConsumer` (like the integrated terminal) has focus. `terminal.toggle` must remain a force key.
 
@@ -97,71 +129,21 @@ Keybindings are defined in `internal/config/keybindings.go` (`DefaultKeybindings
 
 ### LSP Integration
 
-Language server support lives in `internal/lsp/`. Servers are configured per-language in `~/.config/ttt/extensions.json`. The LSP client uses JSON-RPC 2.0 over stdio with Content-Length framing — no external dependencies.
+Language server support lives in `internal/lsp/`: a JSON-RPC 2.0 client over stdio with Content-Length framing and no external dependencies, one client per language, lazy-started on first use. Servers are configured under `lsp.servers` in settings (`LSPSettings` in `internal/config/settings.go`); `internal/app/app_lsp.go` wires the client into the editor.
 
-- `jsonrpc.go` — codec (send/receive with Content-Length framing)
-- `protocol.go` — minimal LSP type definitions (initialize, document sync, completions, signature help)
-- `client.go` — LSP client with async read loop and request/response channel matching
-- `manager.go` — one client per language, lazy-started on first use
-- `extensions.go` — config loading from `extensions.json`
-- `internal/app/lsp_convert.go` — bridge converting `lsp.CompletionItem` → `ui.CompletionItem`
+Async LSP results (completions, signature help, hover, and so on) wake the event loop with the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document, not incremental.
 
-Async completions and signature help use the same `PostEvent(EventInterrupt)` pattern as git blame. Document sync is full-document (not incremental). Auto-completion triggers on every text change with a configurable debounce timer (`autocomplete.debounce` in settings.json, default 150ms). Signature help triggers on `(` and `,` characters, dismissed on `)`.
+### Plugin API
 
-### Plugin Widget API
+The plugin API reference (Widget API, raw cell API, box model, named styles, status bar items, and every `ttt.*` function) lives in `docs-web/src/content/docs/guides/plugin-authoring.md`, with `plugins.md` and `plugin-testing.md` alongside it. Read it before re-deriving the API from source, and update it in the same PR as any API change.
 
-Lua plugins render UI in sidebar panels, bottom-panel tabs, drawers, and editor tabs via a `PanelProxy` (`p`) passed to their `render` callback. Implementation lives in `internal/plugin/lua_panel.go` (Lua bindings), `internal/plugin/widget_desc.go` (descriptor struct), and `internal/plugin/widget_builder.go` (Go widget construction). Underlying widget types are in `internal/widgets/`.
+Implementation: Lua bindings in `internal/plugin/lua_panel.go`, descriptors in `widget_desc.go`, Go widget construction in `widget_builder.go`, named styles in `styles.go` (`StyleByName()`), widget types in `internal/widgets/`.
 
-**Widget methods** (called as `p:method(args)`):
+Things the docs do not cover:
 
-| Method | Lua fields | Description |
-|---|---|---|
-| `p:label(text)` or `p:label({...})` | `text`, `style`, `badge`, `width`, borders | Static text line. `style` is a named style (see below). `border`/`border_top`/`border_bottom`/`border_left`/`border_right` draw borders. Supports box model. |
-| `p:title(text)` or `p:title({...})` | `text`, `badge`, `menu`, `on_menu(command)`, `icon`, `padded` | Bold section heading with optional right-aligned badge and dropdown menu. `menu` is `{label, command, separator, checked}` tables; optional boolean `checked` reserves and controls a check indicator. `icon` overrides the dropdown button (default `⋮`). Supports box model. |
-| `p:tree({...})` | `items`, `indent` (default 2), `on_select`, `on_expand`, `on_command`, `node_menu`, `key_commands`, `truncate_left` | Expandable tree view. Items are `{id, label, icon, badge, muted, expandable, expanded, children}` tables. `key_commands` maps single chars to commands via `on_command`. `truncate_left` truncates overflowing labels from the left (`…tail`) so the end stays visible. |
-| `p:list({...})` | `items`, `on_select`, `on_command`, `node_menu`, `key_commands`, `truncate_left` | Flat list (backed by TreeWidget, no indentation). `truncate_left` keeps label tails visible on overflow. |
-| `p:button({...})` | `label`, `on_click` | Clickable button. Label is immutable after creation (accelerator parsing). |
-| `p:checkbox({...})` | `label`, `checked`, `style`, `on_change(checked)` | Boolean toggle. Renders `[x]`/`[ ]` with focus styling on brackets. Supports box model. |
-| `p:input({...})` | `placeholder`, `prefix`, `clear_on_submit`, `on_change(text)`, `on_submit(text)` | Text input field. `clear_on_submit` (bool) clears text after submit. |
-| `p:vstack({...})` | `render(child_panel)`, `gap` | Vertical stack container. The `render` function receives a child panel proxy to emit nested widgets. |
-| `p:keyvalue({{key,value}, ...})` | array of `{key, value}` tables | Key-value list. The argument table IS the entries array (not an `entries` field); box model fields go on the same table. |
-| `p:hstack({...})` | `render(child_panel)`, `gap`, `height` | Horizontal stack container. First child grows to fill available space, remaining children get fixed width. |
-| `p:scrollview({...})` | `render(child_panel)` | Scrollable container. Wraps children with mouse wheel scrolling and scrollbar when content overflows. |
-| `p:box({...})` | `render(child_panel)`, `border` (+ per-side), `height` | Container with optional border and fixed height. Children via `render` callback. |
-| `p:divider()` | (none) | Horizontal divider line. Single-line separator, no configuration. |
-| `p:dropdown({...})` | `label`, `entries`, `on_menu(command)` | Dropdown menu button. `entries` are `{label, command, separator, checked}` tables; optional boolean `checked` reserves and controls a check indicator. |
-| `p:progress({...})` | `value` (0–1), `style`, `char` (default `▄`) | Horizontal progress bar. |
-| `p:table({...})` | `columns` (`{label, width, align}`), `rows` (arrays of strings), `on_select(row_idx)`, `on_command(cmd, row_idx)`, `node_menu`, `key_commands` | Data table with headers and row selection. Row indices are 1-based. |
-| `p:markdown(text)` or `p:markdown({...})` | `text` | Rendered markdown with selection/copy, auto-wrapped in a scrollview. Wraps at `markdown.wrapWidth` (default 80). |
-
-All menu-entry tables (`actions`, `menu`, `entries`, and `node_menu`) accept `label`, `command`, `separator`, and optional boolean `checked`. Omitting `checked` keeps the menu indicator-free; `false` shows an unchecked slot and `true` shows a check.
-
-**Raw cell API** (low-level drawing; can be mixed with widgets — raw cells draw directly on the surface, widgets stack from the top over it):
-
-- `p:size()` — returns `width, height`
-- `p:cell(x, y, char, style)` — set a single cell
-- `p:text(x, y, text, style)` — draw a string
-- `p:clear(x, y, w, h)` — clear a rectangle
-- `p:redraw()` — request a redraw from the event loop
-
-**Box model:** `margin_top`, `margin_bottom`, `margin_left`, `margin_right`, `padding_top`, `padding_bottom`, `padding_left`, `padding_right` — parsed via `parseBoxModel()` and applied via `applyBoxModel()`. Supported on all widgets except `divider`.
-
-**Named styles** available for `style` fields: `default`, `muted`, `border`, `success`, `danger`, `warning`, `selected`, `item`, `line`, `input`, `bold`, `italic`, `code`, `syntax_comment`, `syntax_string`, `syntax_keyword`, `syntax_number`, `syntax_operator`, `syntax_function`, `syntax_type`, `syntax_builtin`, `syntax_variable`, `syntax_tag`, `syntax_attribute`. These map to `term.Style*` constants via `StyleByName()` in `styles.go`.
-
-### Status Bar Segment API
-
-The status bar uses a segment-based model (`view.StatusBar` with `StatusSegment`). Both core and plugins contribute segments. Each segment has an `ID`, `Side` (`"left"` or `"right"`), `Priority` (lower = closer to the edge), `Text`, optional `Style`, and optional `OnClick` handler.
-
-Core segments use priorities 100–500 (branch=100, blame=200 on left; position=100, indent=200, encoding=300, eol=400, language=500 on right). Plugin segments default to priority 1000; lower values (e.g., 10) appear before core segments.
-
-**Plugin Lua API:**
-- `ttt.set_status_item(side, id, text, opts)` — add or update a status bar segment. `side` is `"left"` or `"right"`. `id` is scoped to the plugin (prefixed with `pluginName:`). `opts` is an optional table with `priority` (number, default 1000) and `on_click` (function).
-- `ttt.remove_status_item(id)` — remove a segment by ID.
-
-**Command execution:**
-- `ttt.exec_command(id)` — execute any registered command by ID (e.g., `"editor.undo"`, `"file.save"`). Returns `true` if the command was found and executed, `false` otherwise. Requires `commands` permission.
-
-These callbacks are only available after `WirePlugin` — call them from command handlers or event callbacks, not at plugin init time.
+- Plugins must `local ttt = require("ttt")`; the module is preloaded, not global.
+- `ttt.*` callbacks (`notify`, `set_status_item`, `exec_command`, ...) only work after `WirePlugin`, which runs after `InitFromSource`. Call them from command handlers or event callbacks, not at plugin load time.
+- Status bar segments (`view.StatusBar`, `StatusSegment`) are shared by core and plugins. Lower priority sits closer to the edge. Core segments use priorities below 1000 (grep `StatusSegment{` for the current values); plugin segments default to 1000 and are ID-scoped as `pluginName:id`.
 
 ### Testing
 
@@ -169,7 +151,7 @@ The project has four levels of testing:
 
 **Unit tests** (`internal/*/`) — Standard Go tests for individual packages. Core algorithms are testable without presentation dependencies; syntax-highlighting characterization and performance tests live with `internal/highlight`. Run with `go test ./internal/core/buffer/` or `make test` for all.
 
-**E2E tests** (`tests/e2e/`) — Go tests that wire up the full `App` with a `term.SimScreen` (an in-memory `tcell.Screen`). The `testHarness` (`harness_test.go`) creates a temp directory with sample files, builds the complete app (config, commands, keybindings, renderer), and provides helpers: `pressKey()`, `pressRune()`, `click()`, `exec()`, `screenText()`, `assertContains()`. The watcher-aware `waitForFileChange()` helper blocks on `PollEvent` to receive real fsnotify events and dispatches them through the reconciliation path. These tests run single-threaded (no event loop goroutine) — the test drives events and redraws manually.
+**E2E tests** (`tests/e2e/`) — Go tests that wire up the full `App` with a `term.SimScreen` (an in-memory `tcell.Screen`). The `testHarness` (`harness_test.go`) creates a temp directory with sample files, builds the complete app (config, commands, keybindings, renderer), and provides helpers: `pressKey()`, `pressRune()`, `click()`, `exec()`, `screenText()`, `assertContains()`. These tests run single-threaded (no event loop goroutine) — the test drives events and redraws manually.
 
 **Functional tests** (`tests/functional/`) — JavaScript tests using vitest that drive the real compiled `bin/ttt` binary via the `--exec` debug harness. The `tui.js` wrapper accumulates commands (type, press, exec, snapshot) and runs them in a single batch via `execFileSync`. No external dependencies beyond vitest. Run with `cd tests/functional && pnpm test`. The binary must be built first (`make build`).
 
@@ -197,60 +179,20 @@ Choose the smallest deterministic layer that proves the intended invariant, then
 
 The functional suite is a compact real-binary contract, not a mandatory duplicate of lower-layer coverage. An invariant proved at a lower deterministic boundary does not also require a functional test; add a higher-boundary test only for behavior unique to that boundary. During implementation, run focused tests for the affected contract. CI remains the broad regression gate before merge.
 
-### Debug harness (`--exec`, `--plugin`, `--size`, `--debug`, `--listen`)
+### Debug harness (`--exec`, `--listen`, `--size`, `--plugin`)
 
-**USE THIS FOR DEBUGGING AND TESTING.** The editor has a built-in scripted interaction system that is faster than TUI tests and gives you direct access to internal state — reach for it before investigating UI bugs manually.
-
-**`--exec "commands"`** — Execute semicolon-separated commands after startup. Run the real binary, interact with it, capture state, and exit — all in one command:
+Use it to reproduce bugs, try out features, and verify changes in the real binary. It is faster than TUI tests and exposes internal state.
 
 ```bash
 bin/ttt --size 120x40 --exec "wait-for Explore; screenshot /tmp/screen.txt; debug /tmp/state.json; quit"
-cat /tmp/screen.txt   # see what's rendered
-cat /tmp/state.json   # see full widget tree, focus, selection, panels
 ```
 
-Supported commands:
-- `click X Y` — simulate left mouse click (press + release) at coordinates
-- `rclick X Y` — simulate right mouse click at coordinates
-- `hover X Y` — simulate mouse hover (move) at coordinates
-- `drag X1 Y1 X2 Y2` — simulate a mouse drag between two points (interpolated over 10 steps)
-- `key COMBO` — simulate key press (e.g. `key ctrl+p`, `key enter`, `key ctrl+k x`)
-- `type TEXT` — type a string of text
-- `paste TEXT` — simulate a bracketed paste (terminal paste)
-- `copy` — copy the current selection to the clipboard
-- `exec "Command Name"` — run a command by title (same as command palette)
-- `screenshot PATH` — save screen text to file
-- `debug PATH` — save debug state JSON (screen, cursor, buffer, focus, panels, tabs, selection, output log, integrated-terminal raw PTY byte tails, full widget tree with rect/focus/props per node)
-- `wait MS` — wait milliseconds
-- `wait-for TEXT [timeout=MS]` — wait until text appears on the actual visible screen; defaults to a bounded 5000ms timeout. Quote text to preserve surrounding whitespace or escapes.
-- `panel ID` — show and focus a bottom panel by ID
-- `quit` / `shutdown` — exit the editor
-
-Scripted input and main-thread commands are acknowledged after the event loop handles and redraws them, so following actions observe completed visible state. Invalid actions, missing commands/panels, capture failures, and wait timeouts stop the script: CLI `--exec` reports the error on stderr and exits nonzero; `POST /exec` returns a non-2xx response with the same detail.
-
-**`--listen`** — Start an HTTP command server on `127.0.0.1:4242` (loopback-only — never exposed off the local machine). `POST /exec` runs the same script format as `--exec`, synchronously, against an **already-running** editor — for capturing a repro at the exact moment it happens instead of scripting it in advance:
-
-```bash
-bin/ttt --listen &
-curl -X POST --data "type hi; wait-for hi; screenshot /tmp/screen.txt" http://127.0.0.1:4242/exec
-curl -X POST --data "shutdown" http://127.0.0.1:4242/exec
-```
-
-Pass `?sep=` to use a different command separator, mirroring `--exec-split-on`.
-
-**`--size WxH`** — Force screen dimensions for deterministic layout (e.g. `--size 120x40`). Essential for reproducible screenshots and coordinate-based click tests.
-
-**`--plugin FILE`** — Load a Lua plugin file on startup with full permissions. For more complex test scenarios that need callbacks, state, or event handling. **Important:** Plugin files must `local ttt = require("ttt")` before using any `ttt.*` API — the module is preloaded, not global. Callbacks (e.g., `ttt.notify`, `ttt.set_status_item`) only work after `WirePlugin` runs, which happens after `InitFromSource`, so they must be called from command handlers or event callbacks, not at init time.
-
-**`--debug`** — Enable debug mode regardless of config setting.
-
-**`TTT_CONFIG_DIR` env var** — overrides the config directory entirely (settings, keybindings, themes, plugins, plugin registry). Always set this when running scripted `--exec` sessions that touch settings or plugins, so the developer's real `~/.config/ttt` is not read or mutated. The functional test harness (`tests/functional/tui.js`) sets it automatically.
-
-Headless `--exec` sessions use a process-local clipboard, so concurrent automation cannot overwrite the desktop clipboard or each other's copied text. Interactive sessions, including `--listen`, continue to use the system clipboard.
-
-**Lua API equivalents** — Plugins can also call `ttt.screenshot(path)`, `ttt.debug(path)`, `ttt.click(x, y)`, and `ttt.quit()` directly.
-
-**Command palette** — `Debug: Screenshot`, `Debug: Dump State`, `Debug: Simulate Click`, `Debug: Run Current File as Plugin` are available for interactive debugging.
+- **`--exec "commands"`** runs semicolon-separated actions after startup: `click`, `rclick`, `hover`, `drag`, `key`, `type`, `paste`, `copy`, `exec "Command Name"`, `screenshot`, `debug`, `wait`, `wait-for TEXT`, `panel ID`, `quit`. `bin/ttt --help` (`ExecScriptUsage()` in `internal/app/exec_script.go`) is the reference. Each action is acknowledged after the event loop handles and redraws it; any failure stops the script with a nonzero exit.
+- **`debug PATH`** dumps screen, cursor, buffer, focus, panels, tabs, selection, output log, terminal PTY tails, and the widget tree.
+- **`--listen`** accepts the same script over `POST http://127.0.0.1:4242/exec` (loopback only), to drive an editor a person started in a real terminal: `curl -X POST --data "type hi; screenshot /tmp/s.txt" http://127.0.0.1:4242/exec`.
+- **`--size WxH`** makes layout and click coordinates deterministic.
+- **`--plugin FILE`** loads a Lua plugin with full permissions (see the Plugin API caveats).
+- **`TTT_CONFIG_DIR`** overrides the config directory. Set it for scripted sessions so the real `~/.config/ttt` is not read or mutated. Headless `--exec` uses a process-local clipboard.
 
 ### Implementation patterns
 
@@ -260,21 +202,14 @@ Headless `--exec` sessions use a process-local clipboard, so concurrent automati
 - **Keybindings**: `ctrl+shift` combos are unreliable in terminals — avoid them. Use `ctrl+k <key>` chords for new commands. Check `DefaultKeybindings()` in `internal/config/keybindings.go` before assigning to avoid collisions. If no obvious binding exists, leave the command as command palette only — not every command needs a keybinding.
 - **Overlay stacking**: commands that open overlays via keybindings must guard against being called twice with `if a.Root.HasOverlay() { return }`. `ShowDialog`/`ShowConfirmDialog` themselves have no guard so legitimate stacking (e.g. quit confirm) still works.
 - **Command handlers**: define handlers as named methods on `App` (e.g. `app.ExplorerRename`) and reference them in `reg.Register(...)`. Do not use inline closures for non-trivial handlers.
-- **Comments**: do not add comments to code unless they are critical — e.g. a non-obvious architectural constraint that would cause bugs or misuse if missed (see the `textwidth`/fullwidth-rune notes above for the bar to clear). Do not explain WHAT the code does; well-named identifiers already do that.
+- **Comments: only critical ones.** Add a comment only when missing it would cause a bug or misuse: a hidden constraint, a non-obvious invariant, or a workaround for a specific bug (the `textwidth`/fullwidth-rune notes above show the bar to clear). Never comment what the code does, restate an identifier, narrate the change, or add docstrings for coverage; well-named identifiers already do that.
 
-### Post-implementation review
+### Opening a pull request
 
-After a feature is implemented and tests pass, review all changes for cleanup: dead code, unnecessary complexity, naming inconsistencies, or missing edge cases. Fix anything related to the feature in the same PR. If you spot something unrelated that needs attention, create a GitHub issue for it instead of fixing it in the current PR.
-
-### Dependencies
-
-Key external dependencies beyond the Go standard library:
-
-- `github.com/gdamore/tcell/v3` — terminal rendering
-- `github.com/aymanbagabas/go-pty` — PTY management for the integrated terminal
-- `github.com/eugenioenko/vt10x` — VT escape sequence parsing for the integrated terminal (fork of `hinshun/vt10x`)
-- `github.com/alecthomas/chroma/v2` — syntax highlighting lexers
-- `github.com/yuin/gopher-lua` — Lua plugin engine
-- `github.com/yuin/goldmark` — Markdown rendering
-- `github.com/fsnotify/fsnotify` — file watching
-- `github.com/clipperhouse/displaywidth` — terminal column width measurement
+- **Features need an accepted issue first.** Link it in the PR body (`Closes #123`). Bug fixes, docs, and small cleanups can go straight to a PR.
+- **Run it.** Reproduce a bug, or try a feature, in the real binary with `--exec` or `--listen` before and after the change.
+- **One concern per PR**, under roughly 600 changed lines. Note unrelated problems you find in the PR body instead of fixing them.
+- **Title** uses conventional commits: `type(scope): description`.
+- **Body** explains why, which test covers the change, and includes a `--exec` screenshot for visible changes.
+- **Before opening:** `make test` and `make lint` pass, and comments that describe what the code does are removed.
+- **AI-assisted PRs are welcome**, but the human submitting it must have run the change and be able to explain every line.

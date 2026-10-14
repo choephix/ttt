@@ -2,16 +2,23 @@ package lsp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
+	"time"
 )
 
-func TestClientCallAndResponse(t *testing.T) {
+func pipeClient(t *testing.T) (*Client, *Codec) {
+	t.Helper()
 	clientR, serverW := io.Pipe()
 	serverR, clientW := io.Pipe()
-
+	t.Cleanup(func() {
+		serverW.Close()
+		clientW.Close()
+	})
 	c := &Client{
 		codec:   NewCodec(clientR, clientW),
 		nextID:  1,
@@ -19,61 +26,43 @@ func TestClientCallAndResponse(t *testing.T) {
 		done:    make(chan struct{}),
 	}
 	go c.readLoop()
+	return c, NewCodec(serverR, serverW)
+}
 
-	serverCodec := NewCodec(serverR, serverW)
-
-	go func() {
-		resp, err := serverCodec.Receive()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		result, _ := json.Marshal(map[string]string{"status": "ok"})
-		serverCodec.Send(Request{
-			JSONRPC: "2.0",
-			ID:      resp.ID,
-			Method:  "",
-			Params:  json.RawMessage(result),
-		})
-	}()
-
-	// The server mock above sends back a Request (with ID + Params).
-	// But our read loop expects a Response with Result field.
-	// Let's use a proper raw response instead.
-	clientR2, serverW2 := io.Pipe()
-	serverR2, clientW2 := io.Pipe()
-
-	c2 := &Client{
-		codec:   NewCodec(clientR2, clientW2),
-		nextID:  1,
-		pending: make(map[int]chan Response),
-		done:    make(chan struct{}),
+func receiveWithin(t *testing.T, codec *Codec) Response {
+	t.Helper()
+	type result struct {
+		msg Response
+		err error
 	}
-	go c2.readLoop()
-
+	ch := make(chan result, 1)
 	go func() {
-		// Read raw request from client
-		sCodec := NewCodec(serverR2, serverW2)
-		raw, err := sCodec.Receive()
+		msg, err := codec.Receive()
+		ch <- result{msg, err}
+	}()
+	select {
+	case r := <-ch:
+		if r.err != nil {
+			t.Fatal(r.err)
+		}
+		return r.msg
+	case <-time.After(5 * time.Second):
+		t.Fatal("no message from client")
+		return Response{}
+	}
+}
+
+func TestClientCallAndResponse(t *testing.T) {
+	c, server := pipeClient(t)
+	go func() {
+		req, err := server.Receive()
 		if err != nil {
-			t.Error(err)
 			return
 		}
-		id := raw.ID
-		if id == nil {
-			idVal := 0
-			// Try to get ID from the request - it's sent as a Request but received as Response
-			if raw.Method != "" {
-				idVal = 1
-			}
-			id = &idVal
-		}
-		respBody := fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"result":{"status":"ok"}}`, *id)
-		header := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(respBody), respBody)
-		serverW2.Write([]byte(header))
+		server.Send(Reply{JSONRPC: "2.0", ID: req.ID, Result: json.RawMessage(`{"status":"ok"}`)})
 	}()
 
-	result, err := c2.call("test/method", map[string]string{"key": "value"})
+	result, err := c.call("test/method", map[string]string{"key": "value"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +73,254 @@ func TestClientCallAndResponse(t *testing.T) {
 	}
 	if parsed["status"] != "ok" {
 		t.Fatalf("expected status ok, got %s", parsed["status"])
+	}
+}
+
+func TestHoverContextCancellationDropsLateResponse(t *testing.T) {
+	c, server := pipeClient(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.HoverContext(ctx, "file:///test.go", 1, 2)
+		done <- err
+	}()
+	request := receiveWithin(t, server)
+	if request.Method != "textDocument/hover" {
+		t.Fatalf("request method = %q", request.Method)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("hover error = %v, want context cancellation", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("hover cancellation waited for the server to read stdin")
+	}
+	message := receiveWithin(t, server)
+	var params struct {
+		ID json.RawMessage `json:"id"`
+	}
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		t.Fatal(err)
+	}
+	if message.Method != "$/cancelRequest" || string(params.ID) != string(request.ID) {
+		t.Fatalf("cancellation = %s %s, want request %s", message.Method, message.Params, request.ID)
+	}
+	c.mu.Lock()
+	pending := len(c.pending)
+	c.mu.Unlock()
+	if pending != 0 {
+		t.Fatalf("cancelled request left %d pending calls", pending)
+	}
+	if err := server.Send(Reply{JSONRPC: "2.0", ID: request.ID, Result: json.RawMessage(`{"contents":"stale"}`)}); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		req, err := server.Receive()
+		if err == nil {
+			server.Send(Reply{JSONRPC: "2.0", ID: req.ID, Result: json.RawMessage(`{"contents":"latest"}`)})
+		}
+	}()
+	hover, err := c.Hover("file:///test.go", 2, 3)
+	if err != nil || hover == nil || hover.Contents.Value != "latest" {
+		t.Fatalf("next hover = %v, error = %v", hover, err)
+	}
+}
+
+func TestHoverContextAlreadyCancelledSendsNothing(t *testing.T) {
+	var output bytes.Buffer
+	c := &Client{codec: NewCodec(nil, &output)}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.HoverContext(ctx, "file:///test.go", 0, 0); !errors.Is(err, context.Canceled) {
+		t.Fatalf("hover error = %v, want context cancellation", err)
+	}
+	if output.Len() != 0 {
+		t.Fatal("cancelled hover sent a request")
+	}
+}
+
+func TestCompletionAndSignatureHelpRespectCancellation(t *testing.T) {
+	var output bytes.Buffer
+	c := &Client{codec: NewCodec(nil, &output)}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.Completion(ctx, "file:///test.go", 0, 0, nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("completion error = %v, want context cancellation", err)
+	}
+	if _, err := c.SignatureHelp(ctx, "file:///test.go", 0, 0); !errors.Is(err, context.Canceled) {
+		t.Fatalf("signature help error = %v, want context cancellation", err)
+	}
+	if output.Len() != 0 {
+		t.Fatal("cancelled requests were sent")
+	}
+}
+
+func TestDocumentSymbolsRespectCancellation(t *testing.T) {
+	var output bytes.Buffer
+	c := &Client{codec: NewCodec(nil, &output)}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.DocumentSymbols(ctx, "file:///test.go"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("document symbols error = %v, want context cancellation", err)
+	}
+	if output.Len() != 0 {
+		t.Fatal("cancelled document symbols request was sent")
+	}
+}
+
+func TestDocumentSymbolsCancellationSendsCancelRequest(t *testing.T) {
+	c, server := pipeClient(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.DocumentSymbols(ctx, "file:///test.go")
+		done <- err
+	}()
+	request := receiveWithin(t, server)
+	if request.Method != "textDocument/documentSymbol" {
+		t.Fatalf("request method = %q", request.Method)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("document symbols error = %v, want context cancellation", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("document symbols cancellation waited for the server reply")
+	}
+	message := receiveWithin(t, server)
+	var params struct {
+		ID json.RawMessage `json:"id"`
+	}
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		t.Fatal(err)
+	}
+	if message.Method != "$/cancelRequest" || string(params.ID) != string(request.ID) {
+		t.Fatalf("cancellation = %s %s, want request %s", message.Method, message.Params, request.ID)
+	}
+}
+
+func TestClientAnswersServerRequests(t *testing.T) {
+	tests := []struct {
+		name      string
+		request   string
+		wantID    string
+		wantRes   string
+		wantError int
+	}{
+		{
+			name:    "register capability with string id",
+			request: `{"jsonrpc":"2.0","id":"reg-1","method":"client/registerCapability","params":{"registrations":[]}}`,
+			wantID:  `"reg-1"`,
+			wantRes: `null`,
+		},
+		{
+			name:    "unregister capability",
+			request: `{"jsonrpc":"2.0","id":7,"method":"client/unregisterCapability","params":{"unregisterations":[]}}`,
+			wantID:  `7`,
+			wantRes: `null`,
+		},
+		{
+			name:    "configuration returns one null per item",
+			request: `{"jsonrpc":"2.0","id":"cfg","method":"workspace/configuration","params":{"items":[{"section":"typescript"},{"section":"javascript"}]}}`,
+			wantID:  `"cfg"`,
+			wantRes: `[null,null]`,
+		},
+		{
+			name:    "diagnostic refresh",
+			request: `{"jsonrpc":"2.0","id":3,"method":"workspace/diagnostic/refresh"}`,
+			wantID:  `3`,
+			wantRes: `null`,
+		},
+		{
+			name:      "unknown method",
+			request:   `{"jsonrpc":"2.0","id":"x","method":"window/showDocument","params":{}}`,
+			wantID:    `"x"`,
+			wantError: CodeMethodNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, server := pipeClient(t)
+			if err := server.Send(json.RawMessage(tt.request)); err != nil {
+				t.Fatal(err)
+			}
+			reply := receiveWithin(t, server)
+			if string(reply.ID) != tt.wantID {
+				t.Errorf("reply id = %s, want %s", reply.ID, tt.wantID)
+			}
+			if tt.wantError != 0 {
+				if reply.Error == nil || reply.Error.Code != tt.wantError {
+					t.Errorf("reply error = %v, want code %d", reply.Error, tt.wantError)
+				}
+				if reply.Result != nil {
+					t.Errorf("error reply carries result %s", reply.Result)
+				}
+			} else if string(reply.Result) != tt.wantRes || reply.Error != nil {
+				t.Errorf("reply = result %s error %v, want result %s", reply.Result, reply.Error, tt.wantRes)
+			}
+		})
+	}
+}
+
+func TestClientDiagnosticRefreshCallsHook(t *testing.T) {
+	c, server := pipeClient(t)
+	refreshed := make(chan struct{}, 1)
+	c.OnDiagnosticRefresh = func() { refreshed <- struct{}{} }
+	if err := server.Send(json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"workspace/diagnostic/refresh"}`)); err != nil {
+		t.Fatal(err)
+	}
+	receiveWithin(t, server)
+	select {
+	case <-refreshed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("refresh hook not called")
+	}
+}
+
+func TestClientServerRequestDoesNotResolvePendingCall(t *testing.T) {
+	c, server := pipeClient(t)
+	go func() {
+		call, err := server.Receive()
+		if err != nil {
+			return
+		}
+		// Same integer id as the outstanding call, but a request.
+		server.Send(json.RawMessage(fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"method":"workspace/configuration","params":{"items":[{}]}}`, call.ID)))
+		if _, err := server.Receive(); err != nil {
+			return
+		}
+		server.Send(Reply{JSONRPC: "2.0", ID: call.ID, Result: json.RawMessage(`"real"`)})
+	}()
+
+	result, err := c.call("test/method", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(result) != `"real"` {
+		t.Fatalf("call result = %s, want the server's reply", result)
+	}
+}
+
+func TestClientNullIDNotificationIsDelivered(t *testing.T) {
+	c, server := pipeClient(t)
+	got := make(chan string, 1)
+	c.OnDiagnostics = func(p PublishDiagnosticsParams) { got <- p.URI }
+	if err := server.Send(json.RawMessage(`{"jsonrpc":"2.0","id":null,"method":"textDocument/publishDiagnostics","params":{"uri":"file:///a.ts","diagnostics":[]}}`)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case uri := <-got:
+		if uri != "file:///a.ts" {
+			t.Fatalf("diagnostics for %s, want file:///a.ts", uri)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("notification with null id was not delivered")
 	}
 }
 
@@ -201,4 +438,33 @@ func TestParseDocumentSymbolsEmpty(t *testing.T) {
 	if len(symbols) != 0 {
 		t.Fatalf("expected no symbols, got %d", len(symbols))
 	}
+}
+
+func TestCodeActionSendsEmptyDiagnosticsArray(t *testing.T) {
+	c, server := pipeClient(t)
+	go func() {
+		_, _ = c.CodeAction("file:///a.ts", Range{}, []string{"source.organizeImports"})
+	}()
+
+	req := receiveWithin(t, server)
+	if req.Method != "textDocument/codeAction" {
+		t.Fatalf("expected textDocument/codeAction, got %s", req.Method)
+	}
+
+	// Kept raw: decoding into []Diagnostic would turn null into a nil slice and
+	// erase the distinction this test exists to catch. TypeScript 7 rejects a
+	// null diagnostics field with -32602.
+	var params struct {
+		Context struct {
+			Diagnostics json.RawMessage `json:"diagnostics"`
+		} `json:"context"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		t.Fatalf("unmarshal params: %v", err)
+	}
+	if string(params.Context.Diagnostics) != "[]" {
+		t.Fatalf("expected diagnostics to serialize as [], got %s", params.Context.Diagnostics)
+	}
+
+	server.Send(Reply{JSONRPC: "2.0", ID: req.ID, Result: json.RawMessage("[]")})
 }

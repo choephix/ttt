@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/textwidth"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -25,6 +26,7 @@ type Tab struct {
 	Closable bool
 	Preview  bool
 	Pinned   bool
+	ReadOnly bool
 }
 
 type TabDragAutoScrollTick struct {
@@ -33,6 +35,7 @@ type TabDragAutoScrollTick struct {
 
 type TabBarWidget struct {
 	BaseWidget
+	Icons                     string
 	Tabs                      []Tab
 	Borders                   *term.BorderSet
 	ScrollOffset              int
@@ -100,16 +103,24 @@ func (t *TabBarWidget) SetTabs(tabs []Tab) {
 
 func (t *TabBarWidget) tabLabel(tab Tab) string {
 	name := filepath.Base(tab.Name)
-	label := " "
+	prefix := " "
+	suffix := ""
 	if tab.Dirty {
-		label += "● "
+		prefix += "● "
 	}
-	label += name
+	if tab.ReadOnly {
+		if icons.IsNerd(t.Icons) {
+			prefix += icons.Get(t.Icons, icons.Lock) + " "
+		} else {
+			suffix = " (readonly)"
+		}
+	}
+	label := prefix + name + suffix
 	if tab.Active && tab.Closable {
 		if tab.Pinned {
-			label += " ♦"
+			label += " " + icons.Get(t.Icons, icons.Pinned)
 		} else {
-			label += " x"
+			label += " ✕"
 		}
 	}
 	label += " "
@@ -117,16 +128,17 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 }
 
 // drawTabLabel draws a tab label from x, advancing by each rune's display width
-// and clipping to the scrollable inner zone. The dirty marker keeps its own
-// style so it stays visible against the tab background. Preview tabs render
-// italic.
-func drawTabLabel(surface Surface, x, innerLeft, innerRight int, label string, dirty, pinned bool, style term.Style, italic bool) {
+// and clipping to the scrollable inner zone. The dirty and pinned markers keep
+// their own styles so they stay visible against the tab background. Preview
+// tabs render italic.
+func drawTabLabel(surface Surface, x, innerLeft, innerRight int, label string, dirty, pinned bool, mode string, style term.Style, italic bool) {
+	pinnedGlyph := icons.Get(mode, icons.Pinned)
 	for _, ch := range label {
 		chStyle := style
 		if dirty && ch == '●' {
 			chStyle = term.StyleWarning
 		}
-		if pinned && ch == '♦' {
+		if pinned && string(ch) == pinnedGlyph {
 			chStyle = term.StyleMuted
 		}
 		w := textwidth.Rune(ch)
@@ -249,12 +261,12 @@ func (t *TabBarWidget) Render(surface Surface) {
 			if sx >= innerLeft && sx < innerRight {
 				surface.SetCell(sx, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
-			drawTabLabel(surface, sx+1, innerLeft, innerRight, s.label, dirty, pinned, term.StyleActiveTab, t.Tabs[i].Preview)
+			drawTabLabel(surface, sx+1, innerLeft, innerRight, s.label, dirty, pinned, t.Icons, term.StyleActiveTab, t.Tabs[i].Preview)
 			if ex-1 >= innerLeft && ex-1 < innerRight {
 				surface.SetCell(ex-1, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
 		} else {
-			drawTabLabel(surface, sx, innerLeft, innerRight, s.label, dirty, pinned, term.StyleInactiveTab, t.Tabs[i].Preview)
+			drawTabLabel(surface, sx, innerLeft, innerRight, s.label, dirty, pinned, t.Icons, term.StyleInactiveTab, t.Tabs[i].Preview)
 		}
 	}
 
@@ -289,8 +301,8 @@ func (t *TabBarWidget) Render(surface Surface) {
 
 	if t.MoreButton != nil && w >= 5 {
 		r := t.GetRect()
-		t.MoreButton.SetRect(Rect{X: r.X + w - 4, Y: r.Y + 1, W: 3, H: 1})
-		moreSurface := surface.Sub(Rect{X: w - 4, Y: 1, W: 3, H: 1})
+		t.MoreButton.SetRect(Rect{X: r.X + w - 3, Y: r.Y + 1, W: 3, H: 1})
+		moreSurface := surface.Sub(Rect{X: w - 3, Y: 1, W: 3, H: 1})
 		t.MoreButton.Render(moreSurface)
 	}
 

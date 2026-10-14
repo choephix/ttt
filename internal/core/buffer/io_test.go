@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -96,6 +97,37 @@ func TestSavePreservesPermissions(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0755 {
 		t.Errorf("expected mode 0755 preserved, got %o", info.Mode().Perm())
+	}
+}
+
+func TestReadOnlyOnDisk(t *testing.T) {
+	dir := t.TempDir()
+	readOnly := filepath.Join(dir, "locked.txt")
+	if err := os.WriteFile(readOnly, []byte("locked\n"), 0444); err != nil {
+		t.Fatal(err)
+	}
+	writable := filepath.Join(dir, "open.txt")
+	if err := os.WriteFile(writable, []byte("open\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	b := &Buffer{}
+	if err := b.LoadFile(readOnly); err != nil {
+		t.Fatal(err)
+	}
+	if !b.ReadOnlyOnDisk {
+		t.Error("expected ReadOnlyOnDisk for a 0444 file")
+	}
+
+	if err := b.SaveFile(writable); err != nil {
+		t.Fatal(err)
+	}
+	if b.ReadOnlyOnDisk {
+		t.Error("expected ReadOnlyOnDisk to clear after saving to a writable file")
+	}
+
+	if (&Buffer{}).ReadOnlyOnDisk {
+		t.Error("expected a new buffer not to be read-only")
 	}
 }
 
@@ -328,5 +360,34 @@ func TestCleanedLines(t *testing.T) {
 				t.Errorf("CleanedLines() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestLoadFileReadsWholeFileAndLineEnding(t *testing.T) {
+	big := strings.Repeat("x", 70*1024)
+	for _, tc := range []struct {
+		name, content, ending string
+		lines                 int
+	}{
+		{"empty", "", "\n", 1},
+		{"lf", "a\nb\n", "\n", 2},
+		{"crlf", "a\r\nb\r\n", "\r\n", 2},
+		{"crlf past 64KiB", big + "\r\nb\r\n", "\n", 2},
+		{"large lf", big + "\n" + big + "\n", "\n", 2},
+	} {
+		path := filepath.Join(t.TempDir(), "f.txt")
+		if err := os.WriteFile(path, []byte(tc.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		b := &Buffer{}
+		if err := b.LoadFile(path); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if b.LineEnding != tc.ending || len(b.Lines) != tc.lines {
+			t.Errorf("%s: ending %q, %d lines; want %q, %d", tc.name, b.LineEnding, len(b.Lines), tc.ending, tc.lines)
+		}
+		if strings.Join(b.Lines, "") != strings.NewReplacer("\r\n", "", "\n", "").Replace(tc.content) {
+			t.Errorf("%s: content changed", tc.name)
+		}
 	}
 }

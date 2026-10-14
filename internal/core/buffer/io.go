@@ -2,9 +2,7 @@ package buffer
 
 import (
 	"bufio"
-	"bytes"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,40 +16,50 @@ func (b *Buffer) LoadFile(filename string) error {
 	}
 	defer f.Close()
 
-	b.LineEnding = detectLineEnding(f)
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	info, statErr := f.Stat()
+	var sb strings.Builder
+	if statErr == nil && info.Mode().IsRegular() && info.Size() > 0 {
+		sb.Grow(int(info.Size()))
+	}
+	if _, err := io.Copy(&sb, f); err != nil {
 		return err
 	}
-
-	var lines []string
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), math.MaxInt)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
+	text := sb.String()
+	b.LineEnding = detectLineEnding(text)
+	lines := SplitLines(text)
 	if len(lines) == 0 {
 		lines = []string{""}
 	}
 	if b.ShowTrailingNewline && (len(lines) == 0 || lines[len(lines)-1] != "") {
 		lines = append(lines, "")
 	}
-	b.Lines = lines
+	b.SetLines(lines)
 	b.Dirty = false
-	if info, err := f.Stat(); err == nil {
+	if statErr == nil {
 		b.recordDiskInfo(info)
 	}
 	return nil
 }
 
-// detectLineEnding reads up to 64KB of a file to determine its line ending.
+// SplitLines splits like bufio.ScanLines, with every line a substring of
+// text instead of its own allocation.
+func SplitLines(text string) []string {
+	lines := make([]string, 0, strings.Count(text, "\n")+1)
+	for text != "" {
+		line, rest, found := strings.Cut(text, "\n")
+		lines = append(lines, strings.TrimSuffix(line, "\r"))
+		if !found {
+			break
+		}
+		text = rest
+	}
+	return lines
+}
+
+// detectLineEnding checks the first 64KB of a file's contents for its line ending.
 // Returns "\r\n" if CRLF is found, "\n" otherwise.
-func detectLineEnding(r io.Reader) string {
-	buf := make([]byte, 64*1024)
-	n, _ := r.Read(buf)
-	if n > 0 && bytes.Contains(buf[:n], []byte("\r\n")) {
+func detectLineEnding(text string) string {
+	if strings.Contains(text[:min(len(text), 64*1024)], "\r\n") {
 		return "\r\n"
 	}
 	return "\n"
@@ -63,6 +71,7 @@ func (b *Buffer) recordDiskInfo(info os.FileInfo) {
 	b.diskModTime = info.ModTime()
 	b.diskSize = info.Size()
 	b.diskInfoSet = true
+	b.ReadOnlyOnDisk = info.Mode().Perm()&0222 == 0
 }
 
 // DiskChanged reports whether the file on disk has been modified since the

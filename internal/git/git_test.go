@@ -137,6 +137,106 @@ func writeFile(t *testing.T, dir, name, content string) {
 	}
 }
 
+func setupPartiallyStagedRepo(t *testing.T) string {
+	t.Helper()
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "notes.txt", "one\ntwo\nthree\n")
+	gitRun(t, dir, "add", "notes.txt")
+	gitRun(t, dir, "commit", "-qm", "init")
+	writeFile(t, dir, "notes.txt", "ONE\ntwo\nthree\n")
+	gitRun(t, dir, "add", "notes.txt")
+	writeFile(t, dir, "notes.txt", "ONE\ntwo\nTHREE\n")
+	return dir
+}
+
+func TestDiffWorktreeFileShowsOnlyUnstagedChanges(t *testing.T) {
+	dir := setupPartiallyStagedRepo(t)
+	out, err := DiffWorktreeFile(dir, "notes.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "+THREE") || strings.Contains(out, "-one") {
+		t.Fatalf("worktree diff = %q", out)
+	}
+}
+
+func TestDiffWorktreeFileIsEmptyWhenEverythingIsStaged(t *testing.T) {
+	dir := setupPartiallyStagedRepo(t)
+	gitRun(t, dir, "add", "notes.txt")
+	out, err := DiffWorktreeFile(dir, "notes.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "" {
+		t.Fatalf("worktree diff of a fully staged file = %q, want empty", out)
+	}
+}
+
+func TestDiffStagedFileShowsOnlyStagedChanges(t *testing.T) {
+	dir := setupPartiallyStagedRepo(t)
+	out, err := DiffStagedFile(dir, "notes.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "-one") || !strings.Contains(out, "+ONE") || strings.Contains(out, "THREE") {
+		t.Fatalf("staged diff = %q", out)
+	}
+}
+
+func TestDiffStagedFileFollowsRename(t *testing.T) {
+	dir := setupPartiallyStagedRepo(t)
+	gitRun(t, dir, "commit", "-qam", "both")
+	gitRun(t, dir, "mv", "notes.txt", "renamed.txt")
+	out, err := DiffStagedFile(dir, "notes.txt", "renamed.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "rename from notes.txt") || !strings.Contains(out, "rename to renamed.txt") {
+		t.Fatalf("staged rename diff = %q", out)
+	}
+}
+
+func TestShowIndexFileContextReadsStagedContent(t *testing.T) {
+	dir := setupPartiallyStagedRepo(t)
+	got, err := ShowIndexFileContext(context.Background(), dir, "notes.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "ONE\ntwo\nthree\n" {
+		t.Fatalf("index content = %q", got)
+	}
+	if _, err := ShowIndexFileContext(context.Background(), dir, "missing.txt"); err == nil {
+		t.Fatal("expected an error for a path not in the index")
+	}
+}
+
+func TestIsUnmergedContextDetectsConflicts(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "f.txt", "base\n")
+	gitRun(t, dir, "add", "f.txt")
+	gitRun(t, dir, "commit", "-qm", "base")
+	gitRun(t, dir, "checkout", "-q", "-b", "other")
+	writeFile(t, dir, "f.txt", "other\n")
+	gitRun(t, dir, "commit", "-qam", "other")
+	gitRun(t, dir, "checkout", "-q", "-")
+	writeFile(t, dir, "f.txt", "mine\n")
+	writeFile(t, dir, "clean.txt", "clean\n")
+	gitRun(t, dir, "add", "clean.txt")
+	gitRun(t, dir, "commit", "-qam", "mine")
+	if IsUnmergedContext(context.Background(), dir, "f.txt") {
+		t.Fatal("unmerged before the merge")
+	}
+	if exec.Command("git", "-C", dir, "merge", "-q", "other").Run() == nil {
+		t.Fatal("merge did not conflict")
+	}
+	if !IsUnmergedContext(context.Background(), dir, "f.txt") {
+		t.Fatal("conflicted file not reported as unmerged")
+	}
+	if IsUnmergedContext(context.Background(), dir, "clean.txt") {
+		t.Fatal("clean file reported as unmerged")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // StatusFiles
 // ---------------------------------------------------------------------------
@@ -719,7 +819,7 @@ func TestBlameLineBasic(t *testing.T) {
 	gitRun(t, dir, "add", "file.txt")
 	gitRun(t, dir, "commit", "-m", "add file")
 
-	info := BlameLine(dir, "file.txt", 1)
+	info := BlameLine(context.Background(), dir, "file.txt", 1)
 	if info == nil {
 		t.Fatal("BlameLine returned nil, expected info")
 	}
@@ -728,6 +828,19 @@ func TestBlameLineBasic(t *testing.T) {
 	}
 	if info.Time.IsZero() {
 		t.Error("Time is zero, expected a valid timestamp")
+	}
+}
+
+func TestBlameLineCanceled(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "file.txt", "line one\n")
+	gitRun(t, dir, "add", "file.txt")
+	gitRun(t, dir, "commit", "-m", "add file")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if info := BlameLineContents(ctx, dir, "file.txt", 1, "line one\n"); info != nil {
+		t.Errorf("canceled blame returned %+v, want nil", info)
 	}
 }
 
@@ -743,12 +856,12 @@ func TestBlameLineDifferentLines(t *testing.T) {
 	gitRun(t, dir, "commit", "-m", "second commit")
 
 	// Line 1 should reference "first commit"
-	info1 := BlameLine(dir, "file.txt", 1)
+	info1 := BlameLine(context.Background(), dir, "file.txt", 1)
 	if info1 == nil {
 		t.Fatal("BlameLine(line 1) returned nil")
 	}
 	// Line 2 should reference "second commit"
-	info2 := BlameLine(dir, "file.txt", 2)
+	info2 := BlameLine(context.Background(), dir, "file.txt", 2)
 	if info2 == nil {
 		t.Fatal("BlameLine(line 2) returned nil")
 	}
@@ -763,9 +876,29 @@ func TestBlameLineUncommittedReturnsNil(t *testing.T) {
 	// Add an uncommitted line
 	writeFile(t, dir, "file.txt", "committed\nuncommitted\n")
 
-	info := BlameLine(dir, "file.txt", 2)
+	info := BlameLine(context.Background(), dir, "file.txt", 2)
 	if info != nil {
 		t.Errorf("expected nil for uncommitted line, got %+v", info)
+	}
+}
+
+func TestBlameLineContentsUsesUnsavedLineNumbers(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "file.txt", "first\n")
+	gitRun(t, dir, "add", "file.txt")
+	gitRun(t, dir, "-c", "user.name=First Author", "commit", "-m", "first")
+	writeFile(t, dir, "file.txt", "first\nsecond\n")
+	gitRun(t, dir, "-c", "user.name=Second Author", "commit", "-am", "second")
+
+	contents := "unsaved\nfirst\nsecond\n"
+	if info := BlameLineContents(context.Background(), dir, "file.txt", 1, contents); info != nil {
+		t.Errorf("unsaved line: got %+v, want nil", info)
+	}
+	if info := BlameLineContents(context.Background(), dir, "file.txt", 2, contents); info == nil || info.Author != "First Author" {
+		t.Errorf("line 2: got %+v, want First Author", info)
+	}
+	if info := BlameLineContents(context.Background(), dir, "file.txt", 3, contents); info == nil || info.Author != "Second Author" {
+		t.Errorf("line 3: got %+v, want Second Author", info)
 	}
 }
 
@@ -775,7 +908,7 @@ func TestBlameLineNonexistentFile(t *testing.T) {
 	gitRun(t, dir, "add", "file.txt")
 	gitRun(t, dir, "commit", "-m", "init")
 
-	info := BlameLine(dir, "nonexistent.txt", 1)
+	info := BlameLine(context.Background(), dir, "nonexistent.txt", 1)
 	if info != nil {
 		t.Errorf("expected nil for nonexistent file, got %+v", info)
 	}
@@ -788,7 +921,7 @@ func TestBlameLineInvalidLineNumber(t *testing.T) {
 	gitRun(t, dir, "commit", "-m", "init")
 
 	// Line 999 doesn't exist
-	info := BlameLine(dir, "file.txt", 999)
+	info := BlameLine(context.Background(), dir, "file.txt", 999)
 	if info != nil {
 		t.Errorf("expected nil for out-of-range line, got %+v", info)
 	}
@@ -800,7 +933,7 @@ func TestBlameLineTimeIsRecent(t *testing.T) {
 	gitRun(t, dir, "add", "file.txt")
 	gitRun(t, dir, "commit", "-m", "now")
 
-	info := BlameLine(dir, "file.txt", 1)
+	info := BlameLine(context.Background(), dir, "file.txt", 1)
 	if info == nil {
 		t.Fatal("BlameLine returned nil")
 	}
@@ -930,12 +1063,36 @@ func TestRemoteToHTTPS(t *testing.T) {
 		{"git@github.com:user/repo", "https://github.com/user/repo"},
 		{"https://github.com/user/repo.git", "https://github.com/user/repo"},
 		{"https://github.com/user/repo", "https://github.com/user/repo"},
+		{"ssh://git@github.com/user/repo.git", "https://github.com/user/repo"},
+		{"ssh://git@github.com:22/user/repo.git", "https://github.com/user/repo"},
+		{"https://user:secret@github.com/user/repo.git", "https://github.com/user/repo"},
+		{"https://git.example.com:8443/user/repo.git", "https://git.example.com:8443/user/repo"},
 	}
 	for _, tt := range tests {
 		got := remoteToHTTPS(tt.input)
 		if got != tt.want {
 			t.Errorf("remoteToHTTPS(%q) = %q, want %q", tt.input, got, tt.want)
 		}
+	}
+}
+
+func TestPermalink(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "docs/my notes#1.md", "one\ntwo\n")
+	gitRun(t, dir, "add", "-A")
+	gitRun(t, dir, "commit", "-m", "init")
+	gitRun(t, dir, "remote", "add", "origin", "git@github.com:user/repo.git")
+	sha := HeadSHA(dir)
+
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	file := filepath.Join(link, "docs", "my notes#1.md")
+	got := Permalink(RepoRoot(filepath.Dir(file)), file, 1)
+	want := "https://github.com/user/repo/blob/" + sha + "/docs/my%20notes%231.md#L2"
+	if got != want {
+		t.Errorf("Permalink = %q, want %q", got, want)
 	}
 }
 
@@ -1014,6 +1171,58 @@ func TestDiscardMultiplePaths(t *testing.T) {
 	}
 }
 
+// "[id]" is a glob pathspec that also matches the sibling "i" directory.
+func setupGlobNamedRepo(t *testing.T) string {
+	t.Helper()
+	dir := setupTestRepo(t)
+	writeFile(t, dir, "app/[id]/page.tsx", "original")
+	writeFile(t, dir, "app/i/page.tsx", "original")
+	gitRun(t, dir, "add", ".")
+	gitRun(t, dir, "commit", "-qm", "init")
+	writeFile(t, dir, "app/[id]/page.tsx", "changed")
+	writeFile(t, dir, "app/i/page.tsx", "keep me")
+	return dir
+}
+
+func TestDiscardTreatsPathLiterally(t *testing.T) {
+	dir := setupGlobNamedRepo(t)
+
+	if err := Discard(dir, "app/[id]/page.tsx"); err != nil {
+		t.Fatalf("Discard: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "app/i/page.tsx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "keep me" {
+		t.Errorf("app/i/page.tsx = %q, discarding app/[id]/page.tsx must leave it alone", data)
+	}
+}
+
+func TestStageTreatsPathLiterally(t *testing.T) {
+	dir := setupGlobNamedRepo(t)
+
+	if err := Stage(dir, "app/[id]/page.tsx"); err != nil {
+		t.Fatalf("Stage: %v", err)
+	}
+	staged := stagedPaths(t, dir)
+	if !staged["app/[id]/page.tsx"] || staged["app/i/page.tsx"] {
+		t.Errorf("staged = %v, want only app/[id]/page.tsx", staged)
+	}
+}
+
+func TestDiffWorktreeFileTreatsPathLiterally(t *testing.T) {
+	dir := setupGlobNamedRepo(t)
+
+	out, err := DiffWorktreeFile(dir, "app/[id]/page.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "keep me") {
+		t.Errorf("diff of app/[id]/page.tsx includes app/i/page.tsx: %q", out)
+	}
+}
+
 func TestDiscardUntrackedMultiplePaths(t *testing.T) {
 	dir := setupTestRepo(t)
 	writeFile(t, dir, "a.txt", "a")
@@ -1055,6 +1264,91 @@ func TestStageReportsError(t *testing.T) {
 	dir := setupTestRepo(t)
 	if err := Stage(dir, "does-not-exist.txt"); err == nil {
 		t.Error("expected an error staging a missing path")
+	}
+}
+
+func TestIgnoredFilesMatchesNonASCIIPaths(t *testing.T) {
+	dir := setupTestRepo(t)
+	writeFile(t, dir, ".gitignore", "*.log\n")
+	paths := []string{
+		filepath.Join(dir, "café.log"),
+		filepath.Join(dir, `say "hi".log`),
+		filepath.Join(dir, "main.go"),
+	}
+
+	ignored := IgnoredFiles(dir, paths)
+	if !ignored[paths[0]] || !ignored[paths[1]] || ignored[paths[2]] {
+		t.Errorf("IgnoredFiles = %v, want the two .log paths", ignored)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DiscoverChildRepos
+// ---------------------------------------------------------------------------
+
+func TestDiscoverChildReposFindsNestedGitRepos(t *testing.T) {
+	root := t.TempDir()
+	repoA := filepath.Join(root, "alpha")
+	repoB := filepath.Join(root, "beta")
+	notRepo := filepath.Join(root, "plain")
+	for _, d := range []string{repoA, repoB, notRepo} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, d := range []string{repoA, repoB} {
+		cmd := exec.Command("git", "init")
+		cmd.Dir = d
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init in %s: %v\n%s", d, err, out)
+		}
+	}
+
+	repos := DiscoverChildRepos(root)
+	if len(repos) != 2 {
+		t.Fatalf("got %d repos, want 2: %v", len(repos), repos)
+	}
+	resolved := func(p string) string {
+		r, _ := filepath.EvalSymlinks(p)
+		return r
+	}
+	got0, _ := filepath.EvalSymlinks(repos[0])
+	got1, _ := filepath.EvalSymlinks(repos[1])
+	if got0 != resolved(repoA) || got1 != resolved(repoB) {
+		t.Errorf("repos = %v, want [%s %s]", repos, repoA, repoB)
+	}
+}
+
+func TestDiscoverChildReposSkipsDotDirs(t *testing.T) {
+	root := t.TempDir()
+	hidden := filepath.Join(root, ".hidden")
+	if err := os.MkdirAll(hidden, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "init")
+	cmd.Dir = hidden
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+
+	repos := DiscoverChildRepos(root)
+	if len(repos) != 0 {
+		t.Errorf("expected no repos (hidden dir), got %v", repos)
+	}
+}
+
+func TestDiscoverChildReposEmptyDir(t *testing.T) {
+	root := t.TempDir()
+	repos := DiscoverChildRepos(root)
+	if len(repos) != 0 {
+		t.Errorf("expected no repos, got %v", repos)
+	}
+}
+
+func TestDiscoverChildReposNonexistentDir(t *testing.T) {
+	repos := DiscoverChildRepos(filepath.Join(t.TempDir(), "missing"))
+	if repos != nil {
+		t.Errorf("expected nil, got %v", repos)
 	}
 }
 

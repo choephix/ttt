@@ -1,98 +1,179 @@
 package app
 
 import (
-	"strings"
+	"context"
+	"fmt"
 	"time"
 
+	"github.com/eugenioenko/ttt/internal/asynctask"
+	"github.com/eugenioenko/ttt/internal/core/buffer"
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/git"
-
-	"github.com/gdamore/tcell/v3"
 )
 
-// GitGutterResult carries the async result of a git gutter diff computation.
-type GitGutterResult struct {
-	Gen     int
+const gitGutterDelay = 500 * time.Millisecond
+
+type gitGutterResult struct {
 	Path    string
 	Changes []diff.LineChangeKind
+	DiffOn  bool
+	Diff    []diff.DiffLine
+	Base    []string
+	// Version and Lines are the buffer version and text the diff was
+	// computed from, so edits made while it ran can be replayed onto it.
+	Version uint64
+	Lines   []string
+	// Conflict reports that the file has no single staged version to diff
+	// against, because it has unresolved merge conflicts.
+	Conflict bool
+	RelPath  string
 }
 
-// RequestGitGutter triggers an async computation of git gutter indicators for
-// the given file. The result is posted as a GitGutterResult via EventInterrupt.
 func (a *App) RequestGitGutter(filePath string, bufferLines []string) {
-	if !a.Settings.Editor.IsGitGutterEnabled() {
+	if a.gitGutterDebounce != nil {
+		a.gitGutterDebounce.Stop()
+	}
+	if a.gitGutterTask != nil {
+		a.gitGutterTask.Stop()
+	}
+	gutterOn := a.Settings.Editor.IsGitGutterEnabled()
+	diffOn := a.EditorGroup.IsInlineDiffPath(filePath)
+	if !gutterOn && !diffOn {
 		return
 	}
 	if filePath == "" || a.EditorGroup.IsActiveVirtual() {
 		return
 	}
 
-	if a.Repository == nil {
-		return
+	repoDir, relPath, ok := a.repoPathForFile(filePath)
+	if !ok && diffOn {
+		repo := a.inlineDiffRepos[filePath]
+		repoDir, relPath, ok = repo.dir, repo.rel, repo.dir != ""
 	}
-	repoDir, _ := a.Repository.RepositoryForPath(filePath)
-	if repoDir == "" {
-		return
-	}
-
-	relPath, ok := a.Repository.gitRelativePath(repoDir, filePath)
 	if !ok {
 		return
 	}
 
-	a.GitGutterGen++
-	gen := a.GitGutterGen
-
-	// Copy buffer lines to avoid races with the editor goroutine
+	// Snapshot on the UI goroutine before the worker can race with edits.
 	linesCopy := make([]string, len(bufferLines))
 	copy(linesCopy, bufferLines)
+	showTrailing := false
+	var version uint64
+	if buf := a.EditorGroup.BufferForPath(filePath); buf != nil {
+		showTrailing = buf.ShowTrailingNewline
+		version = buf.Version()
+	}
 
-	go func() {
-		headContent, gitErr := git.ShowFile(repoDir, relPath, "HEAD")
-		var changes []diff.LineChangeKind
-		if gitErr != nil {
-			// File is not tracked by git (new file) — mark all lines as added
-			changes = make([]diff.LineChangeKind, len(linesCopy))
-			for i := range changes {
-				changes[i] = diff.LineAdded
-			}
-		} else {
-			oldLines := strings.Split(headContent, "\n")
-			changes = diff.ComputeGutterChanges(oldLines, linesCopy)
+	if a.gitGutterTask == nil {
+		a.gitGutterTask = NewTask[*gitGutterResult](a, asynctask.TaskOptions{})
+	}
+	a.gitGutterTask.Schedule(func(ctx context.Context) (*gitGutterResult, error) {
+		headContent, gitErr := git.ShowFileContext(ctx, repoDir, relPath, "HEAD")
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
-		a.Screen.PostEvent(tcell.NewEventInterrupt(&GitGutterResult{
-			Gen:     gen,
-			Path:    filePath,
-			Changes: changes,
-		}))
-	}()
-}
-
-// RequestGitGutterForActiveFile triggers a git gutter update for the currently
-// active editor tab.
-func (a *App) RequestGitGutterForActiveFile() {
-	path := a.EditorGroup.ActiveFilePath()
-	buf := a.EditorGroup.ActiveBuffer()
-	if buf == nil {
-		return
-	}
-	a.RequestGitGutter(path, buf.Lines)
-}
-
-// ScheduleGitGutter debounces git gutter updates during typing. It waits 500ms
-// after the last buffer change before computing the diff.
-func (a *App) ScheduleGitGutter() {
-	if !a.Settings.Editor.IsGitGutterEnabled() {
-		return
-	}
-	if a.GitGutterTimer != nil {
-		a.GitGutterTimer.Stop()
-	}
-	a.GitGutterTimer = time.AfterFunc(500*time.Millisecond, func() {
-		a.Screen.PostEvent(tcell.NewEventInterrupt(&GitGutterTrigger{}))
+		result := &gitGutterResult{Path: filePath, DiffOn: diffOn, Version: version, Lines: linesCopy}
+		if gitErr != nil && gutterOn {
+			if !git.IgnoredFilesContext(ctx, repoDir, []string{relPath})[relPath] {
+				// File is not tracked by git (new file) — mark all lines as added
+				result.Changes = make([]diff.LineChangeKind, len(linesCopy))
+				for i := range result.Changes {
+					result.Changes[i] = diff.LineAdded
+				}
+			}
+		} else if gutterOn {
+			oldLines := blobLines(headContent, showTrailing)
+			var err error
+			result.Changes, err = diff.ComputeGutterChangesContext(ctx, oldLines, linesCopy)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if diffOn {
+			indexContent, indexErr := git.ShowIndexFileContext(ctx, repoDir, relPath)
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			if indexErr == nil {
+				result.Base = blobLines(indexContent, showTrailing)
+			} else if git.IsUnmergedContext(ctx, repoDir, relPath) {
+				result.Conflict, result.RelPath = true, relPath
+			}
+			if !result.Conflict {
+				lines, err := diff.FullDiffLinesContext(ctx, result.Base, linesCopy)
+				if err != nil {
+					return nil, err
+				}
+				result.Diff = lines
+			}
+		}
+		return result, ctx.Err()
+	}, func(result *gitGutterResult, err error) {
+		if err == nil {
+			a.applyGitGutterResult(result)
+		}
 	})
 }
 
-// GitGutterTrigger is posted as an EventInterrupt to request a git gutter
-// recomputation on the main thread after a debounce delay.
-type GitGutterTrigger struct{}
+func (a *App) applyGitGutterResult(v *gitGutterResult) {
+	a.EditorGroup.SetLineChanges(v.Path, v.Changes)
+	switch {
+	case v.DiffOn && v.Conflict:
+		if a.EditorGroup.IsInlineDiffPath(v.Path) {
+			a.EditorGroup.DisableInlineDiff(v.Path)
+			a.StatusNotify(fmt.Sprintf("%s has merge conflicts; diff closed", v.RelPath))
+		}
+	case v.DiffOn:
+		a.EditorGroup.SetInlineDiff(v.Path, v.Base, v.Diff, v.Version, v.Lines)
+	}
+}
+
+func (a *App) RequestGitGutterForActiveFile() {
+	a.ScheduleGitGutter()
+	if a.gitGutterDebounce != nil {
+		a.gitGutterDebounce.Flush()
+	}
+}
+
+func (a *App) ScheduleGitGutter() {
+	if a.gitGutterDebounce != nil {
+		a.gitGutterDebounce.Stop()
+	}
+	if a.gitGutterTask != nil {
+		a.gitGutterTask.Stop()
+	}
+	path := a.EditorGroup.ActiveFilePath()
+	diffOn := a.EditorGroup.IsInlineDiffPath(path)
+	if a.EditorGroup.ActiveBuffer() == nil || path == "" || a.EditorGroup.IsActiveVirtual() || (!a.Settings.Editor.IsGitGutterEnabled() && !diffOn) {
+		return
+	}
+	if _, _, ok := a.repoPathForFile(path); !ok && (!diffOn || a.inlineDiffRepos[path].dir == "") {
+		return
+	}
+	if a.gitGutterDebounce == nil {
+		a.gitGutterDebounce = NewTask[struct{}](a, asynctask.TaskOptions{Delay: gitGutterDelay})
+	}
+	a.gitGutterDebounce.Schedule(func(context.Context) (struct{}, error) {
+		return struct{}{}, nil
+	}, func(_ struct{}, err error) {
+		if err != nil {
+			return
+		}
+		if buf := a.EditorGroup.ActiveBuffer(); buf != nil {
+			a.RequestGitGutter(a.EditorGroup.ActiveFilePath(), buf.Lines)
+		}
+	})
+}
+
+// blobLines splits a blob the way buffer.LoadFile splits a file, so an
+// unchanged file diffs as identical rather than off by a trailing line.
+func blobLines(content string, showTrailingNewline bool) []string {
+	lines := buffer.SplitLines(content)
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+	if showTrailingNewline && lines[len(lines)-1] != "" {
+		lines = append(lines, "")
+	}
+	return lines
+}

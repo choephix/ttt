@@ -27,6 +27,7 @@ var menuBarMenus = [][]ui.ContextMenuItem{
 		ui.MenuSep(),
 		{Label: "Open Workspace", Command: "workspace.open"},
 		{Label: "Save Workspace", Command: "workspace.save"},
+		{Label: "Close Workspace", Command: "workspace.close"},
 		ui.MenuSep(),
 		{Label: "Open PR Diff", Command: "pr.openDiff"},
 		ui.MenuSep(),
@@ -115,6 +116,11 @@ var commitDetailContextMenu = []ui.ContextMenuItem{
 	ui.MenuSep(),
 	{Label: "Expand All Files", Command: "changes.expandAllCommitDetail"},
 	{Label: "Collapse All Files", Command: "changes.collapseAllCommitDetail"},
+}
+
+var terminalContextMenu = []ui.ContextMenuItem{
+	{Label: "Copy", Command: "editor.copy"},
+	{Label: "Paste", Command: "editor.paste"},
 }
 
 var changesContextMenuStaged = []ui.ContextMenuItem{
@@ -228,6 +234,7 @@ func openContextMenu(app *App, items []ui.ContextMenuItem, x, y int) {
 	app.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), x, y)
 	menu.Borders = app.Borders
+	menu.Icons = app.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()
 		app.restoreMenuFocus()
@@ -263,6 +270,7 @@ func openMenuBarDropdown(app *App, index int) {
 	}
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), anchorX, anchorY)
 	menu.Borders = app.Borders
+	menu.Icons = app.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()
 		app.MenuBar.Selected = -1
@@ -332,6 +340,19 @@ func handleRightClick(app *App, mx, my int) {
 		return
 	}
 
+	if app.ContentSplit != nil && app.ContentSplit.ShowBottom {
+		divY := app.ContentSplit.DividerScreenY()
+		if divY >= 0 && my > divY {
+			if app.BottomPanel != nil && app.BottomPanel.ActivePanel == "terminal" {
+				if app.TerminalPanel != nil {
+					app.Root.SetFocus(app.TerminalPanel)
+				}
+				openContextMenu(app, terminalContextMenu, mx, my)
+			}
+			return
+		}
+	}
+
 	if app.EditorGroup.ActiveCommitDetailWidget() != nil {
 		openContextMenu(app, app.withActiveDiffViewMenu(commitDetailContextMenu), mx, my)
 	} else if app.EditorGroup.ActiveDiffModeSurface() != nil || app.EditorGroup.ActiveDiffContextSurface() != nil {
@@ -378,6 +399,7 @@ func openEditorContextMenu(app *App, mx, my int) {
 	app.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), mx, my)
 	menu.Borders = app.Borders
+	menu.Icons = app.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()
 		app.restoreMenuFocus()

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/diff"
@@ -141,9 +143,7 @@ func (a *App) DiffSearchSources() []ui.DiffSearchSource {
 			if seen[tabName] {
 				continue
 			}
-			fd := diff.Parse(diffText)
-			dv := ui.NewDiffViewWidget(path, fd, nil, nil, false)
-			sources = append(sources, ui.DiffSearchSource{TabName: tabName, Lines: dv.CombinedLines()})
+			sources = append(sources, ui.DiffSearchSource{TabName: tabName, Lines: ui.DiffCombinedLines(diff.Parse(diffText))})
 		}
 	}
 	return sources
@@ -172,6 +172,11 @@ func (a *App) NavigateToSearchMatch(path string, line, col int) {
 	}
 	a.EditorGroup.OpenFile(path)
 	a.EditorGroup.GoToLine(line)
+	if a.EditorGroup.IsEditorActive() {
+		text := a.EditorGroup.Editor.Buf.Lines[a.EditorGroup.Editor.Cursor.Line]
+		runeCol := utf8.RuneCountInString(text[:min(col, len(text))])
+		a.EditorGroup.GoToLineCol(line, runeCol+1)
+	}
 	if a.Search.Input.Text != "" {
 		matches, _ := ui.FindInLines(a.EditorGroup.Editor.Buf.Lines, a.Search.Input.Text, a.Search.Options)
 		a.EditorGroup.SetSearch(a.Search.Input.Text, matches)
@@ -194,7 +199,27 @@ func (a *App) PreviewSearchReplace(filePath string, matches []ui.SearchMatch, re
 	a.Root.SetFocus(a.EditorGroup)
 }
 
+// staleSearchMatches reports whether any match's line no longer reads as it did
+// when the search ran, so its columns may point at other text.
+func staleSearchMatches(lines []string, matches []ui.SearchMatch) bool {
+	for _, m := range matches {
+		idx := m.LineNum - 1
+		if idx < 0 || idx >= len(lines) {
+			return true
+		}
+		// rg sends non-UTF-8 lines as bytes, which leaves LineText empty.
+		if m.LineText != "" && strings.TrimRight(lines[idx], "\r") != m.LineText {
+			return true
+		}
+	}
+	return false
+}
+
 func (a *App) ApplySearchReplace(filePath string, matches []ui.SearchMatch, replacement string, opts ui.SearchOptions) {
+	if a.EditorGroup.IsDirtyPath(filePath) {
+		a.StatusWarn(filepath.Base(filePath) + " has unsaved changes; save it before replacing")
+		return
+	}
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		a.StatusWarn("Cannot read file: " + err.Error())
@@ -203,6 +228,11 @@ func (a *App) ApplySearchReplace(filePath string, matches []ui.SearchMatch, repl
 	lines := strings.Split(string(data), "\n")
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
+	}
+	if staleSearchMatches(lines, matches) {
+		a.StatusWarn(filepath.Base(filePath) + " changed since the search; nothing replaced")
+		a.Search.Refresh()
+		return
 	}
 	newLines := ui.ApplyReplacements(lines, matches, replacement, opts)
 	if err := os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
@@ -227,7 +257,13 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 		func() {
 			a.DismissDialog()
 			invalidatePath := ""
+			replacedMatches, replacedFiles := 0, 0
+			var skipped []string
 			for filePath, matches := range allMatches {
+				if a.EditorGroup.IsDirtyPath(filePath) {
+					skipped = append(skipped, filepath.Base(filePath))
+					continue
+				}
 				data, err := os.ReadFile(filePath)
 				if err != nil {
 					continue
@@ -236,10 +272,16 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 				if len(lines) > 0 && lines[len(lines)-1] == "" {
 					lines = lines[:len(lines)-1]
 				}
+				if staleSearchMatches(lines, matches) {
+					skipped = append(skipped, filepath.Base(filePath))
+					continue
+				}
 				newLines := ui.ApplyReplacements(lines, matches, replacement, opts)
 				if err := os.WriteFile(filePath, []byte(strings.Join(newLines, "\n")+"\n"), 0644); err != nil {
 					continue
 				}
+				replacedMatches += len(matches)
+				replacedFiles++
 				if invalidatePath == "" {
 					invalidatePath = filePath
 				}
@@ -247,55 +289,129 @@ func (a *App) ApplySearchReplaceAll(allMatches map[string][]ui.SearchMatch, repl
 			}
 			a.invalidateRepositoryPath(invalidatePath, RepositoryWorktree)
 			a.Search.Refresh()
-			a.StatusNotify(fmt.Sprintf("Replaced %d matches across %d files", totalMatches, totalFiles))
+			msg := fmt.Sprintf("Replaced %d matches across %d files", replacedMatches, replacedFiles)
+			if len(skipped) > 0 {
+				sort.Strings(skipped)
+				a.StatusWarn(msg + "; skipped " + strings.Join(skipped, ", ") + " (unsaved or changed since the search)")
+				return
+			}
+			a.StatusNotify(msg)
 		},
 	})
 }
 
 func (a *App) openSelectedDiff(extended bool) { a.Changes.OpenSelectedDiff(extended) }
 
-func (a *App) OpenChangeDiff(dir string, status git.FileStatus, extended bool) {
+func (a *App) OpenChangeDiff(dir string, status git.FileStatus, staged, extended bool) {
 	fullPath := filepath.Join(dir, status.Path)
 	if status.Status == "?" {
 		a.EditorGroup.OpenFile(fullPath)
 		a.FocusEditorIfEnabled()
 		return
 	}
-	var diffText string
-	var err error
-	if status.Status == "R" && status.OldPath != "" {
-		diffText, err = git.DiffRename(dir, status.OldPath, status.Path)
-	} else {
-		diffText, err = git.DiffFile(dir, status.Path)
+	if !staged && status.Status != "D" {
+		if info, err := os.Stat(fullPath); err == nil && info.Mode().IsRegular() {
+			opened, conflict := a.openInlineDiff(fullPath, dir, status.Path)
+			if conflict {
+				a.openConflictedFile(fullPath, status.Path)
+				return
+			}
+			if opened {
+				if d := a.EditorGroup.ActiveInlineDiff(); d != nil && extended {
+					d.SetContextMode(ui.DiffContextFullFile)
+				}
+				a.FocusEditorIfEnabled()
+				return
+			}
+		}
 	}
-	if err != nil || diffText == "" {
-		a.EditorGroup.OpenFile(fullPath)
-		a.FocusEditorIfEnabled()
+	if staged {
+		a.openStagedDiff(dir, status, extended)
 		return
 	}
-	parsed := diff.Parse(diffText)
-	if len(parsed.Hunks) == 0 {
+	index, indexErr := git.ShowIndexFileContext(context.Background(), dir, status.Path)
+	// A conflicted file has no stage-0 entry, so only a failed index read
+	// needs the conflict check.
+	if indexErr != nil && git.IsUnmergedContext(context.Background(), dir, status.Path) {
+		a.openConflictedFile(fullPath, status.Path)
+		return
+	}
+	parsed, ok := parseChangeDiff(git.DiffWorktreeFile(dir, status.Path))
+	if !ok {
 		a.EditorGroup.OpenFile(fullPath)
 		a.FocusEditorIfEnabled()
 		return
 	}
 	var oldLines, newLines []string
-	oldContent, err := git.ShowFile(dir, status.Path, "HEAD")
-	if err == nil {
-		oldLines = strings.Split(oldContent, "\n")
-		if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
-			oldLines = oldLines[:len(oldLines)-1]
-		}
+	if indexErr == nil {
+		oldLines = diffSideLines(index)
 	}
-	newData, err := os.ReadFile(fullPath)
-	if err == nil {
-		newLines = strings.Split(string(newData), "\n")
-		if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
-			newLines = newLines[:len(newLines)-1]
-		}
+	if data, err := os.ReadFile(fullPath); err == nil {
+		newLines = diffSideLines(string(data))
 	}
 	a.EditorGroup.OpenDiff(status.Path, parsed, oldLines, newLines, extended)
 	a.FocusEditorIfEnabled()
+}
+
+func (a *App) openStagedDiff(dir string, status git.FileStatus, extended bool) {
+	oldPath := status.Path
+	paths := []string{status.Path}
+	if status.OldPath != "" && status.OldPath != status.Path {
+		oldPath = status.OldPath
+		paths = []string{status.OldPath, status.Path}
+	}
+	var newLines []string
+	if status.Status != "D" {
+		content, err := git.ShowIndexFileContext(context.Background(), dir, status.Path)
+		if err != nil && git.IsUnmergedContext(context.Background(), dir, status.Path) {
+			a.openConflictedFile(filepath.Join(dir, status.Path), status.Path)
+			return
+		}
+		if err == nil {
+			newLines = diffSideLines(content)
+		}
+	}
+	patch, err := git.DiffStagedFile(dir, paths...)
+	if err != nil || patch == "" {
+		a.StatusNotify(fmt.Sprintf("No staged changes for %s", status.Path))
+		return
+	}
+	parsed := diff.Parse(patch)
+	// A rename, mode change or empty new file stages a patch with no line
+	// hunks; like VS Code, show both sides in full rather than nothing.
+	if len(parsed.Hunks) == 0 {
+		extended = true
+	}
+	var oldLines []string
+	if status.Status != "A" {
+		if content, err := git.ShowFile(dir, oldPath, "HEAD"); err == nil {
+			oldLines = diffSideLines(content)
+		}
+	}
+	a.EditorGroup.OpenDiffTab(status.Path+" (staged)", "", status.Path, parsed, oldLines, newLines, extended)
+	a.FocusEditorIfEnabled()
+}
+
+func (a *App) openConflictedFile(fullPath, relPath string) {
+	a.EditorGroup.OpenFile(fullPath)
+	a.StatusNotify(fmt.Sprintf("%s has merge conflicts; opened without a diff", relPath))
+	a.FocusEditorIfEnabled()
+}
+
+func parseChangeDiff(text string, err error) (diff.FileDiff, bool) {
+	if err != nil || text == "" {
+		return diff.FileDiff{}, false
+	}
+	parsed := diff.Parse(text)
+	return parsed, len(parsed.Hunks) > 0
+}
+
+func diffSideLines(content string) []string {
+	lines := strings.Split(content, "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
 }
 
 func (a *App) OpenCommitDiff(dir, ref, short string, status git.FileStatus, extended bool) {
@@ -361,7 +477,7 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended
 	}
 	a.EditorGroup.OpenDiff(status.Path, parsed, nil, nil, false)
 	if dv := a.EditorGroup.ActiveDiffWidget(); dv != nil {
-		dv.SetExtendedFetcher(func(dv *ui.DiffViewWidget) {
+		dv.SetExtendedFetcher(func(dv *ui.DiffEditorWidget) {
 			a.fetchPRFileContent(dv, group.PROwner, group.PRRepo, group.PRBaseSHA, group.PRHeadSHA, status.Path)
 		})
 		if extended {
@@ -371,7 +487,7 @@ func (a *App) OpenPRDiff(group *ui.ChangesGroup, status git.FileStatus, extended
 	a.FocusEditorIfEnabled()
 }
 
-func (a *App) fetchPRFileContent(dv *ui.DiffViewWidget, owner, repo, baseSHA, headSHA, path string) {
+func (a *App) fetchPRFileContent(dv *ui.DiffEditorWidget, owner, repo, baseSHA, headSHA, path string) {
 	if owner == "" || baseSHA == "" {
 		dv.FailLoading()
 		return
@@ -500,7 +616,12 @@ func registerWidgetCallbacks(app *App) {
 		handleRightClick(app, mx, my)
 	}
 
+	// A click that opened a dialog (a welcome or empty-Explorer action runs on
+	// the press) must leave the focus in it, or typing goes nowhere.
 	app.SplitPanel.OnLeftClick = func() {
+		if app.Root.HasOverlay() {
+			return
+		}
 		reg.Execute("sidebar.focus")
 	}
 	app.SplitPanel.OnRightClick = func() {}
@@ -534,6 +655,11 @@ func registerWidgetCallbacks(app *App) {
 		app.syncRepositoryObservation()
 		if id == "outline" {
 			app.RefreshSymbols()
+		} else {
+			app.stopSymbolsTask()
+		}
+		if id == "explorer" {
+			app.Explorer.Reload()
 		}
 	}
 
@@ -594,6 +720,7 @@ func registerWidgetCallbacks(app *App) {
 			ui.MenuSep(),
 			ui.ContextMenuItem{Label: "Copy Absolute Path", Command: "file.copyAbsolutePath"},
 			ui.ContextMenuItem{Label: "Copy Relative Path", Command: "file.copyRelativePath"},
+			ui.ContextMenuItem{Label: "Reveal in Explorer", Command: "explorer.revealActiveFile"},
 		)
 		tabContextMenu = app.withActiveDiffViewSubmenu(tabContextMenu)
 		openContextMenu(app, tabContextMenu, sx, sy)
@@ -603,8 +730,14 @@ func registerWidgetCallbacks(app *App) {
 		app.EditorGroup.PreviewFile(path)
 		app.FocusEditorIfEnabled()
 	}
+	app.Explorer.OnAction = func(id string) { reg.Execute(id) }
+	app.EditorGroup.OnEmpty = func() {
+		if app.welcomeWhenEmpty && len(app.Workspace.Paths()) == 0 {
+			app.ShowEmptyState()
+		}
+	}
 	app.Explorer.OnOpenFile = func(path string) {
-		app.EditorGroup.OpenFile(path)
+		app.EditorGroup.OpenCommittedFile(path)
 		app.FocusEditorIfEnabled()
 	}
 	app.Explorer.OnRename = func(path, newName string) bool {
@@ -633,10 +766,15 @@ func registerWidgetCallbacks(app *App) {
 	}
 	app.Explorer.OnRootMenu = func(node *widgets.TreeNode, sx, sy int) {
 		app.ExplorerContextNode = node
+		favorite := ui.ContextMenuItem{Label: "Add to Favorites", Command: "welcome.addFavorite"}
+		if app.favoriteIndex(node.ID) >= 0 {
+			favorite = ui.ContextMenuItem{Label: "Remove from Favorites", Command: "welcome.removeFavorite"}
+		}
 		items := []ui.ContextMenuItem{
 			{Label: "Refresh", Command: "explorer.refresh"},
 			{Label: "Copy Path", Command: "explorer.copyAbsolutePath"},
 			ui.MenuSep(),
+			favorite,
 			{Label: "Remove from Workspace", Command: "explorer.removeRoot"},
 			ui.MenuSep(),
 			{Label: "Expand All", Command: "explorer.expandAll"},
@@ -664,9 +802,8 @@ func registerWidgetCallbacks(app *App) {
 		app.EditorGroup.OpenFile(path)
 		app.FocusEditorIfEnabled()
 	}
-	app.Changes.OnOpenDiff = func(dir string, status git.FileStatus, extended bool) {
-		app.OpenChangeDiff(dir, status, extended)
-	}
+	app.Changes.OnOpenDiff = app.OpenChangeDiff
+	app.Changes.OnRefreshed = app.onChangesRefreshed
 	app.Changes.OnOpenCommitDiff = app.OpenCommitDiff
 	app.Changes.OnOpenCommit = app.OpenCommitDetail
 	app.Changes.OnOpenPRDetail = app.OpenPRDetail
@@ -688,33 +825,29 @@ func registerWidgetCallbacks(app *App) {
 			app.Repository.HandleHistory(err)
 		}
 	}
-	app.Changes.Split.OnResize = app.persistCommitHistoryHeight
+	app.Changes.Split.OnResizeEnd = app.persistCommitHistoryHeight
 
-	app.ContentSplit.OnResize = func(height int) {
-		if height <= 0 {
-			app.ContentSplit.ShowBottom = false
-		} else {
-			app.ContentSplit.ShowBottom = true
-			app.ContentSplit.BottomH = height
-			if len(app.Terminals) == 0 {
-				app.SpawnTerminal()
-			} else {
-				resizeTerminals(app)
-			}
-		}
-	}
+	app.ContentSplit.OnResize = app.resizePanel
+	app.ContentSplit.OnResizeEnd = app.finishPanelResize
 
 	app.ContentSplit.OnTopClick = func() {
+		if app.Root.HasOverlay() {
+			return
+		}
 		app.Root.SetFocus(app.EditorGroup)
 	}
 
 	app.ContentSplit.OnBottomClick = func() {
+		if app.Root.HasOverlay() {
+			return
+		}
 		if w := app.BottomPanel.ActiveWidget(); w != nil {
 			app.Root.SetFocus(w)
 		}
 	}
 
-	app.SplitPanel.OnResize = app.persistSidebarWidth
+	app.SplitPanel.OnResize = app.resizeSidebar
+	app.SplitPanel.OnResizeEnd = app.persistSidebarLayout
 
 	app.BottomPanel.Tabs.Config.OnTabClick = func(index int) {
 		panels := app.BottomPanel.PanelIDs()
@@ -731,11 +864,16 @@ func registerWidgetCallbacks(app *App) {
 			reg.Execute("terminal.new")
 		}},
 		{Icon: "⋮", OnClick: func(sx, sy int) {
+			dock := ui.ContextMenuItem{Label: "Dock Right", Command: "panel.dockRight"}
+			if app.ContentSplit.Position == ui.SplitRight {
+				dock = ui.ContextMenuItem{Label: "Dock Bottom", Command: "panel.dockBottom"}
+			}
 			items := []ui.ContextMenuItem{
 				{Label: "New Terminal", Command: "terminal.new"},
 				ui.MenuSep(),
 				{Label: "Close All Terminals", Command: "terminal.closeAll"},
 				ui.MenuSep(),
+				dock,
 				{Label: "Close Panel", Command: "panel.toggle"},
 			}
 			openContextMenu(app, items, sx, sy)

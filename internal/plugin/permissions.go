@@ -69,6 +69,8 @@ type PermissionSet struct {
 	EditorRead        bool        `json:"editor.read,omitempty"`
 	EditorWrite       bool        `json:"editor.write,omitempty"`
 	EditorDiagnostics bool        `json:"editor.diagnostics,omitempty"`
+	EditorBookmarks   bool        `json:"editor.bookmarks,omitempty"`
+	FileHandlers      bool        `json:"editor.file_handlers,omitempty"`
 	FsRead            bool        `json:"fs.read,omitempty"`
 	FsWrite           bool        `json:"fs.write,omitempty"`
 	SystemExec        []string    `json:"system.exec,omitempty"`
@@ -78,6 +80,7 @@ type PermissionSet struct {
 	EventsEditor      bool        `json:"events.editor,omitempty"`
 	Settings          bool        `json:"settings,omitempty"`
 	SettingsKeys      []string    `json:"settings_keys,omitempty"`
+	Storage           bool        `json:"storage,omitempty"`
 }
 
 type PermissionDiffEntry struct {
@@ -107,12 +110,15 @@ func DiffPermissions(granted, requested PermissionSet) PermissionDiff {
 	check("editor.read", granted.EditorRead, requested.EditorRead)
 	check("editor.write", granted.EditorWrite, requested.EditorWrite)
 	check("editor.diagnostics", granted.EditorDiagnostics, requested.EditorDiagnostics)
+	check("editor.bookmarks", granted.EditorBookmarks, requested.EditorBookmarks)
+	check("editor.file_handlers", granted.FileHandlers, requested.FileHandlers)
 	check("fs.read", granted.FsRead, requested.FsRead)
 	check("fs.write", granted.FsWrite, requested.FsWrite)
 	check("system.env", granted.SystemEnv, requested.SystemEnv)
 	check("events.file", granted.EventsFile, requested.EventsFile)
 	check("events.editor", granted.EventsEditor, requested.EventsEditor)
 	check("settings", granted.Settings, requested.Settings)
+	check("storage", granted.Storage, requested.Storage)
 
 	grantedSettingsKeys := make(map[string]bool)
 	for _, k := range granted.SettingsKeys {
@@ -172,6 +178,10 @@ func (ps PermissionSet) Check(perm string) error {
 		allowed = ps.EditorWrite
 	case "editor.diagnostics":
 		allowed = ps.EditorDiagnostics
+	case "editor.bookmarks":
+		allowed = ps.EditorBookmarks
+	case "editor.file_handlers":
+		allowed = ps.FileHandlers
 	case "fs.read":
 		allowed = ps.FsRead
 	case "fs.write":
@@ -186,6 +196,8 @@ func (ps PermissionSet) Check(perm string) error {
 		allowed = ps.EventsEditor
 	case "settings":
 		allowed = ps.Settings
+	case "storage":
+		allowed = ps.Storage
 	default:
 		return fmt.Errorf("unknown permission: %s", perm)
 	}
@@ -246,11 +258,14 @@ func (ps PermissionSet) DisplayEntries() []PermissionDiffEntry {
 	add("Read editor", ps.EditorRead)
 	add("Write editor", ps.EditorWrite)
 	add("Editor diagnostics", ps.EditorDiagnostics)
+	add("Editor bookmarks", ps.EditorBookmarks)
+	add("Handle file types", ps.FileHandlers)
 	add("Read files", ps.FsRead)
 	add("Write files", ps.FsWrite)
 	add("Environment", ps.SystemEnv)
 	add("File events", ps.EventsFile)
 	add("Editor events", ps.EventsEditor)
+	add("Plugin storage", ps.Storage)
 
 	for _, b := range ps.SystemExec {
 		entries = append(entries, PermissionDiffEntry{Name: "Run binary", Value: b})

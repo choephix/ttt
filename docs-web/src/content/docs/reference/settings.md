@@ -11,7 +11,7 @@ Settings are stored in `~/.config/ttt/settings.json`. A complete example is avai
 
 There are two ways to change settings:
 
-- **Settings editor** — **View → Settings**, **Ctrl+K ,**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). Opens a form in an editor tab, grouped into **Editor**, **Appearance**, **Completion** and **Advanced** (Git, explorer, terminal, search and plugin options live under Advanced). Edits are held until you press **Apply** (also available as **Settings: Apply Changes**), which writes `settings.json` and live-applies everything that does not require a restart. **Cancel** (also **Settings: Discard Changes**) closes the tab and drops them. Rows marked *(restart)* only take effect on next launch.
+- **Settings editor** — **View → Settings**, **Ctrl+K ,**, or **Settings: Open Editor Settings** from the command palette (**Ctrl+P**). Opens a form in an editor tab, grouped into tabs by area, with headed sections inside each: **General** (plugins, debugging), **Editor** (indentation, display, on save, completion), **Appearance** (theme, window, code, markdown), **Sidebar** (explorer files and look, source control, search), **Terminal** and **Diff**. It opens on General. Edits are held until you press **Apply** (also available as **Settings: Apply Changes**), which writes `settings.json` and live-applies everything that does not require a restart. **Cancel** (also **Settings: Discard Changes**) closes the tab and drops them. Rows marked *(restart)* only take effect on next launch.
 - **Raw JSON** — **Settings: Open settings.json** opens the file itself. Needed for the `lsp` settings and `formatters`, neither of which is exposed in the form.
 
 Closing the settings tab with unapplied edits discards them.
@@ -25,6 +25,15 @@ Both write the same file, so you can move between them freely.
 | `version` | int | `1` | Settings file format version |
 | `theme` | string | `""` | Theme name (e.g. `"default-dark"`) |
 | `debugMode` | bool | `false` | Enable debug logging |
+
+## Appearance
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `appearance.icons` | string | `"none"` | Icons in the explorer, Changes panel, and commit history: `"nerd-font"` or `"none"`. The glyphs need a [Nerd Font](https://www.nerdfonts.com) in your terminal and show as boxes without one, so this defaults off; turn it on here, in Settings > Sidebar, or via **Options > Font Icons**. Colors come from the theme's `fileIcons` section |
+| `appearance.chevrons.collapsed` | string | `▶` | Glyph drawn beside a collapsed folder or group in trees, and on a collapsed foldable line in the editor gutter. Must be a single-width character, for example a Nerd Font chevron such as `\ueab6`; anything else falls back to the default. |
+| `appearance.chevrons.expanded` | string | `▼` | Glyph drawn beside an expanded folder or group, and on an expanded foldable line while hovering the gutter. Same rules as above. |
+| `appearance.scrollbarGlyphs` | string | `"blocks"` | Glyphs that draw git change marks on the editor scrollbar: `"blocks"` uses the half and eighth blocks every font has, which place a mark exactly near the top or bottom of a cell and stretch one in the middle to the nearer edge; `"legacy"` adds the Symbols for Legacy Computing thin bars, which place every mark to the exact eighth of a cell. Kitty, Ghostty, WezTerm and foot draw those themselves; elsewhere the font needs them or the marks show as boxes. |
 
 ## Editor
 
@@ -40,6 +49,11 @@ All editor settings are nested under the `editor` key.
 | `editor.diffWordWrap` | bool | `false` | Wrap long lines in diff views |
 | `editor.diffHighContrast` | bool | `false` | Strengthen changed-line visibility with semantic red/green foregrounds |
 | `editor.diffEmphasizeCollapsedRows` | bool | `false` | Emphasize collapsed or omitted-line rows in diff views |
+| `editor.diffSigns` | bool | `false` | Draw `+`/`−` in the diff gutter. Off by default: the gutter highlight already marks changed lines. Gap rows show their expand chevron regardless of this setting. The `minimal` gutter style has no room for signs or the chevron |
+| `editor.diffSignsColor` | bool | `true` | Color diff gutter signs with the added/deleted colors; when off they use the line number color |
+| `editor.diffGutterHighlight` | bool | `true` | Tint the gutter background of added and deleted rows; when off the gutter stays plain and only the text is tinted |
+| `editor.diffColorGutterNumbers` | bool | `false` | Color the line numbers of added and deleted rows with the added/deleted gutter colors; when off the numbers use the normal line number color |
+| `editor.diffScrollbarGitMarks` | bool | `false` | Mark added and deleted rows on the diff view scrollbar |
 | `editor.autoIndent` | bool | `true` | Inherit the previous line's indent on Enter, plus one level after `{ ( [ :` (turn off for `noautoindent` behavior) |
 | `editor.autoDedent` | bool | `true` | Dedent one level when typing a closing `} ) ]` on a blank line |
 | `editor.lineNumbers` | bool | `true` | Show line numbers in the gutter |
@@ -50,10 +64,12 @@ All editor settings are nested under the `editor` key.
 | `editor.focusOnOpen` | bool | `false` | Focus the editor when opening a file |
 | `editor.syntaxHighlight` | bool | `true` | Enable syntax highlighting |
 | `editor.gitGutter` | bool | `true` | Show git change indicators in the gutter |
+| `editor.scrollbarGitMarks` | bool | `true` | Mark git changes on the editor's vertical scrollbar. Needs `editor.gitGutter` |
 | `editor.menuBar` | bool | `true` | Show the menu bar row at the top of the window |
 | `editor.gutterStyle` | string | `"compact"` | Gutter layout: `"minimal"`, `"compact"`, or `"extended"` |
 | `editor.borderStyle` | string | `"default"` | Border style preset: `"default"`, `"rounded"`, `"sharp"`, `"double"`, `"bold"`, `"ascii"`, `"none"`. Use `"default"` or `"theme"` to defer to the active theme. |
 | `editor.bracketPairColorization` | bool | `false` | Colorize matching bracket pairs by nesting depth |
+| `editor.grammars` | array | `[]` | External TextMate grammars (see [Grammars](#grammars)) |
 
 ## Explorer
 
@@ -61,12 +77,35 @@ All editor settings are nested under the `editor` key.
 |-----|------|---------|-------------|
 | `explorer.showHidden` | bool | `true` | Show hidden files (dot-prefixed) in the file explorer |
 | `explorer.showGitIgnored` | bool | `true` | Show gitignored files in the file explorer |
+| `explorer.gitStatusColors` | bool | `true` | Color files and folders in the file explorer by their git status (modified, new, deleted, conflicted). Colors come from the theme's `warning`, `success`, `danger`, and `conflict` colors |
+| `explorer.dimStagedGitColors` | bool | `false` | Render staged changes in a dimmed version of their status color, telling them apart from pending ones. Off by default: the Changes panel already separates staged from unstaged, and the extra shades make the explorer busier. Needs `explorer.gitStatusColors` |
+| `explorer.autoReveal` | bool | `false` | Expand the file explorer to the active file and select it whenever the active file changes. **Explorer: Reveal Active File** does the same on demand |
 
 ## Sidebar
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `sidebar.panelOrder` | string[] | built-in order | Preferred sidebar panel-header order. Dragging a header or using **Move Panel Left/Right** updates it automatically. Unknown plugin panel IDs are retained until that plugin loads. |
+| `sidebar.panelOrder` | string[] | built-in order | Initial sidebar panel-header order. Unknown plugin panel IDs are retained until that plugin loads. |
+| `sidebar.width` | int | `30` | Initial sidebar width in columns. |
+| `sidebar.commitHistoryHeight` | int | proportional | Initial height of the commit history in the Changes panel, in rows. |
+
+These are starting values. Once you drag a header, resize the sidebar, the commit history, or the panel, the new layout is saved to `state.json` next to `settings.json` and takes precedence. Delete `state.json` to return to these values.
+
+## Panel
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `panel.position` | string | `"bottom"` | Where the panel (terminal, diagnostics, output) is initially docked: `"bottom"` or `"right"`. **Dock Panel Right/Bottom** saves the choice to `state.json`, which takes precedence. |
+
+## Welcome
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `welcome.showOnHome` | bool | `false` | Start on the welcome page instead of opening `$HOME` when ttt runs there with no arguments, as desktop launchers do. `ttt --welcome` does the same from anywhere. Also in **Settings > General**. |
+| `welcome.favorites` | string[] | `[]` | Folders listed on the welcome page, opened with one click. `~` is expanded; missing folders are skipped. **Add to Favorites** / **Remove from Favorites** in an Explorer root's right-click menu (or **Welcome: Add/Remove Folder to/from Favorites** in the palette) update it automatically. |
+| `welcome.recentFolders` | bool | `true` | Save opened folders in `state.json` and show them on the welcome page. Turning this off immediately removes the saved history. Also in **Settings > General**. |
+
+Below the favorites, the welcome page lists the last 10 folders opened under **Recent**, most recent first. ttt keeps the history in `state.json`, so a `settings.json` in a dotfiles repo is not rewritten every time you open a folder. Favorites and folders that no longer exist are left out.
 
 ## Git
 
@@ -86,7 +125,7 @@ All editor settings are nested under the `editor` key.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `lsp.enabled` | bool | `true` | Enable LSP support |
-| `lsp.hover` | bool | `true` | Show hover information from the language server |
+| `lsp.hover` | bool | `true` | Show hover information from the language server when the mouse rests over code. `editor.hover` (Ctrl+K I) works regardless |
 | `lsp.hoverDelay` | int | `500` | Milliseconds to wait before showing hover information |
 | `lsp.saveOnRename` | bool | `false` | Auto-save files affected by a rename operation |
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before save (e.g. `"source.organizeImports"`) |
@@ -120,6 +159,31 @@ All editor settings are nested under the `editor` key.
 | `autocomplete.debounce` | int | `150` | Milliseconds to wait after typing before requesting completions |
 | `autocomplete.signatureHelp` | bool | `true` | Show function signature help on `(` and `,` |
 
+## Grammars
+
+ttt embeds TextMate grammars for over 120 languages. `editor.grammars` adds more, or replaces a built-in one, from TextMate grammar files in JSON format (`.tmLanguage.json`). Most VS Code language extensions ship one.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string | yes | Grammar file, relative to the config directory (`~/.config/ttt/`) unless absolute. |
+| `language` | string | no | Language name shown in the status bar. Defaults to the grammar's `name`. |
+| `fileTypes` | string[] | no | File extensions or exact file names, such as `zig` or `Justfile`. Defaults to the grammar's `fileTypes`. |
+| `plugin` | string | no | Set by ttt on entries a plugin installed. Uninstalling that plugin removes the entry and its file. |
+
+```json
+{
+  "editor": {
+    "grammars": [
+      { "path": "grammars/zig.tmLanguage.json", "fileTypes": ["zig", "zon"] }
+    ]
+  }
+}
+```
+
+Entries earlier in the list take precedence over later ones, and all of them take precedence over the embedded grammars, so an entry whose file types match a built-in language replaces it. Grammars can include each other across sources: an embedded Markdown grammar highlights a fenced block with an external grammar, and an external grammar can include an embedded one. A grammar file that is missing or invalid is skipped and reported in the Output panel.
+
+Plugins can contribute grammars too. Installing one copies its grammar files into `~/.config/ttt/grammars/` and adds entries here (see [Grammar plugins](/guides/plugin-authoring/#grammar-plugins)).
+
 ## Formatters
 
 External code formatters configured per file extension. Each formatter receives the buffer content via stdin and must write the formatted output to stdout. Use `{file}` as a placeholder for the file path (needed by formatters like prettier for filetype detection).
@@ -152,6 +216,14 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
   "version": 1,
   "theme": "default-dark",
   "debugMode": false,
+  "appearance": {
+    "icons": "none",
+    "chevrons": {
+      "collapsed": "▶",
+      "expanded": "▼"
+    },
+    "scrollbarGlyphs": "blocks"
+  },
   "editor": {
     "tabSize": 4,
     "insertSpaces": true,
@@ -159,7 +231,13 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
     "diffMode": "split",
     "diffContext": "changes",
     "diffWordWrap": false,
+    "diffHighContrast": false,
     "diffEmphasizeCollapsedRows": false,
+    "diffSigns": false,
+    "diffSignsColor": true,
+    "diffGutterHighlight": true,
+    "diffColorGutterNumbers": false,
+    "diffScrollbarGitMarks": false,
     "autoIndent": true,
     "autoDedent": true,
     "lineNumbers": true,
@@ -180,7 +258,10 @@ When `editor.formatOnSave` is `true`, external formatters take priority over LSP
   },
   "explorer": {
     "showHidden": true,
-    "showGitIgnored": true
+    "showGitIgnored": true,
+    "gitStatusColors": true,
+    "dimStagedGitColors": false,
+    "autoReveal": false
   },
   "sidebar": {
     "panelOrder": ["explorer", "search", "changes", "outline"]

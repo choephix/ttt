@@ -14,6 +14,8 @@ type TreeNode struct {
 	LabelStyle     term.Style  `json:"-"`
 	Icon           string      `json:"icon,omitempty"`
 	IconStyle      term.Style  `json:"-"`
+	LabelIcon      string      `json:"-"`
+	LabelIconStyle term.Style  `json:"-"`
 	Badge          string      `json:"badge,omitempty"`
 	BadgeStyle     term.Style  `json:"-"`
 	RightIcon      string      `json:"rightIcon,omitempty"`
@@ -49,10 +51,14 @@ type TreeConfig struct {
 	MenuIcon       string      `json:"menuIcon,omitempty"`
 	MenuIconPadded bool        `json:"menuIconPadded,omitempty"`
 	Indent         int         `json:"indent,omitempty"`
-	ActiveID       string      `json:"-"`
-	EmptyText      string      `json:"emptyText,omitempty"`
-	SelectOnClick  bool        `json:"-"`
-	TruncateLeft   bool        `json:"truncateLeft,omitempty"` // truncate labels from the left (…tail) so the end stays visible
+	// ChevronCollapsed and ChevronExpanded must each be one single-width rune;
+	// zero means the default triangle.
+	ChevronCollapsed rune   `json:"-"`
+	ChevronExpanded  rune   `json:"-"`
+	ActiveID         string `json:"-"`
+	EmptyText        string `json:"emptyText,omitempty"`
+	SelectOnClick    bool   `json:"-"`
+	TruncateLeft     bool   `json:"truncateLeft,omitempty"` // truncate labels from the left (…tail) so the end stays visible
 
 	OnCommand          func(command string, node *TreeNode)
 	OnMenu             func(entries []MenuEntry, node *TreeNode, screenX, screenY int)
@@ -79,6 +85,9 @@ type TreeWidget struct {
 
 	selected      int
 	scrollTop     int
+	leftHeld      bool // the left button was down on the last mouse report
+	pressX        int  // where that press started
+	pressY        int
 	lastSel       int
 	focused       bool
 	lastClickTime time.Time
@@ -198,6 +207,17 @@ func (t *TreeWidget) SelectByID(id string) {
 			return
 		}
 	}
+}
+
+func (t *TreeWidget) RevealID(id string) bool {
+	for i, node := range t.flatList {
+		if node.ID == id {
+			t.selected = i
+			t.lastSel = -1
+			return true
+		}
+	}
+	return false
 }
 
 func (t *TreeWidget) SetItems(items []*TreeNode) {
@@ -511,9 +531,15 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 
 	hasChildren := len(node.Children) > 0 || node.Expandable
 	if hasChildren {
-		chevron := '▶'
+		chevron := t.Config.ChevronCollapsed
+		if chevron == 0 {
+			chevron = '▶'
+		}
 		if node.Expanded {
-			chevron = '▼'
+			chevron = t.Config.ChevronExpanded
+			if chevron == 0 {
+				chevron = '▼'
+			}
 		}
 		if x < w {
 			surface.SetCell(x, y, term.Cell{Ch: chevron, Style: style})
@@ -526,7 +552,7 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		x++
 	}
 
-	if node.Icon != "" {
+	if icon := node.Icon; icon != "" {
 		iconStyle := node.IconStyle
 		if iconStyle == term.StyleDefault {
 			iconStyle = style
@@ -534,7 +560,19 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		if idx == t.selected {
 			iconStyle = style
 		}
-		x = drawRunesClipped(surface, x, y, maxX, []rune(node.Icon), iconStyle)
+		x = drawRunesClipped(surface, x, y, maxX, []rune(icon), iconStyle)
+		if x < maxX {
+			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
+			x++
+		}
+	}
+
+	if node.LabelIcon != "" {
+		labelIconStyle := node.LabelIconStyle
+		if labelIconStyle == term.StyleDefault || idx == t.selected {
+			labelIconStyle = style
+		}
+		x = drawRunesClipped(surface, x, y, maxX, []rune(node.LabelIcon), labelIconStyle)
 		if x < maxX {
 			surface.SetCell(x, y, term.Cell{Ch: ' ', Style: style})
 			x++
@@ -558,15 +596,22 @@ func (t *TreeWidget) renderNode(surface Surface, node *TreeNode, idx, y, w int) 
 		}
 		x = maxX
 	} else {
-		// A node with its own label color keeps it on a highlighted row and
-		// borrows only the highlight's background, so a selected symlink still
-		// reads as a symlink.
+		// Git-status colors yield to the selection highlight and to muted.
+		// A right-aligned mark (symlink, broken link) keeps its own color on
+		// a highlighted row and only borrows the highlight's background.
 		labelStyle, labelBg := style, term.StyleDefault
+		highlighted := style == term.StyleSidebarSelected
 		switch {
-		case node.LabelStyle != term.StyleDefault:
-			labelStyle, labelBg = node.LabelStyle, style
-		case node.Muted && idx != t.selected:
+		case node.RightIcon != "" && node.LabelStyle != term.StyleDefault:
+			labelStyle = node.LabelStyle
+			if highlighted {
+				labelBg = style
+			}
+		case highlighted:
+		case node.Muted:
 			labelStyle = term.StyleMuted
+		case node.LabelStyle != term.StyleDefault:
+			labelStyle = node.LabelStyle
 		}
 		labelRunes := []rune(node.Label)
 		if t.Config.TruncateLeft || node.TruncateLeft {
@@ -730,6 +775,14 @@ func (t *TreeWidget) notifyPointerCaptureInvalidated(invalidated bool) {
 func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	btn := ev.Buttons()
 	mx, my := ev.Position()
+	// Terminals keep reporting a held button as the pointer moves. Those
+	// reports come from a new position; acting on them toggled a held folder
+	// over and over and opened every row the pointer crossed.
+	moved := t.leftHeld && (mx != t.pressX || my != t.pressY)
+	t.leftHeld = btn&tcell.Button1 != 0
+	if t.leftHeld && !moved {
+		t.pressX, t.pressY = mx, my
+	}
 	r := t.rect
 	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
 		return EventIgnored
@@ -768,6 +821,9 @@ func (t *TreeWidget) handleMouse(ev *tcell.EventMouse) EventResult {
 	}
 
 	if btn&tcell.Button1 != 0 {
+		if moved {
+			return EventConsumed
+		}
 		node := t.flatList[idx]
 		t.selected = idx
 

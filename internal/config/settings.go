@@ -4,24 +4,32 @@ import (
 	"encoding/json"
 	"os"
 	"slices"
+
+	"github.com/eugenioenko/ttt/internal/textwidth"
 )
 
 // Validated by normalizeSettings and used to populate the settings UI pickers.
 var (
-	GutterStyles = []string{"minimal", "compact", "extended"}
-	BorderStyles = []string{"default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none"}
-	DiffModes    = []string{"split", "unified"}
-	DiffContexts = []string{"changes", "full"}
-	GitFileViews = []string{"tree", "list"}
+	GutterStyles        = []string{"minimal", "compact", "extended"}
+	BorderStyles        = []string{"default", "theme", "rounded", "sharp", "double", "bold", "ascii", "none"}
+	DiffModes           = []string{"split", "unified"}
+	DiffContexts        = []string{"changes", "full"}
+	GitFileViews        = []string{"tree", "list"}
+	IconModes           = []string{IconsNerdFont, IconsNone}
+	ScrollbarGlyphModes = []string{ScrollbarGlyphsBlocks, ScrollbarGlyphsLegacy}
 )
 
 const (
-	DiffModeSplit      = "split"
-	DiffModeUnified    = "unified"
-	DiffContextChanges = "changes"
-	DiffContextFull    = "full"
-	GitFileViewTree    = "tree"
-	GitFileViewList    = "list"
+	DiffModeSplit         = "split"
+	DiffModeUnified       = "unified"
+	DiffContextChanges    = "changes"
+	DiffContextFull       = "full"
+	GitFileViewTree       = "tree"
+	GitFileViewList       = "list"
+	IconsNone             = "none"
+	IconsNerdFont         = "nerd-font"
+	ScrollbarGlyphsBlocks = "blocks"
+	ScrollbarGlyphsLegacy = "legacy"
 )
 
 type TerminalSettings struct {
@@ -86,30 +94,50 @@ func DefaultLSPSettings() LSPSettings {
 }
 
 type EditorSettings struct {
-	TabSize                 int    `json:"tabSize"`
-	InsertSpaces            bool   `json:"insertSpaces"`
-	WordWrap                bool   `json:"wordWrap"`
-	DiffMode                string `json:"diffMode"`
-	DiffContext             string `json:"diffContext"`
-	DiffWordWrap            bool   `json:"diffWordWrap"`
-	DiffHighContrast        bool   `json:"diffHighContrast,omitempty"`
-	DiffCollapsedEmphasis   bool   `json:"diffEmphasizeCollapsedRows,omitempty"`
-	LineNumbers             bool   `json:"lineNumbers"`
-	CursorStyle             string `json:"cursorStyle,omitempty"`
-	FormatOnSave            bool   `json:"formatOnSave"`
-	InsertFinalNewline      bool   `json:"insertFinalNewline"`
-	TrimTrailingWhitespace  bool   `json:"trimTrailingWhitespace"`
-	FocusOnOpen             bool   `json:"focusOnOpen"`
-	SyntaxHighlight         *bool  `json:"syntaxHighlight,omitempty"`
-	GitGutter               *bool  `json:"gitGutter,omitempty"`
-	AutoDedent              *bool  `json:"autoDedent,omitempty"`
-	AutoIndent              *bool  `json:"autoIndent,omitempty"`
-	GutterStyle             string `json:"gutterStyle,omitempty"`
-	BorderStyle             string `json:"borderStyle,omitempty"`
-	BracketPairColorization bool   `json:"bracketPairColorization"`
-	ShowTrailingNewline     *bool  `json:"showTrailingNewline,omitempty"`
-	MenuBar                 *bool  `json:"menuBar,omitempty"`
-	UndoDeleteCursorStart   bool   `json:"undoDeleteCursorStart,omitempty"`
+	TabSize      int  `json:"tabSize"`
+	InsertSpaces bool `json:"insertSpaces"`
+	WordWrap     bool `json:"wordWrap"`
+	// HighlightTimeLimit caps tokenizing one line, in milliseconds; 0 keeps the
+	// built-in limit. Unlisted: raise it only where every line must finish, such
+	// as slow CI runners.
+	HighlightTimeLimit      int              `json:"highlightTimeLimit,omitempty"`
+	DiffMode                string           `json:"diffMode"`
+	DiffContext             string           `json:"diffContext"`
+	DiffWordWrap            bool             `json:"diffWordWrap"`
+	DiffHighContrast        bool             `json:"diffHighContrast"`
+	DiffCollapsedEmphasis   bool             `json:"diffEmphasizeCollapsedRows"`
+	DiffSigns               bool             `json:"diffSigns"`
+	DiffSignsColor          bool             `json:"diffSignsColor"`
+	DiffGutterHighlight     bool             `json:"diffGutterHighlight"`
+	DiffColorGutterNumbers  bool             `json:"diffColorGutterNumbers"`
+	DiffScrollbarGitMarks   bool             `json:"diffScrollbarGitMarks"`
+	LineNumbers             bool             `json:"lineNumbers"`
+	CursorStyle             string           `json:"cursorStyle,omitempty"`
+	FormatOnSave            bool             `json:"formatOnSave"`
+	InsertFinalNewline      bool             `json:"insertFinalNewline"`
+	TrimTrailingWhitespace  bool             `json:"trimTrailingWhitespace"`
+	FocusOnOpen             bool             `json:"focusOnOpen"`
+	SyntaxHighlight         *bool            `json:"syntaxHighlight,omitempty"`
+	GitGutter               *bool            `json:"gitGutter,omitempty"`
+	ScrollbarGitMarks       *bool            `json:"scrollbarGitMarks,omitempty"`
+	AutoDedent              *bool            `json:"autoDedent,omitempty"`
+	AutoIndent              *bool            `json:"autoIndent,omitempty"`
+	GutterStyle             string           `json:"gutterStyle,omitempty"`
+	BorderStyle             string           `json:"borderStyle,omitempty"`
+	BracketPairColorization bool             `json:"bracketPairColorization"`
+	ShowTrailingNewline     *bool            `json:"showTrailingNewline,omitempty"`
+	MenuBar                 *bool            `json:"menuBar,omitempty"`
+	UndoDeleteCursorStart   bool             `json:"undoDeleteCursorStart,omitempty"`
+	TransparentBackground   bool             `json:"transparentBackground"`
+	Grammars                []GrammarSetting `json:"grammars,omitempty"`
+}
+
+// Path is relative to the config directory unless absolute.
+type GrammarSetting struct {
+	Path      string   `json:"path"`
+	Language  string   `json:"language,omitempty"`
+	FileTypes []string `json:"fileTypes,omitempty"`
+	Plugin    string   `json:"plugin,omitempty"`
 }
 
 func (e EditorSettings) IsShowTrailingNewlineEnabled() bool {
@@ -128,6 +156,10 @@ func (e EditorSettings) IsGitGutterEnabled() bool {
 	return e.GitGutter == nil || *e.GitGutter
 }
 
+func (e EditorSettings) IsScrollbarGitMarksEnabled() bool {
+	return e.ScrollbarGitMarks == nil || *e.ScrollbarGitMarks
+}
+
 func (e EditorSettings) IsAutoDedentEnabled() bool {
 	return e.AutoDedent == nil || *e.AutoDedent
 }
@@ -142,6 +174,9 @@ func DefaultEditorSettings() EditorSettings {
 		InsertSpaces:            true,
 		DiffMode:                DiffModeSplit,
 		DiffContext:             DiffContextChanges,
+		DiffSignsColor:          true,
+		DiffGutterHighlight:     true,
+		DiffColorGutterNumbers:  false,
 		LineNumbers:             true,
 		InsertFinalNewline:      true,
 		GutterStyle:             "compact",
@@ -161,14 +196,67 @@ func DefaultSearchSettings() SearchSettings {
 }
 
 type ExplorerSettings struct {
-	ShowHidden     bool `json:"showHidden"`
-	ShowGitIgnored bool `json:"showGitIgnored"`
+	ShowHidden         bool `json:"showHidden"`
+	ShowGitIgnored     bool `json:"showGitIgnored"`
+	GitStatusColors    bool `json:"gitStatusColors"`
+	DimStagedGitColors bool `json:"dimStagedGitColors"`
+	AutoReveal         bool `json:"autoReveal"`
+}
+
+const (
+	DefaultChevronCollapsed = "▶"
+	DefaultChevronExpanded  = "▼"
+)
+
+type ChevronSettings struct {
+	Collapsed string `json:"collapsed"`
+	Expanded  string `json:"expanded"`
+}
+
+type AppearanceSettings struct {
+	Icons           string          `json:"icons"`
+	Chevrons        ChevronSettings `json:"chevrons"`
+	ScrollbarGlyphs string          `json:"scrollbarGlyphs"`
+}
+
+func DefaultAppearanceSettings() AppearanceSettings {
+	return AppearanceSettings{
+		Icons: IconsNone,
+		Chevrons: ChevronSettings{
+			Collapsed: DefaultChevronCollapsed,
+			Expanded:  DefaultChevronExpanded,
+		},
+		ScrollbarGlyphs: ScrollbarGlyphsBlocks,
+	}
+}
+
+// ChevronRunes falls back to the defaults for any value that is not exactly one
+// single-width rune, since trees and the fold gutter draw the chevron in one
+// cell and reserve exactly two columns for it.
+func (a AppearanceSettings) ChevronRunes() (collapsed, expanded rune) {
+	return chevronRune(a.Chevrons.Collapsed, DefaultChevronCollapsed),
+		chevronRune(a.Chevrons.Expanded, DefaultChevronExpanded)
+}
+
+func chevronRune(value, fallback string) rune {
+	if r := []rune(value); len(r) == 1 && textwidth.Rune(r[0]) == 1 {
+		return r[0]
+	}
+	return []rune(fallback)[0]
 }
 
 type SidebarSettings struct {
 	PanelOrder          []string `json:"panelOrder,omitempty"`
 	Width               int      `json:"width,omitempty"`
 	CommitHistoryHeight int      `json:"commitHistoryHeight,omitempty"`
+}
+
+func DefaultSidebarSettings() SidebarSettings {
+	return SidebarSettings{}
+}
+
+type PanelSettings struct {
+	Position string `json:"position,omitempty"`
 }
 
 type GitSettings struct {
@@ -181,8 +269,9 @@ func DefaultGitSettings() GitSettings {
 
 func DefaultExplorerSettings() ExplorerSettings {
 	return ExplorerSettings{
-		ShowHidden:     true,
-		ShowGitIgnored: true,
+		ShowHidden:      true,
+		ShowGitIgnored:  true,
+		GitStatusColors: true,
 	}
 }
 
@@ -204,6 +293,35 @@ func DefaultMarkdownSettings() MarkdownSettings {
 	}
 }
 
+const (
+	ImageProtocolAuto  = "auto"
+	ImageProtocolKitty = "kitty"
+	ImageProtocolNone  = "none"
+)
+
+type ImageSettings struct {
+	Protocol string `json:"protocol"`
+}
+
+func DefaultImageSettings() ImageSettings {
+	return ImageSettings{
+		Protocol: ImageProtocolAuto,
+	}
+}
+
+type WelcomeSettings struct {
+	// ShowOnHome shows the welcome page instead of opening $HOME when ttt
+	// starts there with no arguments, as desktop launchers do.
+	ShowOnHome bool `json:"showOnHome,omitempty"`
+	// Favorites are folders listed on the welcome page to open in one step.
+	Favorites     []string `json:"favorites,omitempty"`
+	RecentFolders *bool    `json:"recentFolders,omitempty"`
+}
+
+func (w WelcomeSettings) IsRecentFoldersEnabled() bool {
+	return w.RecentFolders == nil || *w.RecentFolders
+}
+
 type Settings struct {
 	Version   int    `json:"version"`
 	Theme     string `json:"theme,omitempty"`
@@ -211,18 +329,22 @@ type Settings struct {
 	// These sections must NOT use omitzero: their defaults are non-zero, so an
 	// all-false/all-zero section would be omitted on save and silently revert to
 	// the defaults on the next load.
+	Appearance   AppearanceSettings   `json:"appearance"`
 	Editor       EditorSettings       `json:"editor"`
 	Search       SearchSettings       `json:"search"`
 	Explorer     ExplorerSettings     `json:"explorer"`
 	Sidebar      SidebarSettings      `json:"sidebar,omitzero"`
+	Panel        PanelSettings        `json:"panel,omitzero"`
 	Git          GitSettings          `json:"git"`
 	Terminal     TerminalSettings     `json:"terminal"`
 	LSP          LSPSettings          `json:"lsp"`
 	Autocomplete AutocompleteSettings `json:"autocomplete"`
 	Markdown     MarkdownSettings     `json:"markdown"`
+	Image        ImageSettings        `json:"image"`
 	// Plugins is safe: its only field is a tri-state *bool where nil means the
 	// default, so the zero value and "unset" mean the same thing.
 	Plugins    PluginSettings    `json:"plugins,omitzero"`
+	Welcome    WelcomeSettings   `json:"welcome,omitzero"`
 	Formatters map[string]string `json:"formatters,omitempty"`
 	// Extra holds top-level keys that are not part of the core schema — chiefly
 	// plugin-namespaced settings (e.g. "vim"). Without this, json.Unmarshal into
@@ -234,9 +356,9 @@ type Settings struct {
 // knownSettingsKeys is the set of top-level JSON keys owned by the core schema.
 // Any other top-level key is preserved via Settings.Extra.
 var knownSettingsKeys = map[string]bool{
-	"version": true, "theme": true, "debugMode": true, "editor": true,
-	"search": true, "explorer": true, "sidebar": true, "git": true, "terminal": true, "lsp": true,
-	"autocomplete": true, "markdown": true, "plugins": true, "formatters": true,
+	"version": true, "theme": true, "debugMode": true, "appearance": true, "editor": true,
+	"search": true, "explorer": true, "sidebar": true, "panel": true, "git": true, "terminal": true, "lsp": true,
+	"autocomplete": true, "markdown": true, "image": true, "plugins": true, "formatters": true, "welcome": true,
 }
 
 func (s Settings) MarshalJSON() ([]byte, error) {
@@ -286,14 +408,17 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 func DefaultSettings() Settings {
 	return Settings{
 		Version:      1,
+		Appearance:   DefaultAppearanceSettings(),
 		Editor:       DefaultEditorSettings(),
 		Search:       DefaultSearchSettings(),
 		Explorer:     DefaultExplorerSettings(),
+		Sidebar:      DefaultSidebarSettings(),
 		Git:          DefaultGitSettings(),
 		Terminal:     DefaultTerminalSettings(),
 		LSP:          DefaultLSPSettings(),
 		Autocomplete: DefaultAutocompleteSettings(),
 		Markdown:     DefaultMarkdownSettings(),
+		Image:        DefaultImageSettings(),
 	}
 }
 
@@ -327,6 +452,8 @@ func normalizeSettings(s *Settings) {
 	if s.Sidebar.CommitHistoryHeight < 0 {
 		s.Sidebar.CommitHistoryHeight = 0
 	}
+	collapsed, expanded := s.Appearance.ChevronRunes()
+	s.Appearance.Chevrons = ChevronSettings{Collapsed: string(collapsed), Expanded: string(expanded)}
 	if !slices.Contains(DiffModes, s.Editor.DiffMode) {
 		s.Editor.DiffMode = DiffModeSplit
 	}
@@ -335,6 +462,15 @@ func normalizeSettings(s *Settings) {
 	}
 	if !slices.Contains(GitFileViews, s.Git.FileView) {
 		s.Git.FileView = GitFileViewList
+	}
+	if !slices.Contains([]string{ImageProtocolAuto, ImageProtocolKitty, ImageProtocolNone}, s.Image.Protocol) {
+		s.Image.Protocol = ImageProtocolAuto
+	}
+	if !slices.Contains(IconModes, s.Appearance.Icons) {
+		s.Appearance.Icons = IconsNone
+	}
+	if !slices.Contains(ScrollbarGlyphModes, s.Appearance.ScrollbarGlyphs) {
+		s.Appearance.ScrollbarGlyphs = ScrollbarGlyphsBlocks
 	}
 }
 

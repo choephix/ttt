@@ -3,7 +3,10 @@ package app
 import (
 	"testing"
 
+	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/ui"
+	"github.com/eugenioenko/ttt/internal/workspace"
 )
 
 func TestCommitHistoryHeightRestoresAndPersists(t *testing.T) {
@@ -17,11 +20,12 @@ func TestCommitHistoryHeightRestoresAndPersists(t *testing.T) {
 		t.Fatalf("restored split = height %d ratio %v, want height 17 ratio 0", a.Changes.Split.BottomH, a.Changes.Split.BottomRatio)
 	}
 
-	a.persistCommitHistoryHeight(12)
-	if got := a.Settings.Sidebar.CommitHistoryHeight; got != 12 {
+	a.Changes.Split.BottomH = 12
+	a.persistCommitHistoryHeight()
+	if got := a.State.CommitHistoryHeight; got != 12 {
 		t.Fatalf("commitHistoryHeight = %d, want 12", got)
 	}
-	if got := config.LoadSettings().Sidebar.CommitHistoryHeight; got != 12 {
+	if got := config.LoadState().CommitHistoryHeight; got != 12 {
 		t.Fatalf("persisted commitHistoryHeight = %d, want 12", got)
 	}
 }
@@ -37,12 +41,35 @@ func TestSidebarWidthRestoresAndPersists(t *testing.T) {
 		t.Fatalf("restored sidebar width = %d, want 22", a.SplitPanel.DividerPos)
 	}
 
-	a.persistSidebarWidth(18)
-	if got := a.Settings.Sidebar.Width; got != 18 {
+	a.SetSidebarWidth(18)
+	if got := a.State.SidebarWidth; got != 18 {
 		t.Fatalf("sidebar width = %d, want 18", got)
 	}
-	if got := config.LoadSettings().Sidebar.Width; got != 18 {
+	if got := config.LoadState().SidebarWidth; got != 18 {
 		t.Fatalf("persisted sidebar width = %d, want 18", got)
+	}
+}
+
+func TestSidebarDraggedClosedRestoresUsableWidth(t *testing.T) {
+	config.OverrideConfigDir = t.TempDir()
+	t.Cleanup(func() { config.OverrideConfigDir = "" })
+
+	a := buildTestApp(t, config.DefaultSettings())
+	a.SetSidebarWidth(18)
+	for w := 5; w >= 0; w-- {
+		a.resizeSidebar(w)
+	}
+	a.persistSidebarLayout()
+	if got := config.LoadState(); got.SidebarWidth != 18 || !got.SidebarHidden {
+		t.Fatalf("persisted state = %+v, want width 18 and hidden", got)
+	}
+
+	if err := config.SaveState(config.State{SidebarWidth: 2}); err != nil {
+		t.Fatal(err)
+	}
+	a = buildTestApp(t, config.DefaultSettings())
+	if a.SplitPanel.DividerPos != ui.DefaultSidebarWidth {
+		t.Fatalf("restored sidebar width = %d, want %d", a.SplitPanel.DividerPos, ui.DefaultSidebarWidth)
 	}
 }
 
@@ -81,6 +108,7 @@ func TestCommitToCoversEveryField(t *testing.T) {
 	for _, cat := range settingsCategories() {
 		for _, f := range cat.Fields {
 			switch f.Kind {
+			case settingSection:
 			case settingBool:
 				if f.GetBool == nil || f.SetBool == nil {
 					t.Errorf("%s → %s: bool field missing an accessor", cat.Title, f.Label)
@@ -98,7 +126,7 @@ func TestCommitToCoversEveryField(t *testing.T) {
 	}
 }
 
-func TestDiffContextSettingLivesInAppearance(t *testing.T) {
+func TestDiffContextSettingLivesInDiff(t *testing.T) {
 	found := ""
 	count := 0
 	for _, category := range settingsCategories() {
@@ -109,12 +137,12 @@ func TestDiffContextSettingLivesInAppearance(t *testing.T) {
 			}
 		}
 	}
-	if count != 1 || found != "Appearance" {
-		t.Fatalf("Diff context count = %d, category = %q; want one under Appearance", count, found)
+	if count != 1 || found != "Diff" {
+		t.Fatalf("Diff context count = %d, category = %q; want one under Diff", count, found)
 	}
 }
 
-func TestCollapsedDiffEmphasisSettingLivesInAppearance(t *testing.T) {
+func TestCollapsedDiffEmphasisSettingLivesInDiff(t *testing.T) {
 	found := ""
 	count := 0
 	for _, category := range settingsCategories() {
@@ -125,8 +153,8 @@ func TestCollapsedDiffEmphasisSettingLivesInAppearance(t *testing.T) {
 			}
 		}
 	}
-	if count != 1 || found != "Appearance" {
-		t.Fatalf("collapsed diff emphasis count = %d, category = %q; want one under Appearance", count, found)
+	if count != 1 || found != "Diff" {
+		t.Fatalf("collapsed diff emphasis count = %d, category = %q; want one under Diff", count, found)
 	}
 }
 
@@ -150,5 +178,82 @@ func TestShowSettingsReopenPreservesPendingWorkingView(t *testing.T) {
 	}
 	if got := a.settingsView.working.Editor.TabSize; got != 7 {
 		t.Fatalf("reopening settings discarded pending tab size: got %d, want 7", got)
+	}
+}
+
+func TestSidebarClosedStateRestores(t *testing.T) {
+	config.OverrideConfigDir = t.TempDir()
+	t.Cleanup(func() { config.OverrideConfigDir = "" })
+	folder := t.TempDir()
+	build := func() *App {
+		cfg := config.AppConfig{
+			Keybindings: config.DefaultKeybindings(),
+			Settings:    config.DefaultSettings(),
+			Theme:       config.DefaultTheme(),
+		}
+		borders := BuildBorderSet(cfg.Theme.Borders)
+		return BuildAppFromConfig(&cfg, &borders, workspace.New([]string{folder}), nil)
+	}
+
+	a := build()
+	if !a.Sidebar.Visible {
+		t.Fatal("sidebar should start visible with a folder open")
+	}
+	a.ToggleSidebar()
+	if a = build(); a.Sidebar.Visible || a.SplitPanel.ShowLeft {
+		t.Fatal("sidebar closed in the previous session should stay closed")
+	}
+
+	a.ToggleSidebar()
+	if a = build(); !a.Sidebar.Visible {
+		t.Fatal("sidebar reopened in the previous session should start visible")
+	}
+
+	a.Reg = command.NewRegistry()
+	RegisterCommands(a)
+	a.ShowEmptyState()
+	if a = build(); !a.Sidebar.Visible {
+		t.Fatal("hiding the sidebar for the empty state must not persist")
+	}
+}
+
+func TestPanelSizeRestoresAndPersists(t *testing.T) {
+	config.OverrideConfigDir = t.TempDir()
+	t.Cleanup(func() { config.OverrideConfigDir = "" })
+
+	a := buildTestApp(t, config.DefaultSettings())
+	a.ContentSplit.BottomH = 12
+	a.ContentSplit.RightW = 45
+	a.persistPanelSize()
+
+	a.ContentSplit.BottomH = 2
+	a.ContentSplit.RightW = 10
+	a.persistPanelSize()
+	if got := config.LoadState(); got.PanelHeight != 12 || got.PanelWidth != 45 {
+		t.Fatalf("persisted panel size = %dx%d, want 12x45", got.PanelHeight, got.PanelWidth)
+	}
+
+	a = buildTestApp(t, config.DefaultSettings())
+	if a.ContentSplit.BottomH != 12 || a.ContentSplit.RightW != 45 {
+		t.Fatalf("restored panel size = %dx%d, want 12x45", a.ContentSplit.BottomH, a.ContentSplit.RightW)
+	}
+
+	if err := config.SaveState(config.State{PanelHeight: 2, PanelWidth: 10}); err != nil {
+		t.Fatal(err)
+	}
+	a = buildTestApp(t, config.DefaultSettings())
+	if a.ContentSplit.BottomH < ui.MinPanelHeight || a.ContentSplit.RightW < ui.MinPanelWidth {
+		t.Fatalf("restored tiny panel size = %dx%d", a.ContentSplit.BottomH, a.ContentSplit.RightW)
+	}
+}
+
+func TestReopeningTinyPanelResetsSize(t *testing.T) {
+	a := buildTestApp(t, config.DefaultSettings())
+	a.ContentSplit.SetRect(ui.Rect{W: 100, H: 40})
+	a.ContentSplit.BottomH = 2
+	a.ContentSplit.RightW = 3
+	a.ensureUsablePanelSize()
+	if a.ContentSplit.BottomH != 20 || a.ContentSplit.RightW != ui.DefaultPanelWidth {
+		t.Fatalf("panel size = %dx%d, want 20x%d", a.ContentSplit.BottomH, a.ContentSplit.RightW, ui.DefaultPanelWidth)
 	}
 }

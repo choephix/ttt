@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/eugenioenko/ttt/internal/core/buffer"
@@ -21,11 +23,19 @@ import (
 
 const maxBracketColorLines = 10_000
 
+type Bookmark struct {
+	Icon  rune
+	Style term.Style
+}
+
 type EditorPaneWidget struct {
 	BaseWidget
+	lineScratch             []screenCell
+	runeScratch             []rune
 	Buf                     *buffer.Buffer
 	Cursor                  *cursor.Cursor
 	Viewport                *view.Viewport
+	hScrollPending          bool
 	Undo                    *undo.UndoStack
 	Selection               *selection.Selection
 	CursorX                 int
@@ -34,6 +44,10 @@ type EditorPaneWidget struct {
 	UseTabs                 bool
 	LineNumbers             bool
 	GutterStyle             string
+	LegacyScrollbarGlyphs   bool
+	ScrollbarGitMarks       bool
+	FoldChevronCollapsed    rune
+	FoldChevronExpanded     rune
 	WordWrap                bool
 	AutoDedent              bool
 	AutoIndent              bool
@@ -59,18 +73,48 @@ type EditorPaneWidget struct {
 	gutterHover             bool
 	gutterHoverLine         int
 	mouseDownX, mouseDownY  int
+	PostDragAutoScrollTick  func(generation uint64)
+	dragPointerX            int
+	dragPointerY            int
+	autoScrollTimer         *time.Timer
+	autoScrollGeneration    uint64
 	maxWidthSeen            int
-	cachedVisibleLines      []int
 	searchByLine            map[int][]int
 	diagByLine              map[int][]int
 	LineChanges             []diff.LineChangeKind
+	Bookmarks               map[int]Bookmark
+	OnBookmarkChange        func(line int, action string, b Bookmark)
+	OnGutterClick           func(line int) bool
 	ReadOnly                bool
 	bracketColorCache       bracketColorMap
 	bracketColorDirty       bool
 	bracketMatchCache       bracketMatch
 	bracketGen              int
-	wrapMap                 []wrapEntry
-	wrapTopOffset           int
+	rowMap                  []editorRow
+	rowMapTop               int
+	rowMapOffset            int
+	topRowOffset            int
+	topOffsetLine           int
+	phantoms                map[int]int
+	phantomGen              uint64
+	DiffOverlay             *DiffOverlay
+	diffNumDigits           int
+	// Passive panes draw no active line or bracket match: a diff pane that
+	// does not have the keys.
+	Passive bool
+	// Embedded panes are drawn inside a host that owns scrolling, so they draw
+	// no scrollbars of their own.
+	Embedded bool
+	// NoWrapMargin wraps at the full text width; wrapCols caps it, so the
+	// two panes of a split diff wrap at the same column.
+	NoWrapMargin bool
+	wrapCols     int
+	layoutCache  [4]*rowLayout
+	layoutNext   int
+
+	// revealGapRow asks a diff to open a gap row the cursor jumped onto,
+	// where moving onto one normally leaves it collapsed.
+	revealGapRow bool
 }
 
 func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewport) *EditorPaneWidget {
@@ -80,6 +124,7 @@ func NewEditorPaneWidget(buf *buffer.Buffer, cur *cursor.Cursor, vp *view.Viewpo
 		Viewport:          vp,
 		AutoDedent:        true,
 		AutoIndent:        true,
+		ScrollbarGitMarks: true,
 		bracketColorDirty: true,
 	}
 }
@@ -92,16 +137,16 @@ func (e *EditorPaneWidget) InvalidateBracketColors() {
 func (e *EditorPaneWidget) Focusable() bool { return true }
 
 func (e *EditorPaneWidget) GutterWidth() int {
+	if e.DiffOverlay.diffGutter() {
+		return e.DiffOverlay.gutterWidth()
+	}
 	if !e.LineNumbers {
 		if e.GutterStyle != "minimal" {
 			return 1
 		}
 		return 0
 	}
-	digits := len(strconv.Itoa(len(e.Buf.Lines)))
-	if digits < 2 {
-		digits = 2
-	}
+	digits := max(len(strconv.Itoa(len(e.Buf.Lines))), e.diffNumDigits, 2)
 	switch e.GutterStyle {
 	case "minimal":
 		return digits + 1
@@ -109,6 +154,67 @@ func (e *EditorPaneWidget) GutterWidth() int {
 		return digits + 5
 	default:
 		return digits + 3
+	}
+}
+
+func (e *EditorPaneWidget) bookmarkColumn() int {
+	if e.GutterStyle == "extended" {
+		return 1
+	}
+	return 0
+}
+
+func (e *EditorPaneWidget) validBookmarkLine(line int) bool {
+	return e.Buf != nil && line >= 0 && line < len(e.Buf.Lines)
+}
+
+func (e *EditorPaneWidget) SetBookmark(line int, icon rune, style term.Style) {
+	if !e.validBookmarkLine(line) {
+		return
+	}
+	if e.Bookmarks == nil {
+		e.Bookmarks = make(map[int]Bookmark)
+	}
+	b := Bookmark{Icon: icon, Style: style}
+	e.Bookmarks[line] = b
+	e.fireBookmarkChange(line, "set", b)
+}
+
+func (e *EditorPaneWidget) GetBookmark(line int) (Bookmark, bool) {
+	b, ok := e.Bookmarks[line]
+	return b, ok
+}
+
+func (e *EditorPaneWidget) RemoveBookmark(line int) {
+	if _, ok := e.Bookmarks[line]; !ok {
+		return
+	}
+	delete(e.Bookmarks, line)
+	e.fireBookmarkChange(line, "remove", Bookmark{})
+}
+
+func (e *EditorPaneWidget) SetAllBookmarks(items map[int]Bookmark) {
+	for line := range items {
+		if !e.validBookmarkLine(line) {
+			delete(items, line)
+		}
+	}
+	e.Bookmarks = items
+	e.fireBookmarkChange(-1, "set_all", Bookmark{})
+}
+
+func (e *EditorPaneWidget) GetAllBookmarks() map[int]Bookmark {
+	return e.Bookmarks
+}
+
+func (e *EditorPaneWidget) ClearBookmarks() {
+	e.Bookmarks = nil
+	e.fireBookmarkChange(-1, "clear", Bookmark{})
+}
+
+func (e *EditorPaneWidget) fireBookmarkChange(line int, action string, b Bookmark) {
+	if e.OnBookmarkChange != nil {
+		e.OnBookmarkChange(line, action, b)
 	}
 }
 
@@ -177,21 +283,7 @@ func (e *EditorPaneWidget) ensureTopLineVisible() {
 }
 
 func (e *EditorPaneWidget) screenToBufferLine(y int) int {
-	if e.cachedVisibleLines == nil || e.Folds == nil {
-		return e.Viewport.TopLine + y
-	}
-	topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-	if topVis < 0 {
-		topVis = 0
-	}
-	idx := topVis + y
-	if idx < 0 {
-		return 0
-	}
-	if idx >= len(e.cachedVisibleLines) {
-		return len(e.Buf.Lines)
-	}
-	return e.cachedVisibleLines[idx]
+	return e.rowAt(y).bufLine
 }
 
 func (e *EditorPaneWidget) DiagnosticAt(line, col int) *Diagnostic {
@@ -214,13 +306,31 @@ func (e *EditorPaneWidget) DiagnosticAt(line, col int) *Diagnostic {
 func (e *EditorPaneWidget) exec(cmd undo.EditCommand) {
 	prevLines := len(e.Buf.Lines)
 	cmd.Apply(e.Buf)
+	if undo.IsNoop(cmd) {
+		return
+	}
 	if e.Undo != nil {
 		e.Undo.Push(cmd)
 	}
 	e.bufferDirty = true
-	if e.Folds != nil && len(e.Buf.Lines) != prevLines {
-		e.Folds.SetRanges(fold.ComputeIndentRanges(e.Buf.Lines))
+	if len(e.Buf.Lines) != prevLines {
+		e.refreshFolds()
 	}
+}
+
+const asyncFoldLines = 50_000
+
+func (e *EditorPaneWidget) refreshFolds() {
+	if e.Folds == nil {
+		return
+	}
+	buf := e.Buf
+	// Collapsed folds hide lines, so they need ranges that match the edit now.
+	if len(buf.Lines) < asyncFoldLines || e.Folds.HasCollapsedFolds() {
+		e.Folds.SetRanges(fold.ComputeIndentRanges(buf.Lines))
+		return
+	}
+	e.Folds.MarkStale(func() []fold.Range { return fold.ComputeIndentRanges(buf.Lines) })
 }
 
 func (e *EditorPaneWidget) ExecCommand(cmd undo.EditCommand) { e.exec(cmd) }
@@ -232,7 +342,7 @@ func (e *EditorPaneWidget) FlushOnChange() {
 		e.bracketColorDirty = true
 		e.bracketGen++
 		if e.Highlighter != nil {
-			e.Highlighter.ClearCache()
+			e.Highlighter.SyncBuffer(e.Buf)
 		}
 		if e.OnChange != nil {
 			e.OnChange()
@@ -422,29 +532,69 @@ func (e *EditorPaneWidget) clampCursor() {
 	}
 }
 
-func (e *EditorPaneWidget) skipHiddenLineDown() {
-	if e.Folds == nil {
-		return
+func (e *EditorPaneWidget) diffHiddenRange(line int) (gapLine, end int, ok bool) {
+	o := e.DiffOverlay
+	if !o.hasHidden() {
+		return 0, 0, false
 	}
-	if r := e.Folds.ContainingFold(e.Cursor.Line); r != nil {
-		e.Cursor.Line = e.Buf.ClampLine(r.EndLine + 1)
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if e.Cursor.Col > lineLen {
-			e.Cursor.Col = lineLen
-		}
+	i := sort.Search(len(o.Hidden), func(i int) bool { return o.Hidden[i].end >= line })
+	if i < len(o.Hidden) && o.Hidden[i].start <= line {
+		return o.Hidden[i].start - 1, o.Hidden[i].end, true
+	}
+	return 0, 0, false
+}
+
+func (e *EditorPaneWidget) clampCursorCol() {
+	if lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line])); e.Cursor.Col > lineLen {
+		e.Cursor.Col = lineLen
 	}
 }
 
+func (e *EditorPaneWidget) skipHiddenLineDown() {
+	if _, end, ok := e.diffHiddenRange(e.Cursor.Line); ok {
+		e.Cursor.Line = e.Buf.ClampLine(end + 1)
+		e.clampCursorCol()
+	}
+	e.skipFoldDown()
+}
+
 func (e *EditorPaneWidget) skipHiddenLineUp() {
+	if gapLine, _, ok := e.diffHiddenRange(e.Cursor.Line); ok {
+		e.Cursor.Line = e.Buf.ClampLine(gapLine)
+		e.clampCursorCol()
+	}
+	e.skipFoldUp()
+}
+
+func (e *EditorPaneWidget) skipFoldDown() {
 	if e.Folds == nil {
 		return
 	}
-	if r := e.Folds.ContainingFold(e.Cursor.Line); r != nil {
-		e.Cursor.Line = r.StartLine
-		lineLen := len([]rune(e.Buf.Lines[e.Cursor.Line]))
-		if e.Cursor.Col > lineLen {
-			e.Cursor.Col = lineLen
+	moved := false
+	for r := e.Folds.ContainingFold(e.Cursor.Line); r != nil; r = e.Folds.ContainingFold(e.Cursor.Line) {
+		if r.EndLine+1 >= len(e.Buf.Lines) {
+			e.skipFoldUp()
+			return
 		}
+		e.Cursor.Line = r.EndLine + 1
+		moved = true
+	}
+	if moved {
+		e.clampCursorCol()
+	}
+}
+
+func (e *EditorPaneWidget) skipFoldUp() {
+	if e.Folds == nil {
+		return
+	}
+	moved := false
+	for r := e.Folds.ContainingFold(e.Cursor.Line); r != nil; r = e.Folds.ContainingFold(e.Cursor.Line) {
+		e.Cursor.Line = r.StartLine
+		moved = true
+	}
+	if moved {
+		e.clampCursorCol()
 	}
 }
 
@@ -471,35 +621,24 @@ func (e *EditorPaneWidget) expandFoldAtCursor() {
 }
 
 func (e *EditorPaneWidget) scrollViewport() {
+	l := e.layout()
+	curRow, _ := l.rowOf(e.Cursor.Line, e.Cursor.Col)
+	top := e.topRow(l)
+	if curRow < top {
+		e.setTopRow(l, curRow)
+	}
+	if curRow >= top+e.Viewport.Height {
+		e.setTopRow(l, curRow-e.Viewport.Height+1)
+	}
 	if e.WordWrap {
-		e.scrollViewportWrap()
+		e.Viewport.LeftCol = 0
 		return
 	}
-	if e.Folds != nil && e.Folds.HasCollapsedFolds() {
-		curVis := e.Folds.BufferToVisible(e.Cursor.Line)
-		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-		if curVis < 0 {
-			curVis = 0
-		}
-		if topVis < 0 {
-			topVis = 0
-		}
-		if curVis < topVis {
-			e.Viewport.TopLine = e.Folds.VisibleToBuffer(curVis)
-		}
-		if curVis >= topVis+e.Viewport.Height {
-			newTopVis := curVis - e.Viewport.Height + 1
-			e.Viewport.TopLine = e.Folds.VisibleToBuffer(newTopVis)
-		}
-	} else {
-		if e.Cursor.Line < e.Viewport.TopLine {
-			e.Viewport.TopLine = e.Cursor.Line
-		}
-		if e.Cursor.Line >= e.Viewport.TopLine+e.Viewport.Height {
-			e.Viewport.TopLine = e.Cursor.Line - e.Viewport.Height + 1
-		}
-	}
 	e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
+	if e.Viewport.Width <= 0 {
+		e.hScrollPending = true
+		return
+	}
 	visCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, e.resolveTabSize())
 	if visCol < e.Viewport.LeftCol {
 		e.Viewport.LeftCol = visCol
@@ -509,100 +648,18 @@ func (e *EditorPaneWidget) scrollViewport() {
 	}
 }
 
-func (e *EditorPaneWidget) scrollViewportWrap() {
-	e.Viewport.LeftCol = 0
-	tabW := e.resolveTabSize()
-	width := e.Viewport.Width
-	if width < 1 {
-		width = 1
-	}
-
-	curVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col, width, tabW)
-	topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, width, tabW)
-	topVisRow += e.wrapTopOffset
-
-	if curVisRow < topVisRow {
-		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, curVisRow, width, tabW)
-	}
-	if curVisRow >= topVisRow+e.Viewport.Height {
-		newTop := curVisRow - e.Viewport.Height + 1
-		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, newTop, width, tabW)
-	}
-}
-
 func (e *EditorPaneWidget) scrollUp(n int) {
-	if e.WordWrap {
-		tabW := e.resolveTabSize()
-		width := e.Viewport.Width
-		if width < 1 {
-			width = 1
-		}
-		topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, width, tabW)
-		topVisRow += e.wrapTopOffset
-		newTop := topVisRow - n
-		if newTop < 0 {
-			newTop = 0
-		}
-		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, newTop, width, tabW)
-		return
-	}
-	if e.Folds != nil && e.Folds.HasCollapsedFolds() {
-		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-		newVis := topVis - n
-		if newVis < 0 {
-			newVis = 0
-		}
-		e.Viewport.TopLine = e.Folds.VisibleToBuffer(newVis)
-	} else {
-		e.Viewport.TopLine -= n
-		if e.Viewport.TopLine < 0 {
-			e.Viewport.TopLine = 0
-		}
-	}
+	l := e.layout()
+	e.setTopRow(l, e.topRow(l)-n)
 }
 
 func (e *EditorPaneWidget) scrollDown(n int) {
-	if e.WordWrap {
-		tabW := e.resolveTabSize()
-		width := e.Viewport.Width
-		if width < 1 {
-			width = 1
-		}
-		topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, width, tabW)
-		topVisRow += e.wrapTopOffset
-		totalVis := totalVisualLines(e.Buf.Lines, width, tabW)
-		newTop := topVisRow + n
-		if newTop >= totalVis {
-			newTop = totalVis - 1
-		}
-		if newTop < 0 {
-			newTop = 0
-		}
-		e.Viewport.TopLine, e.wrapTopOffset = wrapVisualRowToTopLine(e.Buf.Lines, newTop, width, tabW)
-		return
+	l := e.layout()
+	newTop := e.topRow(l) + n
+	if total := l.total(); newTop >= total {
+		newTop = total - 1
 	}
-	if e.Folds != nil && e.Folds.HasCollapsedFolds() {
-		totalLines := len(e.Buf.Lines)
-		visCount := e.Folds.VisibleLineCount(totalLines)
-		topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-		newVis := topVis + n
-		if newVis >= visCount {
-			newVis = visCount - 1
-		}
-		if newVis < 0 {
-			newVis = 0
-		}
-		e.Viewport.TopLine = e.Folds.VisibleToBuffer(newVis)
-	} else {
-		max := len(e.Buf.Lines) - 1
-		if max < 0 {
-			max = 0
-		}
-		e.Viewport.TopLine += n
-		if e.Viewport.TopLine > max {
-			e.Viewport.TopLine = max
-		}
-	}
+	e.setTopRow(l, newTop)
 }
 
 func (e *EditorPaneWidget) SmartHome() {

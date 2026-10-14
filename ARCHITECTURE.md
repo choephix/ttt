@@ -76,14 +76,18 @@ have explicit cancellation, identity, shutdown, and stale-result behavior.
 ### Presentation kernel
 
 Packages: `internal/term`, `internal/render`, `internal/view`,
-`internal/textwidth`, `internal/widgets`, `internal/markdown`, and
-`internal/highlight`.
+`internal/textwidth`, `internal/widgets`, `internal/markdown`,
+`internal/highlight`, and `internal/asynctask`.
 
 Owns screen cells, styles, terminal-width measurement, rendering, layout,
 focus, scrolling, reusable interaction primitives, and syntax-to-style
 projection. `internal/widgets` contains primitives with more than one product
 or plugin consumer; it is not a destination for every visually reusable
 product surface.
+
+`internal/asynctask` provides terminal-independent scheduling with injected
+execution and delivery. Product widgets may use it directly; the application
+owns service coordination and task shutdown.
 
 `tcell` is the accepted event and terminal implementation dependency for this
 zone. Replacing it with one-for-one local event wrappers would add indirection
@@ -112,6 +116,10 @@ structs while unrelated methods continue to mutate them is not decomposition.
 
 Application code may route `tcell` events where it composes the event loop and
 UI, but new feature state should not depend directly on terminal event types.
+
+`app.NewTask` registers tasks for shutdown. `App.Init` wires UI delivery for
+both existing and future tasks. Uninitialized/headless Apps execute tasks
+synchronously, including the E2E simulation harness.
 
 ### Plugin host
 
@@ -162,11 +170,17 @@ prevents, or measured migration value justifies it.
 
 ### Highlight ownership
 
-`internal/highlight` owns Chroma language selection and tokenization,
-multi-line state detection, line caches, and projection from Chroma token types
-to `term.Style`. These responsibilities form one presentation concern and stay
-together behind the existing `Highlighter` and `Span` API. `internal/core`
-must not import highlighting or other presentation packages.
+`internal/highlight` owns grammar selection, line caches, and projection from
+TextMate scopes to `term.Style`. These responsibilities form one presentation
+concern and stay together behind the existing `Highlighter` and `Span` API.
+`internal/core` must not import highlighting or other presentation packages.
+
+Tokenization uses [textmate-go](https://github.com/eugenioenko/textmate-go),
+a Go port of VS Code's TextMate engine with embedded grammars. The engine
+carries its rule stack from line to line, so constructs that span lines (block
+comments, template literals, docstrings, multi-line tags) need no
+highlight-specific handling. Its incremental `Document` keeps the states above
+an edit and reuses the unchanged tail once the state converges.
 
 ### Generic widgets and product surfaces
 
@@ -267,8 +281,8 @@ P2
 `-- [P3/P4] H1 PTY readiness fixture correction for issue #533
 
 S2 + D2
-  `-- D3  Migrate DiffViewWidget
-        `-- D4  Migrate CommitDetailWidget and remove duplicate projection
+  `-- D3  Migrate DiffViewWidget (done: diff tabs use DiffEditorWidget, #791 and #792)
+        `-- D4  Migrate CommitDetailWidget and remove duplicate projection (done: #797, issue #796)
 ```
 
 ### Parallel work

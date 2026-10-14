@@ -23,7 +23,7 @@ func TestExplorerMarksSymlinkChildren(t *testing.T) {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 
-	n := NewNavigationPanel(config.DefaultExplorerSettings(), root)
+	n := NewNavigationPanel(config.DefaultExplorerSettings(), config.IconsNone, root)
 	children := map[string]*widgets.TreeNode{}
 	for _, child := range n.Tree.Config.Items[0].Children {
 		children[child.Label] = child

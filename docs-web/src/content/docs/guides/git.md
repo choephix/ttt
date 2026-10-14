@@ -38,12 +38,27 @@ TTT refreshes repository status after editor and source-control mutations. While
 
 Select a changed file in the changes panel to open a diff. Syntax highlighting is layered on top of diff background colors so you can read the code naturally while seeing what changed. Added and removed line numbers use `+` and `−` markers with semantic green and red styling.
 
+Which entry you select decides what the diff compares:
+
+- **Changes:** the staged version (the index) against the working tree, so only the changes you have not staged yet. It opens in the file's own editor tab in diff mode, with the tab title ending in `(diff)`. You can edit and save there as in any editor tab. The diff updates as you type and recomputes shortly after you stop, on save, when the file reloads from disk, and when you stage, unstage, or commit. In the unified layout, removed lines appear above the lines that replaced them and cannot be edited. In the split layout, the staged version is shown read-only on the left and the file on the right, scrolling together; click the left side to move around and select in it, and click the file side to go back to editing. Find (`Ctrl+F`) searches both sides. In the changes-only context, typing or pasting on a `⋯ N lines ⋯` row expands it first. Code folds are not shown in diff mode and come back when you leave it.
+- **Staged Changes:** `HEAD` against the staged version, so only what the next commit will contain. The tab title ends in `(staged)`, so a file's staged and unstaged diffs can be open at the same time.
+
+A file with unresolved merge conflicts has no single staged version to compare against, so it opens as a plain file with a status message instead. If a file gets merge conflicts while its diff is open, diff mode turns off.
+
+Run **Git: Toggle Inline Diff** from the command palette to turn diff mode on or off for any tracked file.
+
+## Explorer Git Status Colors
+
+The file explorer sidebar colors files and folders by their git status: modified files are colored with the theme's `warning` color, new/untracked files with `success`, deleted files with `danger`, and merge-conflicted files with `conflict`. Staged and pending changes share one color by default, since the Changes panel is where staged work is easiest to read. Turning on `explorer.dimStagedGitColors` renders staged changes in a dimmed version of their color, telling the two apart at the cost of a busier sidebar. A folder takes the color of the most attention-worthy change among its descendants, which is how a deletion usually shows: the file itself is gone from disk and has no row, but its folder still carries the `danger` color. This is on by default and can be turned off via `explorer.gitStatusColors` in Settings.
+
 The shared diff reader has two independent presentation choices:
 
 - **Split** places old and new content side by side; **Unified** stacks removals before additions.
 - **Changes Only** shows changed hunks and surrounding context; quiet disclosure rows expand omitted context in place. **Full File** shows the complete file with changes highlighted inline.
 
-Set global defaults for layout, context, line wrapping, and high contrast from the **Diff Views** submenu under **Options**. The adjacent **Git Files** submenu chooses a persisted full-path List (the default) or compact Tree and exposes bulk expansion controls. The Changes panel menu exposes the same choices contextually. Commands applied directly to an open diff override that surface without changing the saved defaults.
+Diffs read like the editor: the cursor, selection, copy and find work the same way, Ctrl+Home and Ctrl+End jump to the top and bottom, and each side is highlighted as a whole file, so a line inside a multi-line comment or string keeps its colors. In **Changes Only**, gap rows also cover the unchanged lines above the first change and below the last one.
+
+Set global defaults for layout, context, line wrapping, and high contrast from the **Diff Views** submenu under **Options**. The same submenu controls the diff gutter: **Gutter Highlight** colors the line numbers of changed rows and tints their gutter, **Gutter Signs** adds `+` and `−` marks (off by default, since the highlight already shows the change), and **Colored Gutter Signs** draws those marks in the added and removed colors. The adjacent **Git Files** submenu chooses a persisted full-path List (the default) or compact Tree and exposes bulk expansion controls. The Changes panel menu exposes the same choices contextually. Commands applied directly to an open diff override that surface without changing the saved defaults.
 
 Commit History initially shows the 10 most recent commits. Activate **Load older commits…** to append the next bounded page; selecting or scrolling to that row does not load anything by itself.
 
@@ -77,7 +92,7 @@ This gives you the local file tree in the explorer and the PR's changed files in
 
 ## Git Gutter
 
-The line number area displays diff indicators that show which lines have been added, modified, or deleted compared to the last commit. This gives you at-a-glance visibility into your uncommitted changes as you edit.
+The line number area displays diff indicators that show which lines have been added, modified, or deleted compared to the last commit. This gives you at-a-glance visibility into your uncommitted changes as you edit. In files taller than the editor, the changes are also marked on the vertical scrollbar; click a mark to jump there.
 
 ## Git Blame
 

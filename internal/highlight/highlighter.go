@@ -1,11 +1,14 @@
 package highlight
 
 import (
-	"github.com/eugenioenko/ttt/internal/term"
+	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/lexers"
+	textmate "github.com/eugenioenko/textmate-go"
+
+	"github.com/eugenioenko/ttt/internal/core/buffer"
+	"github.com/eugenioenko/ttt/internal/term"
 )
 
 type Span struct {
@@ -14,320 +17,378 @@ type Span struct {
 	Style term.Style
 }
 
-// spanKey keys the span cache; the same text differs by incoming state.
-type spanKey struct {
-	line    string
-	inBlock bool
+// A 100ms budget keeps synchronous highlighting within the threshold where UI
+// feedback still feels immediate while leaving headroom for a grammar's first
+// lazy regex compilation on slower machines.
+const tokenizeTimeLimit = 100 * time.Millisecond
+
+// Minified files put a whole program on one line; past these limits a line is
+// left uncoloured rather than stalling the render.
+var tokenizeOptions = textmate.TokenizeOptions{
+	TimeLimit:    tokenizeTimeLimit,
+	MaxLineRunes: 20_000,
+}
+
+const maxIsolatedCache = 4_096
+
+// SetTimeLimit sets the per-line tokenizing time limit for highlighters
+// created afterwards; d <= 0 restores the default.
+func SetTimeLimit(d time.Duration) {
+	if d <= 0 {
+		d = tokenizeTimeLimit
+	}
+	tokenizeOptions.TimeLimit = d
 }
 
 type Highlighter struct {
-	lexer chroma.Lexer
-	cache map[spanKey][]Span
+	grammar  *textmate.Grammar
+	language string
+	doc      lineDoc
+	dirty    bool
+	// buf, version and lines identify what SyncBuffer last handed the document.
+	buf      *buffer.Buffer
+	version  uint64
+	lines    *string
+	isolated *singleLineCache
+	// The document's token slices are immutable and shared across calls, so
+	// a slice's first element identifies its spans.
+	lineSpans map[*textmate.Token]cachedSpans
+	styles    map[*textmate.ScopeStack]term.Style
+	// tokenTheme is the token theme the caches above were built with.
+	tokenTheme *TokenTheme
 
-	// Empty when the language has no block comment; state tracking is then skipped.
-	blockOpen  string
-	blockClose string
-
-	// Rune index where a line opens an unclosed block comment, -1 for none.
-	// Pure function of the text, so it survives ClearCache.
-	opens map[string]int
-
-	// states[i] reports whether line i starts inside a block comment.
-	states []bool
-	// stateSrc[i] is the text of line i that produced states[i+1], so an edit
-	// can be located by comparison instead of discarding the whole table.
-	stateSrc []string
-	// Set by ClearCache; the table is revalidated on the next lookup.
-	statesDirty bool
+	lastSpans map[int]lastLine
+	wantLine  int
+	stepping  bool
+	sync      bool
+	syncLines int
 }
 
+// Conventional extensionless names the grammar catalog does not declare.
+var extraFilenames = map[string]string{
+	"gemfile":     "ruby",
+	"rakefile":    "ruby",
+	"guardfile":   "ruby",
+	"podfile":     "ruby",
+	"vagrantfile": "ruby",
+	"brewfile":    "ruby",
+	"jenkinsfile": "groovy",
+}
+
+var backupSuffixes = []string{".bak", ".orig", ".old", "~"}
+
+// New returns nil when no grammar matches the file name.
 func New(filename string) *Highlighter {
-	lexer := lexers.Match(filename)
-	if lexer == nil {
+	c := currentCatalog()
+	ref, ok := c.forFilename(filepath.Base(filename))
+	if !ok {
 		return nil
 	}
-	lexer = chroma.Coalesce(lexer)
-	h := &Highlighter{lexer: lexer}
-	h.blockOpen, h.blockClose = detectBlockComment(lexer)
-	return h
+	return c.newHighlighter(ref)
+}
+
+// NewForLanguage selects a grammar by language ID or alias, such as a Markdown
+// code-fence label.
+func NewForLanguage(lang string) *Highlighter {
+	c := currentCatalog()
+	ref, ok := c.forLanguage(lang)
+	if !ok {
+		return nil
+	}
+	return c.newHighlighter(ref)
+}
+
+func (c *grammarCatalog) newHighlighter(ref grammarRef) *Highlighter {
+	g, err := c.registry.LoadGrammar(ref.scopeName)
+	if err != nil || g == nil {
+		return nil
+	}
+	return &Highlighter{
+		grammar:   g,
+		language:  ref.language,
+		doc:       textmate.NewDocument(g, textmate.DocumentOptions{TokenizeOptions: tokenizeOptions}),
+		isolated:  &singleLineCache{},
+		dirty:     true,
+		syncLines: DefaultSyncLines,
+	}
 }
 
 func (h *Highlighter) Language() string {
-	return h.lexer.Config().Name
+	return h.language
 }
 
-// HighlightLine highlights a line in isolation, ignoring multiline comments.
+type singleLineCache struct{ m map[string][]Span }
+
+// ShareSingleLines makes h reuse o's cache of lines highlighted in isolation;
+// the two sides of a diff share most of their lines.
+func (h *Highlighter) ShareSingleLines(o *Highlighter) {
+	if h != nil && o != nil && h.grammar == o.grammar {
+		h.isolated = o.isolated
+	}
+}
+
+// SharesSingleLinesWith reports whether h and o use one single-line cache.
+func (h *Highlighter) SharesSingleLinesWith(o *Highlighter) bool {
+	return h != nil && o != nil && h.isolated == o.isolated
+}
+
+// HighlightLine highlights a line in isolation, as the first line of a file.
 func (h *Highlighter) HighlightLine(line string) []Span {
-	return h.highlight(line, false)
+	h.syncTokenTheme()
+	if spans, ok := h.isolated.m[line]; ok {
+		return spans
+	}
+	res := h.grammar.TokenizeLineWithOptions(line, nil, tokenizeOptions)
+	spans := h.tokensToSpans(res.Tokens)
+	if !res.Stopped {
+		if h.isolated.m == nil || len(h.isolated.m) >= maxIsolatedCache {
+			h.isolated.m = make(map[string][]Span)
+		}
+		h.isolated.m[line] = spans
+	}
+	return spans
 }
 
-// HighlightLineAt highlights lines[idx], carrying block comment state down
-// from the top of the buffer.
+// HighlightLineAt highlights lines[idx], carrying grammar state down from the
+// top of the buffer.
 func (h *Highlighter) HighlightLineAt(lines []string, idx int) []Span {
 	if idx < 0 || idx >= len(lines) {
 		return nil
 	}
-	return h.highlight(lines[idx], h.stateAt(lines, idx))
-}
-
-func (h *Highlighter) ClearCache() {
-	h.cache = make(map[spanKey][]Span)
-	h.statesDirty = true
-}
-
-func (h *Highlighter) highlight(line string, inBlock bool) []Span {
-	key := spanKey{line: line, inBlock: inBlock}
-	if h.cache != nil {
-		if cached, ok := h.cache[key]; ok {
-			return cached
+	h.syncTokenTheme()
+	if h.dirty || h.doc.Len() != len(lines) {
+		h.dirty = false
+		h.doc.SetLines(lines)
+		// An edit can lower what is materialized below an old target; steps
+		// work only toward lines rendered since.
+		h.wantLine = 0
+	}
+	if wake != nil && !h.sync {
+		// The synchronous budget is spent once; while steps catch up, other
+		// lines that are not ready are deferred too.
+		budget := h.syncLines
+		if h.stepping {
+			budget = 0
+		}
+		if !h.materialize(idx, budget) {
+			h.deferTo(idx)
+			return h.deferred(idx, lines[idx])
 		}
 	}
-	spans := h.computeSpans(line, inBlock)
-	if h.cache == nil {
-		h.cache = make(map[spanKey][]Span)
-	}
-	h.cache[key] = spans
-	return spans
-}
-
-func (h *Highlighter) computeSpans(line string, inBlock bool) []Span {
-	if inBlock {
-		end := h.closesAt(line)
-		if end < 0 {
-			if line == "" {
-				return nil
-			}
-			return []Span{{Start: 0, End: len([]rune(line)), Style: term.StyleSyntaxComment}}
-		}
-		spans := []Span{{Start: 0, End: end, Style: term.StyleSyntaxComment}}
-		for _, s := range h.computeSpans(string([]rune(line)[end:]), false) {
-			spans = append(spans, Span{Start: s.Start + end, End: s.End + end, Style: s.Style})
-		}
-		return spans
-	}
-
-	spans := h.lexLine(line)
-	open := h.opensAt(line)
-	if open < 0 {
-		return spans
-	}
-	// Comment opens here and runs past end of line. Fresh slice: spans is cached.
-	out := make([]Span, 0, len(spans)+1)
-	for _, s := range spans {
-		if s.End <= open {
-			out = append(out, s)
-		} else if s.Start < open {
-			out = append(out, Span{Start: s.Start, End: open, Style: s.Style})
-		}
-	}
-	return append(out, Span{Start: open, End: len([]rune(line)), Style: term.StyleSyntaxComment})
-}
-
-func (h *Highlighter) lexLine(line string) []Span {
-	iter, err := h.lexer.Tokenise(nil, line+"\n")
-	if err != nil {
+	res, ok := h.doc.Line(idx)
+	if !ok || len(res.Tokens) == 0 {
 		return nil
 	}
+	key := &res.Tokens[0]
+	if c, ok := h.lineSpans[key]; ok && c.n == len(res.Tokens) {
+		h.remember(idx, lines[idx], c.spans)
+		return c.spans
+	}
+	spans := h.tokensToSpans(res.Tokens)
+	if h.lineSpans == nil || len(h.lineSpans) >= maxIsolatedCache {
+		h.lineSpans = make(map[*textmate.Token]cachedSpans)
+	}
+	h.lineSpans[key] = cachedSpans{n: len(res.Tokens), spans: spans}
+	h.remember(idx, lines[idx], spans)
+	return spans
+}
+
+type cachedSpans struct {
+	n     int
+	spans []Span
+}
+
+// ClearCache marks the buffer as edited; the next lookup hands the new lines
+// to the document, which keeps state above the edit and reuses the unchanged
+// tail once tokenizer state converges.
+func (h *Highlighter) ClearCache() {
+	h.dirty = true
+}
+
+func (h *Highlighter) tokensToSpans(tokens []textmate.Token) []Span {
 	var spans []Span
-	pos := 0
-	for _, tok := range iter.Tokens() {
-		text := strings.TrimRight(tok.Value, "\n")
-		if text == "" {
+	for _, tok := range tokens {
+		if tok.End <= tok.Start {
 			continue
 		}
-		runeLen := len([]rune(text))
-		style := mapTokenType(tok.Type)
-		if style != term.StyleDefault {
-			spans = append(spans, Span{
-				Start: pos,
-				End:   pos + runeLen,
-				Style: style,
-			})
+		style := h.styleFor(tok.ScopeStack)
+		if style == term.StyleDefault {
+			continue
 		}
-		pos += runeLen
+		if n := len(spans); n > 0 && spans[n-1].End == tok.Start && spans[n-1].Style == style {
+			spans[n-1].End = tok.End
+			continue
+		}
+		spans = append(spans, Span{Start: tok.Start, End: tok.End, Style: style})
 	}
 	return spans
 }
 
-// stateAt reports whether lines[idx] starts inside a block comment, extending
-// the state table as needed. Transitions are memoized, so this is a map lookup
-// per line rather than a re-lex.
-func (h *Highlighter) stateAt(lines []string, idx int) bool {
-	if h.blockOpen == "" || idx <= 0 {
+// styleFor refines the engine's coarse category with the token's own scope.
+// Only the innermost scope is consulted, so an enclosing scope such as
+// meta.decorator cannot recolor a string or number nested inside it.
+func (h *Highlighter) styleFor(stack *textmate.ScopeStack) term.Style {
+	if style, ok := h.styles[stack]; ok {
+		return style
+	}
+	// A theme with tokenColors is authoritative, as in VS Code: a token no
+	// rule matches keeps the default foreground. Only themes without them
+	// use the syntax styles.
+	var style term.Style
+	if h.tokenTheme != nil {
+		style = h.tokenTheme.resolve(stack.Names())
+	} else {
+		style = classifyScopes(stack.Names())
+	}
+	if h.styles == nil || len(h.styles) >= maxIsolatedCache {
+		h.styles = make(map[*textmate.ScopeStack]term.Style)
+	}
+	h.styles[stack] = style
+	return style
+}
+
+// syncTokenTheme drops styles resolved under a previous theme: a token style
+// slot means a different color once another theme is installed.
+func (h *Highlighter) syncTokenTheme() {
+	if theme := CurrentTokenTheme(); theme != h.tokenTheme {
+		h.tokenTheme = theme
+		h.styles = nil
+		h.isolated.m = nil
+		h.lineSpans = nil
+		h.lastSpans = nil
+	}
+}
+
+func classifyScopes(names []string) term.Style {
+	if len(names) == 0 {
+		return term.StyleDefault
+	}
+	innermost := names[len(names)-1]
+	// VS Code themes color only specific entity.name kinds; any other one,
+	// such as Go's entity.name.import inside an import string, takes the color
+	// of its enclosing scope. The engine's category maps every entity.name to a
+	// type, which split an import path from its own quotes.
+	if hasScopePrefix(innermost, "entity.name") && !isThemedEntityName(innermost) {
+		return classifyScopes(names[:len(names)-1])
+	}
+	if isCSSSelector(names, innermost) {
+		return term.StyleSyntaxSelector
+	}
+	for _, rule := range scopeStyles {
+		if hasScopePrefix(innermost, rule.prefix) {
+			return rule.style
+		}
+	}
+	return categoryStyles[textmate.ClassifyScopes(names)]
+}
+
+// CSS selectors reuse HTML-like scopes (entity.name.tag, attribute-name.class)
+// that themes color differently inside a stylesheet, so they are recognized
+// only under a source.css scope, which also covers SCSS, LESS, and <style>.
+func isCSSSelector(names []string, innermost string) bool {
+	// The ".", "#", and ":" of a selector take the selector's color.
+	if hasScopePrefix(innermost, "punctuation.definition.entity") && len(names) > 1 {
+		return isCSSSelector(names[:len(names)-1], names[len(names)-2])
+	}
+	if hasScopePrefix(innermost, "entity.name.tag.css") || hasScopePrefix(innermost, "entity.name.tag.less") {
+		return true
+	}
+	inCSS := false
+	for _, name := range names {
+		if hasScopePrefix(name, "source.css") {
+			inCSS = true
+			break
+		}
+	}
+	if !inCSS {
 		return false
 	}
-	if h.statesDirty {
-		h.statesDirty = false
-		h.truncateToEdit(lines)
-	}
-	if len(h.states) == 0 {
-		h.states = append(h.states, false)
-	}
-	for len(h.states) <= idx && len(h.states) <= len(lines) {
-		i := len(h.states) - 1
-		h.states = append(h.states, h.nextState(lines[i], h.states[i]))
-		h.stateSrc = append(h.stateSrc, lines[i])
-	}
-	if idx < len(h.states) {
-		return h.states[idx]
+	for _, prefix := range cssSelectorScopes {
+		if hasScopePrefix(innermost, prefix) {
+			return true
+		}
 	}
 	return false
 }
 
-// truncateToEdit drops the state table from the first line whose text changed,
-// keeping everything above it. Comparing strings that were never rewritten hits
-// Go's identical-pointer fast path, so unchanged lines cost no scanning.
-func (h *Highlighter) truncateToEdit(lines []string) {
-	keep := min(len(h.stateSrc), len(lines))
-	for i := 0; i < keep; i++ {
-		if h.stateSrc[i] != lines[i] {
-			keep = i
-			break
-		}
-	}
-	h.stateSrc = h.stateSrc[:keep]
-	if len(h.states) > keep+1 {
-		h.states = h.states[:keep+1]
-	}
+var cssSelectorScopes = []string{
+	"entity.other.attribute-name.class",
+	"entity.other.attribute-name.id",
+	"entity.other.attribute-name.pseudo-class",
+	"entity.other.attribute-name.pseudo-element",
+	"entity.other.attribute-name.parent-selector",
+	"entity.other.attribute-name.parent",
+	"entity.other.attribute-name.scss",
 }
 
-// nextState advances block comment state across one line.
-func (h *Highlighter) nextState(line string, inBlock bool) bool {
-	for inBlock {
-		end := h.closesAt(line)
-		if end < 0 {
+var themedEntityNames = []string{
+	"entity.name.class", "entity.name.function", "entity.name.label",
+	"entity.name.module", "entity.name.namespace", "entity.name.operator",
+	"entity.name.scope-resolution", "entity.name.section", "entity.name.selector",
+	"entity.name.tag", "entity.name.type", "entity.name.variable",
+}
+
+func isThemedEntityName(scope string) bool {
+	for _, prefix := range themedEntityNames {
+		if hasScopePrefix(scope, prefix) {
 			return true
 		}
-		line = string([]rune(line)[end:])
-		inBlock = false
 	}
-	return h.opensAt(line) >= 0
+	return false
 }
 
-// closesAt returns the rune index just past the closing delimiter, or -1.
-// A plain search is correct: nothing is special inside a block comment.
-func (h *Highlighter) closesAt(line string) int {
-	if h.blockClose == "" {
-		return -1
-	}
-	i := strings.Index(line, h.blockClose)
-	if i < 0 {
-		return -1
-	}
-	return len([]rune(line[:i+len(h.blockClose)]))
+func hasScopePrefix(scope, prefix string) bool {
+	return strings.HasPrefix(scope, prefix) &&
+		(len(scope) == len(prefix) || scope[len(prefix)] == '.')
 }
 
-// opensAt returns the rune index where line opens an unclosed block comment,
-// or -1. Appending the closer makes the comment well formed, so chroma's own
-// rules decide: an opener inside a string or after a line comment is ignored.
-func (h *Highlighter) opensAt(line string) int {
-	if h.blockOpen == "" || !strings.Contains(line, h.blockOpen) {
-		return -1
-	}
-	if idx, ok := h.opens[line]; ok {
-		return idx
-	}
-	idx := h.computeOpensAt(line)
-	if h.opens == nil {
-		h.opens = make(map[string]int)
-	}
-	h.opens[line] = idx
-	return idx
+var scopeStyles = []struct {
+	prefix string
+	style  term.Style
+}{
+	{"keyword.control", term.StyleSyntaxControl},
+	{"storage.type.annotation", term.StyleSyntaxDecorator},
+	{"storage", term.StyleSyntaxStorage},
+	{"constant.language", term.StyleSyntaxConstant},
+	{"constant.character.escape", term.StyleSyntaxEscape},
+	{"variable.parameter", term.StyleSyntaxParameter},
+	{"variable.other.constant", term.StyleSyntaxReadonlyVariable},
+	{"variable.other.enummember", term.StyleSyntaxReadonlyVariable},
+	{"variable.other.property", term.StyleSyntaxProperty},
+	{"variable.other.object.property", term.StyleSyntaxProperty},
+	{"variable.language", term.StyleSyntaxSelf},
+	{"entity.name.namespace", term.StyleSyntaxNamespace},
+	{"entity.name.module", term.StyleSyntaxNamespace},
+	{"entity.name.function.decorator", term.StyleSyntaxDecorator},
+	{"punctuation.decorator", term.StyleSyntaxDecorator},
+	{"markup.underline.link", term.StyleSyntaxLink},
+	{"string.other.link", term.StyleSyntaxLink},
+	{"markup.inline.raw", term.StyleSyntaxCode},
+	{"punctuation.definition.template-expression", term.StyleSyntaxInterpolation},
+	{"punctuation.definition.inserted", term.StyleSyntaxInserted},
+	{"punctuation.definition.deleted", term.StyleSyntaxDeleted},
 }
 
-func (h *Highlighter) computeOpensAt(line string) int {
-	iter, err := h.lexer.Tokenise(nil, line+h.blockClose)
-	if err != nil {
-		return -1
-	}
-	pos, start := 0, -1
-	for _, tok := range iter.Tokens() {
-		switch {
-		case isCommentToken(tok.Type) && strings.HasPrefix(tok.Value, h.blockOpen):
-			start = pos
-		case !isCommentToken(tok.Type):
-			start = -1
-		}
-		pos += len([]rune(tok.Value))
-	}
-	return start
-}
-
-// Probed in order to discover the language's block comment delimiters.
-var blockCommentCandidates = [][2]string{
-	{"/*", "*/"},
-	{"<!--", "-->"},
-	{"{-", "-}"},
-	{"(*", "*)"},
-	{"--[[", "]]"},
-	{"<#", "#>"},
-}
-
-// detectBlockComment finds which candidate pair the lexer honours. Chroma's
-// comment rules vary too much in shape to read delimiters off directly.
-// The probe spans two lines because a line comment cannot, which stops
-// Haskell's "--" from matching the "--[[" candidate.
-func detectBlockComment(lx chroma.Lexer) (string, string) {
-	for _, c := range blockCommentCandidates {
-		probe := c[0] + " a\nb " + c[1]
-		iter, err := lx.Tokenise(nil, probe)
-		if err != nil {
-			continue
-		}
-		toks := iter.Tokens()
-		if len(toks) == 0 {
-			continue
-		}
-		if isCommentToken(toks[0].Type) && len([]rune(toks[0].Value)) >= len([]rune(probe)) {
-			return c[0], c[1]
-		}
-	}
-	return "", ""
-}
-
-func isCommentToken(t chroma.TokenType) bool {
-	return t == chroma.Comment || t.InSubCategory(chroma.Comment)
-}
-
-func mapTokenType(t chroma.TokenType) term.Style {
-	switch {
-	case t == chroma.KeywordType:
-		return term.StyleSyntaxType
-	case t == chroma.Keyword || t.InSubCategory(chroma.Keyword):
-		return term.StyleSyntaxKeyword
-	case t == chroma.Comment || t.InSubCategory(chroma.Comment):
-		return term.StyleSyntaxComment
-	case t == chroma.String || t.InSubCategory(chroma.String):
-		return term.StyleSyntaxString
-	case t == chroma.Number || t.InSubCategory(chroma.Number):
-		return term.StyleSyntaxNumber
-	case t == chroma.Operator || t.InSubCategory(chroma.Operator):
-		return term.StyleSyntaxOperator
-	case t == chroma.NameFunction || t == chroma.NameFunctionMagic:
-		return term.StyleSyntaxFunction
-	case t == chroma.NameBuiltin || t == chroma.NameBuiltinPseudo:
-		return term.StyleSyntaxBuiltin
-	case t == chroma.NameClass || t == chroma.NameDecorator:
-		return term.StyleSyntaxType
-	case t == chroma.NameTag:
-		return term.StyleSyntaxTag
-	case t == chroma.NameAttribute:
-		return term.StyleSyntaxAttribute
-	case t == chroma.NameVariable || t.InSubCategory(chroma.NameVariable):
-		return term.StyleSyntaxVariable
-	case t == chroma.GenericHeading || t == chroma.GenericSubheading:
-		return term.StyleSyntaxKeyword
-	case t == chroma.GenericStrong:
-		return term.StyleSyntaxType
-	case t == chroma.GenericEmph:
-		return term.StyleSyntaxString
-	case t == chroma.GenericInserted:
-		return term.StyleDiffAdded
-	case t == chroma.GenericDeleted:
-		return term.StyleDiffDeleted
-	case t == chroma.Punctuation:
-		return term.StyleSyntaxPunctuation
-	default:
-		return term.StyleDefault
-	}
+var categoryStyles = [...]term.Style{
+	textmate.TokenCategoryPlain:       term.StyleDefault,
+	textmate.TokenCategoryComment:     term.StyleSyntaxComment,
+	textmate.TokenCategoryString:      term.StyleSyntaxString,
+	textmate.TokenCategoryRegexp:      term.StyleSyntaxRegexp,
+	textmate.TokenCategoryNumber:      term.StyleSyntaxNumber,
+	textmate.TokenCategoryKeyword:     term.StyleSyntaxKeyword,
+	textmate.TokenCategoryOperator:    term.StyleSyntaxOperator,
+	textmate.TokenCategoryFunction:    term.StyleSyntaxFunction,
+	textmate.TokenCategoryTag:         term.StyleSyntaxTag,
+	textmate.TokenCategoryAttribute:   term.StyleSyntaxAttribute,
+	textmate.TokenCategoryType:        term.StyleSyntaxType,
+	textmate.TokenCategoryBuiltin:     term.StyleSyntaxBuiltin,
+	textmate.TokenCategoryVariable:    term.StyleSyntaxVariable,
+	textmate.TokenCategoryHeading:     term.StyleSyntaxHeading,
+	textmate.TokenCategoryBold:        term.StyleSyntaxBold,
+	textmate.TokenCategoryItalic:      term.StyleSyntaxItalic,
+	textmate.TokenCategoryQuote:       term.StyleSyntaxQuote,
+	textmate.TokenCategoryInserted:    term.StyleSyntaxInserted,
+	textmate.TokenCategoryDeleted:     term.StyleSyntaxDeleted,
+	textmate.TokenCategoryPunctuation: term.StyleSyntaxPunctuation,
+	textmate.TokenCategoryInvalid:     term.StyleSyntaxInvalid,
 }

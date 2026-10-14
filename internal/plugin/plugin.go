@@ -45,6 +45,9 @@ type Plugin struct {
 	Enabled  bool
 	State    *lua.LState
 
+	StorageDir string
+	store      *pluginStore
+
 	SidebarTitle       string
 	SidebarMenuEntries []widgets.MenuEntry
 	sidebarMenuFunc    *lua.LFunction
@@ -60,6 +63,7 @@ type Plugin struct {
 
 	Commands          []PluginCommand
 	PluginKeybindings []PluginKeybinding
+	FileHandlers      []FileHandler
 
 	RequestRedraw      func()
 	PostAsync          func(*PluginAsyncResult)
@@ -72,6 +76,7 @@ type Plugin struct {
 	OpenTab            func(id string, panel *PluginPanelWidget)
 	CloseTab           func(id string)
 	RenderMarkdown     func(text string) []MarkdownLine
+	Graphics           func() GraphicsInfo
 	Markdown           config.MarkdownSettings
 	Borders            *term.BorderSet
 	AppVersion         string
@@ -92,6 +97,13 @@ type Plugin struct {
 	ListCommands       func() []CommandInfo
 	PublishDiagnostics func(path string, items []DiagnosticItem)
 	ClearDiagnostics   func(path string)
+
+	SetBookmark     func(line int, icon rune, style term.Style)
+	GetBookmark     func(line int) (icon rune, style term.Style, ok bool)
+	RemoveBookmark  func(line int)
+	SetAllBookmarks func(items []BookmarkItem)
+	GetAllBookmarks func() []BookmarkItem
+	ClearBookmarks  func()
 
 	ShowCommandLine    func(CommandLineOptions)
 	HideCommandLine    func()
@@ -142,12 +154,19 @@ func (p *Plugin) Init() error {
 	setupTTTModule(p.State, p)
 	setupEditorModule(p.State, p)
 	setupDiagnosticsModule(p.State, p)
+	setupBookmarksModule(p.State, p)
 	setupFsModule(p.State, p)
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
 	setupJSONModule(p.State)
 	setupSettingsModule(p.State, p)
+	setupStorageModule(p.State, p)
+
+	if p.Manifest.Entry == "" {
+		p.Enabled = true
+		return nil
+	}
 
 	entry := filepath.Join(p.Dir, p.Manifest.Entry)
 	absEntry, err := filepath.Abs(entry)
@@ -180,12 +199,14 @@ func (p *Plugin) InitFromSource(source string) error {
 	setupTTTModule(p.State, p)
 	setupEditorModule(p.State, p)
 	setupDiagnosticsModule(p.State, p)
+	setupBookmarksModule(p.State, p)
 	setupFsModule(p.State, p)
 	setupSystemModule(p.State, p)
 	setupNetModule(p.State, p)
 	setupEventsModule(p.State, p)
 	setupJSONModule(p.State)
 	setupSettingsModule(p.State, p)
+	setupStorageModule(p.State, p)
 
 	if err := p.State.DoString(source); err != nil {
 		p.LastError = err
@@ -223,6 +244,13 @@ func (p *Plugin) SafePostAsync(result *PluginAsyncResult) {
 	}
 }
 
+func (p *Plugin) Loaded() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.State != nil
+}
+
+// Destroy and Init must run on the UI goroutine, which uses p.State without a lock.
 func (p *Plugin) Destroy() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -239,6 +267,7 @@ func (p *Plugin) Destroy() {
 	p.sidebarMenuFunc = nil
 	p.Commands = nil
 	p.PluginKeybindings = nil
+	p.FileHandlers = nil
 	p.RequestRedraw = nil
 	p.PostAsync = nil
 	p.Log = nil
@@ -250,6 +279,7 @@ func (p *Plugin) Destroy() {
 	p.OpenTab = nil
 	p.CloseTab = nil
 	p.RenderMarkdown = nil
+	p.Graphics = nil
 	p.Borders = nil
 	p.SimulateClick = nil
 	p.SimulateDrag = nil
@@ -266,6 +296,12 @@ func (p *Plugin) Destroy() {
 	p.ListCommands = nil
 	p.PublishDiagnostics = nil
 	p.ClearDiagnostics = nil
+	p.SetBookmark = nil
+	p.GetBookmark = nil
+	p.RemoveBookmark = nil
+	p.SetAllBookmarks = nil
+	p.GetAllBookmarks = nil
+	p.ClearBookmarks = nil
 	p.ShowCommandLine = nil
 	p.HideCommandLine = nil
 	p.SetCommandLineText = nil

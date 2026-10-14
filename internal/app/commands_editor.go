@@ -4,13 +4,41 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/workspace"
 )
+
+func (a *App) OpenFold() {
+	if !a.EditorGroup.IsEditorActive() {
+		return
+	}
+	e := a.EditorGroup.Editor
+	if e.Folds == nil || e.WordWrap {
+		return
+	}
+	e.Folds.Resolve()
+	e.Folds.Expand(e.Cursor.Line)
+}
+
+func (a *App) CloseFold() {
+	if !a.EditorGroup.IsEditorActive() {
+		return
+	}
+	e := a.EditorGroup.Editor
+	if e.Folds == nil || e.WordWrap {
+		return
+	}
+	e.Folds.Resolve()
+	e.Folds.Collapse(e.Cursor.Line)
+	if r := e.Folds.ContainingFold(e.Cursor.Line); r != nil {
+		e.Cursor.Line = r.StartLine
+		e.Cursor.Col = 0
+	}
+	e.EnsureCursorVisible()
+}
 
 func (a *App) editorPathLang() (string, string) {
 	path := a.EditorGroup.ActiveFilePath()
@@ -201,6 +229,23 @@ func (a *App) SaveFileAs() {
 func (a *App) SaveFile() {
 	path := a.EditorGroup.ActiveFilePath()
 	buf := a.EditorGroup.ActiveBuffer()
+	if buf != nil && !a.EditorGroup.IsActiveVirtual() && buf.ReadOnlyOnDisk {
+		a.ShowConfirmDialog(
+			fmt.Sprintf("%s is read-only. Overwrite anyway?", filepath.Base(path)),
+			[]string{"Cancel", "Overwrite"},
+			[]func(){
+				func() { a.DismissDialog() },
+				func() { a.DismissDialog(); a.saveFileCheckingDisk() },
+			},
+		)
+		return
+	}
+	a.saveFileCheckingDisk()
+}
+
+func (a *App) saveFileCheckingDisk() {
+	path := a.EditorGroup.ActiveFilePath()
+	buf := a.EditorGroup.ActiveBuffer()
 	if buf != nil && !a.EditorGroup.IsActiveVirtual() && buf.DiskChanged(path) {
 		a.ShowConfirmDialog(
 			fmt.Sprintf("%s was modified on disk. Overwrite with your version?", filepath.Base(path)),
@@ -216,6 +261,10 @@ func (a *App) SaveFile() {
 }
 
 func (a *App) doSaveFile() {
+	// Content tabs (image/binary viewers, diffs) hold no buffer: the format/code-action pipeline below must never run against their paths with a stale language.
+	if a.EditorGroup.ActiveBuffer() == nil {
+		return
+	}
 	path, lang := a.editorPathLang()
 	if lang != "" {
 		a.RunCodeActionsOnSave(path, lang)
@@ -235,8 +284,8 @@ func (a *App) doSaveFile() {
 
 func (a *App) afterFileSave(path, lang string) {
 	if lang != "" {
-		text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
-		a.NotifyLSPSave(path, lang, text)
+		a.NotifyLSPSave(path, lang, a.EditorGroup.Editor.Buf.Lines)
+		a.ScheduleDiagnosticPull(true)
 	}
 	a.RequestGitGutterForActiveFile()
 	a.RefreshSymbols()
@@ -373,6 +422,12 @@ func registerEditorCommands(app *App) {
 	reg := app.Reg
 
 	reg.Register(command.Command{
+		ID: "editor.toggleDiff", Title: "Git: Toggle Inline Diff",
+		Keywords: []string{"git", "diff", "inline", "changes", "head", "edit"},
+		Handler:  app.ToggleInlineDiff,
+	})
+
+	reg.Register(command.Command{
 		ID: "diff.nextHunk", Title: "Git: Next Changed Hunk",
 		Keywords: []string{"git", "diff", "hunk", "change", "navigate"},
 		Handler:  app.DiffNextHunk,
@@ -435,19 +490,7 @@ func registerEditorCommands(app *App) {
 	reg.Register(command.Command{
 		ID: "editor.hover", Title: "Show Hover",
 		Keywords: []string{"editor", "tooltip", "info"},
-		Handler: func() {
-			path, lang := app.editorPathLang()
-			line, col := app.EditorGroup.ActiveCursor()
-			ax, ay, _ := app.EditorGroup.CursorPosition()
-			diagText := ""
-			if app.EditorGroup.Editor != nil {
-				if d := app.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
-					diagText = d.Message
-				}
-			}
-			gen := app.HoverGen
-			app.RequestHover(path, lang, line, col, ax, ay, diagText, gen)
-		},
+		Handler:  app.ShowCursorHover,
 	})
 
 	reg.Register(command.Command{
@@ -511,6 +554,12 @@ func registerEditorCommands(app *App) {
 		ID: "editor.formatSelection", Title: "Source Action: Format Selection",
 		Keywords: []string{"editor", "source", "prettier", "beautify"},
 		Handler:  app.FormatSelection,
+	})
+
+	reg.Register(command.Command{
+		ID: "lsp.restartServer", Title: "LSP: Server Restart",
+		Keywords: []string{"lsp", "language server", "restart", "reload"},
+		Handler:  app.RestartLSPServer,
 	})
 
 	reg.Register(command.Command{
@@ -592,9 +641,22 @@ func registerEditorCommands(app *App) {
 			}
 			e := app.EditorGroup.Editor
 			if e.Folds != nil && !e.WordWrap {
+				e.Folds.Resolve()
 				e.Folds.Toggle(e.Cursor.Line)
 			}
 		},
+	})
+
+	reg.Register(command.Command{
+		ID: "fold.open", Title: "Open Fold",
+		Keywords: []string{"editor", "expand", "show", "lines"},
+		Handler:  app.OpenFold,
+	})
+
+	reg.Register(command.Command{
+		ID: "fold.close", Title: "Close Fold",
+		Keywords: []string{"editor", "collapse", "hide", "lines"},
+		Handler:  app.CloseFold,
 	})
 
 	reg.Register(command.Command{
@@ -606,6 +668,7 @@ func registerEditorCommands(app *App) {
 			}
 			e := app.EditorGroup.Editor
 			if e.Folds != nil && !e.WordWrap {
+				e.Folds.Resolve()
 				e.Folds.CollapseAll()
 				e.EnsureCursorVisible()
 			}
@@ -727,6 +790,26 @@ func registerEditorCommands(app *App) {
 		Handler:  func() { app.EditorGroup.ToggleLineComment() },
 	})
 	reg.Register(command.Command{
+		ID: "editor.goToFileStart", Title: "Go to Start of File",
+		Keywords: []string{"editor", "navigate", "top", "beginning", "document"},
+		Handler:  func() { app.EditorGroup.MoveToFileEdge(false, false) },
+	})
+	reg.Register(command.Command{
+		ID: "editor.goToFileEnd", Title: "Go to End of File",
+		Keywords: []string{"editor", "navigate", "bottom", "document"},
+		Handler:  func() { app.EditorGroup.MoveToFileEdge(true, false) },
+	})
+	reg.Register(command.Command{
+		ID: "editor.selectToFileStart", Title: "Select to Start of File",
+		Keywords: []string{"editor", "selection", "top", "beginning", "document"},
+		Handler:  func() { app.EditorGroup.MoveToFileEdge(false, true) },
+	})
+	reg.Register(command.Command{
+		ID: "editor.selectToFileEnd", Title: "Select to End of File",
+		Keywords: []string{"editor", "selection", "bottom", "document"},
+		Handler:  func() { app.EditorGroup.MoveToFileEdge(true, true) },
+	})
+	reg.Register(command.Command{
 		ID: "editor.moveWordLeft", Title: "Move Word Left",
 		Keywords: []string{"editor", "navigate"},
 		Handler:  func() { app.EditorGroup.MoveWordLeft(false) },
@@ -797,6 +880,11 @@ func registerEditorCommands(app *App) {
 		ID: "editor.uniqueLines", Title: "Unique Lines",
 		Keywords: []string{"editor", "lines", "deduplicate", "distinct"},
 		Handler:  func() { app.EditorGroup.UniqueLines() },
+	})
+	reg.Register(command.Command{
+		ID: "editor.trimTrailingWhitespace", Title: "Trim Trailing Whitespace",
+		Keywords: []string{"editor", "lines", "whitespace", "trim", "spaces"},
+		Handler:  func() { app.EditorGroup.TrimTrailingWhitespaceLines() },
 	})
 
 	reg.Register(command.Command{

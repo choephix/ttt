@@ -1,6 +1,9 @@
 package term
 
 import (
+	"fmt"
+	"unicode/utf8"
+
 	"github.com/gdamore/tcell/v3"
 )
 
@@ -21,6 +24,8 @@ func DefaultStyleMap() StyleMap {
 type TcellScreen struct {
 	scr      tcell.Screen
 	styleMap StyleMap
+	// Called on every mouse event; only a change is written to the tty.
+	pointerShape string
 }
 
 func NewTcellScreen() (*TcellScreen, error) {
@@ -76,16 +81,16 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 		if c.Attrs&CellAttrBlink != 0 {
 			s = s.Blink(true)
 		}
-		t.scr.SetContent(x, y, c.Ch, nil, s)
+		t.scr.Put(x, y, runeString(c.Ch), s)
 		return
 	}
 	s := t.styleMap[c.Style]
 	if c.BgStyle != 0 {
 		bg := t.styleMap[c.BgStyle].GetBackground()
 		s = tcell.StyleDefault. //nolint:staticcheck // Attributes is deprecated but individual calls don't replicate the exact reset-and-copy semantics
-			Foreground(s.GetForeground()).
-			Background(bg).
-			Attributes(s.GetAttributes())
+					Foreground(s.GetForeground()).
+					Background(bg).
+					Attributes(s.GetAttributes())
 	}
 	if c.UlStyle != 0 {
 		us := t.styleMap[c.UlStyle]
@@ -111,7 +116,7 @@ func (t *TcellScreen) SetCell(x, y int, c Cell) {
 	if c.Italic {
 		s = s.Italic(true)
 	}
-	t.scr.SetContent(x, y, c.Ch, nil, s)
+	t.scr.Put(x, y, runeString(c.Ch), s)
 }
 
 func (t *TcellScreen) Show() {
@@ -130,6 +135,9 @@ func (t *TcellScreen) PollEvent() tcell.Event {
 }
 
 func (t *TcellScreen) Fini() {
+	if t.pointerShape != "" {
+		t.SetPointerShape("default")
+	}
 	t.scr.Fini()
 }
 
@@ -154,6 +162,23 @@ func (t *TcellScreen) SetCursorStyle(style CursorStyle) {
 	if cs, ok := cursorStyleMap[style]; ok {
 		t.scr.SetCursorStyle(cs)
 	}
+}
+
+// SetPointerShape writes OSC 22 straight to the tty: tcell has no API for it.
+// Terminals without support drop the sequence.
+func (t *TcellScreen) SetPointerShape(shape string) {
+	if shape == t.pointerShape {
+		return
+	}
+	tty, ok := t.scr.Tty()
+	if !ok {
+		return
+	}
+	// Cache only a shape that reached the terminal, so a failed write is retried.
+	if _, err := fmt.Fprintf(tty, "\x1b]22;%s\x1b\\", shape); err != nil {
+		return
+	}
+	t.pointerShape = shape
 }
 
 // PostEvent injects an event into the screen's event queue (tcell v3 has no
@@ -189,4 +214,25 @@ func (t *TcellScreen) GetContent(x, y int) (string, tcell.Style, int) {
 
 func (t *TcellScreen) Tty() (tcell.Tty, bool) {
 	return t.scr.Tty()
+}
+
+// tcell drops all locks on resize, so the image layer re-asserts them every frame.
+func (t *TcellScreen) LockRegion(x, y, w, h int, lock bool) {
+	t.scr.LockRegion(x, y, w, h, lock)
+}
+
+var asciiStrings = func() (out [utf8.RuneSelf]string) {
+	for r := range out {
+		out[r] = string(rune(r))
+	}
+	return out
+}()
+
+// runeString avoids tcell's SetContent, which allocates a string for every
+// changed cell; a scroll changes thousands of them.
+func runeString(r rune) string {
+	if r >= 0 && r < utf8.RuneSelf {
+		return asciiStrings[r]
+	}
+	return string(r)
 }

@@ -91,6 +91,7 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 ### BUG-005: Line commands under multicursor leave `e.Multi` stale — next keystroke corrupts the buffer
 - **Area:** Multicursor interactions
 - **Severity:** high
+- **Status:** ✅ **FIXED** (`fix/multicursor-line-commands-stale-cursors`, 2026-09-02) — `MoveLineUp/Down` under multicursor now move every touched line by ±1 and carry all cursors with them (`moveLinesMulti`, no-op at buffer edges); `DuplicateLine`/`DeleteLine`/`JoinLines`/`SortLines*`/`ReverseLines`/`UniqueLines`/`ToggleLineComment` call `collapseMultiForLineOp()` to drop to the primary cursor first. Repro test flipped `it.fails`→`it` (2 cases: block move carries cursors, Duplicate collapses).
 - **Curation (2026-07-13, CONFIRMED, kept high):** code-confirmed — `grep Multi internal/ui/editor_widget_lines.go` returns nothing, so `DuplicateLine`/`DeleteLine`/`MoveLineUp/Down` never touch `e.Multi.Cursors`; secondary cursors keep stale offsets after the line shift and the next multicursor keystroke edits at those offsets → silent buffer corruption (runtime-verified during the hunt). Kept **high** (silent, destructive buffer corruption on a headline feature) with the honest caveat that the trigger is a compound sequence (multicursor active + a *line* command + keep typing). First of the multicursor cluster [[BUG-006]]/[[BUG-007]]/[[BUG-008]], shared root "primary-cursor-only ops ignore `e.Multi`." **Fix for line commands specifically: collapse multicursor to the primary before running them** (a line command under N cursors is ambiguous); 006/007/008 need the "apply to all cursors" treatment instead.
 - **Status:** confirmed (agent-reported, orchestrator re-verified)
 - **Repro:** file `foo bar foo baz\nfoo qux\nbar foo end\n`; `bin/ttt --size 120x40 --exec 'wait 200; key ctrl+k l; exec "Duplicate Line"; type Y; screenshot /tmp/s.txt; quit' foo.txt`
@@ -119,7 +120,8 @@ Status values: `pending` → `in progress` → `swept (N findings)` / `swept (cl
 ### BUG-008: Undo after a multicursor edit strands the cursor and leaves `e.Multi` stale — next keystroke corrupts
 - **Area:** Multicursor interactions
 - **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Status:** ✅ **FIXED** (`fix/multicursor-line-commands-stale-cursors`, 2026-09-02) — `EditorGroupWidget.Undo`/`Redo` collapse multicursor to a single cursor before reverting, so no stale secondary offsets survive into the reverted buffer. Repro test flipped `it.fails`→`it`. (Post-undo cursor lands at the last edit site, not the primary's pre-edit position — the pre-existing BUG-020 undo-cursor limitation, not corruption.)
+- ~~**Status:** confirmed (agent-reported, orchestrator re-verified)~~
 - **Repro:** same file; `bin/ttt --size 120x40 --exec 'wait 200; key ctrl+k l; type X; key ctrl+z; type Z; screenshot /tmp/s.txt; quit' foo.txt`
 - **Expected:** undo restores text and either restores consistent multicursor selections or collapses to single cursor at the primary's pre-edit position
 - **Actual:** text restores, but the cursor jumps to the last secondary cursor's stale post-edit position, "(4 cursors)" persists, and typing "Z" corrupts: `foo barZ foo baz` / `fZoo qux` / `bar fZoZo end` (two Z's from one keystroke). Root cause: undo (`internal/core/undo`) has no concept of `e.Multi`, so stale post-edit offsets survive into the reverted buffer.
@@ -355,7 +357,8 @@ Robust where it counts: Lua syntax errors, errors thrown inside callbacks (vs re
 ### BUG-047: Global-search navigation ignores the match column — cursor always lands at col 0
 - **Area:** Global search
 - **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified — cursor col 0, real match col 8)
+- **Status:** ✅ **FIXED** (2026-09-23) — `NavigateToSearchMatch` converts rg's byte offset to a rune column and places the cursor there via `GoToLineCol`. Repro test flipped `it.fails`→`it`.
+- ~~**Status:** confirmed (agent-reported, orchestrator re-verified — cursor col 0, real match col 8)~~
 - **Repro:** search `needle`, activate the "another needle line" result → cursor at line 3 col 0 (should be col 8)
 - **Expected:** cursor lands at the match's exact column
 - **Actual:** `NavigateToSearchMatch` (`internal/app/callbacks.go:~131`) receives `col` but never uses it — `GoToLine` unconditionally sets `Cursor.Col=0` (`internal/ui/editor_group.go:885`) and col is never restored
@@ -580,7 +583,8 @@ Nested-dir navigation, create-in-selected-dir, empty-dir handling, keyboard expa
 ### BUG-027: Move Line on a folded header swaps the header with a HIDDEN line — silent code reordering
 - **Area:** Folding × editing
 - **Severity:** high
-- **Status:** confirmed (agent-reported, orchestrator re-verified)
+- **Status:** ✅ **FIXED** (2026-09-23) — Move Line Up/Down moves a collapsed fold as a unit (header + hidden body) and steps over a collapsed neighbor whole, via one `ReplaceLinesCommand`; collapsed state follows the moved lines on apply and undo. Multicursor moves touching a collapsed fold are a no-op. Repro test flipped `it.fails`→`it`.
+- ~~**Status:** confirmed (agent-reported, orchestrator re-verified)~~
 - **Repro:** fold `if true {`, press `alt+down` → buffer becomes `func outer() { / \t\tfoo() / \tif true {` — `foo()` hoisted out of its block — while the fold marker still renders as if valid
 - **Expected:** move the whole folded region as a unit (VS Code) or no-op while folded; never reorder invisible code
 - **Actual:** `MoveLineDown`/`Up` issue a raw `SwapLineCommand` with no fold awareness; since line COUNT is unchanged, the `exec()` fold-recompute guard (`internal/ui/editor_widget.go:214-217`) never fires, so the stale marker keeps rendering over now-invalid structure

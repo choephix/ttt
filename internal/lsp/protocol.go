@@ -1,6 +1,10 @@
 package lsp
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+	"sort"
+)
 
 type Position struct {
 	Line      int `json:"line"`
@@ -36,12 +40,27 @@ type InitializeParams struct {
 
 type ClientCapabilities struct {
 	TextDocument *TextDocumentClientCapabilities `json:"textDocument,omitempty"`
+	Workspace    *WorkspaceClientCapabilities    `json:"workspace,omitempty"`
+}
+
+type WorkspaceClientCapabilities struct {
+	Diagnostics *DiagnosticWorkspaceClientCapabilities `json:"diagnostics,omitempty"`
+}
+
+type DiagnosticWorkspaceClientCapabilities struct {
+	RefreshSupport bool `json:"refreshSupport"`
 }
 
 type TextDocumentClientCapabilities struct {
 	Completion         *CompletionClientCapabilities         `json:"completion,omitempty"`
 	PublishDiagnostics *PublishDiagnosticsClientCapabilities `json:"publishDiagnostics,omitempty"`
 	DocumentSymbol     *DocumentSymbolClientCapabilities     `json:"documentSymbol,omitempty"`
+	Diagnostic         *DiagnosticClientCapabilities         `json:"diagnostic,omitempty"`
+}
+
+type DiagnosticClientCapabilities struct {
+	DynamicRegistration    bool `json:"dynamicRegistration"`
+	RelatedDocumentSupport bool `json:"relatedDocumentSupport"`
 }
 
 type DocumentSymbolClientCapabilities struct {
@@ -75,6 +94,13 @@ type ServerCapabilities struct {
 	TextDocumentSync                *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
 	DocumentFormattingProvider      BoolOrObject             `json:"documentFormattingProvider,omitempty"`
 	DocumentRangeFormattingProvider BoolOrObject             `json:"documentRangeFormattingProvider,omitempty"`
+	DiagnosticProvider              *DiagnosticOptions       `json:"diagnosticProvider,omitempty"`
+}
+
+type DiagnosticOptions struct {
+	Identifier            string `json:"identifier,omitempty"`
+	InterFileDependencies bool   `json:"interFileDependencies"`
+	WorkspaceDiagnostics  bool   `json:"workspaceDiagnostics"`
 }
 
 type SignatureHelpOptions struct {
@@ -179,7 +205,52 @@ type RenameParams struct {
 }
 
 type WorkspaceEdit struct {
-	Changes map[string][]TextEdit `json:"changes,omitempty"`
+	Changes         map[string][]TextEdit `json:"changes,omitempty"`
+	DocumentChanges []DocumentChange      `json:"documentChanges,omitempty"`
+}
+
+// DocumentChange is a TextDocumentEdit, or a CreateFile, RenameFile or
+// DeleteFile operation when Kind is set.
+type DocumentChange struct {
+	Kind         string                          `json:"kind,omitempty"`
+	TextDocument VersionedTextDocumentIdentifier `json:"textDocument"`
+	Edits        []TextEdit                      `json:"edits,omitempty"`
+}
+
+var ErrFileOperations = errors.New("workspace edit includes file operations")
+
+type FileEdits struct {
+	URI   string
+	Edits []TextEdit
+}
+
+// TextEdits returns the edits as batches to apply in order, each against the
+// document as the previous batch left it: a later TextDocumentEdit for the
+// same file refers to the text after the earlier one. DocumentChanges takes
+// precedence over Changes when present (LSP spec).
+func (e *WorkspaceEdit) TextEdits() ([]FileEdits, error) {
+	if e == nil {
+		return nil, nil
+	}
+	var batches []FileEdits
+	if e.DocumentChanges == nil {
+		for uri, edits := range e.Changes {
+			if len(edits) > 0 {
+				batches = append(batches, FileEdits{URI: uri, Edits: edits})
+			}
+		}
+		sort.Slice(batches, func(i, j int) bool { return batches[i].URI < batches[j].URI })
+		return batches, nil
+	}
+	for _, change := range e.DocumentChanges {
+		if change.Kind != "" {
+			return nil, ErrFileOperations
+		}
+		if len(change.Edits) > 0 {
+			batches = append(batches, FileEdits{URI: change.TextDocument.URI, Edits: change.Edits})
+		}
+	}
+	return batches, nil
 }
 
 type CodeActionContext struct {
@@ -384,6 +455,16 @@ type PublishDiagnosticsParams struct {
 	Diagnostics []Diagnostic `json:"diagnostics"`
 }
 
+type DocumentDiagnosticParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Identifier   string                 `json:"identifier,omitempty"`
+}
+
+type DocumentDiagnosticReport struct {
+	Kind  string       `json:"kind"`
+	Items []Diagnostic `json:"items"`
+}
+
 type Diagnostic struct {
 	Range    Range  `json:"range"`
 	Severity int    `json:"severity,omitempty"`
@@ -405,4 +486,13 @@ func (m *MarkupContent) UnmarshalJSON(data []byte) error {
 	}
 	*m = MarkupContent(a)
 	return nil
+}
+
+type ConfigurationParams struct {
+	Items []ConfigurationItem `json:"items"`
+}
+
+type ConfigurationItem struct {
+	ScopeURI string `json:"scopeUri,omitempty"`
+	Section  string `json:"section,omitempty"`
 }

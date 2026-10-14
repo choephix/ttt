@@ -138,7 +138,7 @@ func revealInFileManager(path string) error {
 	case "windows":
 		return exec.Command("explorer", "/select,"+path).Start()
 	default:
-		uri := "file://" + path
+		uri := FileURI(path)
 		dbus := exec.Command("dbus-send", "--session",
 			"--dest=org.freedesktop.FileManager1", "--type=method_call",
 			"/org/freedesktop/FileManager1",
@@ -172,10 +172,6 @@ func (a *App) FileOpCopyRelativePath(path string) {
 
 func (a *App) FileOpRemoveRoot(path string) {
 	if path == "" {
-		return
-	}
-	if len(a.Workspace.Paths()) <= 1 {
-		a.StatusWarn("Cannot remove the last folder")
 		return
 	}
 	a.Workspace.RemoveFolder(path)

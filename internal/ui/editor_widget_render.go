@@ -2,7 +2,6 @@ package ui
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/core/multicursor"
@@ -12,6 +11,10 @@ import (
 )
 
 func (e *EditorPaneWidget) Render(surface Surface) {
+	e.syncDiffOverlay()
+	if e.Highlighter != nil && e.Buf != nil {
+		e.Highlighter.SyncBuffer(e.Buf)
+	}
 	w, h := surface.Size()
 
 	totalLines := len(e.Buf.Lines)
@@ -21,53 +24,34 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 	tabW := e.resolveTabSize()
 
 	editorW := w - gutterW
-	showHScrollbar := !e.WordWrap && maxLineW > editorW
+	showHScrollbar := !e.Embedded && !e.WordWrap && maxLineW > editorW
 	if showHScrollbar {
 		h--
 	}
 
-	foldsActive := e.hasFolds()
-	if foldsActive {
+	if e.hasFolds() {
 		e.ensureTopLineVisible()
-		e.cachedVisibleLines = e.Folds.VisibleLines(totalLines)
-	} else {
-		e.cachedVisibleLines = nil
 	}
+	visibleCount := e.rowLayout(editorW).total()
 
-	visibleCount := totalLines
-	if foldsActive {
-		visibleCount = len(e.cachedVisibleLines)
-	}
-
-	if e.WordWrap {
-		visibleCount = totalVisualLines(e.Buf.Lines, editorW, tabW)
-	}
-
-	showScrollbar := visibleCount > h
+	showScrollbar := !e.Embedded && visibleCount > h
 	if showScrollbar {
 		editorW--
 	}
-	if editorW < 1 {
-		editorW = 1
-	}
-	if e.WordWrap && editorW > 4 {
-		switch e.GutterStyle {
-		case "minimal":
-			editorW--
-		case "extended":
-			editorW -= 3
-		default:
-			editorW -= 2
-		}
-	}
+	editorW = e.wrapTextWidth(max(editorW, 1))
 
 	e.Viewport.Width = editorW
 	e.Viewport.Height = h
+	if e.hScrollPending {
+		e.hScrollPending = false
+		e.scrollViewport()
+	}
 
+	layout := e.layout()
 	if e.WordWrap {
 		e.Viewport.LeftCol = 0
-		visibleCount = totalVisualLines(e.Buf.Lines, editorW, tabW)
-		showScrollbar = visibleCount > h
+		visibleCount = layout.total()
+		showScrollbar = !e.Embedded && visibleCount > h
 	}
 
 	sel := e.Selection
@@ -83,6 +67,7 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 	hasSearch := len(e.SearchMatches) > 0
 
 	matchLine, matchCol, hasMatch := e.findMatchingBracket()
+	hasMatch = hasMatch && !e.Passive
 
 	if e.Viewport.TopLine < 0 {
 		e.Viewport.TopLine = 0
@@ -97,61 +82,84 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 		bracketColors = e.bracketColorCache
 	}
 
-	if e.WordWrap {
-		e.wrapMap = buildWrapMap(e.Buf.Lines, e.Viewport.TopLine, e.wrapTopOffset, h, editorW, tabW)
-	} else {
-		e.wrapMap = nil
+	if off := e.topOffset(); off > 0 && off >= layout.maxOffset(e.Viewport.TopLine) {
+		e.topRowOffset = 0
+	}
+	e.rowMap = layout.appendRows(e.rowMap[:0], e.Viewport.TopLine, e.topOffset(), h)
+	e.rowMapTop = e.Viewport.TopLine
+	e.rowMapOffset = e.topOffset()
+	topRow := e.topRow(layout)
+
+	// A pane narrowed to a shared wrap width leaves columns past its text
+	// that the row loop does not draw.
+	textEnd := w
+	if showScrollbar {
+		textEnd--
+	}
+	for y := 0; y < h; y++ {
+		for x := gutterW + editorW; x < textEnd; x++ {
+			surface.SetCell(x, y, term.Cell{Ch: ' '})
+		}
 	}
 
 	for y := 0; y < h; y++ {
-		var lineIdx int
-		var segStartCol int
-		var isWrapContinuation bool
+		row := e.rowMap[y]
+		lineIdx := row.bufLine
+		segStartCol := row.startCol
+		isWrapContinuation := segStartCol > 0
 
-		if e.WordWrap && e.wrapMap != nil {
-			entry := e.wrapMap[y]
-			lineIdx = entry.bufLine
-			segStartCol = entry.startCol
-			isWrapContinuation = segStartCol > 0
-		} else {
-			lineIdx = e.screenToBufferLine(y)
-			segStartCol = 0
+		if row.isPhantom() {
+			e.renderPhantomRow(surface, y, gutterW, editorW, row)
+			continue
+		}
+		if label, ok := e.DiffOverlay.label(lineIdx); ok && lineIdx < totalLines && !isWrapContinuation {
+			e.renderGapRow(surface, y, gutterW, editorW, lineIdx, label)
+			continue
 		}
 
-		if gutterW > 0 {
+		if gutterW > 0 && e.DiffOverlay.diffGutter() {
+			e.renderDiffGutterRow(surface, y, gutterW, lineIdx, isWrapContinuation)
+		} else if gutterW > 0 {
 			gutterStyle := term.StyleLineNumber
-			if lineIdx < totalLines && lineIdx == e.Cursor.Line {
+			if lineIdx < totalLines && lineIdx == e.Cursor.Line && !e.Passive {
 				gutterStyle = term.StyleActiveLine
 			}
-			var padded string
-			if !e.LineNumbers || (e.WordWrap && isWrapContinuation) {
-				padded = strings.Repeat(" ", gutterW)
-			} else {
-				numStr := ""
-				if lineIdx < totalLines {
-					numStr = strconv.Itoa(lineIdx + 1)
-				}
-				switch e.GutterStyle {
-				case "minimal":
-					padded = strings.Repeat(" ", gutterW-1-len(numStr)) + numStr + " "
-				case "extended":
-					padded = "  " + strings.Repeat(" ", gutterW-5-len(numStr)) + numStr + "   "
-				default:
-					padded = " " + strings.Repeat(" ", gutterW-3-len(numStr)) + numStr + "  "
-				}
+			bookmarkBg := gutterStyle
+			diffKind := diff.Context
+			if lineIdx < totalLines && !isWrapContinuation {
+				diffKind = e.DiffOverlay.kind(lineIdx)
 			}
-			for i, ch := range padded {
-				surface.SetCell(i, y, term.Cell{Ch: ch, Style: gutterStyle})
+			if e.DiffOverlay != nil && (diffKind == diff.Added || diffKind == diff.Deleted) {
+				num := 0
+				if e.LineNumbers {
+					num = lineIdx + 1
+				}
+				if bg := e.renderEditorDiffGutter(surface, y, gutterW, num, diffKind, gutterStyle).bg; bg != 0 {
+					bookmarkBg = bg
+				}
+			} else if !e.LineNumbers || (e.WordWrap && isWrapContinuation) {
+				for i := 0; i < gutterW; i++ {
+					surface.SetCell(i, y, term.Cell{Ch: ' ', Style: gutterStyle})
+				}
+			} else {
+				num := 0
+				if lineIdx < totalLines {
+					num = lineIdx + 1
+				}
+				e.drawGutterNumber(surface, y, gutterW, num, term.Cell{Style: gutterStyle})
 			}
 			if e.Folds != nil && !e.WordWrap && lineIdx < totalLines && !isWrapContinuation {
 				if fr := e.Folds.FoldAt(lineIdx); fr != nil {
 					chevronCol := gutterW - 2
-					collapsedCh := '▶'
-					expandedCh := '▼'
+					collapsedCh, expandedCh := e.FoldChevronCollapsed, e.FoldChevronExpanded
+					if collapsedCh == 0 {
+						collapsedCh = '▶'
+					}
+					if expandedCh == 0 {
+						expandedCh = '▼'
+					}
 					if e.GutterStyle == "minimal" {
 						chevronCol = gutterW - 1
-						collapsedCh = '▸'
-						expandedCh = '▾'
 					}
 					if e.Folds.IsCollapsed(lineIdx) {
 						surface.SetCell(chevronCol, y, term.Cell{Ch: collapsedCh, Style: gutterStyle})
@@ -160,7 +168,7 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 					}
 				}
 			}
-			if lineIdx < totalLines && lineIdx < len(e.LineChanges) && !isWrapContinuation {
+			if e.DiffOverlay == nil && lineIdx < totalLines && lineIdx < len(e.LineChanges) && !isWrapContinuation {
 				change := e.LineChanges[lineIdx]
 				if change != diff.LineUnchanged {
 					var ch rune
@@ -179,12 +187,26 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 					surface.SetCell(0, y, term.Cell{Ch: ch, Style: style})
 				}
 			}
+			if len(e.Bookmarks) > 0 && lineIdx < totalLines && !isWrapContinuation {
+				if b, ok := e.Bookmarks[lineIdx]; ok {
+					surface.SetCell(e.bookmarkColumn(), y, term.Cell{Ch: b.Icon, Style: b.Style, BgStyle: bookmarkBg})
+				}
+			}
 		}
 
 		if lineIdx < totalLines {
-			line := []rune(e.Buf.Lines[lineIdx])
+			e.runeScratch = e.runeScratch[:0]
+			for _, r := range e.Buf.Lines[lineIdx] {
+				e.runeScratch = append(e.runeScratch, r)
+			}
+			line := e.runeScratch
 			var syntaxSpans []highlight.Span
-			if e.Highlighter != nil {
+			diffFg, diffFgOverride, diffFgFull := e.diffLineFg(lineIdx)
+			if diffFgOverride {
+				syntaxSpans = []highlight.Span{{Start: 0, End: len(line), Style: diffFg}}
+			} else if whole, ok := e.DiffOverlay.syntaxAt(lineIdx, e.Buf.Lines[lineIdx]); ok {
+				syntaxSpans = whole
+			} else if e.Highlighter != nil {
 				syntaxSpans = e.Highlighter.HighlightLineAt(e.Buf.Lines, lineIdx)
 			}
 
@@ -200,6 +222,7 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 			} else {
 				leftCol = e.Viewport.LeftCol
 			}
+			diffBg := e.diffLineBg(lineIdx)
 			screenCells := e.renderLineToScreen(line, syntaxSpans, isCollapsedLine, annRunes, tabW, leftCol, editorW)
 			var lineBrackets []bracketColorEntry
 			if bracketColors != nil && lineIdx < len(bracketColors) {
@@ -209,6 +232,9 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 				colIdx := screenCells[x].bufCol
 				ch := screenCells[x].ch
 				style := screenCells[x].style
+				if diffFgFull {
+					style = diffFg
+				}
 
 				for _, bc := range lineBrackets {
 					if bc.col == colIdx {
@@ -257,11 +283,14 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 							}
 						}
 					} else {
-						isCursorLine = lineIdx == e.Cursor.Line
+						isCursorLine = lineIdx == e.Cursor.Line && !e.Passive
 					}
 					if isCursorLine && !isSearchHighlight {
 						bgStyle = term.StyleActiveLine
 					}
+				}
+				if diffBg != 0 && !inAnySel && !isSearchHighlight && (bgStyle == 0 || bgStyle == term.StyleActiveLine) {
+					bgStyle = diffBg
 				}
 				if hasMatch && ((lineIdx == e.Cursor.Line && colIdx == e.Cursor.Col) ||
 					(lineIdx == matchLine && colIdx == matchCol)) {
@@ -295,22 +324,13 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 		e.scrollbar.X = r.X + scrollbarCol
 		e.scrollbar.Y = r.Y
 		e.scrollbar.Height = h
-		if e.WordWrap {
-			e.scrollbar.TotalItems = visibleCount + h - 1
-			curTopVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, editorW, tabW)
-			curTopVisRow += e.wrapTopOffset
-			e.scrollbar.TopItem = curTopVisRow
-		} else if foldsActive {
-			e.scrollbar.TotalItems = visibleCount + h - 1
-			topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-			if topVis < 0 {
-				topVis = 0
-			}
-			e.scrollbar.TopItem = topVis
-		} else {
-			e.scrollbar.TotalItems = totalLines + h - 1
-			e.scrollbar.TopItem = e.Viewport.TopLine
+		e.scrollbar.TotalItems = visibleCount + h - 1
+		e.scrollbar.TopItem = topRow
+		e.scrollbar.Marks = nil
+		if e.scrollMarksEnabled() {
+			e.scrollbar.Marks = e.gitScrollMarks(layout)
 		}
+		e.scrollbar.LegacyGlyphs = e.LegacyScrollbarGlyphs
 		e.scrollbar.Render(surface, scrollbarCol, 0)
 	}
 
@@ -326,28 +346,44 @@ func (e *EditorPaneWidget) Render(surface Surface) {
 	}
 
 	r := e.GetRect()
-	if e.WordWrap {
-		curVisRow, curScreenCol := bufferPosToWrapScreenPos(e.Buf.Lines, e.Cursor.Line, e.Cursor.Col, editorW, tabW)
-		topVisRow, _ := bufferPosToWrapScreenPos(e.Buf.Lines, e.Viewport.TopLine, 0, editorW, tabW)
-		topVisRow += e.wrapTopOffset
-		e.CursorX = curScreenCol + gutterW + r.X
-		e.CursorY = curVisRow - topVisRow + r.Y
-	} else {
+	if !e.WordWrap {
 		e.Cursor.Line = e.Buf.ClampLine(e.Cursor.Line)
+	}
+	curRow, curScreenCol := layout.rowOf(e.Cursor.Line, e.Cursor.Col)
+	if e.WordWrap {
+		e.CursorX = curScreenCol + gutterW + r.X
+	} else {
 		cursorVisCol := bufColToVisualCol(e.Buf.Lines[e.Cursor.Line], e.Cursor.Col, tabW)
 		e.CursorX = cursorVisCol - e.Viewport.LeftCol + gutterW + r.X
-		if foldsActive {
-			curVis := e.Folds.BufferToVisible(e.Cursor.Line)
-			topVis := e.Folds.BufferToVisible(e.Viewport.TopLine)
-			if curVis >= 0 && topVis >= 0 {
-				e.CursorY = curVis - topVis + r.Y
-			} else {
-				e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
-			}
-		} else {
-			e.CursorY = e.Cursor.Line - e.Viewport.TopLine + r.Y
+	}
+	e.CursorY = curRow - topRow + r.Y
+}
+
+// embeddedTextWidth is the text width Render gives an Embedded pane drawn at
+// width w, so a host can lay the pane out before drawing it.
+func (e *EditorPaneWidget) embeddedTextWidth(w int) int {
+	return e.wrapTextWidth(max(w-e.GutterWidth(), 1))
+}
+
+func (e *EditorPaneWidget) wrapTextWidth(editorW int) int {
+	if !e.WordWrap {
+		return editorW
+	}
+	w := editorW
+	if !e.NoWrapMargin && editorW > 4 {
+		switch e.GutterStyle {
+		case "minimal":
+			w--
+		case "extended":
+			w -= 3
+		default:
+			w -= 2
 		}
 	}
+	if e.wrapCols > 0 && w > e.wrapCols {
+		w = e.wrapCols
+	}
+	return w
 }
 
 func (e *EditorPaneWidget) diagStyleAt(line, col int) term.Style {
@@ -388,8 +424,12 @@ type screenCell struct {
 	bufCol int
 }
 
+// The returned slice is reused by the next call.
 func (e *EditorPaneWidget) renderLineToScreen(line []rune, spans []highlight.Span, collapsed bool, ann []rune, tabW, leftCol, width int) []screenCell {
-	cells := make([]screenCell, width)
+	if cap(e.lineScratch) < width {
+		e.lineScratch = make([]screenCell, width)
+	}
+	cells := e.lineScratch[:width]
 	for i := range cells {
 		cells[i] = screenCell{ch: ' ', style: term.StyleDefault, bufCol: -1}
 	}
@@ -443,4 +483,36 @@ func (e *EditorPaneWidget) renderLineToScreen(line []rune, spans []highlight.Spa
 		}
 	}
 	return cells
+}
+
+// drawGutterNumber writes the gutter's number column for num (0 leaves it
+// blank) without building a string.
+func (e *EditorPaneWidget) drawGutterNumber(surface Surface, y, gutterW, num int, cell term.Cell) {
+	var buf [20]byte
+	digits := buf[:0]
+	if num > 0 {
+		digits = strconv.AppendInt(digits, int64(num), 10)
+	}
+	lead, fixed, trail := 1, 3, 2
+	switch e.GutterStyle {
+	case "minimal":
+		lead, fixed, trail = 0, 1, 1
+	case "extended":
+		lead, fixed, trail = 2, 5, 3
+	}
+	x := 0
+	put := func(ch rune) {
+		cell.Ch = ch
+		surface.SetCell(x, y, cell)
+		x++
+	}
+	for range lead + max(gutterW-fixed-len(digits), 0) {
+		put(' ')
+	}
+	for _, d := range digits {
+		put(rune(d))
+	}
+	for range trail {
+		put(' ')
+	}
 }

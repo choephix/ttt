@@ -26,8 +26,10 @@ func TestSaveSettingsRoundTrips(t *testing.T) {
 	s.Sidebar.Width = 22
 	s.Sidebar.CommitHistoryHeight = 17
 	s.Git.FileView = GitFileViewTree
+	s.Appearance.Icons = IconsNone
 	enabled := false
 	s.Editor.SyntaxHighlight = &enabled
+	s.Welcome.RecentFolders = &enabled
 	s.Terminal.Shell = "/bin/zsh"
 
 	if err := SaveSettings(s); err != nil {
@@ -53,8 +55,14 @@ func TestSaveSettingsRoundTrips(t *testing.T) {
 	if got.Git.FileView != GitFileViewTree {
 		t.Errorf("git.fileView = %q, want %q", got.Git.FileView, GitFileViewTree)
 	}
+	if got.Appearance.Icons != IconsNone {
+		t.Errorf("appearance.icons = %q; \"none\" did not round-trip", got.Appearance.Icons)
+	}
 	if got.Editor.IsSyntaxHighlightEnabled() {
 		t.Error("syntaxHighlight=false did not round-trip; tri-state pointer lost")
+	}
+	if got.Welcome.IsRecentFoldersEnabled() {
+		t.Error("welcome.recentFolders=false did not round-trip; tri-state pointer lost")
 	}
 	if got.Terminal.Shell != "/bin/zsh" {
 		t.Errorf("shell = %q, want /bin/zsh", got.Terminal.Shell)
@@ -110,6 +118,7 @@ func TestNormalizeRejectsUnknownEnumValues(t *testing.T) {
 	s.Editor.GutterStyle = "bogus"
 	s.Editor.BorderStyle = "bogus"
 	s.Git.FileView = "bogus"
+	s.Appearance.Icons = "bogus"
 	normalizeSettings(&s)
 
 	if s.Editor.GutterStyle != "compact" {
@@ -120,6 +129,9 @@ func TestNormalizeRejectsUnknownEnumValues(t *testing.T) {
 	}
 	if s.Git.FileView != GitFileViewList {
 		t.Errorf("git.fileView = %q, want list", s.Git.FileView)
+	}
+	if s.Appearance.Icons != IconsNone {
+		t.Errorf("appearance.icons = %q, want the none default", s.Appearance.Icons)
 	}
 
 	for _, v := range GutterStyles {
@@ -142,5 +154,105 @@ func TestNormalizeRejectsUnknownEnumValues(t *testing.T) {
 		if s.Git.FileView != v {
 			t.Errorf("normalize rejected valid Git file view %q", v)
 		}
+	}
+	for _, v := range IconModes {
+		s.Appearance.Icons = v
+		normalizeSettings(&s)
+		if s.Appearance.Icons != v {
+			t.Errorf("normalize rejected valid icon mode %q", v)
+		}
+	}
+}
+
+func TestIconsDefaultToNoneWhenUnset(t *testing.T) {
+	dir := withTempConfigDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"explorer": {"showHidden": true}, "git": {"fileView": "tree"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadSettings()
+	if got.Appearance.Icons != IconsNone {
+		t.Fatalf("icons with no icons key = %q, want none", got.Appearance.Icons)
+	}
+}
+
+func TestChevronsDefaultAndValidate(t *testing.T) {
+	d := DefaultSettings()
+	if d.Appearance.Chevrons.Collapsed != "▶" || d.Appearance.Chevrons.Expanded != "▼" {
+		t.Fatalf("defaults = %+v", d.Appearance.Chevrons)
+	}
+
+	for name, value := range map[string]string{"empty": "", "two runes": "ab", "wide": "日", "grapheme": "e\u0301"} {
+		s := DefaultSettings()
+		s.Appearance.Chevrons.Collapsed = value
+		normalizeSettings(&s)
+		if s.Appearance.Chevrons.Collapsed != "▶" {
+			t.Errorf("%s: collapsed = %q, want the default", name, s.Appearance.Chevrons.Collapsed)
+		}
+	}
+
+	s := DefaultSettings()
+	s.Appearance.Chevrons = ChevronSettings{Collapsed: "ab", Expanded: "\ueab4"}
+	normalizeSettings(&s)
+	collapsed, expanded := s.Appearance.ChevronRunes()
+	if collapsed != '▶' || expanded != '\ueab4' {
+		t.Errorf("chevrons = %q/%q, want the default and the configured glyph", collapsed, expanded)
+	}
+}
+
+func TestDiffSettingsAreAlwaysWritten(t *testing.T) {
+	s := DefaultSettings()
+	s.Editor.DiffSigns = false
+	s.Editor.DiffSignsColor = false
+	s.Editor.DiffGutterHighlight = false
+	s.Editor.DiffColorGutterNumbers = false
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw struct {
+		Editor map[string]json.RawMessage `json:"editor"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"diffSigns", "diffSignsColor", "diffGutterHighlight", "diffColorGutterNumbers", "diffHighContrast", "diffEmphasizeCollapsedRows"} {
+		if string(raw.Editor[key]) != "false" {
+			t.Errorf("editor.%s = %s, want false written to settings.json", key, raw.Editor[key])
+		}
+	}
+}
+
+func TestDiffGutterSettingsDefaultWhenMissing(t *testing.T) {
+	dir := withTempConfigDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"editor": {"tabSize": 2}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadSettings().Editor
+	if got.DiffSigns || !got.DiffSignsColor || !got.DiffGutterHighlight || got.DiffColorGutterNumbers {
+		t.Errorf("missing keys loaded as diffSigns=%v diffSignsColor=%v diffGutterHighlight=%v diffColorGutterNumbers=%v, want false, true, true, false", got.DiffSigns, got.DiffSignsColor, got.DiffGutterHighlight, got.DiffColorGutterNumbers)
+	}
+}
+
+func TestHighlightTimeLimitIsHiddenUntilSet(t *testing.T) {
+	editorKeys := func(s Settings) map[string]json.RawMessage {
+		data, err := json.Marshal(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var raw struct {
+			Editor map[string]json.RawMessage `json:"editor"`
+		}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			t.Fatal(err)
+		}
+		return raw.Editor
+	}
+	if v, ok := editorKeys(DefaultSettings())["highlightTimeLimit"]; ok {
+		t.Fatalf("default settings wrote editor.highlightTimeLimit = %s; it should stay out of settings.json", v)
+	}
+	s := DefaultSettings()
+	s.Editor.HighlightTimeLimit = 5000
+	if v := string(editorKeys(s)["highlightTimeLimit"]); v != "5000" {
+		t.Fatalf("editor.highlightTimeLimit = %q, want 5000 written once set", v)
 	}
 }

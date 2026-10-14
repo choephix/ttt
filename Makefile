@@ -1,10 +1,13 @@
 # Makefile for ttt - terminal text editor
 
-.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build profiler install
+.PHONY: all test build run clean fmt fmt-check lint chaos chaos-docker chaos-docker-build profiler install bench-editor bench-diff bench-log bench-code
 
 all: build
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
+GOFMT_GO_VERSION := 1.25.14
+GOFMT = "$$(GOTOOLCHAIN=go$(GOFMT_GO_VERSION) go env GOROOT)/bin/gofmt"
 
 build:
 	go build -ldflags="-s -w -X main.version=$(VERSION)" -o bin/ttt ./cmd/ttt
@@ -21,10 +24,38 @@ install: build
 	install -m755 bin/ttt $(INSTALL_DIR)/ttt
 	@echo "Installed $$($(INSTALL_DIR)/ttt --version) to $(INSTALL_DIR)/ttt"
 
-fmt:
-	gofmt -w .
+# Editor benchmarks through the full app. BENCH_LANG picks one language
+# (go, ts, cpp, python). To compare against another checkout the way CI does
+# on pull requests: BASE_DIR=../ttt-main node scripts/bench-compare.mjs
+BENCH_TIME ?= 1s
+BENCH_LANG ?=
+BENCH_FLAGS ?=
+bench-editor:
+	go test -run '^$$' -bench 'Editor/$(BENCH_LANG)' -benchmem -benchtime $(BENCH_TIME) $(BENCH_FLAGS) ./tests/e2e/
 
-lint:
+# Diff view benchmarks (split, unified, wrap, open changes, commit detail).
+bench-diff:
+	go test -run '^$$' -bench 'Diff/$(BENCH_LANG)' -benchmem -benchtime $(BENCH_TIME) $(BENCH_FLAGS) ./tests/e2e/
+
+# Opens real logs in the built binary, with word wrap off and on (_wrap), and
+# edits a committed 128 MiB log (_edit); reports time and peak RSS.
+LOG_BENCH_TIME ?= 1x
+BENCH_LOG_SIZE ?= 1MiB|128MiB|256MiB
+bench-log:
+	go test -run '^$$' -bench '^BenchmarkLog$$/^($(BENCH_LOG_SIZE))(_wrap|_edit)?$$' -benchtime $(LOG_BENCH_TIME) $(BENCH_FLAGS) ./tests/bench/
+
+# Opens, types, and presses Enter in a 64 MiB Go file in the built binary; reports time and peak RSS.
+bench-code:
+	go test -run '^$$' -bench '^BenchmarkCode$$' -benchtime $(LOG_BENCH_TIME) $(BENCH_FLAGS) ./tests/bench/
+
+fmt:
+	$(GOFMT) -w .
+
+fmt-check:
+	@files=$$($(GOFMT) -l .) || exit 1; \
+	if [ -n "$$files" ]; then echo "Not gofmt-formatted (run make fmt):"; echo "$$files"; exit 1; fi
+
+lint: fmt-check
 	golangci-lint run
 
 vet:

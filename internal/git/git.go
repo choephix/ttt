@@ -5,8 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +74,35 @@ func IsRepoContext(ctx context.Context, dir string) bool {
 	cmd := gitCommandContext(ctx, "-C", dir, "rev-parse", "--is-inside-work-tree")
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
+// DiscoverChildRepos returns immediate child directories of dir that are git
+// repositories. It is used when dir itself is not a git repo to find nested
+// repos whose changes should be shown.
+func DiscoverChildRepos(dir string) []string {
+	return DiscoverChildReposContext(context.Background(), dir)
+}
+
+func DiscoverChildReposContext(ctx context.Context, dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var repos []string
+	for _, e := range entries {
+		if ctx.Err() != nil {
+			return repos
+		}
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		child := filepath.Join(dir, e.Name())
+		if IsRepoContext(ctx, child) {
+			repos = append(repos, child)
+		}
+	}
+	sort.Strings(repos)
+	return repos
 }
 
 func StatusFiles(dir string) ([]FileStatus, error) {
@@ -163,7 +195,7 @@ func runPaths(dir string, gitArgs, paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
-	args := append([]string{"-C", dir}, gitArgs...)
+	args := append([]string{"-C", dir, "--literal-pathspecs"}, gitArgs...)
 	args = append(args, paths...)
 	cmd := exec.Command("git", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -173,6 +205,13 @@ func runPaths(dir string, gitArgs, paths []string) error {
 }
 
 func Commit(dir, message string) error {
+	if err := exec.Command("git", "-C", dir, "diff", "--cached", "--quiet").Run(); err == nil {
+		// Nothing staged -- stage everything, like VS Code does.
+		add := exec.Command("git", "-C", dir, "add", "-A")
+		if out, e := add.CombinedOutput(); e != nil {
+			return fmt.Errorf("%s: %s", e, strings.TrimSpace(string(out)))
+		}
+	}
 	cmd := exec.Command("git", "-C", dir, "commit", "-m", message)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
@@ -182,6 +221,17 @@ func Commit(dir, message string) error {
 
 func Pull(dir string) error {
 	cmd := exec.Command("git", "-C", dir, "pull")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// Clone runs without a terminal prompt: the editor owns the tty, so git asking
+// for credentials would hang instead of failing.
+func Clone(url, dest string) error {
+	cmd := exec.Command("git", "clone", "--", url, dest)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -404,12 +454,32 @@ type BlameInfo struct {
 	Time   time.Time
 }
 
-func BlameLine(dir, file string, line int) *BlameInfo {
-	lineStr := fmt.Sprintf("%d,%d", line, line)
-	cmd := exec.Command("git", "-C", dir, "blame", "-L", lineStr,
-		"--porcelain", "--", file)
+func BlameLine(ctx context.Context, dir, file string, line int) *BlameInfo {
+	return blameLine(ctx, dir, file, line, nil)
+}
+
+// BlameLineContents blames line of contents, the unsaved text of file, so
+// line numbers match the editor rather than the file on disk.
+func BlameLineContents(ctx context.Context, dir, file string, line int, contents string) *BlameInfo {
+	return blameLine(ctx, dir, file, line, &contents)
+}
+
+func blameLine(ctx context.Context, dir, file string, line int, contents *string) *BlameInfo {
+	args := []string{"-C", dir, "blame", "-L", fmt.Sprintf("%d,%d", line, line), "--porcelain"}
+	if contents != nil {
+		args = append(args, "--contents", "-")
+	}
+	cmd := gitCommandContext(ctx, append(args, "--", file)...)
+	if contents != nil {
+		cmd.Stdin = strings.NewReader(*contents)
+	}
 	out, err := cmd.Output()
 	if err != nil {
+		return nil
+	}
+
+	// Lines not committed yet carry the all-zero object ID.
+	if hash, _, _ := strings.Cut(string(out), " "); strings.Trim(hash, "0") == "" {
 		return nil
 	}
 
@@ -426,10 +496,6 @@ func BlameLine(dir, file string, line int) *BlameInfo {
 	}
 
 	if info.Author == "" {
-		return nil
-	}
-	// Uncommitted changes
-	if strings.HasPrefix(info.Author, "Not Committed") {
 		return nil
 	}
 	return info
@@ -571,13 +637,20 @@ func Permalink(dir, filePath string, line int) string {
 		return ""
 	}
 
+	// dir comes from rev-parse with symlinks resolved, so the file must be too.
+	if resolved, err := filepath.EvalSymlinks(filePath); err == nil {
+		filePath = resolved
+	}
 	relPath, err := filepath.Rel(dir, filePath)
 	if err != nil {
 		return ""
 	}
-	relPath = filepath.ToSlash(relPath)
+	segments := strings.Split(filepath.ToSlash(relPath), "/")
+	for i, s := range segments {
+		segments[i] = url.PathEscape(s)
+	}
 
-	return fmt.Sprintf("%s/blob/%s/%s#L%d", baseURL, sha, relPath, line+1)
+	return fmt.Sprintf("%s/blob/%s/%s#L%d", baseURL, sha, strings.Join(segments, "/"), line+1)
 }
 
 func remoteToHTTPS(remote string) string {
@@ -587,22 +660,33 @@ func remoteToHTTPS(remote string) string {
 		remote = strings.Replace(remote, ":", "/", 1)
 		remote = "https://" + remote
 	}
+	if u, err := url.Parse(remote); err == nil && u.Host != "" {
+		if u.Scheme == "ssh" || u.Scheme == "git" {
+			u.Host = u.Hostname()
+		}
+		u.Scheme = "https"
+		u.User = nil
+		remote = u.String()
+	}
 	remote = strings.TrimSuffix(remote, ".git")
 	return remote
 }
 
 func IgnoredFiles(dir string, paths []string) map[string]bool {
+	return IgnoredFilesContext(context.Background(), dir, paths)
+}
+
+func IgnoredFilesContext(ctx context.Context, dir string, paths []string) map[string]bool {
 	if len(paths) == 0 {
 		return nil
 	}
-	args := append([]string{"-C", dir, "check-ignore"}, paths...)
-	cmd := exec.Command("git", args...)
+	cmd := gitCommandContext(ctx, "-C", dir, "check-ignore", "--stdin", "-z")
+	cmd.Stdin = strings.NewReader(strings.Join(paths, "\x00") + "\x00")
 	out, _ := cmd.Output()
 	result := make(map[string]bool)
-	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			result[line] = true
+	for _, path := range strings.Split(string(out), "\x00") {
+		if path != "" {
+			result[path] = true
 		}
 	}
 	return result
@@ -613,8 +697,27 @@ func ShowFile(dir, path, ref string) (string, error) {
 }
 
 func ShowFileContext(ctx context.Context, dir, path, ref string) (string, error) {
-	out, err := ShowFileBytesContext(ctx, dir, path, ref)
-	return string(out), err
+	return showString(ctx, dir, ref+":"+path)
+}
+
+// showString reads a blob into a string sized from the blob, so a large file
+// is neither regrown while it is read nor copied into the string afterwards.
+func showString(ctx context.Context, dir, spec string) (string, error) {
+	var sb strings.Builder
+	if out, err := gitCommandContext(ctx, "-C", dir, "cat-file", "-s", spec).Output(); err == nil {
+		if size, err := strconv.Atoi(strings.TrimSpace(string(out))); err == nil {
+			sb.Grow(size)
+		}
+	}
+	cmd := gitCommandContext(ctx, "-C", dir, "show", spec)
+	cmd.Stdout = &sb
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		return "", err
+	}
+	return sb.String(), nil
 }
 
 func ShowFileBytesContext(ctx context.Context, dir, path, ref string) ([]byte, error) {
@@ -714,50 +817,40 @@ func TreeEntryContext(ctx context.Context, dir, revision, path string) (TreeEntr
 	return TreeEntry{Mode: fields[0], Object: fields[2]}, true, nil
 }
 
-func DiffFile(dir, path string) (string, error) {
-	absPath := filepath.Join(dir, path)
-	cmd := exec.Command("git", "-C", dir, "diff", "--", absPath)
-	out, err := cmd.Output()
+// DiffWorktreeFile diffs the index against the working tree.
+func DiffWorktreeFile(dir, path string) (string, error) {
+	return diffPaths(dir, nil, path)
+}
+
+// DiffStagedFile diffs HEAD against the index. Pass the old and new path of a
+// staged rename to get a rename diff.
+func DiffStagedFile(dir string, paths ...string) (string, error) {
+	return diffPaths(dir, []string{"--cached", "-M"}, paths...)
+}
+
+func diffPaths(dir string, flags []string, paths ...string) (string, error) {
+	args := append([]string{"-C", dir, "--literal-pathspecs", "diff"}, flags...)
+	args = append(args, "--")
+	for _, p := range paths {
+		args = append(args, filepath.Join(dir, p))
+	}
+	out, err := gitCommandContext(context.Background(), args...).Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) == 0 {
-			return string(out), nil
-		}
 		return "", err
-	}
-	if len(out) == 0 {
-		cmd = exec.Command("git", "-C", dir, "diff", "--cached", "--", absPath)
-		out, err = cmd.Output()
-		if err != nil {
-			return "", err
-		}
-	}
-	if len(out) == 0 {
-		cmd = exec.Command("git", "-C", dir, "diff", "HEAD", "--", absPath)
-		out, err = cmd.Output()
-		if err != nil {
-			return "", err
-		}
 	}
 	return string(out), nil
 }
 
-func DiffRename(dir, oldPath, newPath string) (string, error) {
-	cmd := exec.Command("git", "-C", dir, "diff", "HEAD", "--", filepath.Join(dir, oldPath), filepath.Join(dir, newPath))
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) == 0 {
-			return string(out), nil
-		}
-		return "", err
-	}
-	if len(out) == 0 {
-		cmd = exec.Command("git", "-C", dir, "diff", "--cached", "--", filepath.Join(dir, oldPath), filepath.Join(dir, newPath))
-		out, err = cmd.Output()
-		if err != nil {
-			return "", err
-		}
-	}
-	return string(out), nil
+// ShowIndexFileContext reads a file's stage-0 blob from the index.
+func ShowIndexFileContext(ctx context.Context, dir, path string) (string, error) {
+	return showString(ctx, dir, ":0:"+path)
+}
+
+// IsUnmergedContext reports whether path has unresolved merge conflicts: the
+// index then holds its conflict stages instead of a single staged version.
+func IsUnmergedContext(ctx context.Context, dir, path string) bool {
+	out, err := gitCommandContext(ctx, "-C", dir, "--literal-pathspecs", "ls-files", "--unmerged", "--", path).Output()
+	return err == nil && len(bytes.TrimSpace(out)) > 0
 }
 
 func DiffWorkingTreeFileContext(ctx context.Context, dir, revision string, status FileStatus) (string, error) {

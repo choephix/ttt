@@ -8,8 +8,10 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,6 +47,7 @@ type chaosHarness struct {
 	reg         *command.Registry
 	renderer    *render.Renderer
 	dir         string
+	eventsMu    sync.Mutex
 	events      []EventRecord
 	rng         *rand.Rand
 	commandPool []command.Command
@@ -104,12 +107,8 @@ func newChaosHarness(seed int64) *chaosHarness {
 	app.BindKeys(editor.Root, reg, cfg.Keybindings)
 	editor.Root.SetSize(w, h)
 
-	cells := make([][]term.Cell, h)
-	for y := range cells {
-		cells[y] = make([]term.Cell, w)
-	}
+	cells := editor.Renderer.NextFrame(w, h)
 	editor.Root.Render(cells)
-	editor.Renderer.SetCurrent(cells)
 	editor.Renderer.Render(screen)
 
 	var commandPool []command.Command
@@ -139,12 +138,8 @@ func (h *chaosHarness) cleanup() {
 }
 
 func (h *chaosHarness) redraw() {
-	cells := make([][]term.Cell, h.app.Root.Height)
-	for y := range cells {
-		cells[y] = make([]term.Cell, h.app.Root.Width)
-	}
+	cells := h.renderer.NextFrame(h.app.Root.Width, h.app.Root.Height)
 	h.app.Root.Render(cells)
-	h.renderer.SetCurrent(cells)
 	h.renderer.Render(h.app.Screen)
 }
 
@@ -161,7 +156,15 @@ func (h *chaosHarness) dispatch(ev tcell.Event) {
 }
 
 func (h *chaosHarness) record(typ, desc string) {
+	h.eventsMu.Lock()
 	h.events = append(h.events, EventRecord{Type: typ, Desc: desc})
+	h.eventsMu.Unlock()
+}
+
+func (h *chaosHarness) eventsSnapshot() []EventRecord {
+	h.eventsMu.Lock()
+	defer h.eventsMu.Unlock()
+	return append([]EventRecord(nil), h.events...)
 }
 
 var printableRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \t!@#$%^&*()_+-=[]{}|;':\",./<>?`~")
@@ -343,19 +346,68 @@ func writeCrashReport(report CrashReport) string {
 	return filename
 }
 
-func runIteration(seed int64, eventsPerRun int) *CrashReport {
+func hangTimeout() time.Duration {
+	timeout := 60 * time.Second
+	if v := os.Getenv("CHAOS_HANG_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			timeout = d
+		}
+	}
+	return timeout
+}
+
+func allGoroutineStacks() string {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			return string(buf[:n])
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+}
+
+// startHangWatchdog exits the process when an iteration outlives the timeout:
+// a hung event handler never returns, so recover cannot report it and the run
+// would otherwise sit silent until the CI job times out.
+func startHangWatchdog(h *chaosHarness, seed int64, iteration int, onHang func(CrashReport)) *time.Timer {
+	timeout := hangTimeout()
+	return time.AfterFunc(timeout, func() {
+		events := h.eventsSnapshot()
+		onHang(CrashReport{
+			Seed:       seed,
+			Iteration:  iteration,
+			EventCount: len(events),
+			Events:     events,
+			Panic:      fmt.Sprintf("hang: iteration did not finish within %s", timeout),
+			Stack:      allGoroutineStacks(),
+		})
+		os.Exit(2)
+	})
+}
+
+func reportHang(report CrashReport) {
+	file := writeCrashReport(report)
+	fmt.Fprintf(os.Stderr, "HANG at iteration %d (seed=%d) after event %d: %s\n  saved to %s\n%s\n",
+		report.Iteration, report.Seed, report.EventCount, report.Panic, file, report.Stack)
+}
+
+func runIteration(seed int64, iteration, eventsPerRun int) *CrashReport {
 	h := newChaosHarness(seed)
 	defer h.cleanup()
+	watchdog := startHangWatchdog(h, seed, iteration, reportHang)
+	defer watchdog.Stop()
 
 	var report *CrashReport
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
+				events := h.eventsSnapshot()
 				report = &CrashReport{
 					Seed:       seed,
-					Iteration:  0,
-					EventCount: len(h.events),
-					Events:     h.events,
+					Iteration:  iteration,
+					EventCount: len(events),
+					Events:     events,
 					Panic:      fmt.Sprintf("%v", r),
 					Stack:      string(debug.Stack()),
 				}
@@ -401,6 +453,9 @@ func TestChaosMonkey(t *testing.T) {
 		fmt.Sscanf(v, "%d", &baseSeed)
 	}
 
+	fmt.Fprintf(os.Stderr, "CHAOS START: %d iterations x %d events, base seed %d, hang timeout %s\n",
+		iterations, eventsPerRun, baseSeed, hangTimeout())
+
 	var crashes []CrashReport
 	start := time.Now()
 	progressEvery := iterations / 20
@@ -410,11 +465,10 @@ func TestChaosMonkey(t *testing.T) {
 
 	for i := 0; i < iterations; i++ {
 		seed := baseSeed + int64(i)
-		report := runIteration(seed, eventsPerRun)
+		report := runIteration(seed, i, eventsPerRun)
 		if report != nil {
-			report.Iteration = i
 			file := writeCrashReport(*report)
-			t.Errorf("CRASH at iteration %d (seed=%d): %s\n  saved to %s", i, seed, report.Panic, file)
+			t.Errorf("CRASH at iteration %d (seed=%d): %s\n  saved to %s\n%s", i, seed, report.Panic, file, report.Stack)
 			crashes = append(crashes, *report)
 		}
 
@@ -455,6 +509,10 @@ func TestChaosReplay(t *testing.T) {
 
 	h := newChaosHarness(report.Seed)
 	defer h.cleanup()
+	watchdog := startHangWatchdog(h, report.Seed, report.Iteration, func(hang CrashReport) {
+		fmt.Fprintf(os.Stderr, "REPRODUCED %s after event %d\n%s\n", hang.Panic, hang.EventCount, hang.Stack)
+	})
+	defer watchdog.Stop()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -500,9 +558,8 @@ func TestChaosLoop(t *testing.T) {
 
 	for maxLoops <= 0 || iteration < maxLoops {
 		seed := time.Now().UnixNano()
-		report := runIteration(seed, eventsPerRun)
+		report := runIteration(seed, iteration, eventsPerRun)
 		if report != nil {
-			report.Iteration = iteration
 			file := writeCrashReport(*report)
 			totalCrashes++
 			fmt.Fprintf(os.Stderr, "CRASH #%d at iteration %d (seed=%d): %s\n  → %s\n",

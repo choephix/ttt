@@ -2,7 +2,9 @@ package lsp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -16,21 +18,24 @@ import (
 )
 
 type Client struct {
-	cmd     *exec.Cmd
-	codec   *Codec
-	nextID  int
-	pending map[int]chan Response
-	mu      sync.Mutex
-	done    chan struct{}
-	closing atomic.Bool
+	cmd      *exec.Cmd
+	codec    *Codec
+	nextID   int
+	pending  map[int]chan Response
+	mu       sync.Mutex
+	done     chan struct{}
+	closing  atomic.Bool
+	waitOnce sync.Once
 
 	completionTriggers  []string
 	signatureTriggers   []string
 	signatureRetriggers []string
+	diagnosticProvider  *DiagnosticOptions
 
 	hooks ClientHooks
 
-	OnDiagnostics func(params PublishDiagnosticsParams)
+	OnDiagnostics       func(params PublishDiagnosticsParams)
+	OnDiagnosticRefresh func()
 }
 
 // ClientHooks are passed to NewClient rather than assigned afterwards: the
@@ -138,21 +143,62 @@ func (c *Client) readLoop() {
 			}
 			continue
 		}
-		if resp.ID != nil {
-			c.mu.Lock()
-			ch, ok := c.pending[*resp.ID]
-			if ok {
-				delete(c.pending, *resp.ID)
-			}
-			c.mu.Unlock()
-			if ok {
-				ch <- resp
-			}
+		if resp.IsRequest() {
+			slog.Debug("lsp server request", "method", resp.Method)
+			// Off the read loop: a server blocked writing to us may not be
+			// reading its stdin, and a reply written from here could then
+			// deadlock both sides.
+			go c.answer(resp)
+			continue
+		}
+		var id int
+		if !resp.HasID() || json.Unmarshal(resp.ID, &id) != nil {
+			continue
+		}
+		c.mu.Lock()
+		ch, ok := c.pending[id]
+		if ok {
+			delete(c.pending, id)
+		}
+		c.mu.Unlock()
+		if ok {
+			ch <- resp
 		}
 	}
 }
 
+// answer replies to a server request; TypeScript 7's native server handles
+// nothing else until its requests are answered.
+func (c *Client) answer(req Response) {
+	reply := Reply{JSONRPC: "2.0", ID: req.ID}
+	switch req.Method {
+	case "workspace/configuration":
+		var params ConfigurationParams
+		_ = json.Unmarshal(req.Params, &params)
+		reply.Result, _ = json.Marshal(make([]any, len(params.Items)))
+	case "client/registerCapability", "client/unregisterCapability":
+		reply.Result = json.RawMessage("null")
+	case "workspace/diagnostic/refresh":
+		reply.Result = json.RawMessage("null")
+		if c.OnDiagnosticRefresh != nil {
+			c.OnDiagnosticRefresh()
+		}
+	default:
+		reply.Error = &RPCError{Code: CodeMethodNotFound, Message: "method not supported: " + req.Method}
+	}
+	if err := c.codec.Send(reply); err != nil {
+		slog.Debug("lsp reply failed", "method", req.Method, "err", err)
+	}
+}
+
 func (c *Client) call(method string, params any) (json.RawMessage, error) {
+	return c.callContext(context.Background(), method, params)
+}
+
+func (c *Client) callContext(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	c.mu.Lock()
 	id := c.nextID
 	c.nextID++
@@ -177,6 +223,17 @@ func (c *Client) call(method string, params any) (json.RawMessage, error) {
 	var ok bool
 	select {
 	case resp, ok = <-ch:
+	case <-ctx.Done():
+		c.mu.Lock()
+		delete(c.pending, id)
+		c.mu.Unlock()
+		// A server not reading stdin must not prevent cancellation from returning.
+		go func() {
+			_ = c.notify("$/cancelRequest", struct {
+				ID int `json:"id"`
+			}{ID: id})
+		}()
+		return nil, ctx.Err()
 	case <-c.done:
 		// The read loop empties the pending map when it exits, so a request
 		// registered after that point would otherwise wait out the full
@@ -230,6 +287,10 @@ func (c *Client) Initialize(rootURI string) error {
 				DocumentSymbol: &DocumentSymbolClientCapabilities{
 					HierarchicalDocumentSymbolSupport: true,
 				},
+				Diagnostic: &DiagnosticClientCapabilities{},
+			},
+			Workspace: &WorkspaceClientCapabilities{
+				Diagnostics: &DiagnosticWorkspaceClientCapabilities{RefreshSupport: true},
 			},
 		},
 	})
@@ -250,6 +311,7 @@ func (c *Client) Initialize(rootURI string) error {
 		c.signatureTriggers = caps.SignatureHelpProvider.TriggerCharacters
 		c.signatureRetriggers = caps.SignatureHelpProvider.RetriggerCharacters
 	}
+	c.diagnosticProvider = caps.DiagnosticProvider
 
 	return c.notify("initialized", struct{}{})
 }
@@ -300,11 +362,60 @@ func (c *Client) SignatureHelpRetriggerCharacters() []string {
 	return c.signatureRetriggers
 }
 
-func (c *Client) Completion(uri string, line, col int, ctx *CompletionContext) ([]CompletionItem, error) {
-	result, err := c.call("textDocument/completion", CompletionParams{
+func (c *Client) SupportsPullDiagnostics() bool {
+	return c.diagnosticProvider != nil
+}
+
+func (c *Client) InterFileDependencies() bool {
+	return c.diagnosticProvider != nil && c.diagnosticProvider.InterFileDependencies
+}
+
+// ok is false for an "unchanged" report, whose diagnostics the caller should
+// keep.
+func (c *Client) Diagnostic(ctx context.Context, uri string) (diags []Diagnostic, ok bool, err error) {
+	params := DocumentDiagnosticParams{TextDocument: TextDocumentIdentifier{URI: uri}}
+	if c.diagnosticProvider != nil {
+		params.Identifier = c.diagnosticProvider.Identifier
+	}
+	result, err := c.callContext(ctx, "textDocument/diagnostic", params)
+	if err != nil {
+		if shouldRetrigger(err) {
+			return nil, false, fmt.Errorf("%w: %w", ErrRetriggerDiagnostic, err)
+		}
+		return nil, false, err
+	}
+	var report DocumentDiagnosticReport
+	if err := json.Unmarshal(result, &report); err != nil {
+		return nil, false, fmt.Errorf("parse diagnostic result: %w", err)
+	}
+	switch report.Kind {
+	case "full":
+		return report.Items, true, nil
+	case "unchanged":
+		return nil, false, nil
+	default:
+		return nil, false, fmt.Errorf("unknown diagnostic report kind %q", report.Kind)
+	}
+}
+
+var ErrRetriggerDiagnostic = errors.New("server asked to retrigger the diagnostic pull")
+
+func shouldRetrigger(err error) bool {
+	var rpcErr *RPCError
+	if !errors.As(err, &rpcErr) || rpcErr.Code != CodeServerCancelled {
+		return false
+	}
+	var data struct {
+		RetriggerRequest bool `json:"retriggerRequest"`
+	}
+	return json.Unmarshal(rpcErr.Data, &data) == nil && data.RetriggerRequest
+}
+
+func (c *Client) Completion(ctx context.Context, uri string, line, col int, trigger *CompletionContext) ([]CompletionItem, error) {
+	result, err := c.callContext(ctx, "textDocument/completion", CompletionParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
 		Position:     Position{Line: line, Character: col},
-		Context:      ctx,
+		Context:      trigger,
 	})
 	if err != nil {
 		return nil, err
@@ -333,8 +444,8 @@ func (c *Client) ResolveCompletion(item CompletionItem) (*CompletionItem, error)
 	return &resolved, nil
 }
 
-func (c *Client) SignatureHelp(uri string, line, col int) (*SignatureHelp, error) {
-	result, err := c.call("textDocument/signatureHelp", SignatureHelpParams{
+func (c *Client) SignatureHelp(ctx context.Context, uri string, line, col int) (*SignatureHelp, error) {
+	result, err := c.callContext(ctx, "textDocument/signatureHelp", SignatureHelpParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
 		Position:     Position{Line: line, Character: col},
 	})
@@ -352,7 +463,11 @@ func (c *Client) SignatureHelp(uri string, line, col int) (*SignatureHelp, error
 }
 
 func (c *Client) Hover(uri string, line, col int) (*HoverResult, error) {
-	result, err := c.call("textDocument/hover", TextDocumentPositionParams{
+	return c.HoverContext(context.Background(), uri, line, col)
+}
+
+func (c *Client) HoverContext(ctx context.Context, uri string, line, col int) (*HoverResult, error) {
+	result, err := c.callContext(ctx, "textDocument/hover", TextDocumentPositionParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
 		Position:     Position{Line: line, Character: col},
 	})
@@ -404,7 +519,7 @@ func (c *Client) CodeAction(uri string, r Range, kinds []string) ([]CodeAction, 
 	result, err := c.call("textDocument/codeAction", CodeActionParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
 		Range:        r,
-		Context:      CodeActionContext{Only: kinds},
+		Context:      CodeActionContext{Diagnostics: []Diagnostic{}, Only: kinds},
 	})
 	if err != nil {
 		return nil, err
@@ -460,8 +575,8 @@ func (c *Client) References(uri string, line, col int, includeDeclaration bool) 
 // DocumentSymbols returns the symbol tree for a document. Servers reply with
 // either hierarchical DocumentSymbol[] or flat SymbolInformation[]; flat
 // results are converted so callers always get the hierarchical form.
-func (c *Client) DocumentSymbols(uri string) ([]DocumentSymbol, error) {
-	result, err := c.call("textDocument/documentSymbol", DocumentSymbolParams{
+func (c *Client) DocumentSymbols(ctx context.Context, uri string) ([]DocumentSymbol, error) {
+	result, err := c.callContext(ctx, "textDocument/documentSymbol", DocumentSymbolParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
 	})
 	if err != nil {
@@ -557,12 +672,16 @@ func (c *Client) Shutdown() error {
 		return err
 	}
 	_ = c.notify("exit", nil)
-	c.cmd.Wait()
+	c.wait()
 	return nil
 }
 
 func (c *Client) Close() {
 	c.closing.Store(true)
 	c.cmd.Process.Kill()
-	c.cmd.Wait()
+	c.wait()
+}
+
+func (c *Client) wait() {
+	c.waitOnce.Do(func() { c.cmd.Wait() })
 }

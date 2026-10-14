@@ -4,7 +4,57 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/eugenioenko/ttt/internal/term"
 )
+
+func TestEditorGroupShebangHighlighting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "deploy")
+	text := "#!/usr/bin/env python3\nprint(\"deploy\")\n"
+	if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"open", "readonly", "buffer", "save-as", "rename", "refresh", "disabled"} {
+		t.Run(mode, func(t *testing.T) {
+			g := NewEditorGroupWidget(nil, 4, false, "extended")
+			g.SyntaxHighlight = mode != "disabled"
+			switch mode {
+			case "readonly":
+				g.OpenFileReadOnly(path, "deploy")
+			case "buffer":
+				g.OpenBufferReadOnly("deploy", path, []string{"#!/usr/bin/env python3", `print("deploy")`})
+			default:
+				g.OpenFile(path)
+			}
+			switch mode {
+			case "save-as":
+				if !g.SaveAs(filepath.Join(t.TempDir(), "renamed")) {
+					t.Fatal("SaveAs failed")
+				}
+			case "rename":
+				g.RenamePath(path, filepath.Join(t.TempDir(), "renamed"))
+			case "refresh":
+				g.RefreshHighlighters()
+			}
+			h := g.Editor.Highlighter
+			if mode == "disabled" {
+				if h != nil {
+					t.Fatal("highlighting should remain disabled")
+				}
+				return
+			}
+			if h == nil || h.Language() != "Python" {
+				t.Fatalf("highlighter = %v, want Python", h)
+			}
+			for _, span := range h.HighlightLineAt(g.Editor.Buf.Lines, 1) {
+				if span.Style == term.StyleSyntaxString {
+					return
+				}
+			}
+			t.Fatal("script string is not highlighted")
+		})
+	}
+}
 
 func TestOpenPluginTabReplacementClosesPreviousContent(t *testing.T) {
 	group := NewEditorGroupWidget(nil, 4, true, "relative")
@@ -123,6 +173,9 @@ func TestEditorGroupOpenFileSuccess(t *testing.T) {
 	if errMsg != "" {
 		t.Fatalf("unexpected error: %s", errMsg)
 	}
+	if len(g.tabs) != 1 {
+		t.Fatalf("expected 1 tab replacing untitled, got %d", len(g.tabs))
+	}
 	if g.tabs[g.active].FilePath != path {
 		t.Fatalf("expected active tab to be %s, got %s", path, g.tabs[g.active].FilePath)
 	}
@@ -233,6 +286,69 @@ func TestEditorGroupCloseBackgroundTabKeepsActiveTab(t *testing.T) {
 	}
 	if g.tabs[g.active].FilePath != activePath {
 		t.Fatalf("closing a background tab activated %q, want %q", g.tabs[g.active].FilePath, activePath)
+	}
+}
+
+func TestEditorGroupOpenFileKeepsTouchedUntitled(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "test.txt")
+	os.WriteFile(path, []byte("hello"), 0644)
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.tabs[0].Buf.Lines = []string{"typed text"}
+	g.tabs[0].Buf.Dirty = true
+
+	g.OpenFile(path)
+
+	if len(g.tabs) != 2 {
+		t.Fatalf("expected 2 tabs when untitled is dirty, got %d", len(g.tabs))
+	}
+	if g.tabs[0].FilePath != "untitled" || g.tabs[1].FilePath != path {
+		t.Fatalf("expected [untitled, %s], got [%s, %s]", path, g.tabs[0].FilePath, g.tabs[1].FilePath)
+	}
+}
+
+func TestEditorGroupOpenFileKeepsNewFileTab(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "test.txt")
+	os.WriteFile(path, []byte("hello"), 0644)
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.NewFile()
+	g.SwitchTab(0)
+	g.CloseTab()
+
+	g.OpenFile(path)
+
+	if len(g.tabs) != 2 {
+		t.Fatalf("expected 2 tabs when user created new file, got %d", len(g.tabs))
+	}
+	if g.tabs[0].FilePath != "untitled-2" || g.tabs[1].FilePath != path {
+		t.Fatalf("expected [untitled-2, %s], got [%s, %s]", path, g.tabs[0].FilePath, g.tabs[1].FilePath)
+	}
+}
+
+func TestEditorGroupOpenFileKeepsPinnedPlaceholder(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "test.txt")
+	os.WriteFile(path, []byte("hello"), 0644)
+
+	g := NewEditorGroupWidget(nil, 4, false, "extended")
+	g.TogglePinTab()
+
+	g.OpenFile(path)
+
+	if len(g.tabs) != 2 {
+		t.Fatalf("expected 2 tabs when placeholder is pinned, got %d", len(g.tabs))
+	}
+	if g.tabs[0].FilePath != "untitled" || g.tabs[1].FilePath != path {
+		t.Fatalf("expected [untitled, %s], got [%s, %s]", path, g.tabs[0].FilePath, g.tabs[1].FilePath)
+	}
+	if g.pinnedCount != 1 {
+		t.Fatalf("expected pinnedCount to remain 1, got %d", g.pinnedCount)
+	}
+	if g.IsActiveTabPinned() {
+		t.Fatal("expected newly opened tab to not be pinned")
 	}
 }
 

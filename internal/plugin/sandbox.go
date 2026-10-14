@@ -231,6 +231,14 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 				})
 			}
 
+			if ft, ok := L.GetField(tbl, "file_handlers").(*lua.LTable); ok {
+				if err := p.Granted.Check("editor.file_handlers"); err != nil {
+					L.ArgError(1, "editor.file_handlers permission not granted")
+					return 0
+				}
+				p.FileHandlers = append(p.FileHandlers, parseFileHandlers(L, ft)...)
+			}
+
 			return 0
 		}))
 
@@ -573,6 +581,16 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 			return 1
 		}))
 
+		L.SetField(mod, "graphics", L.NewFunction(func(L *lua.LState) int {
+			g := p.graphics()
+			tbl := L.NewTable()
+			L.SetField(tbl, "protocol", lua.LString(g.Protocol.String()))
+			L.SetField(tbl, "cell_w", lua.LNumber(g.CellW))
+			L.SetField(tbl, "cell_h", lua.LNumber(g.CellH))
+			L.Push(tbl)
+			return 1
+		}))
+
 		L.SetField(mod, "platform", L.NewFunction(func(L *lua.LState) int {
 			L.Push(lua.LString(runtime.GOOS))
 			return 1
@@ -655,12 +673,14 @@ func setupTTTModule(L *lua.LState, p *Plugin) {
 		"ttt":             true,
 		"ttt.editor":      true,
 		"ttt.diagnostics": true,
+		"ttt.bookmarks":   true,
 		"ttt.fs":          true,
 		"ttt.system":      true,
 		"ttt.net":         true,
 		"ttt.events":      true,
 		"ttt.json":        true,
 		"ttt.settings":    true,
+		"ttt.storage":     true,
 	}
 
 	origRequire := L.GetGlobal("require")

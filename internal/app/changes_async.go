@@ -10,6 +10,7 @@ import (
 
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/git"
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -92,6 +93,7 @@ type CommitDetailResult struct {
 }
 
 func readChangesGroups(dirs []string) []changesGroup {
+	dirs = expandNonGitDirs(dirs)
 	var groups []changesGroup
 	seen := make(map[string]bool)
 	for _, dir := range dirs {
@@ -235,7 +237,7 @@ func (cp *ChangesPanel) ApplyCommitLog(r *CommitLogResult) {
 	nodes = append(nodes, &widgets.TreeNode{
 		ID:    "branch",
 		Label: branchLabel,
-		Icon:  "⎇",
+		Icon:  icons.Get(cp.icons, icons.Branch),
 		Muted: true,
 	})
 	for _, e := range r.Entries {
@@ -283,7 +285,7 @@ func (cp *ChangesPanel) ApplyCommitLog(r *CommitLogResult) {
 func (cp *ChangesPanel) commitLogNode(dir string, entry git.LogEntry) *widgets.TreeNode {
 	id := "commit:" + entry.Ref
 	cp.logCommits[id] = commitFileRef{Dir: dir, Ref: entry.Ref, Short: entry.Hash}
-	node := &widgets.TreeNode{ID: id, Label: entry.Message, Icon: "●", Badge: entry.Hash, Expandable: true}
+	node := &widgets.TreeNode{ID: id, Label: entry.Message, Icon: icons.Get(cp.icons, icons.Commit), Badge: entry.Hash, Expandable: true}
 	if cp.logExpanded[commitLogStateKey(dir, id)] {
 		node.Expanded = true
 		node.Children = cp.commitChildren(dir, entry.Ref, entry.Hash, id)

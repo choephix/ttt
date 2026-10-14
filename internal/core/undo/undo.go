@@ -65,6 +65,9 @@ func (s *UndoStack) AtSavePoint() bool {
 // Consecutive InsertRuneCommand or DeleteRuneCommand at adjacent positions
 // are automatically grouped so a single undo reverses the whole sequence.
 func (s *UndoStack) Push(cmd EditCommand) {
+	if IsNoop(cmd) {
+		return
+	}
 	s.redo = nil
 	if s.grouping {
 		if len(s.undo) > 0 {
@@ -270,16 +273,15 @@ func (c *SplitLineCommand) Apply(b *buffer.Buffer) {
 	}
 	left := string(line[:col])
 	right := string(line[col:])
-	b.Lines[c.Line] = left
-	b.InsertLine(c.Line+1, right)
+	b.Splice(c.Line, 1, left, right)
+	b.Dirty = true
 }
 
 func (c *SplitLineCommand) Undo(b *buffer.Buffer) {
 	if c.Line+1 >= len(b.Lines) {
 		return
 	}
-	b.Lines[c.Line] += b.Lines[c.Line+1]
-	b.DeleteLine(c.Line + 1)
+	b.Splice(c.Line, 2, b.Lines[c.Line]+b.Lines[c.Line+1])
 	b.Dirty = true
 }
 
@@ -294,8 +296,7 @@ func (c *JoinLineCommand) Apply(b *buffer.Buffer) {
 		return
 	}
 	c.PrevLen = len([]rune(b.Lines[c.Line-1]))
-	b.Lines[c.Line-1] += b.Lines[c.Line]
-	b.DeleteLine(c.Line)
+	b.Splice(c.Line-1, 2, b.Lines[c.Line-1]+b.Lines[c.Line])
 	b.Dirty = true
 }
 
@@ -306,8 +307,8 @@ func (c *JoinLineCommand) Undo(b *buffer.Buffer) {
 	combined := []rune(b.Lines[c.Line-1])
 	left := string(combined[:c.PrevLen])
 	right := string(combined[c.PrevLen:])
-	b.Lines[c.Line-1] = left
-	b.InsertLine(c.Line, right)
+	b.Splice(c.Line-1, 1, left, right)
+	b.Dirty = true
 }
 
 // JoinNextLineCommand implements EditCommand for joining the current line with the next one.
@@ -336,8 +337,7 @@ func (c *JoinNextLineCommand) Apply(b *buffer.Buffer) {
 		separator = " "
 	}
 
-	b.Lines[c.Line] = currentLine + separator + trimmed
-	b.DeleteLine(c.Line + 1)
+	b.Splice(c.Line, 2, currentLine+separator+trimmed)
 	b.Dirty = true
 }
 
@@ -347,8 +347,8 @@ func (c *JoinNextLineCommand) Undo(b *buffer.Buffer) {
 	}
 	// Restore the current line to its original length
 	currentRunes := []rune(b.Lines[c.Line])
-	b.Lines[c.Line] = string(currentRunes[:c.JoinCol])
-	b.InsertLine(c.Line+1, c.NextText)
+	b.Splice(c.Line, 1, string(currentRunes[:c.JoinCol]), c.NextText)
+	b.Dirty = true
 }
 
 // InsertLineCommand implements EditCommand for inserting a line.
@@ -391,7 +391,9 @@ func (c *SwapLineCommand) Apply(b *buffer.Buffer) {
 	if c.Line1 < 0 || c.Line2 < 0 || c.Line1 >= len(b.Lines) || c.Line2 >= len(b.Lines) {
 		return
 	}
-	b.Lines[c.Line1], b.Lines[c.Line2] = b.Lines[c.Line2], b.Lines[c.Line1]
+	l1, l2 := b.Lines[c.Line1], b.Lines[c.Line2]
+	b.SetLine(c.Line1, l2)
+	b.SetLine(c.Line2, l1)
 	b.Dirty = true
 }
 
@@ -418,7 +420,7 @@ func (c *InsertStringCommand) Apply(b *buffer.Buffer) {
 	newRunes := append([]rune{}, runes[:col]...)
 	newRunes = append(newRunes, insert...)
 	newRunes = append(newRunes, runes[col:]...)
-	b.Lines[c.Line] = string(newRunes)
+	b.SetLine(c.Line, string(newRunes))
 	b.Dirty = true
 }
 
@@ -433,8 +435,15 @@ func (c *InsertStringCommand) Undo(b *buffer.Buffer) {
 		return
 	}
 	newRunes := append(runes[:col], runes[col+tLen:]...)
-	b.Lines[c.Line] = string(newRunes)
+	b.SetLine(c.Line, string(newRunes))
 	b.Dirty = true
+}
+
+// IsNoop reports whether cmd was applied without changing the buffer, so it
+// should not be recorded as an undo step.
+func IsNoop(cmd EditCommand) bool {
+	n, ok := cmd.(interface{ Noop() bool })
+	return ok && n.Noop()
 }
 
 // DeleteSelectionCommand deletes a multi-line range and stores the deleted text for undo.
@@ -442,67 +451,80 @@ type DeleteSelectionCommand struct {
 	StartLine, StartCol int
 	EndLine, EndCol     int
 	Deleted             string
+	applied             bool
 }
 
-func (c *DeleteSelectionCommand) Apply(b *buffer.Buffer) {
-	if c.StartLine >= len(b.Lines) {
-		return
+// Noop reports whether the last Apply deleted nothing (an empty, reversed or
+// out-of-range selection).
+func (c *DeleteSelectionCommand) Noop() bool {
+	return !c.applied
+}
+
+func (c *DeleteSelectionCommand) normalize(b *buffer.Buffer) bool {
+	if c.StartLine < 0 || c.StartLine >= len(b.Lines) || c.EndLine < c.StartLine {
+		return false
 	}
 	if c.EndLine >= len(b.Lines) {
 		c.EndLine = len(b.Lines) - 1
 		c.EndCol = len([]rune(b.Lines[c.EndLine]))
 	}
+	c.StartCol = clampCol(c.StartCol, len([]rune(b.Lines[c.StartLine])))
+	c.EndCol = clampCol(c.EndCol, len([]rune(b.Lines[c.EndLine])))
+	if c.StartLine == c.EndLine && c.StartCol > c.EndCol {
+		c.StartCol = c.EndCol
+	}
+	return true
+}
 
-	startRunes := []rune(b.Lines[c.StartLine])
-	sc := c.StartCol
-	if sc > len(startRunes) {
-		sc = len(startRunes)
+func clampCol(col, length int) int {
+	if col < 0 {
+		return 0
+	}
+	if col > length {
+		return length
+	}
+	return col
+}
+
+func (c *DeleteSelectionCommand) ComputeDeleted(b *buffer.Buffer) string {
+	if !c.normalize(b) {
+		return ""
 	}
 
+	startRunes := []rune(b.Lines[c.StartLine])
 	if c.StartLine == c.EndLine {
-		endRunes := []rune(b.Lines[c.StartLine])
-		ec := c.EndCol
-		if ec > len(endRunes) {
-			ec = len(endRunes)
-		}
-		if sc > ec {
-			sc = ec
-		}
-		c.Deleted = string(endRunes[sc:ec])
-		b.Lines[c.StartLine] = string(startRunes[:sc]) + string(endRunes[ec:])
-		b.Dirty = true
-		return
+		c.Deleted = string(startRunes[c.StartCol:c.EndCol])
+		return c.Deleted
 	}
 
 	endRunes := []rune(b.Lines[c.EndLine])
-	ec := c.EndCol
-	if ec > len(endRunes) {
-		ec = len(endRunes)
-	}
-
-	// Build deleted text
 	var del []rune
-	del = append(del, startRunes[sc:]...)
+	del = append(del, startRunes[c.StartCol:]...)
 	del = append(del, '\n')
 	for l := c.StartLine + 1; l < c.EndLine; l++ {
 		del = append(del, []rune(b.Lines[l])...)
 		del = append(del, '\n')
 	}
-	del = append(del, endRunes[:ec]...)
+	del = append(del, endRunes[:c.EndCol]...)
 	c.Deleted = string(del)
+	return c.Deleted
+}
 
-	// Merge start prefix with end suffix
-	b.Lines[c.StartLine] = string(startRunes[:sc]) + string(endRunes[ec:])
-
-	// Remove lines between
-	if c.EndLine > c.StartLine {
-		b.Lines = append(b.Lines[:c.StartLine+1], b.Lines[c.EndLine+1:]...)
+func (c *DeleteSelectionCommand) Apply(b *buffer.Buffer) {
+	c.applied = false
+	if !c.normalize(b) || c.ComputeDeleted(b) == "" {
+		return
 	}
+	c.applied = true
+
+	startRunes := []rune(b.Lines[c.StartLine])
+	endRunes := []rune(b.Lines[c.EndLine])
+	b.Splice(c.StartLine, c.EndLine-c.StartLine+1, string(startRunes[:c.StartCol])+string(endRunes[c.EndCol:]))
 	b.Dirty = true
 }
 
 func (c *DeleteSelectionCommand) Undo(b *buffer.Buffer) {
-	if c.StartLine >= len(b.Lines) {
+	if !c.applied || c.StartLine >= len(b.Lines) {
 		return
 	}
 
@@ -517,19 +539,9 @@ func (c *DeleteSelectionCommand) Undo(b *buffer.Buffer) {
 
 	// Re-insert deleted text
 	delLines := splitLines(c.Deleted)
-	if len(delLines) == 1 {
-		b.Lines[c.StartLine] = prefix + delLines[0] + suffix
-	} else {
-		newLines := make([]string, 0, len(b.Lines)+len(delLines)-1)
-		newLines = append(newLines, b.Lines[:c.StartLine]...)
-		newLines = append(newLines, prefix+delLines[0])
-		for i := 1; i < len(delLines)-1; i++ {
-			newLines = append(newLines, delLines[i])
-		}
-		newLines = append(newLines, delLines[len(delLines)-1]+suffix)
-		newLines = append(newLines, b.Lines[c.StartLine+1:]...)
-		b.Lines = newLines
-	}
+	delLines[0] = prefix + delLines[0]
+	delLines[len(delLines)-1] += suffix
+	b.Splice(c.StartLine, 1, delLines...)
 	b.Dirty = true
 }
 
@@ -551,19 +563,9 @@ func (c *PasteCommand) Apply(b *buffer.Buffer) {
 	}
 	prefix := string(currentRunes[:col])
 
-	if len(lines) == 1 {
-		b.Lines[c.Line] = prefix + lines[0] + c.Suffix
-	} else {
-		newLines := make([]string, 0, len(b.Lines)+len(lines)-1)
-		newLines = append(newLines, b.Lines[:c.Line]...)
-		newLines = append(newLines, prefix+lines[0])
-		for i := 1; i < len(lines)-1; i++ {
-			newLines = append(newLines, lines[i])
-		}
-		newLines = append(newLines, lines[len(lines)-1]+c.Suffix)
-		newLines = append(newLines, b.Lines[c.Line+1:]...)
-		b.Lines = newLines
-	}
+	lines[0] = prefix + lines[0]
+	lines[len(lines)-1] += c.Suffix
+	b.Splice(c.Line, 1, lines...)
 	b.Dirty = true
 }
 
@@ -580,7 +582,7 @@ func (c *PasteCommand) Undo(b *buffer.Buffer) {
 			return
 		}
 		newRunes := append(runes[:col], runes[col+tLen:]...)
-		b.Lines[c.Line] = string(newRunes)
+		b.SetLine(c.Line, string(newRunes))
 	} else {
 		if c.Line < 0 || c.Line >= len(b.Lines) {
 			return
@@ -595,13 +597,7 @@ func (c *PasteCommand) Undo(b *buffer.Buffer) {
 		if endLine >= len(b.Lines) {
 			endLine = len(b.Lines) - 1
 		}
-		newLines := make([]string, 0, len(b.Lines)-(endLine-c.Line))
-		newLines = append(newLines, b.Lines[:c.Line]...)
-		newLines = append(newLines, restored)
-		if endLine+1 < len(b.Lines) {
-			newLines = append(newLines, b.Lines[endLine+1:]...)
-		}
-		b.Lines = newLines
+		b.Splice(c.Line, endLine-c.Line+1, restored)
 	}
 	b.Dirty = true
 }
@@ -640,11 +636,7 @@ func (c *ReplaceLinesCommand) Apply(b *buffer.Buffer) {
 	if end > len(b.Lines) {
 		end = len(b.Lines)
 	}
-	newBuf := make([]string, 0, len(b.Lines)-len(c.OldLines)+len(c.NewLines))
-	newBuf = append(newBuf, b.Lines[:c.Start]...)
-	newBuf = append(newBuf, c.NewLines...)
-	newBuf = append(newBuf, b.Lines[end:]...)
-	b.Lines = newBuf
+	b.Splice(c.Start, end-c.Start, c.NewLines...)
 	b.Dirty = true
 }
 
@@ -656,11 +648,7 @@ func (c *ReplaceLinesCommand) Undo(b *buffer.Buffer) {
 	if end > len(b.Lines) {
 		end = len(b.Lines)
 	}
-	newBuf := make([]string, 0, len(b.Lines)-len(c.NewLines)+len(c.OldLines))
-	newBuf = append(newBuf, b.Lines[:c.Start]...)
-	newBuf = append(newBuf, c.OldLines...)
-	newBuf = append(newBuf, b.Lines[end:]...)
-	b.Lines = newBuf
+	b.Splice(c.Start, end-c.Start, c.OldLines...)
 	b.Dirty = true
 }
 

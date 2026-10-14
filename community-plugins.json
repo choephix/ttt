@@ -1,13 +1,13 @@
 [
   {
-    "name": "cheat-sheet",
-    "displayName": "Cheat Sheet",
+    "name": "bookmarks",
+    "displayName": "Bookmarks",
     "author": "eugenioenko",
-    "description": "Fetch programming cheat sheets from cheat.sh and display them in an editor tab",
+    "description": "Toggle line bookmarks from the gutter or context menu and browse them in the sidebar",
     "repo": "https://github.com/eugenioenko/ttt-plugins",
-    "path": "cheat-sheet",
+    "path": "bookmarks",
     "version": "0.1.0",
-    "tags": ["reference", "cheatsheet", "documentation", "learning"]
+    "tags": ["bookmarks", "navigation", "productivity"]
   },
   {
     "name": "color-picker",
@@ -48,16 +48,6 @@
     "path": "go-test-runner",
     "version": "0.1.0",
     "tags": ["go", "testing", "runner", "golang"]
-  },
-  {
-    "name": "http-client",
-    "displayName": "HTTP Client",
-    "author": "eugenioenko",
-    "description": "Simple HTTP client for testing APIs",
-    "repo": "https://github.com/eugenioenko/ttt-plugins",
-    "path": "http-client",
-    "version": "0.1.0",
-    "tags": ["http", "api", "rest", "networking"]
   },
   {
     "name": "json-viewer",
@@ -167,6 +157,16 @@
     "tags": ["formatter", "python", "black"]
   },
   {
+    "name": "formatter-ruff",
+    "displayName": "Ruff Formatter",
+    "author": "RhenCloud",
+    "description": "Auto-configure ruff as the Python formatter",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "formatter-ruff",
+    "version": "0.1.0",
+    "tags": ["formatter", "python", "ruff"]
+  },
+  {
     "name": "formatter-rustfmt",
     "displayName": "rustfmt Formatter",
     "author": "eugenioenko",
@@ -207,6 +207,36 @@
     "tags": ["formatter", "shell", "bash", "shfmt"]
   },
   {
+    "name": "lang-git",
+    "displayName": "Git Syntax Highlighting",
+    "author": "eugenioenko",
+    "description": "Syntax highlighting for git commit messages and interactive rebase todo lists",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lang-git",
+    "version": "0.1.0",
+    "tags": ["grammar", "git", "commit", "rebase"]
+  },
+  {
+    "name": "lang-astro",
+    "displayName": "Astro Syntax Highlighting",
+    "author": "eugenioenko",
+    "description": "Syntax highlighting for Astro components (.astro)",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lang-astro",
+    "version": "0.1.0",
+    "tags": ["grammar", "astro", "web"]
+  },
+  {
+    "name": "lang-just",
+    "displayName": "Just Syntax Highlighting",
+    "author": "eugenioenko",
+    "description": "Syntax highlighting for just command runner files (justfile, .just)",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lang-just",
+    "version": "0.1.0",
+    "tags": ["grammar", "just", "justfile"]
+  },
+  {
     "name": "lsp-go",
     "displayName": "Go Language Server",
     "author": "eugenioenko",
@@ -235,6 +265,16 @@
     "path": "lsp-python",
     "version": "0.1.0",
     "tags": ["lsp", "python", "pyright"]
+  },
+  {
+    "name": "lsp-ruff",
+    "displayName": "Ruff Language Server",
+    "author": "RhenCloud",
+    "description": "Auto-configure ruff as the Python language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-ruff",
+    "version": "0.1.0",
+    "tags": ["lsp", "python", "ruff"]
   },
   {
     "name": "lsp-c",
@@ -445,5 +485,15 @@
     "path": "lsp-markdown",
     "version": "0.1.0",
     "tags": ["lsp", "markdown", "marksman"]
+  },
+  {
+    "name": "lsp-haskell",
+    "displayName": "Haskell Language Server",
+    "author": "eugenioenko",
+    "description": "Auto-configure haskell-language-server as the Haskell language server",
+    "repo": "https://github.com/eugenioenko/ttt-plugins",
+    "path": "lsp-haskell",
+    "version": "0.1.0",
+    "tags": ["lsp", "haskell", "hls"]
   }
 ]

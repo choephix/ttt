@@ -39,11 +39,39 @@ const (
 	StyleSyntaxPunctuation
 	StyleSyntaxTag
 	StyleSyntaxAttribute
+	StyleSyntaxRegexp
+	StyleSyntaxHeading
+	StyleSyntaxBold
+	StyleSyntaxItalic
+	StyleSyntaxQuote
+	StyleSyntaxInserted
+	StyleSyntaxDeleted
+	StyleSyntaxInvalid
+	StyleSyntaxControl
+	StyleSyntaxStorage
+	StyleSyntaxConstant
+	StyleSyntaxEscape
+	StyleSyntaxParameter
+	StyleSyntaxProperty
+	StyleSyntaxSelf
+	StyleSyntaxNamespace
+	StyleSyntaxDecorator
+	StyleSyntaxLink
+	StyleSyntaxCode
+	StyleSyntaxInterpolation
+	StyleSyntaxSelector
+	StyleSyntaxReadonlyVariable
 	StyleMuted
 	StyleBracketMatch
 	StyleSuccess
 	StyleDanger
 	StyleWarning
+	StyleGitConflict
+	// Dimmed variants for staged git changes.
+	StyleSuccessStaged
+	StyleDangerStaged
+	StyleWarningStaged
+	StyleGitConflictStaged
 	StyleDiagError
 	StyleDiagWarning
 	StyleDiagInfo
@@ -63,12 +91,35 @@ const (
 	StyleGutterAdded
 	StyleGutterModified
 	StyleGutterDeleted
+	StyleGutterBookmark
 	StyleButton
 	StyleButtonFocused
 	StyleSelectedTab
 	StyleSymlink
-	styleCount
+	StyleFileIconRed
+	StyleFileIconYellow
+	StyleFileIconGreen
+	StyleFileIconCyan
+	StyleFileIconBlue
+	StyleFileIconMagenta
+	StyleScrollMarkAdded
+	StyleScrollMarkModified
+	StyleScrollMarkDeleted
+	StyleScrollbarFill
+	StyleScrollbarThumbFill
+	// styleTokenBase starts a block of MaxTokenStyles slots that a theme's
+	// tokenColors fill; see TokenStyle.
+	styleTokenBase
+	styleCount = styleTokenBase + MaxTokenStyles
 )
+
+// MaxTokenStyles bounds the distinct token-color styles one theme can use.
+const MaxTokenStyles = 512
+
+// TokenStyle returns the style slot for a theme's i-th distinct token color.
+func TokenStyle(i int) Style {
+	return styleTokenBase + Style(i)
+}
 
 // DirectColor holds an RGBA color for terminal emulator output.
 // Zero value means "use default".

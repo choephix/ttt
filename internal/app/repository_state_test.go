@@ -350,7 +350,7 @@ func TestGitRelativePathEnablesBlameForExternalFileSymlink(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	if info := git.BlameLine(repo, link, 1); info != nil {
+	if info := git.BlameLine(context.Background(), repo, link, 1); info != nil {
 		t.Fatalf("raw external blame = %+v, want nil", info)
 	}
 
@@ -359,7 +359,7 @@ func TestGitRelativePathEnablesBlameForExternalFileSymlink(t *testing.T) {
 	if !ok || blamePath != "nested/blamed.txt" {
 		t.Fatalf("canonical blame path = (%q, %t), want nested/blamed.txt", blamePath, ok)
 	}
-	info := git.BlameLine(repo, blamePath, 1)
+	info := git.BlameLine(context.Background(), repo, blamePath, 1)
 	if info == nil || info.Author != "Test User" {
 		t.Fatalf("canonical blame = %+v, want Test User", info)
 	}
@@ -1634,5 +1634,52 @@ func testAppGit(t *testing.T, dir string, args ...string) {
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, output)
+	}
+}
+
+func TestExpandNonGitDirsReplacesNonRepoWithChildren(t *testing.T) {
+	root := canonicalTestPath(t, t.TempDir())
+	repoA := filepath.Join(root, "alpha")
+	repoB := filepath.Join(root, "beta")
+	for _, d := range []string{repoA, repoB} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		testAppGit(t, d, "init")
+	}
+
+	got := expandNonGitDirs([]string{root})
+	if len(got) != 2 {
+		t.Fatalf("expandNonGitDirs = %v, want 2 child repos", got)
+	}
+	for i, want := range []string{repoA, repoB} {
+		g, _ := filepath.EvalSymlinks(got[i])
+		w, _ := filepath.EvalSymlinks(want)
+		if g != w {
+			t.Errorf("got[%d] = %q, want %q", i, g, w)
+		}
+	}
+}
+
+func TestExpandNonGitDirsKeepsExistingRepos(t *testing.T) {
+	repo := canonicalTestPath(t, t.TempDir())
+	testAppGit(t, repo, "init")
+
+	got := expandNonGitDirs([]string{repo})
+	if len(got) != 1 {
+		t.Fatalf("expandNonGitDirs = %v, want 1 entry", got)
+	}
+	g, _ := filepath.EvalSymlinks(got[0])
+	w, _ := filepath.EvalSymlinks(repo)
+	if g != w {
+		t.Errorf("got %q, want %q", g, w)
+	}
+}
+
+func TestExpandNonGitDirsKeepsDirWithNoChildren(t *testing.T) {
+	root := t.TempDir()
+	got := expandNonGitDirs([]string{root})
+	if len(got) != 1 || got[0] != root {
+		t.Fatalf("expandNonGitDirs = %v, want [%s]", got, root)
 	}
 }

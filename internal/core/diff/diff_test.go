@@ -2,23 +2,8 @@ package diff
 
 import (
 	"context"
-	"errors"
 	"testing"
 )
-
-type cancelAfterChecksContext struct {
-	context.Context
-	calls    int
-	cancelAt int
-}
-
-func (c *cancelAfterChecksContext) Err() error {
-	c.calls++
-	if c.calls >= c.cancelAt {
-		return context.Canceled
-	}
-	return nil
-}
 
 const sampleDiff = `diff --git a/main.go b/main.go
 index abc1234..def5678 100644
@@ -184,39 +169,6 @@ func TestGenerateContextPreservesGenerateOutput(t *testing.T) {
 	}
 }
 
-func TestComputeLCSContextChecksCancellationDuringMatrixAllocation(t *testing.T) {
-	ctx := &cancelAfterChecksContext{Context: context.Background(), cancelAt: 3}
-	_, err := computeLCSContext(ctx, make([]string, 32), make([]string, 32))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("allocation cancellation error = %v", err)
-	}
-}
-
-func TestComputeLCSContextChecksCancellationDuringMatrixComputation(t *testing.T) {
-	const rows = 32
-	ctx := &cancelAfterChecksContext{Context: context.Background(), cancelAt: 1 + rows + 1 + 2}
-	_, err := computeLCSContext(ctx, make([]string, rows), make([]string, 4096))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("computation cancellation error = %v", err)
-	}
-}
-
-func TestComputeLCSContextChecksCancellationDuringReconstruction(t *testing.T) {
-	lines := make([]string, cancellationCheckInterval)
-	for i := range lines {
-		lines[i] = string(rune(i + 1))
-	}
-	matrixChecks := len(lines) * len(lines) / cancellationCheckInterval
-	ctx := &cancelAfterChecksContext{
-		Context:  context.Background(),
-		cancelAt: 1 + len(lines) + 1 + matrixChecks + 1,
-	}
-	_, err := computeLCSContext(ctx, lines, lines)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("reconstruction cancellation error = %v after %d checks", err, ctx.calls)
-	}
-}
-
 func TestFullDiffLines(t *testing.T) {
 	old := []string{"a", "b", "c", "d"}
 	new := []string{"a", "x", "c", "d"}
@@ -283,5 +235,49 @@ func TestFullDiffLinesDeletion(t *testing.T) {
 	}
 	if lines[1].Right.Kind != Blank {
 		t.Errorf("line 1 right: expected blank, got %v", lines[1].Right.Kind)
+	}
+}
+
+func TestParseTrailingNewlineIsNotAContextLine(t *testing.T) {
+	fd := Parse("--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n-old\n+new\n same\n")
+	lines := fd.Hunks[0].Lines
+	if len(lines) != 2 {
+		t.Fatalf("hunk lines = %d (%v), want the change and one context line", len(lines), lines)
+	}
+	if last := lines[1]; last.Left.Num != 2 || last.Left.Text != "same" {
+		t.Fatalf("last line = %+v, want context line 2", last)
+	}
+}
+
+func TestParseKeepsEmptyContextLineBeforeTrailingNewline(t *testing.T) {
+	fd := Parse("--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n-old\n+new\n \n")
+	if lines := fd.Hunks[0].Lines; len(lines) != 2 || lines[1].Left.Text != "" || lines[1].Left.Kind != Context {
+		t.Fatalf("hunk lines = %v, want an empty context line kept", lines)
+	}
+}
+
+func TestParseNoNewlineMarkerAddsNoRow(t *testing.T) {
+	fd := Parse("--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n same\n-old\n\\ No newline at end of file\n+new\n\\ No newline at end of file\n")
+	lines := fd.Hunks[0].Lines
+	if len(lines) != 2 {
+		t.Fatalf("hunk lines = %d (%v), want the context line and one change", len(lines), lines)
+	}
+	if last := lines[1]; last.Left.Text != "old" || last.Right.Text != "new" || last.Left.Num != 2 || last.Right.Num != 2 {
+		t.Fatalf("last line = %+v, want old/new at line 2", last)
+	}
+}
+
+func TestParseTrailingNewlineEndsOnlyTheLastHunk(t *testing.T) {
+	fd := Parse("--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n a\n-b\n+B\n@@ -10,2 +10,2 @@\n j\n-k\n+K\n")
+	if len(fd.Hunks) != 2 {
+		t.Fatalf("hunks = %d, want 2", len(fd.Hunks))
+	}
+	for i, h := range fd.Hunks {
+		if len(h.Lines) != 2 {
+			t.Fatalf("hunk %d lines = %d (%v), want 2", i, len(h.Lines), h.Lines)
+		}
+	}
+	if last := fd.Hunks[1].Lines[1]; last.Left.Num != 11 || last.Right.Text != "K" {
+		t.Fatalf("last line of hunk 2 = %+v, want K at line 11", last)
 	}
 }

@@ -53,59 +53,56 @@ func (f *FileDiff) AllLines() []DiffLine {
 }
 
 func FullDiffLines(oldLines, newLines []string) []DiffLine {
-	lcs := computeLCS(oldLines, newLines)
-	var lines []DiffLine
-	oi, ni, li := 0, 0, 0
+	lines, _ := FullDiffLinesContext(context.Background(), oldLines, newLines)
+	return lines
+}
 
-	for oi < len(oldLines) || ni < len(newLines) {
-		if li < len(lcs) && oi < len(oldLines) && ni < len(newLines) &&
-			oldLines[oi] == lcs[li] && newLines[ni] == lcs[li] {
-			lines = append(lines, DiffLine{
-				Left:  SideLine{Num: oi + 1, Text: oldLines[oi], Kind: Context},
-				Right: SideLine{Num: ni + 1, Text: newLines[ni], Kind: Context},
-			})
-			oi++
-			ni++
-			li++
-			continue
+func FullDiffLinesContext(ctx context.Context, oldLines, newLines []string) ([]DiffLine, error) {
+	matchA, matchB, err := computeMatchesContext(ctx, oldLines, newLines)
+	if err != nil {
+		return nil, err
+	}
+	rows, prevA, prevB := len(matchA), 0, 0
+	for m := 0; m <= len(matchA); m++ {
+		endA, endB := len(oldLines), len(newLines)
+		if m < len(matchA) {
+			endA, endB = matchA[m], matchB[m]
 		}
-
-		var delBuf []int
-		var addBuf []int
-		for oi < len(oldLines) && (li >= len(lcs) || oldLines[oi] != lcs[li]) {
-			delBuf = append(delBuf, oi)
-			oi++
+		rows += max(endA-prevA, endB-prevB)
+		prevA, prevB = endA+1, endB+1
+	}
+	lines := make([]DiffLine, 0, rows)
+	oi, ni := 0, 0
+	for m := 0; m <= len(matchA); m++ {
+		oEnd, nEnd := len(oldLines), len(newLines)
+		if m < len(matchA) {
+			oEnd, nEnd = matchA[m], matchB[m]
 		}
-		for ni < len(newLines) && (li >= len(lcs) || newLines[ni] != lcs[li]) {
-			addBuf = append(addBuf, ni)
-			ni++
-		}
-
-		maxLen := len(delBuf)
-		if len(addBuf) > maxLen {
-			maxLen = len(addBuf)
-		}
-		for i := 0; i < maxLen; i++ {
-			dl := DiffLine{}
-			if i < len(delBuf) {
-				dl.Left = SideLine{Num: delBuf[i] + 1, Text: oldLines[delBuf[i]], Kind: Deleted}
-			} else {
-				dl.Left = SideLine{Kind: Blank}
+		for i := 0; oi+i < oEnd || ni+i < nEnd; i++ {
+			dl := DiffLine{Left: SideLine{Kind: Blank}, Right: SideLine{Kind: Blank}}
+			if oi+i < oEnd {
+				dl.Left = SideLine{Num: oi + i + 1, Text: oldLines[oi+i], Kind: Deleted}
 			}
-			if i < len(addBuf) {
-				dl.Right = SideLine{Num: addBuf[i] + 1, Text: newLines[addBuf[i]], Kind: Added}
-			} else {
-				dl.Right = SideLine{Kind: Blank}
+			if ni+i < nEnd {
+				dl.Right = SideLine{Num: ni + i + 1, Text: newLines[ni+i], Kind: Added}
 			}
 			lines = append(lines, dl)
 		}
+		if m == len(matchA) {
+			break
+		}
+		lines = append(lines, DiffLine{
+			Left:  SideLine{Num: oEnd + 1, Text: oldLines[oEnd], Kind: Context},
+			Right: SideLine{Num: nEnd + 1, Text: newLines[nEnd], Kind: Context},
+		})
+		oi, ni = oEnd+1, nEnd+1
 	}
-	return lines
+	return lines, nil
 }
 
 func Parse(unified string) FileDiff {
 	var fd FileDiff
-	lines := strings.Split(unified, "\n")
+	lines := strings.Split(strings.TrimSuffix(unified, "\n"), "\n")
 
 	var curHunk *Hunk
 	var delBuf []string
@@ -325,72 +322,6 @@ func GenerateContext(ctx context.Context, oldLines, newLines []string, fileName 
 func computeLCS(a, b []string) []string {
 	lcs, _ := computeLCSContext(context.Background(), a, b)
 	return lcs
-}
-
-func computeLCSContext(ctx context.Context, a, b []string) ([]string, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	m, n := len(a), len(b)
-	dp := make([][]int, m+1)
-	for i := range dp {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		dp[i] = make([]int, n+1)
-	}
-	work := 0
-	for i := 1; i <= m; i++ {
-		for j := 1; j <= n; j++ {
-			work++
-			if work%cancellationCheckInterval == 0 {
-				if err := ctx.Err(); err != nil {
-					return nil, err
-				}
-			}
-			if a[i-1] == b[j-1] {
-				dp[i][j] = dp[i-1][j-1] + 1
-			} else if dp[i-1][j] > dp[i][j-1] {
-				dp[i][j] = dp[i-1][j]
-			} else {
-				dp[i][j] = dp[i][j-1]
-			}
-		}
-	}
-
-	lcs := make([]string, 0, dp[m][n])
-	i, j := m, n
-	work = 0
-	for i > 0 && j > 0 {
-		work++
-		if work%cancellationCheckInterval == 0 {
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-		}
-		if a[i-1] == b[j-1] {
-			lcs = append(lcs, a[i-1])
-			i--
-			j--
-		} else if dp[i-1][j] > dp[i][j-1] {
-			i--
-		} else {
-			j--
-		}
-	}
-	for l, r := 0, len(lcs)-1; l < r; l, r = l+1, r-1 {
-		work++
-		if work%cancellationCheckInterval == 0 {
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-		}
-		lcs[l], lcs[r] = lcs[r], lcs[l]
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return lcs, nil
 }
 
 func parseHunkHeader(header string) (oldStart, newStart int) {

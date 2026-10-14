@@ -1,10 +1,12 @@
 package e2e
 
 import (
+	"github.com/eugenioenko/ttt/internal/highlight"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/app"
 	"github.com/eugenioenko/ttt/internal/command"
@@ -19,7 +21,7 @@ import (
 )
 
 type testHarness struct {
-	t        *testing.T
+	t        testing.TB
 	app      *app.App
 	screen   *term.SimScreen
 	reg      *command.Registry
@@ -36,7 +38,7 @@ func displayColumnOf(row, label string) int {
 	return textwidth.String(row[:byteOffset])
 }
 
-func newTestHarness(t *testing.T, w, h int) *testHarness {
+func newTestHarness(t testing.TB, w, h int) *testHarness {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -69,6 +71,9 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 	// harness must too, or every fallback colour fillFg/fillBg derives stays
 	// empty and styles that only exist after resolution render as default.
 	cfg.Theme.ResolveColors()
+	// Tests check highlighting results, not the time budget: under the race
+	// detector on a loaded runner the default limit stops lines mid-construct.
+	cfg.Settings.Editor.HighlightTimeLimit = 60_000
 	config.ParseKeyBindings(cfg.Keybindings)
 
 	screen := term.NewTcellScreenFrom(sim)
@@ -99,18 +104,36 @@ func newTestHarness(t *testing.T, w, h int) *testHarness {
 		running:  running,
 		dir:      dir,
 	}
+	highlight.SetStepScheduler(func() {})
+	t.Cleanup(func() {
+		editor.CloseTasks()
+		editor.EditorGroup.CloseAllTabs()
+		highlight.SetStepScheduler(nil)
+	})
 	h2.redraw()
 	return h2
 }
 
+// settle runs deferred highlighting to completion, as the event loop does
+// between frames, and redraws.
+func (h *testHarness) settle() {
+	h.t.Helper()
+	for {
+		for highlight.Step(time.Hour) {
+		}
+		h.redraw()
+		if highlight.Pending() == 0 {
+			return
+		}
+	}
+}
+
 func (h *testHarness) redraw() {
 	h.t.Helper()
-	cells := make([][]term.Cell, h.app.Root.Height)
-	for y := range cells {
-		cells[y] = make([]term.Cell, h.app.Root.Width)
-	}
+	h.app.SyncFileHandlerTabs()
+	h.app.SyncEmptyState()
+	cells := h.renderer.NextFrame(h.app.Root.Width, h.app.Root.Height)
 	h.app.Root.Render(cells)
-	h.renderer.SetCurrent(cells)
 	h.renderer.Render(h.app.Screen)
 }
 

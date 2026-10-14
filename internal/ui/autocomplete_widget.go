@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/term"
 
 	"github.com/gdamore/tcell/v3"
@@ -23,7 +24,33 @@ const (
 	CompletionModule
 )
 
-func (k CompletionKind) Symbol() rune { return '■' }
+func (k CompletionKind) iconName() icons.Name {
+	switch k {
+	case CompletionFunction, CompletionMethod:
+		return icons.Function
+	case CompletionConstant:
+		return icons.Constant
+	case CompletionType:
+		return icons.Class
+	case CompletionField:
+		return icons.Field
+	case CompletionKeyword:
+		return icons.Keyword
+	case CompletionSnippet:
+		return icons.Snippet
+	case CompletionModule:
+		return icons.Module
+	default:
+		return icons.Variable
+	}
+}
+
+func (k CompletionKind) Symbol(mode string) rune {
+	if !icons.IsNerd(mode) {
+		return '■'
+	}
+	return []rune(icons.Get(mode, k.iconName()))[0]
+}
 
 func (k CompletionKind) Style() term.Style {
 	switch k {
@@ -69,32 +96,59 @@ type CompletionItem struct {
 }
 
 func FilterCompletions(items []CompletionItem, prefix string) []CompletionItem {
-	if prefix == "" {
-		return items
-	}
 	lowerPrefix := strings.ToLower(prefix)
-	var filtered []CompletionItem
+	filtered := make([]CompletionItem, 0, len(items))
 	for _, it := range items {
-		ft := it.FilterText
-		if ft == "" {
-			ft = it.Label
-		}
-		if strings.HasPrefix(strings.ToLower(ft), lowerPrefix) {
+		if strings.HasPrefix(strings.ToLower(completionFilterText(it)), lowerPrefix) {
 			filtered = append(filtered, it)
 		}
 	}
 	sort.SliceStable(filtered, func(i, j int) bool {
-		si := filtered[i].SortText
-		if si == "" {
-			si = filtered[i].Label
-		}
-		sj := filtered[j].SortText
-		if sj == "" {
-			sj = filtered[j].Label
-		}
-		return si < sj
+		return completionLess(filtered[i], filtered[j], prefix)
 	})
 	return filtered
+}
+
+func completionFilterText(it CompletionItem) string {
+	if it.FilterText != "" {
+		return it.FilterText
+	}
+	return it.Label
+}
+
+func completionSortKey(it CompletionItem) string {
+	if it.SortText != "" {
+		return it.SortText
+	}
+	return it.Label
+}
+
+// completionLess keeps the server's sortText ranking and breaks ties by how
+// well each item matches what was typed.
+func completionLess(a, b CompletionItem, prefix string) bool {
+	ka, kb := completionSortKey(a), completionSortKey(b)
+	if a.SortText == "" && b.SortText == "" {
+		// Label fallback: compare without case so "String" and "string" tie
+		// and fall through to the tie-breaks below.
+		ka, kb = strings.ToLower(ka), strings.ToLower(kb)
+	}
+	if ka != kb {
+		return ka < kb
+	}
+	if prefix != "" {
+		ca := strings.HasPrefix(completionFilterText(a), prefix)
+		cb := strings.HasPrefix(completionFilterText(b), prefix)
+		if ca != cb {
+			return ca
+		}
+	}
+	if la, lb := len(a.Label), len(b.Label); la != lb {
+		return la < lb
+	}
+	if la, lb := strings.ToLower(a.Label), strings.ToLower(b.Label); la != lb {
+		return la < lb
+	}
+	return a.Label < b.Label
 }
 
 type AutocompleteWidget struct {
@@ -106,6 +160,7 @@ type AutocompleteWidget struct {
 	AnchorY    int
 	MaxVisible int
 	Borders    *term.BorderSet
+	Icons      string
 	OnSelect   func(item CompletionItem)
 	OnDismiss  func()
 	firstEvent bool
@@ -233,7 +288,7 @@ func (a *AutocompleteWidget) Render(surface Surface) {
 		}
 
 		surface.ClearRect(x+1, row, menuW-2, 1, style)
-		iconCell := term.Cell{Ch: it.Kind.Symbol(), Style: it.Kind.Style()}
+		iconCell := term.Cell{Ch: it.Kind.Symbol(a.Icons), Style: it.Kind.Style()}
 		if idx == a.Selected {
 			iconCell.BgStyle = term.StylePaletteSelected
 		}

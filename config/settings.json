@@ -1,6 +1,14 @@
 {
   "version": 1,
   "theme": "default-dark",
+  "appearance": {
+    "icons": "none",
+    "chevrons": {
+      "collapsed": "▶",
+      "expanded": "▼"
+    },
+    "scrollbarGlyphs": "blocks"
+  },
   "editor": {
     "tabSize": 4,
     "insertSpaces": true,
@@ -8,6 +16,13 @@
     "diffMode": "split",
     "diffContext": "changes",
     "diffWordWrap": false,
+    "diffHighContrast": false,
+    "diffEmphasizeCollapsedRows": false,
+    "diffSigns": false,
+    "diffSignsColor": true,
+    "diffGutterHighlight": true,
+    "diffColorGutterNumbers": false,
+    "diffScrollbarGitMarks": false,
     "lineNumbers": true,
     "formatOnSave": false,
     "insertFinalNewline": true,
@@ -15,14 +30,18 @@
     "focusOnOpen": false,
     "gutterStyle": "compact",
     "borderStyle": "default",
-    "bracketPairColorization": false
+    "bracketPairColorization": false,
+    "transparentBackground": false
   },
   "search": {
     "debounce": 350
   },
   "explorer": {
     "showHidden": true,
-    "showGitIgnored": true
+    "showGitIgnored": true,
+    "gitStatusColors": true,
+    "dimStagedGitColors": false,
+    "autoReveal": false
   },
   "git": {
     "fileView": "list"
@@ -42,5 +61,8 @@
   },
   "markdown": {
     "wrapWidth": 80
+  },
+  "image": {
+    "protocol": "auto"
   }
 }

@@ -5,7 +5,7 @@ description: Core editing features in TTT.
 
 ## Syntax Highlighting
 
-TTT uses [chroma](https://github.com/alecthomas/chroma) for syntax highlighting, supporting hundreds of languages with automatic detection based on file extension.
+TTT highlights code with [textmate-go](https://github.com/eugenioenko/textmate-go), a pure Go port of VS Code's TextMate engine built for ttt. It embeds TextMate grammars for 124 languages, detected from the file name, and colors constructs that span lines (block comments, template literals, docstrings, tags with attributes on several lines) correctly.
 
 ## Bracket Matching
 
@@ -87,10 +87,12 @@ These commands are available from the command palette:
 - **Sort Lines Ascending** (**Ctrl+K O**) / **Sort Lines Descending**
 - **Reverse Lines**
 - **Unique Lines** (remove duplicates)
+- **Trim Trailing Whitespace** (selected lines, or the whole file)
 - **Split Selection into Lines**
 
 ## Word Operations
 
+- **Ctrl+Home / Ctrl+End** moves the cursor to the start or end of the file; with **Shift** it selects
 - **Ctrl+Left / Ctrl+Right** moves the cursor one word left or right
 - **Ctrl+Shift+Left / Ctrl+Shift+Right** selects one word left or right
 - **Alt+Backspace** deletes the word to the left
@@ -118,3 +120,5 @@ Inline blame info for the current line is shown in the status bar, including the
 ## Git Gutter
 
 When enabled, diff indicators appear in the line number gutter showing added, modified, and removed lines compared to the last committed version. Toggle with the "Toggle Git Gutter" command in the command palette.
+
+When a file is taller than the editor, the same changes are marked on the vertical scrollbar in the gutter colors. Marks are placed to an eighth of a cell, and even a single changed line stays visible in a long file. Set `appearance.scrollbarGlyphs` to `"legacy"` for thin line marks if your terminal or font has the Symbols for Legacy Computing glyphs. Click a mark to scroll to that change. Turn the marks off with `editor.scrollbarGitMarks` or **Options > Scrollbar Git Marks**. Diff views can mark their changed rows too: turn on `editor.diffScrollbarGitMarks` or **Options > Diff Views > Scrollbar Git Marks**.

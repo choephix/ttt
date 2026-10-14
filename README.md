@@ -1,6 +1,6 @@
 # TTT Editor: Terminal Text Tool
 
-The IDE that lives in your terminal. Not a simplified terminal editor — a real alternative to VS Code, Zed, and Sublime that happens to run in your terminal. Single Go binary, zero config.
+The IDE that lives in your terminal. A TUI that feels like GUI. A real alternative to VS Code, Zed, and Sublime that happens to run in your terminal. Single Go binary, zero config.
 
 ![TTT Demo](docs-web/public/demo/demo.gif)
 
@@ -16,6 +16,7 @@ Full documentation lives in [`docs-web/src/content/docs/`](docs-web/src/content/
 ### Quick Install MacOS (brew)
 ```sh
 brew tap eugenioenko/ttt
+brew trust eugenioenko/ttt
 brew install ttt
 ```
 
@@ -31,8 +32,6 @@ INSTALL_DIR=~/.local/bin curl -sSfL https://raw.githubusercontent.com/eugenioenk
 ```
 
 ### [Arch Linux (AUR)](https://aur.archlinux.org/packages/ttt)
-
-Thanks to [@Dominiquini](https://github.com/Dominiquini) for maintaining the AUR package.
 
 ```sh
 yay -S ttt
@@ -55,8 +54,6 @@ Add to your `flake.nix` inputs:
 ```
 
 Then add `inputs.ttt.packages.${system}.default` to your `environment.systemPackages` or home-manager packages.
-
-Thanks to [@pirate-boop](https://github.com/pirate-boop) for keeping the flake's `vendorHash` in sync.
 
 ### Go Install
 
@@ -88,11 +85,21 @@ This produces an optimized binary at `bin/ttt`. Add it to your `PATH` or copy it
 cp bin/ttt ~/.local/bin/
 ```
 
+### Herdr
+
+TTT is available as a [Herdr](https://herdr.dev) plugin, so you can open it as a pane inside your Herdr terminal workspace.
+
+```sh
+herdr plugin install eugenioenko/ttt/herdr-plugin
+```
+
+Once installed, bind it to a key (e.g. `Ctrl+b e`) to launch TTT in the active worktree with a single keystroke. See the [Herdr plugin README](herdr-plugin/README.md) for setup and configuration details.
+
 ## Features
 
 ### Editor
 
-- **Syntax highlighting** via [chroma](https://github.com/alecthomas/chroma) — hundreds of languages with automatic detection
+- **Syntax highlighting** powered by [textmate-go](https://github.com/eugenioenko/textmate-go), our pure Go port of VS Code's TextMate engine: 124 languages, with multi-line constructs handled correctly
 - **Bracket matching** with highlighted pairs
 - **Find and Replace** — inline find bar (Ctrl+F) with match navigation, replace bar (Ctrl+R) with replace-one and replace-all
 - **Go to Line** (Ctrl+G)
@@ -154,6 +161,8 @@ Multi-root file tree in the sidebar (Ctrl+K E). When multiple folders are open, 
 - Expand/collapse with Enter or arrow keys
 - Right-click context menu: **New File**, **New Folder**, **Rename**, **Delete**
 - Sidebar actions button for **Refresh** and **New File**
+- **Explorer: Reveal Active File** expands the tree to the active file and selects it; set `explorer.autoReveal` to do it on every tab switch
+- File-type icons, colored by the theme (glyph mappings from [nvim-web-devicons](https://github.com/nvim-tree/nvim-web-devicons)). They need a [Nerd Font](https://www.nerdfonts.com) in your terminal, so they default off; turn them on with `"appearance": { "icons": "nerd-font" }` or **Options > Font Icons**
 
 ### Search
 
@@ -171,7 +180,7 @@ See [Search](docs-web/src/content/docs/guides/search.md).
 
 Changes panel in the sidebar (Ctrl+K C) with full staging workflow.
 
-Working-tree files and files under expanded commits can be shown as a compact directory **Tree** or a full-path **List** (the default). The choice persists in `git.fileView`. Changes, commit details, and Explorer expose safe **Expand All** and **Collapse All** actions in their relevant menus.
+Working-tree files and files under expanded commits can be shown as a compact directory **Tree** or a full-path **List** (the default). The choice persists in `git.fileView`. File-type icons sit between the status letter and the file name; like the Explorer's, they follow the shared `appearance.icons` setting, need a Nerd Font, and default off — **Options > Font Icons** toggles them. Changes, commit details, and Explorer expose safe **Expand All** and **Collapse All** actions in their relevant menus.
 
 **Staging:**
 - **Spacebar** — toggle stage/unstage on the selected file
@@ -190,6 +199,7 @@ Working-tree files and files under expanded commits can be shown as a compact di
 
 **Diff view:**
 - Select a changed file to open a split or unified diff with syntax highlighting layered on diff backgrounds
+- Working-tree changes open in the file's own editor tab in diff mode, so you can edit and save there; the diff updates as you type. **Git: Toggle Inline Diff** turns diff mode on or off for any tracked file
 - Set the global view mode, context, wrapping, and high-contrast presentation under **Options**; the Changes panel menu provides the same contextual controls
 - Changes-only views show quiet collapsed-context rows that can be expanded in place; full-file context remains available globally or per diff
 - Untracked files open directly in the editor
@@ -207,15 +217,11 @@ ttt . https://github.com/owner/repo/pull/123    # review a PR with the repo tree
 
 Opens the PR as a review surface — commit-by-commit history detail, a live view of the current changes, and the same unified presentation controls as local diffs.
 
-Thanks to [@arimxyer](https://github.com/arimxyer) for contributing the diff & code review experience.
-
 See [Git Integration](docs-web/src/content/docs/guides/git.md).
 
 ### Outline
 
 Symbol tree of the current file in the sidebar. Navigate and jump to definitions. Uses LSP document symbols with a built-in fallback for Go and Markdown. Open it from the command palette.
-
-Thanks to [@tenox7](https://github.com/tenox7) for contributing the Outline feature.
 
 ### Command Palette
 
@@ -238,7 +244,7 @@ The bottom panel (Ctrl+K B to toggle) contains the **Terminal**, **Problems**, a
 Built-in terminal emulator. Press Ctrl+T to toggle the terminal panel, or Alt+T for fullscreen.
 
 - **Ctrl+K T** to spawn a new terminal tab; multiple tabs with a vertical inner tab bar on the left edge
-- Full VT escape sequence support via [`hinshun/vt10x`](https://github.com/hinshun/vt10x) and PTY management via [`creack/pty`](https://github.com/creack/pty)
+- Full VT escape sequence support via [`eugenioenko/xterm-go`](https://github.com/eugenioenko/xterm-go) (a maintained fork of [`gitpod-io/xterm-go`](https://github.com/gitpod-io/xterm-go)) and PTY management via [`aymanbagabas/go-pty`](https://github.com/aymanbagabas/go-pty)
 - True color (24-bit) and 256-color rendering
 - When the terminal is focused, all keys go to the PTY except force keys (Ctrl+T, Alt+T, Ctrl+Q, Ctrl+P, Ctrl+K P, Ctrl+B, F6)
 - Terminal shell and scrollback are configurable in `settings.json`; ANSI colors are theme-configurable via the `terminal` field in `theme.json`
@@ -249,9 +255,7 @@ See [Integrated Terminal](docs-web/src/content/docs/guides/terminal.md).
 
 TTT has built-in LSP support for language-aware editing: autocomplete, signature help, go to definition/implementation/type definition, find references, rename symbol, hover, document/selection formatting, format-on-save, and diagnostics.
 
-Language servers are configured via plugins — install the LSP plugin for your language and the corresponding server binary from the Plugins panel or command palette. Available plugins:
-
-`lsp-go`, `lsp-typescript`, `lsp-python`, `lsp-c`, `lsp-rust`, `lsp-lua`, `lsp-zig`, `lsp-vue`, `lsp-svelte`, `lsp-css`, `lsp-html`, `lsp-json`, `lsp-yaml`, `lsp-bash`, `lsp-docker`, `lsp-tailwindcss`, `lsp-kotlin`, `lsp-java`, `lsp-ruby`, `lsp-dart`, `lsp-elixir`, `lsp-php`, `lsp-terraform`, `lsp-markdown`
+Language servers are configured via plugins — install the LSP plugin for your language and the corresponding server binary from the Plugins panel or command palette.
 
 You can also add custom servers manually in `~/.config/ttt/settings.json`. To disable LSP entirely: `"lsp": { "enabled": false }`.
 
@@ -273,7 +277,7 @@ Tabs follow a pin-on-reclick model similar to VS Code:
 
 TTT supports fully customizable themes via JSON files. Every color is themeable — syntax highlighting, diff backgrounds, sidebar, tabs, status bar, terminal ANSI colors, borders, and semantic colors (success, danger, warning).
 
-10 themes ship in the binary ([`internal/config/themes/`](internal/config/themes/)): Aurora, Bubblegum, Default Dark, Default Light, Hotline, Monokai, One Dark, Solarized Dark, Solarized Light, Virtru Dark. Another 78 [extra themes](docs-web/src/content/docs/guides/extra-themes.md) are available for download from the repo.
+Built-in themes ship with the binary, and [extra themes](docs-web/src/content/docs/guides/extra-themes.md) are available for download from the repo.
 
 Switch themes via **View > Switch Theme** (or the command palette) for a live preview. To create a custom theme, copy a built-in file to `~/.config/ttt/themes/` and set `"theme"` in `settings.json`. To use your terminal's native colors, set foreground/background to empty strings in your theme file.
 
@@ -283,9 +287,9 @@ See [Themes](docs-web/src/content/docs/guides/themes.md).
 
 TTT supports Lua plugins that add sidebar panels, bottom panel tabs, commands, and keybindings. Plugins run in a sandboxed Lua VM with a permission system — users approve each plugin's capabilities on first load.
 
-**Editor emulation** — prefer modal or Emacs-style editing? Install [Vim Mode](https://github.com/eugenioenko/ttt-vim) (Normal/Insert/Visual modes, the operator/motion/text-object grammar, registers, marks, macros, dot-repeat, `:` command line and `/` search) or [Emacs Mode](https://github.com/eugenioenko/ttt-emacs) (prefix keymaps, kill ring, mark and region, incremental search, universal argument, keyboard macros). Both require ttt 1.1.0 or newer and install from the **Plugins** sidebar tab.
+**Editor emulation** — prefer modal or Emacs-style editing? Install [Vim Mode](https://github.com/eugenioenko/ttt-vim) or [Emacs Mode](https://github.com/eugenioenko/ttt-emacs) from the **Plugins** sidebar tab. Both require ttt 1.1.0 or newer.
 
-**Installing** — open the **Plugins** sidebar tab to browse and install from the community registry, or use **Plugins: Install from URL** to install from any git repository. Community plugins are maintained at [ttt-plugins](https://github.com/eugenioenko/ttt-plugins): general utilities (cheat-sheet, color-picker, docker-manager, git-history, go-test-runner, http-client, json-viewer, markdown-preview, notepad, port-finder, spell, todo-scanner), one-click formatter setup (`formatter-gofmt`, `formatter-prettier`, `formatter-black`, `formatter-rustfmt`, `formatter-stylua`, `formatter-clang-format`, `formatter-shfmt`), and the LSP plugins listed above.
+**Installing** — open the **Plugins** sidebar tab to browse and install from the community registry, or use **Plugins: Install from URL** to install from any git repository. Browse the available utilities, formatters, and language servers at [ttt-plugins](https://github.com/eugenioenko/ttt-plugins).
 
 **Managing** — click an installed plugin to enable/disable it; **↑** to update, **×** to uninstall, **Plugins: Reload** for live reload during development. To disable the plugin system entirely: `"plugins": { "enabled": false }`.
 
@@ -369,6 +373,14 @@ pnpm install
 pnpm test
 ```
 
+To run the pinned LSP tests independently in GitHub Actions, open **Actions → LSP Tests → Run workflow**, select a branch, and choose `all`, `c`, `go`, or `typescript`. The same workflow runs in CI. With the GitHub CLI:
+
+```sh
+gh workflow run lsp-tests.yml --ref main -f language=go
+```
+
+The **LSP Latest Canary** workflow can also be triggered manually to test the broader set of servers at their latest versions.
+
 Use the smallest deterministic layer that proves an invariant. Functional tests are a compact real-binary contract, not a mandatory copy of lower-layer coverage. Add a broader test only when it establishes behavior unique to that boundary. CI runs the broad regression lanes on pull requests.
 
 ### Chaos Monkey (Fuzz Testing)
@@ -438,42 +450,47 @@ curl -X POST --data "shutdown" http://127.0.0.1:4242/exec
 
 ## Architecture
 
-TTT uses dependency zones rather than a strict linear layer chain:
-
-- **Domain** — editor algorithms and state in `internal/core/*`
-- **Services** — Git, GitHub, LSP, terminal, watcher, and workspace integration
-- **Presentation kernel** — screen cells, rendering, width, layout, and reusable widgets
-- **Product presentation** — editor, diff, search, terminal, panel, and dialog surfaces in `internal/ui`
-- **Application** — commands, async lifecycle, cancellation, and service coordination in `internal/app`
-- **Plugin host** — Lua runtime, permissions, registry, and widget adapters in `internal/plugin`
-- **Platform** — process startup and concrete composition in `cmd/ttt`
-
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current dependency graph, known violations, explicit boundary decisions, package ownership rules, verification strategy, and the incremental convergence plan.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the package structure, dependency boundaries, and architecture convergence plan.
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are all welcome — open an [issue](https://github.com/eugenioenko/ttt/issues) or a PR.
+Bug reports, feature requests, and pull requests are all welcome — open an [issue](https://github.com/eugenioenko/ttt/issues) or a PR. See [CONTRIBUTING.md](CONTRIBUTING.md) before opening one.
 
 ## Contributors & Acknowledgments
 
 TTT is better because of the people who took the time to try it, report bugs, request features, and contribute code. Thank you — this project grows because of you. 🙏
 
-**Code contributions**
-
-- [@tenox7](https://github.com/tenox7) — the **Outline** sidebar panel (LSP document symbols with a built-in Go/Markdown fallback) and **markdown syntax highlighting**.
-- [@pirate-boop](https://github.com/pirate-boop) — **NixOS support** end to end: the initial `flake.nix` and ongoing `vendorHash` upkeep.
-- [@arimxyer](https://github.com/arimxyer) — re-envisioned and re-designed the **diff & code review experience** (commit history detail, live current changes, unified presentation controls, hierarchical file trees), plus tab drag reordering, orientation help, checked plugin menu entries, deterministic exec automation, and CLI open-at-line support.
-
-**Packaging**
-
-- [@Dominiquini](https://github.com/Dominiquini) — maintaining the [Arch Linux (AUR)](https://aur.archlinux.org/packages/ttt) package.
-
-**Bug reports & feature requests**
-
-- [@jetpax](https://github.com/jetpax): surfacing the macOS / iTerm2 issues (mouse support, clipboard copy, large-list scrolling, workspace paths).
-- [@egorse](https://github.com/egorse): the search-panel focus fix.
-- [@pirate-boop](https://github.com/pirate-boop): the Cyrillic cursor-offset fix and a number of UX/packaging ideas.
-- [@forthrin](https://github.com/forthrin): great insight into emacs, keyboards and keyboard shortcuts :)
+<p>
+  <a href="https://github.com/eugenioenko"><img src="https://avatars.githubusercontent.com/u/17834212?v=4&amp;s=96" width="48" height="48" alt="@eugenioenko" title="@eugenioenko" /></a>
+  <a href="https://github.com/arimxyer"><img src="https://avatars.githubusercontent.com/u/37885347?v=4&amp;s=96" width="48" height="48" alt="@arimxyer" title="@arimxyer" /></a>
+  <a href="https://github.com/SimonOcampo1"><img src="https://avatars.githubusercontent.com/u/124914405?v=4&amp;s=96" width="48" height="48" alt="@SimonOcampo1" title="@SimonOcampo1" /></a>
+  <a href="https://github.com/tenox7"><img src="https://avatars.githubusercontent.com/u/8151602?v=4&amp;s=96" width="48" height="48" alt="@tenox7" title="@tenox7" /></a>
+  <a href="https://github.com/pirate-boop"><img src="https://avatars.githubusercontent.com/u/241358583?v=4&amp;s=96" width="48" height="48" alt="@pirate-boop" title="@pirate-boop" /></a>
+  <a href="https://github.com/bet4it"><img src="https://avatars.githubusercontent.com/u/16643669?v=4&amp;s=96" width="48" height="48" alt="@bet4it" title="@bet4it" /></a>
+  <a href="https://github.com/Detoy"><img src="https://avatars.githubusercontent.com/u/5773665?v=4&amp;s=96" width="48" height="48" alt="@Detoy" title="@Detoy" /></a>
+  <a href="https://github.com/DBinK"><img src="https://avatars.githubusercontent.com/u/21201676?v=4&amp;s=96" width="48" height="48" alt="@DBinK" title="@DBinK" /></a>
+  <a href="https://github.com/risixdzn"><img src="https://avatars.githubusercontent.com/u/102877738?v=4&amp;s=96" width="48" height="48" alt="@risixdzn" title="@risixdzn" /></a>
+  <a href="https://github.com/LetMeSleep8h"><img src="https://avatars.githubusercontent.com/u/183817470?v=4&amp;s=96" width="48" height="48" alt="@LetMeSleep8h" title="@LetMeSleep8h" /></a>
+  <a href="https://github.com/austinm911"><img src="https://avatars.githubusercontent.com/u/31991302?v=4&amp;s=96" width="48" height="48" alt="@austinm911" title="@austinm911" /></a>
+  <a href="https://github.com/sjdonado"><img src="https://avatars.githubusercontent.com/u/27580836?v=4&amp;s=96" width="48" height="48" alt="@sjdonado" title="@sjdonado" /></a>
+  <a href="https://github.com/mshafir"><img src="https://avatars.githubusercontent.com/u/1139669?v=4&amp;s=96" width="48" height="48" alt="@mshafir" title="@mshafir" /></a>
+  <a href="https://github.com/w3lld1"><img src="https://avatars.githubusercontent.com/u/42353747?v=4&amp;s=96" width="48" height="48" alt="@w3lld1" title="@w3lld1" /></a>
+  <a href="https://github.com/omar3903"><img src="https://avatars.githubusercontent.com/u/22183080?v=4&amp;s=96" width="48" height="48" alt="@omar3903" title="@omar3903" /></a>
+  <a href="https://github.com/RhenCloud"><img src="https://avatars.githubusercontent.com/u/111980217?v=4&amp;s=96" width="48" height="48" alt="@RhenCloud" title="@RhenCloud" /></a>
+  <a href="https://github.com/RonanCodes"><img src="https://avatars.githubusercontent.com/u/6930753?v=4&amp;s=96" width="48" height="48" alt="@RonanCodes" title="@RonanCodes" /></a>
+  <a href="https://github.com/choephix"><img src="https://avatars.githubusercontent.com/u/962412?v=4&amp;s=96" width="48" height="48" alt="@choephix" title="@choephix" /></a>
+  <a href="https://github.com/O1sumitkumar"><img src="https://avatars.githubusercontent.com/u/109774891?v=4&amp;s=96" width="48" height="48" alt="@O1sumitkumar" title="@O1sumitkumar" /></a>
+  <a href="https://github.com/vikas-0"><img src="https://avatars.githubusercontent.com/u/15345994?v=4&amp;s=96" width="48" height="48" alt="@vikas-0" title="@vikas-0" /></a>
+  <a href="https://github.com/YodHeVauHe"><img src="https://avatars.githubusercontent.com/u/43342618?v=4&amp;s=96" width="48" height="48" alt="@YodHeVauHe" title="@YodHeVauHe" /></a>
+  <a href="https://github.com/anyingiit"><img src="https://avatars.githubusercontent.com/u/49945850?v=4&amp;s=96" width="48" height="48" alt="@anyingiit" title="@anyingiit" /></a>
+  <a href="https://github.com/Dominiquini"><img src="https://avatars.githubusercontent.com/u/1180808?v=4&amp;s=96" width="48" height="48" alt="@Dominiquini" title="@Dominiquini" /></a>
+  <a href="https://github.com/jetpax"><img src="https://avatars.githubusercontent.com/u/6566148?v=4&amp;s=96" width="48" height="48" alt="@jetpax" title="@jetpax" /></a>
+  <a href="https://github.com/egorse"><img src="https://avatars.githubusercontent.com/u/1152410?v=4&amp;s=96" width="48" height="48" alt="@egorse" title="@egorse" /></a>
+  <a href="https://github.com/forthrin"><img src="https://avatars.githubusercontent.com/u/1167421?v=4&amp;s=96" width="48" height="48" alt="@forthrin" title="@forthrin" /></a>
+  <a href="https://github.com/lozzo"><img src="https://avatars.githubusercontent.com/u/8793008?v=4&amp;s=96" width="48" height="48" alt="@lozzo" title="@lozzo" /></a>
+  <a href="https://github.com/JohnWJ-co"><img src="https://avatars.githubusercontent.com/u/57254767?v=4&amp;s=96" width="48" height="48" alt="@JohnWJ-co" title="@JohnWJ-co" /></a>
+  <a href="https://github.com/hassanabdulqayyum"><img src="https://avatars.githubusercontent.com/u/13608799?v=4&amp;s=96" width="48" height="48" alt="@hassanabdulqayyum" title="@hassanabdulqayyum" /></a>
+</p>
 
 Want to help? Bug reports, feature requests, and pull requests are all welcome — open an [issue](https://github.com/eugenioenko/ttt/issues) or a PR.
 

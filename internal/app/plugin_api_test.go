@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -253,6 +255,18 @@ func TestPluginFilesystemAPI_SymlinkEscape(t *testing.T) {
 
 func TestPluginNetworkAPI_SSRFProtection(t *testing.T) {
 	api := NewPluginNetworkAPI()
+	api.lookupIP = func(host string) ([]net.IP, error) {
+		switch host {
+		case "example.com":
+			return []net.IP{net.IPv4(93, 184, 216, 34)}, nil
+		case "rebind.example.com":
+			return []net.IP{net.IPv4(10, 0, 0, 1)}, nil
+		}
+		if ip := net.ParseIP(host); ip != nil {
+			return []net.IP{ip}, nil
+		}
+		return nil, errors.New("no such host")
+	}
 
 	tests := []struct {
 		name    string
@@ -266,6 +280,7 @@ func TestPluginNetworkAPI_SSRFProtection(t *testing.T) {
 		{"localhost blocked", "http://localhost/admin", true},
 		{"127.0.0.1 blocked", "http://127.0.0.1/admin", true},
 		{"169.254 metadata blocked", "http://169.254.169.254/latest/meta-data/", true},
+		{"public hostname resolving to a private IP blocked", "http://rebind.example.com/admin", true},
 	}
 
 	for _, tt := range tests {
@@ -388,5 +403,38 @@ func TestPluginSystemExecCompletionPostsMainThreadRepositoryRequest(t *testing.T
 	a.handleRepositoryInvalidation(request)
 	if repository.dirty != RepositoryWorktree|RepositoryHistory {
 		t.Fatalf("main-thread invalidation resources = %b", repository.dirty)
+	}
+}
+
+func TestPluginFilesystemAPI_SymlinkedRoot(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	if err := os.MkdirAll(filepath.Join(real, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(real, "file.txt"), []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(base, "outside")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(real, "escape")); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := NewPluginFilesystemAPI(link)
+	if got, err := fs.ReadFile(filepath.Join(link, "file.txt")); err != nil || got != "hi" {
+		t.Errorf("read through the symlinked root = %q, %v", got, err)
+	}
+	if err := fs.WriteFile(filepath.Join(link, "sub", "new.txt"), "x"); err != nil {
+		t.Errorf("write through the symlinked root: %v", err)
+	}
+	if err := fs.WriteFile(filepath.Join(link, "escape", "x.txt"), "x"); err == nil {
+		t.Error("a symlink inside the root that points outside it was allowed")
 	}
 }

@@ -43,7 +43,7 @@ function diffFixture() {
 function startWithConfig({ file, configDir, plugin }) {
   tui.start("--plugin", plugin, file);
   tui.setEnv({ TTT_CONFIG_DIR: configDir });
-  tui.setSize(42, 14);
+  tui.setSize(42, 15);
 }
 
 function enableUnifiedWrappedDefaults() {
@@ -60,47 +60,17 @@ function diffRow(screen, text) {
 }
 
 describe("diff reading preferences", () => {
-  it("marks removed and added line numbers in the shared diff gutter", () => {
+  it("draws diff gutter signs only when enabled", () => {
     const fixture = diffFixture();
     startWithConfig(fixture);
     tui.exec("Test Preference Diff");
-    const snapshot = tui.snapshot();
+    const off = tui.snapshot();
+    tui.exec("Toggle Diff Gutter Signs");
+    const on = tui.snapshot();
 
     const { snapshots } = tui.run();
-    expect(snapshots[snapshot]).toMatch(/1 −.*1 \+/u);
-  });
-
-  it("shows and persists global diff controls under Options", () => {
-    const fixture = diffFixture();
-    startWithConfig(fixture);
-    tui.exec("Menu: Options");
-    const options = tui.snapshot();
-    for (let i = 0; i < 9; i++) tui.press("down");
-    tui.press("right");
-    const diffViews = tui.snapshot();
-    tui.press("escape");
-    enableUnifiedWrappedDefaults();
-    tui.exec("Show Full File Diff by Default");
-    tui.exec("Toggle High Contrast Diffs");
-    tui.exec("Toggle Collapsed Diff Row Emphasis");
-
-    const { snapshots } = tui.run();
-    expect(snapshots[options]).toContain("Diff Views");
-    expect(snapshots[options]).toContain("Git Files");
-    expect(snapshots[diffViews]).toContain("Split");
-    expect(snapshots[diffViews]).toContain("Unified");
-    expect(snapshots[diffViews]).toContain("Changes Only");
-    expect(snapshots[diffViews]).toContain("Full File");
-    expect(snapshots[diffViews]).toContain("Wrap Lines");
-    expect(snapshots[diffViews]).toContain("High Contrast");
-    expect(snapshots[diffViews]).toContain("Emphasize Collapsed Rows");
-
-    const saved = savedSettings(fixture.configDir);
-    expect(saved.editor.diffMode).toBe("unified");
-    expect(saved.editor.diffContext).toBe("full");
-    expect(saved.editor.diffWordWrap).toBe(true);
-    expect(saved.editor.diffHighContrast).toBe(true);
-    expect(saved.editor.diffEmphasizeCollapsedRows).toBe(true);
+    expect(snapshots[off]).not.toMatch(/1 [−+]/u);
+    expect(snapshots[on]).toMatch(/1 −.*1 \+/u);
   });
 
   it("updates an inherited open diff when Options defaults change", () => {

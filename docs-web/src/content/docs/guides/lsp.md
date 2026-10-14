@@ -7,7 +7,7 @@ TTT has built-in LSP support for language-aware editing features. Language serve
 
 ## Built-in Language Support
 
-TTT ships with 24 built-in language server configurations. You just need to install the server binary and TTT will detect and use it automatically. If a server isn't installed, TTT shows a brief notification when you open a file of that language (disable this with `lsp.notifyAvailability: false`).
+TTT ships with 25 built-in language server configurations. You just need to install the server binary and TTT will detect and use it automatically. If a server isn't installed, TTT shows a brief notification when you open a file of that language (disable this with `lsp.notifyAvailability: false`).
 
 To disable LSP entirely, set `lsp.enabled` to `false` in your settings:
 
@@ -28,10 +28,40 @@ go install golang.org/x/tools/gopls@latest
 ### TypeScript / JavaScript {#typescript}
 
 ```sh
-npm install -g typescript typescript-language-server
+npm install -g typescript-language-server typescript@6
 ```
 
 Handles `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.mts`, `.cjs`, and `.cts` files.
+
+`typescript-language-server` doesn't work with TypeScript 7, which dropped `tsserver`. For TypeScript 7, use its built-in server instead:
+
+```sh
+npm install -g typescript@7
+```
+
+Then add this to `settings.json`:
+
+```json
+{
+  "lsp": {
+    "servers": {
+      "typescript": {
+        "command": ["tsc", "--lsp", "--stdio"],
+        "languages": {
+          ".ts": "typescript",
+          ".tsx": "typescriptreact",
+          ".js": "javascript",
+          ".jsx": "javascriptreact",
+          ".mjs": "javascript",
+          ".mts": "typescript",
+          ".cjs": "javascript",
+          ".cts": "typescript"
+        }
+      }
+    }
+  }
+}
+```
 
 ### Python {#python}
 
@@ -188,6 +218,15 @@ Handles `.tf` and `.tfvars` files.
 # See https://github.com/zigtools/zls
 ```
 
+### Haskell {#haskell}
+
+```sh
+ghcup install ghc --set recommended
+ghcup install hls --set recommended
+```
+
+Install [GHCup](https://www.haskell.org/ghcup/) first. HLS needs a matching GHC on your `PATH`.
+
 ## Custom Language Servers
 
 Add or override language servers in `~/.config/ttt/settings.json` under the `lsp.servers` key. Each entry maps a server key to a config object with a `command` array:
@@ -252,7 +291,7 @@ To add file extensions to an existing server, override the full entry with the a
 
 The optional `languages` field is for servers that handle multiple file types requiring different `languageId` values. It maps file extensions to language IDs. Without the `languages` field, the server key is used as the language ID and files are matched by their syntax highlighter name.
 
-The server is started lazily on first use and shut down when the editor exits.
+The server is started lazily on first use and shut down when the editor exits. Run **LSP: Server Restart** from the command palette to restart the server for the current file, for example after it hangs or after installing a dependency it caches. Its diagnostics are cleared and every open file it handles is reopened in the new server.
 
 ## Server Status
 
@@ -266,6 +305,8 @@ The language segment on the right of the status bar shows the state of the serve
 | `Go` | No server configured for this language |
 
 Click the segment to open the OUTPUT panel, where each server logs its startup command, its own stderr, initialization failures and unexpected exits under the `lsp:<server>` prefix. That is the place to look when a feature silently does nothing.
+
+You can also run **LSP: Show Server Log** from the command palette. It opens the OUTPUT panel and shows the state of the server for the current file in the status bar: `running`, `starting`, `failed`, `not started` or `not installed`. If no server is configured for the file, it says so and leaves the panel closed.
 
 ## Supported Features
 
@@ -283,6 +324,8 @@ Click the segment to open the OUTPUT panel, where each server logs its startup c
 | Format Selection | Ctrl+L S | Format the selected range |
 | Organize Imports | Ctrl+L O | Organize imports via code action |
 | Fix All | Ctrl+L X | Apply all available fixes |
+| Server Restart | *(palette only)* | Restart the language server for the current file |
+| Show Server Log | *(palette only)* | Open the OUTPUT panel and show the server state for the current file |
 | Diagnostics | *(automatic)* | Error/warning squiggles, status bar summary, hover popup |
 
 ## Auto-Completion
@@ -306,12 +349,14 @@ Completions trigger automatically as you type with a configurable debounce (defa
 
 ## Diagnostics
 
-The LSP server publishes diagnostics (errors, warnings, hints) which are displayed as:
+Diagnostics (errors, warnings, hints) show up as:
 
 - **Inline squiggles** on the affected range, colored by severity
 - **Diagnostics panel** in the bottom panel listing all diagnostics grouped by file
 - **Hover popup** over a squiggle to see the diagnostic message
 - **Status bar** error/warning counts
+
+Some servers, such as TypeScript 7, send diagnostics only when asked. TTT asks for the current file when you open or switch to it, when you stop typing, and when you save, and then asks for the other open files that server handles. When a server says diagnostics are out of date, TTT asks again for every open file.
 
 ## Formatting
 
@@ -364,9 +409,9 @@ All LSP settings are nested under `lsp.*` in `settings.json`. Autocomplete setti
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `lsp.enabled` | boolean | `true` | Enable or disable LSP support entirely |
-| `lsp.hover` | boolean | `true` | Enable or disable hover information |
+| `lsp.hover` | boolean | `true` | Show hover information when the mouse rests over code (toggle from the Options menu, **LSP Hover**). Ctrl+K I works either way |
 | `lsp.hoverDelay` | number | `500` | Delay in milliseconds before showing hover info |
 | `lsp.saveOnRename` | boolean | `false` | Auto-save files affected by a rename |
 | `lsp.codeActionsOnSave` | string[] | `[]` | Code actions to run before each save |
 | `lsp.notifyAvailability` | boolean | `true` | Show a notification when a language server is not installed |
-| `lsp.servers` | object | *(24 built-in)* | Custom or overridden language server configurations |
+| `lsp.servers` | object | *(25 built-in)* | Custom or overridden language server configurations |

@@ -207,8 +207,20 @@ func TestSettingsContentAdapterRoutesPasteAndGlobalClipboardCommands(t *testing.
 		t.Fatalf("focused widget is %T, want editor group", a.Root.Focused)
 	}
 	adapter := a.settingsView.adapter
-	adapter.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
-	input := adapter.FocusedInput()
+	tabbed := findTabbed(adapter.Inner())
+	if tabbed == nil {
+		t.Fatal("settings view has no category tabs")
+	}
+	tabbed.SetActive(1) // Editor has a text field; General is checkboxes only
+	var input *widgets.InputWidget
+	if input = adapter.FocusedInput(); input == nil {
+		for range 40 {
+			adapter.HandleEvent(tcell.NewEventKey(tcell.KeyTab, "", tcell.ModNone))
+			if input = adapter.FocusedInput(); input != nil {
+				break
+			}
+		}
+	}
 	if input == nil {
 		t.Fatal("settings adapter has no focused input")
 	}
@@ -245,6 +257,26 @@ func TestSettingsContentAdapterRoutesPasteAndGlobalClipboardCommands(t *testing.
 	if got := clipboard.Get(); got != "gamma" {
 		t.Fatalf("cut text: got %q, want %q", got, "gamma")
 	}
+}
+
+func findTabbed(w widgets.Widget) *widgets.TabbedWidget {
+	switch v := w.(type) {
+	case *widgets.TabbedWidget:
+		return v
+	case *widgets.VStackWidget:
+		for _, child := range v.Children {
+			if found := findTabbed(child); found != nil {
+				return found
+			}
+		}
+	case *widgets.HStackWidget:
+		for _, child := range v.Children {
+			if found := findTabbed(child); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
 }
 
 func TestAdapterWithoutFocusedInputPreservesEditorPasteFallback(t *testing.T) {

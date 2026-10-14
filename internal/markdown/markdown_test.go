@@ -108,28 +108,27 @@ func TestRenderCodeBlockHighlightAndFallbackStyles(t *testing.T) {
 
 func TestRenderDiffFenceUsesDedicatedStyles(t *testing.T) {
 	lines := renderCodeBlock([]string{"+added line", "-deleted line"}, "diff")
-	if got := styleForText(lines[0], "+added line"); got != term.StyleDiffAdded {
-		t.Fatalf("added diff fence style = %v, want diff added", got)
+	if got := styleForText(lines[0], "+added line"); got != term.StyleSyntaxInserted {
+		t.Fatalf("added diff fence style = %v, want inserted", got)
 	}
-	if got := styleForText(lines[1], "-deleted line"); got != term.StyleDiffDeleted {
-		t.Fatalf("deleted diff fence style = %v, want diff deleted", got)
+	if got := styleForText(lines[1], "-deleted line"); got != term.StyleSyntaxDeleted {
+		t.Fatalf("deleted diff fence style = %v, want deleted", got)
 	}
 	rendered := Render("```diff\n+added line\n-deleted line\n```")
-	if got := styleForText(lineForText(t, rendered, "+added line"), "+added line"); got != term.StyleDiffAdded {
-		t.Fatalf("rendered added diff fence style = %v, want diff added", got)
+	if got := styleForText(lineForText(t, rendered, "+added line"), "+added line"); got != term.StyleSyntaxInserted {
+		t.Fatalf("rendered added diff fence style = %v, want inserted", got)
 	}
-	if got := styleForText(lineForText(t, rendered, "-deleted line"), "-deleted line"); got != term.StyleDiffDeleted {
-		t.Fatalf("rendered deleted diff fence style = %v, want diff deleted", got)
+	if got := styleForText(lineForText(t, rendered, "-deleted line"), "-deleted line"); got != term.StyleSyntaxDeleted {
+		t.Fatalf("rendered deleted diff fence style = %v, want deleted", got)
 	}
 }
 
-func TestRenderCodeBlockKeepsLineIsolatedLexerState(t *testing.T) {
+func TestRenderCodeBlockCarriesStateAcrossLines(t *testing.T) {
 	lines := renderCodeBlock([]string{"/* open", "inside", "*/"}, "go")
-	if got := styleForText(lines[0], "/* open"); got != term.StyleSyntaxComment {
-		t.Fatalf("opener style = %v, want syntax comment", got)
-	}
-	if got := styleForText(lines[1], "inside"); got != term.StyleHoverCode {
-		t.Fatalf("isolated interior style = %v, want hover code fallback", got)
+	for i, text := range []string{"/* open", "inside", "*/"} {
+		if got := styleForText(lines[i], text); got != term.StyleSyntaxComment {
+			t.Fatalf("line %d %q style = %v, want syntax comment", i, text, got)
+		}
 	}
 }
 
@@ -155,14 +154,26 @@ func lineForText(t *testing.T, lines []Line, text string) Line {
 
 func TestRenderDivider(t *testing.T) {
 	lines := Render("above\n\n---\n\nbelow")
-	foundDivider := false
-	for _, l := range lines {
-		if len(l.Spans) > 0 && l.Spans[0].Style == term.StyleBorder && l.Spans[0].Text == "---" {
-			foundDivider = true
+	want := []LineKind{KindParagraph, KindDivider, KindParagraph}
+	if len(lines) != len(want) {
+		t.Fatalf("expected %d lines, got %q", len(want), textLines(lines))
+	}
+	for i, kind := range want {
+		if lines[i].Kind != kind {
+			t.Errorf("line %d: expected kind %v, got %v (%q)", i, kind, lines[i].Kind, lines[i].Text())
 		}
 	}
-	if !foundDivider {
+	if lines[1].Spans[0].Style != term.StyleBorder || lines[1].Spans[0].Text != "---" {
 		t.Error("expected divider line with StyleBorder")
+	}
+}
+
+func TestRenderEndsWithoutBlankLine(t *testing.T) {
+	for _, text := range []string{"hello", "# Title\n\nbody", "```go\nx := 1\n```", "---"} {
+		lines := Render(text)
+		if last := lines[len(lines)-1]; last.Kind == KindBlank {
+			t.Errorf("Render(%q) ends with a blank line: %q", text, textLines(lines))
+		}
 	}
 }
 

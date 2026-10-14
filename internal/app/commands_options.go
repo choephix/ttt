@@ -53,8 +53,33 @@ func (a *App) ToggleDiffHighContrast() {
 	a.SaveAndApplySettings()
 }
 
+func (a *App) ToggleDiffSigns() {
+	a.Settings.Editor.DiffSigns = !a.Settings.Editor.DiffSigns
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffSignsColor() {
+	a.Settings.Editor.DiffSignsColor = !a.Settings.Editor.DiffSignsColor
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffGutterHighlight() {
+	a.Settings.Editor.DiffGutterHighlight = !a.Settings.Editor.DiffGutterHighlight
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffColorGutterNumbers() {
+	a.Settings.Editor.DiffColorGutterNumbers = !a.Settings.Editor.DiffColorGutterNumbers
+	a.SaveAndApplySettings()
+}
+
 func (a *App) ToggleDiffCollapsedEmphasis() {
 	a.Settings.Editor.DiffCollapsedEmphasis = !a.Settings.Editor.DiffCollapsedEmphasis
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleDiffScrollbarGitMarks() {
+	a.Settings.Editor.DiffScrollbarGitMarks = !a.Settings.Editor.DiffScrollbarGitMarks
 	a.SaveAndApplySettings()
 }
 
@@ -66,6 +91,18 @@ func (a *App) UseTreeGitFileView() {
 func (a *App) UseListGitFileView() {
 	a.Settings.Git.FileView = config.GitFileViewList
 	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleFileIcons() {
+	a.Settings.Appearance.Icons = toggledIconMode(a.Settings.Appearance.Icons)
+	a.SaveAndApplySettings()
+}
+
+func toggledIconMode(mode string) string {
+	if mode == config.IconsNone {
+		return config.IconsNerdFont
+	}
+	return config.IconsNone
 }
 
 func (a *App) ExpandAllGitFiles() {
@@ -142,15 +179,35 @@ func (a *App) ToggleBracketPairColorization() {
 	a.SaveAndApplySettings()
 }
 
+func (a *App) ToggleTransparentBackground() {
+	a.Settings.Editor.TransparentBackground = !a.Settings.Editor.TransparentBackground
+	a.SaveAndApplySettings()
+}
+
 func (a *App) ToggleLSP() {
 	enabled := !a.Settings.LSP.IsEnabled()
 	a.Settings.LSP.Enabled = &enabled
 	a.SaveAndApplySettings()
 }
 
+func (a *App) ToggleLSPHover() {
+	enabled := !a.Settings.LSP.IsHoverEnabled()
+	a.Settings.LSP.Hover = &enabled
+	if !enabled {
+		a.DismissHover()
+	}
+	a.SaveAndApplySettings()
+}
+
 func (a *App) ToggleGitGutter() {
 	enabled := !a.Settings.Editor.IsGitGutterEnabled()
 	a.Settings.Editor.GitGutter = &enabled
+	a.SaveAndApplySettings()
+}
+
+func (a *App) ToggleScrollbarGitMarks() {
+	enabled := !a.Settings.Editor.IsScrollbarGitMarksEnabled()
+	a.Settings.Editor.ScrollbarGitMarks = &enabled
 	a.SaveAndApplySettings()
 }
 
@@ -324,6 +381,13 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		menuBarChecked = ui.MenuChecked
 	}
 
+	transparentBgChecked := ui.MenuUnchecked
+	if a.Settings.Editor.TransparentBackground {
+		transparentBgChecked = ui.MenuChecked
+	}
+
+	fontIconsChecked := menuChecked(a.Settings.Appearance.Icons == config.IconsNerdFont)
+
 	items := []ui.ContextMenuItem{
 		{Label: "Line Numbers", Command: "options.toggleLineNumbers", Checked: lineNumbersChecked},
 		{Label: "Word Wrap", Command: "options.toggleWordWrap", Checked: wordWrapChecked},
@@ -332,8 +396,12 @@ func (a *App) BuildOptionsMenu() []ui.ContextMenuItem {
 		{Label: "Syntax Highlight", Command: "options.toggleSyntaxHighlight", Checked: syntaxChecked},
 		{Label: "Bracket Colors", Command: "options.toggleBracketColors", Checked: bracketColorChecked},
 		{Label: "LSP Code Assist", Command: "options.toggleLSP", Checked: lspChecked},
+		{Label: "LSP Hover", Command: "options.toggleLSPHover", Checked: menuChecked(a.Settings.LSP.IsHoverEnabled())},
 		{Label: "Git Gutter", Command: "options.toggleGitGutter", Checked: gitGutterChecked},
+		{Label: "Scrollbar Git Marks", Command: "options.toggleScrollbarGitMarks", Checked: menuChecked(a.Settings.Editor.IsScrollbarGitMarksEnabled())},
+		{Label: "Font Icons", Command: "options.toggleFontIcons", Checked: fontIconsChecked},
 		{Label: "Menu Bar", Command: menuBarToggleCommand, Checked: menuBarChecked},
+		{Label: "Transparent BG", Command: "options.toggleTransparentBackground", Checked: transparentBgChecked},
 		ui.MenuSep(),
 		{Label: "Diff Views", Submenu: a.BuildDiffViewOptions()},
 		{Label: "Git Files", Submenu: a.BuildGitFileOptions()},
@@ -364,7 +432,12 @@ func (a *App) BuildDiffViewOptions() []ui.ContextMenuItem {
 		ui.MenuSep(),
 		{Label: "Wrap Lines", Command: "options.toggleDiffWordWrap", Checked: menuChecked(a.Settings.Editor.DiffWordWrap)},
 		{Label: "High Contrast", Command: "options.toggleDiffHighContrast", Checked: menuChecked(a.Settings.Editor.DiffHighContrast)},
+		{Label: "Gutter Signs", Command: "options.toggleDiffSigns", Checked: menuChecked(a.Settings.Editor.DiffSigns)},
+		{Label: "Colored Gutter Signs", Command: "options.toggleDiffSignsColor", Checked: menuChecked(a.Settings.Editor.DiffSignsColor)},
+		{Label: "Gutter Highlight", Command: "options.toggleDiffGutterHighlight", Checked: menuChecked(a.Settings.Editor.DiffGutterHighlight)},
+		{Label: "Colored Gutter Numbers", Command: "options.toggleDiffColorGutterNumbers", Checked: menuChecked(a.Settings.Editor.DiffColorGutterNumbers)},
 		{Label: "Emphasize Collapsed Rows", Command: "options.toggleDiffCollapsedEmphasis", Checked: menuChecked(a.Settings.Editor.DiffCollapsedEmphasis)},
+		{Label: "Scrollbar Git Marks", Command: "options.toggleDiffScrollbarGitMarks", Checked: menuChecked(a.Settings.Editor.DiffScrollbarGitMarks)},
 	}
 }
 
@@ -380,6 +453,7 @@ func (a *App) buildGitFileOptions(expandCommand, collapseCommand string) []ui.Co
 	return []ui.ContextMenuItem{
 		{Label: "Tree", Command: "options.useGitFileTree", Checked: menuChecked(a.Settings.Git.FileView == config.GitFileViewTree)},
 		{Label: "List", Command: "options.useGitFileList", Checked: menuChecked(a.Settings.Git.FileView != config.GitFileViewTree)},
+		{Label: "File Icons", Command: "options.toggleFontIcons", Checked: menuChecked(a.Settings.Appearance.Icons == config.IconsNerdFont)},
 		ui.MenuSep(),
 		{Label: "Expand All", Command: expandCommand},
 		{Label: "Collapse All", Command: collapseCommand},
@@ -456,9 +530,39 @@ func registerOptionsCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "options.toggleDiffSigns", Title: "Toggle Diff Gutter Signs",
+		Keywords: []string{"preferences", "settings", "git", "diff", "gutter", "plus", "minus", "signs"},
+		Handler:  app.ToggleDiffSigns,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffSignsColor", Title: "Toggle Colored Diff Gutter Signs",
+		Keywords: []string{"preferences", "settings", "git", "diff", "gutter", "plus", "minus", "signs", "color"},
+		Handler:  app.ToggleDiffSignsColor,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffGutterHighlight", Title: "Toggle Diff Gutter Highlight",
+		Keywords: []string{"preferences", "settings", "git", "diff", "gutter", "line numbers", "highlight", "color"},
+		Handler:  app.ToggleDiffGutterHighlight,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffColorGutterNumbers", Title: "Toggle Colored Diff Gutter Numbers",
+		Keywords: []string{"preferences", "settings", "git", "diff", "gutter", "line numbers", "color"},
+		Handler:  app.ToggleDiffColorGutterNumbers,
+	})
+
+	reg.Register(command.Command{
 		ID: "options.toggleDiffCollapsedEmphasis", Title: "Toggle Collapsed Diff Row Emphasis",
 		Keywords: []string{"preferences", "settings", "git", "diff", "collapsed", "omitted", "visibility"},
 		Handler:  app.ToggleDiffCollapsedEmphasis,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleDiffScrollbarGitMarks", Title: "Toggle Diff Scrollbar Git Marks",
+		Keywords: []string{"preferences", "settings", "git", "diff", "scrollbar", "marks", "changes"},
+		Handler:  app.ToggleDiffScrollbarGitMarks,
 	})
 
 	reg.Register(command.Command{
@@ -471,6 +575,12 @@ func registerOptionsCommands(app *App) {
 		ID: "options.useGitFileList", Title: "View Git Files as List",
 		Keywords: []string{"preferences", "settings", "git", "changes", "history", "files", "flat", "list"},
 		Handler:  app.UseListGitFileView,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleFontIcons", Title: "Toggle Font Icons",
+		Keywords: []string{"preferences", "settings", "explorer", "git", "files", "icons", "nerd font"},
+		Handler:  app.ToggleFileIcons,
 	})
 
 	reg.Register(command.Command{
@@ -497,15 +607,33 @@ func registerOptionsCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "options.toggleTransparentBackground", Title: "Toggle Transparent Background",
+		Keywords: []string{"preferences", "settings", "editor", "view", "background", "transparent", "terminal"},
+		Handler:  app.ToggleTransparentBackground,
+	})
+
+	reg.Register(command.Command{
 		ID: "options.toggleLSP", Title: "Toggle LSP",
 		Keywords: []string{"preferences", "settings", "language", "server", "autocomplete"},
 		Handler:  app.ToggleLSP,
 	})
 
 	reg.Register(command.Command{
+		ID: "options.toggleLSPHover", Title: "Toggle LSP Hover",
+		Keywords: []string{"preferences", "settings", "language", "server", "hover", "mouse", "tooltip"},
+		Handler:  app.ToggleLSPHover,
+	})
+
+	reg.Register(command.Command{
 		ID: "options.toggleGitGutter", Title: "Toggle Git Gutter",
 		Keywords: []string{"preferences", "settings", "editor", "view", "git"},
 		Handler:  app.ToggleGitGutter,
+	})
+
+	reg.Register(command.Command{
+		ID: "options.toggleScrollbarGitMarks", Title: "Toggle Scrollbar Git Marks",
+		Keywords: []string{"preferences", "settings", "editor", "view", "git", "scrollbar", "marks", "changes"},
+		Handler:  app.ToggleScrollbarGitMarks,
 	})
 
 	reg.Register(command.Command{

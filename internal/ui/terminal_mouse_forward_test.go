@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/eugenioenko/ttt/internal/terminal"
-	"github.com/eugenioenko/vt10x"
 	"github.com/gdamore/tcell/v3"
 )
 
 func newUpdateChan(term *terminal.Terminal) chan struct{} {
 	updated := make(chan struct{}, 100)
 	term.OnUpdate = func() {
+		term.AckUpdate()
 		select {
 		case updated <- struct{}{}:
 		default:
@@ -43,13 +43,13 @@ func waitFor(t *testing.T, updated chan struct{}, cond func() bool) {
 // newline-less escape sequences this test round-trips through cat.
 func newRawMouseLoopbackTerminal(t *testing.T) (*terminal.Terminal, chan struct{}) {
 	t.Helper()
-	term, err := terminal.New("", 80, 24, 0, nil, "")
+	term, err := terminal.New("/bin/sh", 80, 24, 0, nil, "")
 	if err != nil {
 		t.Fatalf("terminal.New() error: %v", err)
 	}
+	updated := newUpdateChan(term)
 	term.Run()
 
-	updated := newUpdateChan(term)
 	term.WriteString("stty raw -echo; printf RAWOK; exec cat\n")
 	waitFor(t, updated, func() bool {
 		return strings.Contains(string(term.RawTail()), "RAWOK")
@@ -61,7 +61,8 @@ func enableSGRMouseMode(t *testing.T, term *terminal.Terminal, updated chan stru
 	t.Helper()
 	term.WriteString("\x1b[?1006h\x1b[?1000h")
 	waitFor(t, updated, func() bool {
-		return term.Mode()&vt10x.ModeMouseSgr != 0 && term.Mode()&vt10x.ModeMouseButton != 0
+		dm := term.DecPrivateModes()
+		return dm.MouseEncoding == "SGR" && dm.MouseTrackingMode == "VT200"
 	})
 }
 
@@ -143,10 +144,10 @@ func TestTerminalWidget_TrackingWithoutSGRStaysLocal(t *testing.T) {
 
 	term.WriteString("\x1b[?1000h")
 	waitFor(t, updated, func() bool {
-		return term.Mode()&vt10x.ModeMouseButton != 0
+		return term.DecPrivateModes().MouseTrackingMode == "VT200"
 	})
-	if term.Mode()&vt10x.ModeMouseSgr != 0 {
-		t.Fatal("setup: expected ModeMouseSgr to be unset")
+	if term.DecPrivateModes().MouseEncoding == "SGR" {
+		t.Fatal("setup: expected MouseEncoding not to be SGR")
 	}
 
 	tw := NewTerminalWidget(term, &TerminalColorPalette{})

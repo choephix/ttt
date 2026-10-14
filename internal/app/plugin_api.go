@@ -171,8 +171,12 @@ func (e *PluginEditorAPI) Insert(line, col int, text string) {
 	if ed == nil || ed.Buf == nil || ed.Undo == nil {
 		return
 	}
-	if line < 0 || line >= len(ed.Buf.Lines) {
+	if line < 0 || line >= len(ed.Buf.Lines) || col < 0 {
 		return
+	}
+	runes := []rune(ed.Buf.Lines[line])
+	if col > len(runes) {
+		col = len(runes)
 	}
 
 	if !strings.Contains(text, "\n") {
@@ -180,13 +184,7 @@ func (e *PluginEditorAPI) Insert(line, col int, text string) {
 		cmd.Apply(ed.Buf)
 		ed.Undo.Push(cmd)
 	} else {
-		runes := []rune(ed.Buf.Lines[line])
-		colClamped := col
-		if colClamped > len(runes) {
-			colClamped = len(runes)
-		}
-		suffix := string(runes[colClamped:])
-		cmd := &undo.PasteCommand{Line: line, Col: colClamped, Text: text, Suffix: suffix}
+		cmd := &undo.PasteCommand{Line: line, Col: col, Text: text, Suffix: string(runes[col:])}
 		cmd.Apply(ed.Buf)
 		ed.Undo.Push(cmd)
 	}
@@ -198,13 +196,19 @@ func (e *PluginEditorAPI) Replace(startLine, startCol, endLine, endCol int, text
 	if ed == nil || ed.Buf == nil || ed.Undo == nil {
 		return
 	}
-	if startLine < 0 || startLine >= len(ed.Buf.Lines) {
+	if startLine < 0 || startLine >= len(ed.Buf.Lines) || endLine < startLine || startCol < 0 || endCol < 0 {
+		return
+	}
+	if startLine == endLine && endCol < startCol {
 		return
 	}
 
 	delCmd := &undo.DeleteSelectionCommand{
 		StartLine: startLine, StartCol: startCol,
 		EndLine: endLine, EndCol: endCol,
+	}
+	if delCmd.ComputeDeleted(ed.Buf) == text {
+		return
 	}
 	delCmd.Apply(ed.Buf)
 
@@ -214,17 +218,13 @@ func (e *PluginEditorAPI) Replace(startLine, startCol, endLine, endCol int, text
 		return
 	}
 
+	col := delCmd.StartCol
 	var insertCmd undo.EditCommand
 	if !strings.Contains(text, "\n") {
-		insertCmd = &undo.InsertStringCommand{Line: startLine, Col: startCol, Text: text}
+		insertCmd = &undo.InsertStringCommand{Line: startLine, Col: col, Text: text}
 	} else {
-		runes := []rune(ed.Buf.Lines[startLine])
-		colClamped := startCol
-		if colClamped > len(runes) {
-			colClamped = len(runes)
-		}
-		suffix := string(runes[colClamped:])
-		insertCmd = &undo.PasteCommand{Line: startLine, Col: colClamped, Text: text, Suffix: suffix}
+		suffix := string([]rune(ed.Buf.Lines[startLine])[col:])
+		insertCmd = &undo.PasteCommand{Line: startLine, Col: col, Text: text, Suffix: suffix}
 	}
 	insertCmd.Apply(ed.Buf)
 
@@ -324,8 +324,16 @@ type PluginFilesystemAPI struct {
 func NewPluginFilesystemAPI(allowedRoots ...string) *PluginFilesystemAPI {
 	resolved := make([]string, 0, len(allowedRoots))
 	for _, root := range allowedRoots {
-		if abs, err := filepath.Abs(root); err == nil {
-			resolved = append(resolved, filepath.Clean(abs))
+		abs, err := filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+		abs = filepath.Clean(abs)
+		resolved = append(resolved, abs)
+		// validatePath resolves symlinks in the requested path, so a root under a symlink (macOS /tmp and
+		// /var) must also be allowed in resolved form, or the workspace denies its own files.
+		if real, err := filepath.EvalSymlinks(abs); err == nil && real != abs {
+			resolved = append(resolved, real)
 		}
 	}
 	return &PluginFilesystemAPI{allowedRoots: resolved}
@@ -465,12 +473,14 @@ func (s *PluginSystemAPI) Env(name string) string {
 
 // PluginNetworkAPI implements plugin.NetworkAPI.
 type PluginNetworkAPI struct {
-	client *http.Client
+	client   *http.Client
+	lookupIP func(string) ([]net.IP, error)
 }
 
 func NewPluginNetworkAPI() *PluginNetworkAPI {
 	return &PluginNetworkAPI{
-		client: &http.Client{Timeout: 30 * time.Second},
+		client:   &http.Client{Timeout: 30 * time.Second},
+		lookupIP: net.LookupIP,
 	}
 }
 
@@ -497,7 +507,7 @@ func (n *PluginNetworkAPI) validateURL(rawURL string) error {
 		return fmt.Errorf("requests to localhost are not allowed")
 	}
 
-	ips, err := net.LookupIP(hostname)
+	ips, err := n.lookupIP(hostname)
 	if err != nil {
 		return nil
 	}

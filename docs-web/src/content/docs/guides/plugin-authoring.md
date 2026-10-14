@@ -50,9 +50,10 @@ Every plugin requires a `plugin.ttt.json` manifest file at the root of its direc
 | `description` | string | no       | Shown in the plugin list dialog.                    |
 | `version`     | string | no       | Semver version string.                              |
 | `author`      | string | no       | Plugin author name.                                 |
-| `entry`       | string | yes      | Path to the Lua entry point, relative to the plugin directory. |
+| `entry`       | string | yes      | Path to the Lua entry point, relative to the plugin directory. Optional when the plugin declares `grammars`. |
 | `api`         | number | no       | Plugin API version the plugin targets. Defaults to `1` when omitted. The editor refuses to load plugins that target a newer API than it supports. |
 | `permissions` | object | no       | Object declaring required permissions (see [Permissions Reference](#permissions-reference)). |
+| `grammars`    | array  | no       | TextMate grammars the plugin contributes (see [Grammar plugins](#grammar-plugins)). |
 
 ### Minimal Example
 
@@ -81,6 +82,40 @@ ttt.register({
 })
 ```
 
+### Grammar plugins
+
+A plugin can add syntax highlighting for a language by shipping a TextMate grammar in JSON format. A plugin that only contributes grammars needs no Lua code and no permissions:
+
+```
+ttt-lang-zig/
+├── plugin.ttt.json
+└── syntaxes/
+    └── zig.tmLanguage.json
+```
+
+```json
+{
+  "name": "ttt-lang-zig",
+  "displayName": "Zig",
+  "version": "1.0.0",
+  "grammars": [
+    { "path": "syntaxes/zig.tmLanguage.json", "language": "Zig", "fileTypes": ["zig", "zon"] }
+  ]
+}
+```
+
+| Field       | Type     | Required | Description |
+|-------------|----------|----------|-------------|
+| `path`      | string   | yes      | Grammar file, relative to the plugin directory. |
+| `language`  | string   | no       | Language name shown in the status bar. Defaults to the grammar's `name`. |
+| `fileTypes` | string[] | no       | File extensions or exact file names. Defaults to the grammar's `fileTypes`. |
+
+The grammar's `scopeName` comes from the file itself. Grammars from VS Code extensions (`contributes.grammars`) work as-is; convert XML (`.tmLanguage`) or YAML grammars to JSON first.
+
+The approval dialog lists each grammar. When the user allows the plugin, ttt copies its grammar files into `~/.config/ttt/grammars/` and adds them to the [`editor.grammars`](/reference/settings/#grammars) setting, and open files switch to the new highlighting right away. Updating or reloading the plugin copies the files again. Disabling it keeps its grammars; uninstalling removes the files and their settings entries.
+
+A grammar whose file types match a built-in language replaces it, and other grammars that include the replaced scope (for example, Markdown code fences) use the replacement.
+
 ## Plugin Lifecycle
 
 ### Loading
@@ -104,7 +139,7 @@ Run **Plugins: Reload** from the command palette to reload a plugin without rest
 
 ## Registration
 
-The entry point Lua file must call `ttt.register()` to declare what the plugin provides. `ttt.register()` accepts a single table with `sidebar`, `bottom`, `commands`, and/or `keybindings` fields. A plugin can register any combination:
+The entry point Lua file must call `ttt.register()` to declare what the plugin provides. `ttt.register()` accepts a single table with `sidebar`, `bottom`, `commands`, `keybindings`, and/or `file_handlers` fields. A plugin can register any combination:
 
 ```lua
 local ttt = require("ttt")
@@ -127,6 +162,9 @@ ttt.register({
   },
   keybindings = {
     { key = "ctrl+k d", command = "myplugin.doSomething" },
+  },
+  file_handlers = {
+    { id = "pdf", extensions = { "pdf" }, magic = "%PDF-", open = function(path, tab) end },
   },
 })
 ```
@@ -198,6 +236,48 @@ Each keybinding entry is a table with:
 | `command` | string | yes      | Command ID to execute when the key is pressed.        |
 
 Use `ctrl+k <key>` chords for plugin keybindings to avoid conflicts with built-in shortcuts. Avoid `ctrl+shift` combos — they are unreliable in many terminals.
+
+### File Handlers
+
+A plugin can present a binary file type that ttt cannot display itself. Requires the `editor.file_handlers` permission.
+
+Each file handler entry is a table with:
+
+| Field        | Type     | Required | Description |
+|--------------|----------|----------|-------------|
+| `id`         | string   | yes      | Handler ID, unique within the plugin. |
+| `open`       | function | yes      | Called as `open(path, tab)` when a matching file is opened. |
+| `extensions` | table    | one of   | File extensions without the dot (`{ "pdf" }`), matched case-insensitively. |
+| `magic`      | string   | one of   | Bytes the file must start with (`"%PDF-"`), at most 512. |
+| `title`      | string   | no       | Name used in error messages. Defaults to `id`. |
+
+ttt consults handlers only for files that would otherwise open as the binary file card. Text files and the images ttt displays natively (PNG, JPEG, GIF) always open normally. When several handlers match, a `magic` match wins over an `extensions` match; ties go to plugin load order, then registration order.
+
+`open` receives the absolute file path and a `tab` table. Set `tab.render` (and optionally `tab.on_event`) exactly as you would pass them to [`ttt.open_tab`](#tttopen_tabconfig). The tab is bound to the file: it is titled with the file name, opening the same file again switches to it without calling `open`, and the `file.open` and `file.close` events fire for it.
+
+```lua
+local ttt = require("ttt")
+local sys = require("ttt.system")
+
+ttt.register({
+  file_handlers = {
+    { id = "pdf", title = "PDF Viewer", extensions = { "pdf" }, magic = "%PDF-",
+      open = function(path, tab)
+        local info = "Loading..."
+        sys.exec_async("pdfinfo", { path }, function(result)
+          info = result.exit_code == 0 and result.stdout or "pdfinfo failed"
+          if tab.panel then tab.panel:redraw() end
+        end)
+        tab.render = function(panel)
+          tab.panel = panel
+          panel:label(info)
+        end
+      end },
+  },
+})
+```
+
+Keep `open` fast: it runs on the UI thread. Start slow work with `sys.exec_async` and call `panel:redraw()` when it finishes. If `open` raises an error or does not set `tab.render`, the error is logged to the OUTPUT panel and the file opens as the binary card.
 
 ## ttt Module Functions
 
@@ -595,6 +675,33 @@ else
 end
 ```
 
+### `ttt.graphics()`
+
+Report whether images can be shown and how large a terminal cell is in pixels. No permission required.
+
+**Returns** a table:
+
+| Field      | Type   | Description |
+|------------|--------|-------------|
+| `protocol` | string | `"kitty"` when [`panel:image`](#image) can draw graphics, otherwise `"none"` (unsupported terminal, tmux, a terminal that does not report its cell size in pixels, or the `image.protocol` setting is `"none"`). |
+| `cell_w`   | number | Pixels per cell horizontally, or `0` when unknown. |
+| `cell_h`   | number | Pixels per cell vertically, or `0` when unknown. |
+
+Use it to choose a render resolution or a text fallback. The values follow terminal resizes, so call it from your render function rather than caching it at load time:
+
+```lua
+render = function(panel)
+  local g = ttt.graphics()
+  local w = panel:size()
+  if g.protocol == "kitty" then
+    local dpi = math.floor(w * g.cell_w / 8.5)   -- fit a letter-size page width
+    -- render an image at that DPI, then panel:image({ data = png })
+  else
+    panel:label("Text mode")
+  end
+end
+```
+
 ### `ttt.set_timeout(ms, callback)` / `ttt.set_interval(ms, callback)`
 
 Schedule a callback to run later on the editor's main loop. `set_timeout` fires once after `ms` milliseconds; `set_interval` fires every `ms` milliseconds until cleared. Both return a numeric timer id. No permission required.
@@ -855,6 +962,7 @@ panel:tree({
 | `on_command`   | function | nil     | Callback when a context menu command or key command is selected. Receives `(command, node)`. |
 | `node_menu`    | table    | nil     | Array of [menu entries](#menu-entry-format) for right-click context menu on nodes. |
 | `key_commands` | table    | nil     | Map of single-char keys to command strings. When pressed, triggers `on_command(command, selected_node)`. |
+| `truncate_left` | boolean | `false` | Truncate overflowing labels from the left (`…tail`) so the end of the label stays visible. |
 
 **Keyboard navigation:** When focused, Up/Down arrows move selection, Enter activates `on_select`, Left/Right collapse/expand nodes. Shift+Enter opens the context menu on the selected node.
 
@@ -893,6 +1001,7 @@ panel:list({
 | `on_command`   | function | nil     | Callback when a context menu command or key command is selected. Receives `(command, node)`. |
 | `node_menu`    | table    | nil     | Array of [menu entries](#menu-entry-format) for the right-click context menu. |
 | `key_commands` | table    | nil     | Map of single-char keys to command strings. When pressed, triggers `on_command(command, selected_node)`. |
+| `truncate_left` | boolean | `false` | Truncate overflowing labels from the left (`…tail`) so the end of the label stays visible. |
 
 ### Button
 
@@ -1203,6 +1312,27 @@ panel:markdown({ text = readme_content, margin_top = 1 })
 | + [box model fields](#box-model) | | | Margin and padding. |
 
 Prose lines wrap at the `markdown.wrapWidth` setting (default 80). Headings, bold, italic, code spans, fenced code blocks, lists, and links are styled using the theme's styles. Text inside the widget can be selected with the mouse and copied.
+
+### Image
+
+Display a PNG, JPEG or GIF image through the terminal's graphics protocol. No permission required.
+
+```lua
+panel:image({ data = png_bytes, alt = "Page 3 of 10" })
+```
+
+| Field    | Type   | Required | Description |
+|----------|--------|----------|-------------|
+| `data`   | string | yes      | Encoded image bytes, for example the stdout of `sys.exec_async("pdftoppm", {"-png", ...})` or the result of `fs.read`. |
+| `fit`    | string | no       | `"contain"` (default) scales the image down to fit the widget, keeping its aspect ratio and never scaling up, centered. `"none"` draws it at its natural size from the top-left corner, cropped to the widget. |
+| `alt`    | string | no       | Text shown instead of the image when graphics are unavailable. Defaults to the image's format and size, or the decode error. |
+| `height` | number | no       | Height in rows. Without it the image grows to fill the remaining space. |
+
+Box model fields (`padding_*`, `margin_*`) also apply.
+
+Graphics need a terminal that supports the Kitty graphics protocol (Kitty, Ghostty, WezTerm) and are unavailable inside tmux; check [`ttt.graphics()`](#tttgraphics) to offer a text alternative. An image inside a `scrollview` always shows its `alt` text, and needs a `height` to take up any rows there.
+
+ttt decodes each image in the background, showing its `alt` text until it is ready, then keeps it in the terminal across redraws, so re-rendering the same bytes is cheap, even when other widgets shift the image to a different position. An image inside a container that changes position is decoded and sent again. Changing the bytes, removing the widget, or closing the panel, drawer or tab frees the previous image. Images larger than 64 MB, wider or taller than 16384 pixels, or over 40 megapixels are refused and show an error instead.
 
 ### Tree Node Format
 
@@ -1643,6 +1773,109 @@ uninstalled.
 Clears this plugin's diagnostics. With a `path`, clears just that file; with no
 argument, clears every file.
 
+## Bookmarks
+
+Plugins can manage gutter **bookmarks**, a per-line icon drawn left of the line
+number, through the `ttt.bookmarks` module. ttt never sets a bookmark on its
+own: a plugin listens for the `gutter.click` event and decides what a click
+does. Storage is the plugin's responsibility too: ttt only holds bookmarks for
+the current session, so a plugin that wants them to survive a restart must
+persist them itself (for example with [`ttt.storage`](#tttstorage-module)),
+using `get_all`/`set_all` to save and restore. Requires the `editor.bookmarks`
+permission.
+
+All functions operate on the **currently active file** — there's no `path`
+argument, unlike `ttt.diagnostics` (which can target files that aren't even
+open).
+
+```lua
+local bookmarks = require("ttt.bookmarks")
+
+bookmarks.set(42, "★", "success")   -- 1-based line, icon, named style
+bookmarks.remove(42)
+
+local b = bookmarks.get(42)
+if b then
+  ttt.notify(b.icon .. " at line 42, style " .. b.style)
+end
+
+-- Bulk sync, e.g. right after opening a file, restoring from your own storage:
+bookmarks.set_all({
+  { line = 3, icon = "★", style = "success" },
+  { line = 10, icon = "★", style = "success" },
+})
+
+local all = bookmarks.get_all()   -- {{line=3, icon="★", style="success"}, ...}
+
+bookmarks.clear()   -- remove every bookmark in the current file
+```
+
+### `bookmarks.set(line, icon, style)`
+
+Sets (or replaces) the bookmark on `line` (1-based). `icon` is a single
+character; `style` is a named style (see [Styles](#styles)).
+
+### `bookmarks.get(line)`
+
+Returns `{icon, style}` for `line`, or `nil` if there's no bookmark there.
+
+### `bookmarks.remove(line)`
+
+Removes the bookmark on `line`, if any.
+
+### `bookmarks.set_all(items)`
+
+Replaces **all** bookmarks in the current file with `items` — a list of
+`{line, icon, style}` tables. Use this instead of calling `set` in a loop when
+restoring many bookmarks at once (e.g. on file open); it's one call instead of
+N.
+
+### `bookmarks.get_all()`
+
+Returns every bookmark in the current file as a list of `{line, icon, style}`
+tables.
+
+### `bookmarks.clear()`
+
+Removes every bookmark in the current file.
+
+### The `bookmark.change` event
+
+Fires via `ttt.events` whenever a bookmark is added or removed through
+`set`/`remove`/`set_all`/`clear`, including calls made by other plugins:
+
+```lua
+local events = require("ttt.events")
+
+events.on("bookmark.change", function(path, line, action, icon, style)
+  -- action is "set", "remove", "set_all", or "clear"
+  -- for "set_all"/"clear", line/icon/style carry no meaningful value —
+  -- re-read with get_all() if you need the resulting full state
+end)
+```
+
+### The `gutter.click` event
+
+Fires via `ttt.events` when the user clicks the bookmark column, the cell just
+left of the line number. The callback receives the active file's path and the
+clicked 1-based line. Toggle a bookmark there to give the click meaning:
+
+```lua
+local events = require("ttt.events")
+
+events.on("gutter.click", function(path, line)
+  if bookmarks.get(line) then
+    bookmarks.remove(line)
+  else
+    bookmarks.set(line, "◆", "bookmark")
+  end
+end)
+```
+
+While at least one plugin listens for `gutter.click`, a click in the bookmark
+column goes to the plugin instead of toggling a fold. Without a listener the
+click behaves as it always has.
+
 ## Editor Context Menu
 
 A plugin can contribute items to the editor's activation / right-click menu —
@@ -1959,8 +2192,8 @@ Register an event listener. Multiple listeners can be registered for the same ev
 
 | Event         | Description                 |
 |---------------|-----------------------------|
-| `file.open`   | A file was opened.          |
-| `file.close`  | A file tab was closed.      |
+| `file.open`   | A file was opened, including files opened by a plugin file handler. |
+| `file.close`  | A file tab was closed, including file handler tabs. |
 | `file.save`   | A file was saved.           |
 
 **Editor events** (require `events.editor` permission):
@@ -2080,6 +2313,34 @@ local settings = require("ttt.settings")
 settings.set("formatters.go", "gofmt")
 ```
 
+### `ttt.storage` Module
+
+Persistent key-value storage private to the plugin. Requires the `storage` permission.
+
+```lua
+local storage = require("ttt.storage")
+
+storage.set("bookmarks", { ["/home/me/app/main.go"] = { 12, 40 } })
+local marks = storage.get("bookmarks")  -- the stored value, or nil
+storage.remove("bookmarks")
+local keys = storage.keys()             -- sorted array of key names
+```
+
+| Function | Description |
+|----------|-------------|
+| `storage.get(key)` | Returns the value stored under `key`, or `nil`. |
+| `storage.set(key, value)` | Stores `value` under `key`. Setting `nil` removes the key. |
+| `storage.remove(key)` | Removes `key`. |
+| `storage.keys()` | Returns the stored keys, sorted. |
+
+Values can be anything `ttt.json` can encode: strings, numbers, booleans, and tables of those.
+
+Each plugin's data lives in its own file, `<config dir>/state/plugins/<name>.json`, and no other plugin can read it. Every `set` and `remove` writes to disk right away, so data survives a crash. A plugin can store at most 1 MB; a `set` that would go over the limit raises an error and leaves the stored data unchanged. Uninstalling the plugin deletes its file.
+
+Storage works at load time, so a plugin can restore its state while it initializes.
+
+Several ttt windows can share a plugin's storage. Each `set` re-reads the file if another window changed it, so windows writing different keys keep each other's data, while two writes to the same key keep the last one. Prefer one key per item (for example, one key per file path) over a single key holding everything, so windows don't overwrite each other's changes.
+
 ## Styles
 
 Named styles available for both widget and raw cell rendering. Actual colors depend on the user's theme.
@@ -2099,6 +2360,7 @@ Named styles available for both widget and raw cell rendering. Actual colors dep
 | `bold`     | Bold/emphasized text           |
 | `italic`   | Italic text                    |
 | `code`     | Code/monospace text            |
+| `bookmark` | Gutter bookmark icon           |
 | `syntax_comment`   | Syntax: comments       |
 | `syntax_string`    | Syntax: string literals |
 | `syntax_keyword`   | Syntax: keywords       |
@@ -2110,6 +2372,28 @@ Named styles available for both widget and raw cell rendering. Actual colors dep
 | `syntax_variable`  | Syntax: variables      |
 | `syntax_tag`       | Syntax: HTML/XML tags  |
 | `syntax_attribute` | Syntax: HTML/XML attributes |
+| `syntax_regexp` | Syntax: regular expression literals |
+| `syntax_heading` | Syntax: markdown headings |
+| `syntax_bold` | Syntax: bold markup |
+| `syntax_italic` | Syntax: italic markup |
+| `syntax_quote` | Syntax: block quotes |
+| `syntax_inserted` | Syntax: inserted lines in diffs |
+| `syntax_deleted` | Syntax: deleted lines in diffs |
+| `syntax_invalid` | Syntax: invalid or illegal code, as marked by the grammar |
+| `syntax_control` | Syntax: control-flow keywords: `if`, `for`, `return` |
+| `syntax_storage` | Syntax: declaration keywords and modifiers: `const`, `class`, `public` |
+| `syntax_constant` | Syntax: language constants: `true`, `null` |
+| `syntax_escape` | Syntax: escape sequences in strings: `\n`, `\t` |
+| `syntax_parameter` | Syntax: function parameters |
+| `syntax_property` | Syntax: object properties |
+| `syntax_self` | Syntax: `this`, `self` |
+| `syntax_namespace` | Syntax: namespaces and modules |
+| `syntax_decorator` | Syntax: decorators and annotations |
+| `syntax_link` | Syntax: links in markup |
+| `syntax_code` | Syntax: inline code in markup |
+| `syntax_interpolation` | Syntax: template interpolation delimiters: `${` `}` |
+| `syntax_selector` | Syntax: CSS, SCSS, and LESS selectors |
+| `syntax_readonly_variable` | Syntax: constant and enum member names |
 
 Styles can be passed as a string or a table:
 
@@ -2184,6 +2468,8 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 | `editor.read`    | boolean  | Read the contents of editor buffers (`ttt.editor` read functions). |
 | `editor.write`   | boolean  | Modify editor buffers (`ttt.editor` write functions). |
 | `editor.diagnostics` | boolean | Publish editor diagnostics/squiggles via `ttt.diagnostics`. |
+| `editor.bookmarks` | boolean | Manage gutter bookmarks via `ttt.bookmarks`, and listen for the `bookmark.change` and `gutter.click` events. |
+| `editor.file_handlers` | boolean | Present binary file types in editor tabs via `file_handlers` in `ttt.register()`. |
 | `fs.read`        | boolean  | Read files and list directories (`ttt.fs` read functions). |
 | `fs.write`       | boolean  | Write files to the file system (`ttt.fs.write`).  |
 | `system.exec`    | string[] | Execute specific system commands. List each allowed binary name. |
@@ -2193,6 +2479,7 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 | `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`, `tab.change`. |
 | `settings`       | boolean  | Read/write editor settings (`ttt.settings`).      |
 | `settings_keys`  | string[] | Allowed settings key patterns. Use `group.*` for prefix match or exact key. |
+| `storage`        | boolean  | Persist private plugin data (`ttt.storage`).      |
 
 **Example with multiple permissions:**
 
@@ -2266,11 +2553,13 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 | `ttt.json`     | JSON encode/decode             |
 | `ttt.editor`   | Editor buffer read/write       |
 | `ttt.diagnostics` | Publish editor diagnostics (squiggles) |
+| `ttt.bookmarks` | Manage gutter bookmarks        |
 | `ttt.fs`       | Filesystem access              |
 | `ttt.system`   | Command execution, env vars    |
 | `ttt.net`      | HTTP requests                  |
 | `ttt.events`   | Event listeners                |
 | `ttt.settings` | Read/write editor settings     |
+| `ttt.storage`  | Persistent plugin data         |
 
 Any other module name passed to `require()` raises an error.
 

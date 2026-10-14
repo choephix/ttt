@@ -10,28 +10,12 @@ import (
 	"github.com/eugenioenko/ttt/internal/ui"
 )
 
-type CompletionResult struct {
-	Items        []ui.CompletionItem
-	LspItems     []lsp.CompletionItem
-	TriggerChars []string
-}
-
 type LocationResult struct {
 	Locations []lsp.Location
 }
 
-type HoverResult struct {
-	Text    string
-	AnchorX int
-	AnchorY int
-	Gen     uint64
-}
-
-type AutocompleteTrigger struct {
-	TriggerChar string
-}
-
 type DiagnosticsResult struct {
+	Server      string
 	Path        string
 	Diagnostics []ui.Diagnostic
 }
@@ -50,13 +34,12 @@ type ReferencesResult struct {
 	Locations []lsp.Location
 }
 
-type SymbolsResult struct {
-	Path    string
-	Symbols []lsp.DocumentSymbol
-	Status  string
+type RenameResult struct {
+	Edit *lsp.WorkspaceEdit
 }
 
-type RenameResult struct {
+type CodeActionResult struct {
+	Path string
 	Edit *lsp.WorkspaceEdit
 }
 
@@ -75,13 +58,9 @@ func ReadLineFromFile(path string, line int) string {
 	return ""
 }
 
-func FileURI(path string) string {
-	return "file://" + path
-}
+func FileURI(path string) string { return lsp.FileURI(path) }
 
-func URIToPath(uri string) string {
-	return strings.TrimPrefix(uri, "file://")
-}
+func URIToPath(uri string) string { return lsp.URIToPath(uri) }
 
 func LspToUICompletions(items []lsp.CompletionItem) []ui.CompletionItem {
 	result := make([]ui.CompletionItem, 0, len(items))

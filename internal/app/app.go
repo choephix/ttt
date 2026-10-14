@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/eugenioenko/ttt/internal/highlight"
 	"log/slog"
 	"os/exec"
 	"runtime"
@@ -10,8 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eugenioenko/ttt/internal/asynctask"
 	"github.com/eugenioenko/ttt/internal/command"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/clipboard"
+	"github.com/eugenioenko/ttt/internal/image"
 	"github.com/eugenioenko/ttt/internal/lsp"
 	"github.com/eugenioenko/ttt/internal/plugin"
 	"github.com/eugenioenko/ttt/internal/render"
@@ -50,7 +54,11 @@ type App struct {
 	Borders                *term.BorderSet
 	Screen                 *term.TcellScreen
 	Renderer               *render.Renderer
+	ImageLayer             *image.Layer
+	imageCellW             int
+	imageCellH             int
 	Settings               *config.Settings
+	State                  config.State
 	Workspace              *workspace.Workspace
 	Palette                *ui.TerminalColorPalette
 	TerminalPanel          *ui.TerminalPanelWidget
@@ -60,14 +68,10 @@ type App struct {
 	DocVersions            map[string]int
 	CompletionItems        []ui.CompletionItem
 	LspCompletionItems     []lsp.CompletionItem
-	CompletionTriggers     []string
-	AutocompleteTimer      *time.Timer
-	HoverTimer             *time.Timer
-	HoverGen               uint64
+	completion             completionState
+	hover                  hoverState
 	diffOpenGen            int
 	diffOpenCancel         context.CancelFunc
-	LastHoverLine          int
-	LastHoverCol           int
 	Problems               *ui.ProblemsWidget
 	References             *ui.ReferencesWidget
 	Keybindings            []config.KeyBinding
@@ -77,13 +81,16 @@ type App struct {
 	Changes                *ChangesPanel
 	Repository             *RepositoryState
 	Symbols                *SymbolsPanel
+	symbolsTask            *asynctask.Task[symbolsReply]
 	Reg                    *command.Registry
 	Running                *bool
 	quitPending            bool
 	menuReturnFocus        ui.Widget
 	Watcher                *watcher.Watcher
-	GitGutterGen           int
-	GitGutterTimer         *time.Timer
+	blame                  statusBlameState
+	gitGutterDebounce      *asynctask.Task[struct{}]
+	gitGutterTask          *asynctask.Task[*gitGutterResult]
+	inlineDiffRepos        map[string]inlineDiffRepo
 	commitDetailMu         sync.Mutex
 	commitDetailNext       uint64
 	commitDetailRequests   map[string]commitDetailRequest
@@ -100,16 +107,45 @@ type App struct {
 	runningRepoOp             string
 	pluginDetailWidgets       map[string]*pluginDetailState
 	pluginDrawer              ui.Widget
+	pluginDrawerPanel         *plugin.PluginPanelWidget
+	graphics                  *cachedGraphics
+	fileHandlerTabs           map[string]*plugin.Plugin
 	commandLine               *ui.CommandLineWidget
 	commandLinePrevFocus      ui.Widget
 	settingsView              *settingsView
 	pendingCurrentChangesOpen bool
 	// appliedSettings is the last value ApplySettings acted on. Callers routinely
 	// mutate a.Settings before calling it, so a.Settings cannot serve as "before".
-	appliedSettings    config.Settings
-	eventLoopDoneOnce  sync.Once
-	eventLoopCloseOnce sync.Once
-	eventLoopDone      chan struct{}
+	appliedSettings config.Settings
+	loadedGrammars  []config.GrammarSetting
+	// welcomeIsEmptyState is set while the welcome page stands in for an
+	// empty editor, as opposed to being opened from Help.
+	welcomeIsEmptyState bool
+	// welcomeWhenEmpty is set once the session reaches the welcome page with no
+	// folder, and cleared when a folder opens: only then does closing every tab
+	// bring the page back. Loose files opened from the command line still end
+	// on an untitled tab.
+	welcomeWhenEmpty      bool
+	welcomeView           *welcomeView
+	panelResizing         bool
+	panelResizeFromClosed bool
+	eventLoopDoneOnce     sync.Once
+	eventLoopCloseOnce    sync.Once
+	eventLoopDone         chan struct{}
+	tasks                 taskOwner
+
+	// lspSent holds, per document, a channel closed once its latest didOpen or
+	// didChange was sent. Guarded by DocVersionsMu.
+	lspSent map[string]<-chan struct{}
+	// lspEpochs counts restarts per server. Written on the UI goroutine under
+	// DocVersionsMu, so other goroutines must hold the lock to read it.
+	lspEpochs map[string]int
+	diagPull  *asynctask.Task[pulledDiagnostics]
+	// diagBackground holds one task per server.
+	diagBackground map[string]*asynctask.Task[[]backgroundPull]
+	// lastPulled holds the document state behind each path's applied pull.
+	// UI goroutine only.
+	lastPulled map[string]pullKey
 }
 
 func (a *App) eventLoopDoneSignal() chan struct{} {
@@ -150,6 +186,11 @@ func formatKeyDisplay(key string) string {
 }
 
 func (a *App) ShowSidebar() {
+	a.showSidebar()
+	a.persistSidebarLayout()
+}
+
+func (a *App) showSidebar() {
 	a.Sidebar.Visible = true
 	a.SplitPanel.ShowLeft = true
 	if a.SplitPanel.DividerPos < ui.MinSidebarWidth {
@@ -160,6 +201,11 @@ func (a *App) ShowSidebar() {
 }
 
 func (a *App) HideSidebar() {
+	a.hideSidebar()
+	a.persistSidebarLayout()
+}
+
+func (a *App) hideSidebar() {
 	a.Sidebar.InvalidatePointerInteraction()
 	a.Sidebar.Visible = false
 	a.SplitPanel.ShowLeft = false
@@ -191,21 +237,53 @@ func (a *App) ToggleSidebar() {
 }
 
 func (a *App) SetSidebarWidth(w int) {
+	a.resizeSidebar(w)
+	a.persistSidebarLayout()
+}
+
+func (a *App) resizeSidebar(w int) {
 	if w <= 0 {
-		a.HideSidebar()
+		a.hideSidebar()
 		return
 	}
 	if !a.Sidebar.Visible {
-		a.ShowSidebar()
+		a.showSidebar()
 	}
 	a.SplitPanel.DividerPos = w
 }
 
-func (a *App) persistSidebarWidth(w int) {
-	a.SetSidebarWidth(w)
-	a.Settings.Sidebar.Width = a.SplitPanel.DividerPos
-	if err := config.SaveSettings(*a.Settings); err != nil {
-		a.StatusError("Failed to save sidebar width: " + err.Error())
+// Widths below MinSidebarWidth are not saved: dragging the sidebar closed
+// passes through them, and restoring one would reopen it as a sliver.
+func (a *App) persistSidebarLayout() {
+	next := a.State
+	next.SidebarHidden = !a.Sidebar.Visible
+	if w := a.SplitPanel.DividerPos; w >= ui.MinSidebarWidth {
+		next.SidebarWidth = w
+	}
+	if next.SidebarHidden == a.State.SidebarHidden && next.SidebarWidth == a.State.SidebarWidth {
+		return
+	}
+	a.State = next
+	if err := config.SaveState(a.State); err != nil {
+		a.StatusError("Failed to save sidebar layout: " + err.Error())
+	}
+}
+
+// The panel's new rect only exists after the next render, so the terminal
+// resize rides along with the caller's redraw.
+func (a *App) SetPanelPosition(pos ui.SplitPosition) {
+	if a.ContentSplit.Position == pos {
+		return
+	}
+	a.ContentSplit.Position = pos
+
+	name := "bottom"
+	if pos == ui.SplitRight {
+		name = "right"
+	}
+	a.State.PanelPosition = name
+	if err := config.SaveState(a.State); err != nil {
+		a.StatusError("Failed to save panel position: " + err.Error())
 	}
 }
 
@@ -225,6 +303,64 @@ func (a *App) FocusSidebar() {
 	}
 	if w := a.Sidebar.ActiveWidget(); w != nil {
 		a.Root.SetFocus(w)
+	}
+}
+
+func (a *App) ensureUsablePanelSize() {
+	r := a.ContentSplit.GetRect()
+	maxH := r.H - 4
+	if a.ContentSplit.BottomH < ui.MinPanelHeight || a.ContentSplit.BottomH > maxH {
+		a.ContentSplit.BottomH = min(r.H/2, maxH)
+	}
+	if a.ContentSplit.RightW < ui.MinPanelWidth {
+		a.ContentSplit.RightW = ui.DefaultPanelWidth
+	}
+}
+
+func (a *App) resizePanel(size int) {
+	if !a.panelResizing {
+		a.panelResizing = true
+		a.panelResizeFromClosed = !a.ContentSplit.ShowBottom
+	}
+	if size <= 0 {
+		a.ContentSplit.ShowBottom = false
+		return
+	}
+	a.ContentSplit.ShowBottom = true
+	if a.ContentSplit.Position == ui.SplitRight {
+		a.ContentSplit.RightW = size
+	} else {
+		a.ContentSplit.BottomH = size
+	}
+	resizeTerminals(a)
+}
+
+// Spawning a terminal moves focus, and a focus change cancels the pointer
+// capture, so it must wait until the drag is over.
+func (a *App) finishPanelResize() {
+	fromClosed := a.panelResizeFromClosed
+	a.panelResizing = false
+	a.panelResizeFromClosed = false
+	if fromClosed && a.ContentSplit.ShowBottom && len(a.Terminals) == 0 {
+		a.SpawnTerminal()
+	}
+	a.persistPanelSize()
+}
+
+func (a *App) persistPanelSize() {
+	next := a.State
+	if h := a.ContentSplit.BottomH; h >= ui.MinPanelHeight {
+		next.PanelHeight = h
+	}
+	if w := a.ContentSplit.RightW; w >= ui.MinPanelWidth {
+		next.PanelWidth = w
+	}
+	if next.PanelHeight == a.State.PanelHeight && next.PanelWidth == a.State.PanelWidth {
+		return
+	}
+	a.State = next
+	if err := config.SaveState(a.State); err != nil {
+		a.StatusError("Failed to save panel size: " + err.Error())
 	}
 }
 
@@ -257,12 +393,22 @@ func (a *App) ToggleBottomPanel() {
 
 func (a *App) SpawnTerminal() {
 	r := a.ContentSplit.GetRect()
-	cols := r.W - terminalStripWidth
-	bottomH := a.ContentSplit.BottomH
-	if bottomH <= 1 {
-		bottomH = min(r.H/2, r.H-4)
+	var cols, rows int
+	if a.ContentSplit.Position == ui.SplitRight {
+		panelW := a.ContentSplit.RightW
+		if panelW <= 1 {
+			panelW = min(r.W/2, r.W-4)
+		}
+		cols = panelW - terminalStripWidth
+		rows = r.H - 2
+	} else {
+		panelH := a.ContentSplit.BottomH
+		if panelH <= 1 {
+			panelH = min(r.H/2, r.H-4)
+		}
+		cols = r.W - terminalStripWidth
+		rows = panelH - 2
 	}
-	rows := bottomH - 2
 	if cols <= 0 {
 		cols = 80
 	}
@@ -325,10 +471,22 @@ func (a *App) CloseTerminal(panelID string) {
 	a.TerminalPanel.RemoveTerminal(idx)
 
 	if a.TerminalPanel.Count() == 0 {
-		a.FocusEditor()
+		a.hideBottomPanelIfTerminalActive()
 	} else {
 		a.Root.SetFocus(a.TerminalPanel)
 	}
+}
+
+// hideBottomPanelIfTerminalActive collapses the bottom panel once the last
+// terminal is gone, so `exit` in the shell closes the panel instead of leaving
+// a dead one on screen. The panel also hosts Problems, References and Output,
+// so it only collapses when the terminal is the tab actually being shown.
+func (a *App) hideBottomPanelIfTerminalActive() {
+	if a.BottomPanel != nil && a.BottomPanel.ActivePanel != "terminal" {
+		a.FocusEditor()
+		return
+	}
+	a.HideBottomPanel()
 }
 
 func (a *App) CloseAllTerminals() {
@@ -340,13 +498,26 @@ func (a *App) CloseAllTerminals() {
 	for _, tt := range terms {
 		tt.Term.Close()
 	}
-	a.FocusEditor()
+	a.hideBottomPanelIfTerminalActive()
 }
 
 func (a *App) refreshWorkspaceWidgets() {
 	paths := a.Workspace.Paths()
+	a.RememberRecentFolders()
+	wasEmpty := len(a.Explorer.Roots) == 0
 
 	a.Explorer.SetRoots(paths)
+	switch {
+	case len(paths) == 0 && (a.editorIsBlank() || a.welcomeIsEmptyState):
+		a.ShowEmptyState()
+	case len(paths) == 0:
+		// Files are still open: the welcome page waits for them to close.
+		a.welcomeWhenEmpty = true
+	case wasEmpty:
+		a.welcomeWhenEmpty = false
+		a.closeWelcome()
+		a.ShowSidebar()
+	}
 
 	a.Search.SetWorkDirs(paths)
 	if a.Repository != nil {
@@ -375,62 +546,22 @@ func (a *App) refreshProblems() {
 
 func (a *App) checkMouseHover(mx, my int) {
 	if a.EditorGroup.Editor == nil || !a.Settings.LSP.IsHoverEnabled() {
-		return
-	}
-	r := a.EditorGroup.Editor.GetRect()
-	if mx < r.X || mx >= r.X+r.W || my < r.Y || my >= r.Y+r.H {
 		a.DismissHover()
-		a.cancelHoverTimer()
 		return
 	}
-	gw := a.EditorGroup.Editor.GutterWidth()
-	line := my - r.Y + a.EditorGroup.Editor.Viewport.TopLine
-	col := mx - r.X - gw + a.EditorGroup.Editor.Viewport.LeftCol
-	if col < 0 {
+	line, col, ok := a.EditorGroup.Editor.TextPosAt(mx, my)
+	if !ok {
 		a.DismissHover()
-		a.cancelHoverTimer()
 		return
 	}
-	if line == a.LastHoverLine && col == a.LastHoverCol {
-		return
-	}
-	a.LastHoverLine = line
-	a.LastHoverCol = col
-	a.DismissHover()
-	a.cancelHoverTimer()
-	delay := a.Settings.LSP.HoverDelay
-	if delay <= 0 {
-		delay = 400
-	}
-	path := a.EditorGroup.ActiveFilePath()
-	lang := ""
-	if a.EditorGroup.Editor.Highlighter != nil {
-		lang = a.EditorGroup.Editor.Highlighter.Language()
-	}
-	diagText := ""
-	if a.EditorGroup.Editor != nil {
-		if d := a.EditorGroup.Editor.DiagnosticAt(line, col); d != nil {
-			diagText = d.Message
-		}
-	}
-	gen := a.HoverGen
-	a.HoverTimer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
-		a.RequestHover(path, lang, line, col, mx, my, diagText, gen)
-	})
-}
-
-func (a *App) cancelHoverTimer() {
-	if a.HoverTimer != nil {
-		a.HoverTimer.Stop()
-		a.HoverTimer = nil
-	}
+	path, lang := a.editorPathLang()
+	a.scheduleHover(path, lang, line, col, mx, my, a.hoverDiagnostic(line, col))
 }
 
 func (a *App) ShowHover(text string, anchorX, anchorY int) {
-	if text == "" {
-		return
+	if text != "" {
+		a.EditorGroup.Hover = ui.NewHoverWidget(text, anchorX, anchorY)
 	}
-	a.EditorGroup.Hover = ui.NewHoverWidget(text, anchorX, anchorY)
 }
 
 func (a *App) isMouseOverHover(mx, my int) bool {
@@ -443,30 +574,40 @@ func (a *App) isMouseOverHover(mx, my int) bool {
 	return mx >= r.X-m && mx < r.X+r.W+m && my >= r.Y-m && my < r.Y+r.H+m
 }
 
-func (a *App) DismissHover() {
-	a.EditorGroup.Hover = nil
-	a.cancelHoverTimer()
-	a.HoverGen++
-}
-
-func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManager *lsp.Manager) {
+func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManager *lsp.Manager, imageLayer *image.Layer) {
 	a.Screen = screen
+	a.initTaskDelivery(screen)
 	a.Renderer = renderer
 	a.LspManager = lspManager
+	a.ImageLayer = imageLayer
+	if a.Root != nil {
+		a.Root.ImageLayer = imageLayer
+	}
+	if imageLayer != nil {
+		imageLayer.SetLockFunc(func(r image.Rect, locked bool) {
+			if a.Screen != nil {
+				a.Screen.LockRegion(r.X, r.Y, r.W, r.H, locked)
+			}
+		})
+	}
+	a.EditorGroup.SetImageRedraw(func() {
+		screen.PostEvent(tcell.NewEventInterrupt(nil))
+	})
+	a.RefreshImageCellSize()
 	a.EditorGroup.TabBar.PostDragAutoScrollTick = func(generation uint64) {
 		screen.PostEvent(tcell.NewEventInterrupt(&ui.TabDragAutoScrollTick{Generation: generation}))
 	}
+	a.EditorGroup.Editor.PostDragAutoScrollTick = func(generation uint64) {
+		screen.PostEvent(tcell.NewEventInterrupt(&ui.EditorDragAutoScrollTick{Generation: generation}))
+	}
+	highlight.SetStepScheduler(func() {
+		screen.PostEvent(tcell.NewEventInterrupt(&highlightStep{}))
+	})
 	a.StartWatcher()
 
 	if a.Changes != nil {
 		a.Changes.Screen = screen
-		a.Changes.OnRefreshed = func() {
-			a.Sidebar.SetPanelDirty("changes", a.Changes.TotalChanges() > 0)
-			if a.pendingCurrentChangesOpen && a.selectedChangesDir() != "" {
-				a.pendingCurrentChangesOpen = false
-				a.OpenCurrentChanges()
-			}
-		}
+		a.Changes.OnRefreshed = a.onChangesRefreshed
 	}
 	if a.Repository != nil {
 		a.Repository.SetPoster(screen)
@@ -481,8 +622,8 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		a.StatusNotify(msg)
 	}
 	a.EditorGroup.FlushNotifications()
-	a.EditorGroup.OnFileOpen = func(path, lang, text string) {
-		a.NotifyLSPOpen(path, lang, text)
+	a.EditorGroup.OnFileOpen = func(path, lang string, lines []string) {
+		a.NotifyLSPOpen(path, lang, lines)
 		a.RequestGitGutterForActiveFile()
 		if a.PluginManager != nil {
 			a.PluginManager.DispatchEvent("file.open", path)
@@ -497,12 +638,12 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 	a.EditorGroup.OnContentTabClose = func(id string) {
 		a.cleanupPluginDetailTab(id)
 		a.cleanupSettingsTab(id)
+		a.closeFileHandlerTab(id)
 	}
 	if path := a.EditorGroup.ActiveFilePath(); path != "" {
 		if a.EditorGroup.Editor != nil && a.EditorGroup.Editor.Highlighter != nil {
 			lang := a.EditorGroup.Editor.Highlighter.Language()
-			text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
-			a.NotifyLSPOpen(path, lang, text)
+			a.NotifyLSPOpen(path, lang, a.EditorGroup.Editor.Buf.Lines)
 		}
 	}
 	a.Problems.OnNavigate = func(file string, line, col int) {
@@ -521,14 +662,27 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		if a.EditorGroup.Editor.Highlighter != nil {
 			lang = a.EditorGroup.Editor.Highlighter.Language()
 		}
-		text := strings.Join(a.EditorGroup.Editor.Buf.Lines, "\n")
-		changeDone := a.NotifyLSPChange(path, lang, text)
+		changeDone := a.NotifyLSPChange(path, lang, a.EditorGroup.Editor.Buf.Lines)
+		a.cancelBackgroundPull(path, lang)
+		a.ScheduleDiagnosticPull(false)
 		a.ScheduleAutocomplete()
 		a.CheckSignatureHelpTrigger(changeDone)
 		a.ScheduleGitGutter()
 		if a.PluginManager != nil {
 			a.PluginManager.DispatchEvent("editor.change", path)
 		}
+	}
+	a.EditorGroup.OnBookmarkChanged = func(path string, line int, action string, icon rune, style term.Style) {
+		if a.PluginManager != nil {
+			a.PluginManager.DispatchEvent("bookmark.change", path, line+1, action, string(icon), plugin.NameByStyle(style))
+		}
+	}
+	a.EditorGroup.OnGutterClick = func(path string, line int) bool {
+		if a.PluginManager == nil || !a.PluginManager.HasEventListeners("gutter.click") {
+			return false
+		}
+		a.PluginManager.DispatchEvent("gutter.click", path, line+1)
+		return true
 	}
 
 	lspManager.OnLog = func(server, level, message string) {
@@ -541,11 +695,16 @@ func (a *App) Init(screen *term.TcellScreen, renderer *render.Renderer, lspManag
 		screen.PostEvent(tcell.NewEventInterrupt(&LSPStateChanged{}))
 	}
 
-	lspManager.OnDiagnostics = func(params lsp.PublishDiagnosticsParams) {
+	lspManager.OnDiagnosticRefresh = func(server string) {
+		screen.PostEvent(tcell.NewEventInterrupt(&LSPDiagnosticRefresh{Server: server}))
+	}
+
+	lspManager.OnDiagnostics = func(server string, params lsp.PublishDiagnosticsParams) {
 		path := URIToPath(params.URI)
 		diags := LspToUIDiagnostics(params.Diagnostics)
 		slog.Debug("lsp diagnostics", "path", path, "count", len(diags))
 		screen.PostEvent(tcell.NewEventInterrupt(&DiagnosticsResult{
+			Server:      server,
 			Path:        path,
 			Diagnostics: diags,
 		}))
@@ -591,7 +750,25 @@ func (a *App) focusedWidgetInput() *widgets.InputWidget {
 	return holder.FocusedInput()
 }
 
+func (a *App) focusedTerminalWidget() *ui.TerminalWidget {
+	if a.Root == nil {
+		return nil
+	}
+	if tp, ok := a.Root.Focused.(*ui.TerminalPanelWidget); ok {
+		if tw, ok := tp.ActiveWidget().(*ui.TerminalWidget); ok {
+			return tw
+		}
+	} else if tw, ok := a.Root.Focused.(*ui.TerminalWidget); ok {
+		return tw
+	}
+	return nil
+}
+
 func (a *App) Copy() {
+	if tw := a.focusedTerminalWidget(); tw != nil {
+		tw.CopySelection()
+		return
+	}
 	if inp := a.focusedWidgetInput(); inp != nil {
 		inp.CopySelection()
 		return
@@ -606,6 +783,10 @@ func (a *App) Copy() {
 }
 
 func (a *App) Cut() {
+	if tw := a.focusedTerminalWidget(); tw != nil {
+		tw.CopySelection()
+		return
+	}
 	if inp := a.focusedWidgetInput(); inp != nil {
 		inp.CutSelection()
 		return
@@ -620,6 +801,15 @@ func (a *App) Cut() {
 }
 
 func (a *App) Paste() {
+	if tw := a.focusedTerminalWidget(); tw != nil {
+		text := clipboard.Get()
+		if text != "" {
+			tw.PasteText(text)
+		} else {
+			tw.ClearSelection()
+		}
+		return
+	}
 	if inp := a.focusedWidgetInput(); inp != nil {
 		inp.PasteClipboard()
 		return
@@ -634,10 +824,8 @@ func (a *App) Paste() {
 }
 
 func (a *App) PasteText(text string) {
-	if tp, ok := a.Root.Focused.(*ui.TerminalPanelWidget); ok && tp.WantsRawKeys() {
-		if tw, ok := tp.ActiveWidget().(*ui.TerminalWidget); ok {
-			tw.PasteText(text)
-		}
+	if tw := a.focusedTerminalWidget(); tw != nil && tw.WantsRawKeys() {
+		tw.PasteText(text)
 		return
 	}
 	if inp := a.focusedWidgetInput(); inp != nil {
@@ -676,6 +864,10 @@ func (a *App) ClosePluginDrawer() {
 	}
 	a.Root.RemoveOverlay(a.pluginDrawer)
 	a.pluginDrawer = nil
+	if a.pluginDrawerPanel != nil {
+		a.pluginDrawerPanel.Close()
+		a.pluginDrawerPanel = nil
+	}
 	a.FocusEditor()
 }
 
@@ -771,7 +963,7 @@ func (a *App) ShowConfirmDialogEx(title, message string, buttons []string, callb
 	a.ShowDialog(adapter)
 }
 
-func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
+func (a *App) showDiffFindBar(dv *ui.DiffEditorWidget) {
 	findBar := ui.NewFindBarWidget()
 	findBar.Borders = a.Borders
 	findBar.OnSearch = func(query string, opts ui.SearchOptions) []ui.FindMatch {
@@ -788,8 +980,15 @@ func (a *App) showDiffFindBar(dv *ui.DiffViewWidget) {
 		dv.ScrollToLine(match.Line)
 	}
 	findBar.OnDismiss = func() {
+		dv.OnRecompute = nil
 		a.DismissDialog()
 		dv.ClearSearch()
+	}
+	dv.OnRecompute = func() {
+		findBar.Refresh()
+		if len(findBar.Matches) > 0 {
+			dv.SetActiveMatch(findBar.Current)
+		}
 	}
 	a.ShowFindBar(findBar)
 }
@@ -815,4 +1014,22 @@ func (a *App) ShowSelectDialog(title string, items []widgets.SelectItem, onSelec
 
 	adapter := ui.NewWidgetAdapter(dialog)
 	a.ShowDialog(adapter)
+}
+
+// pointerShapeAt runs after routing so a drag that just ended already reads as
+// ended, and it sees every motion event, which the dividers' own handlers do not.
+func (a *App) pointerShapeAt(mx, my int) string {
+	switch {
+	case a.ContentSplit.Dragging():
+		return a.ContentSplit.ResizeShape()
+	case a.SplitPanel.Dragging():
+		return "ew-resize"
+	case a.Root.HasOverlay():
+		return "default"
+	case a.ContentSplit.OverDivider(mx, my):
+		return a.ContentSplit.ResizeShape()
+	case a.SplitPanel.OverDivider(mx, my):
+		return "ew-resize"
+	}
+	return "default"
 }

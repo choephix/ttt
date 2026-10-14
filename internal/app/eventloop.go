@@ -2,7 +2,9 @@ package app
 
 import (
 	"fmt"
+	"github.com/eugenioenko/ttt/internal/highlight"
 	"log/slog"
+	"time"
 
 	"github.com/eugenioenko/ttt/internal/git"
 	"github.com/eugenioenko/ttt/internal/plugin"
@@ -14,10 +16,9 @@ import (
 	"github.com/gdamore/tcell/v3"
 )
 
-type BlameResult struct {
-	Gen  int
-	Info *git.BlameInfo
-}
+type highlightStep struct{}
+
+const highlightStepBudget = 4 * time.Millisecond
 
 func RunEventLoop(
 	screen *term.TcellScreen,
@@ -36,9 +37,8 @@ func RunEventLoop(
 	if app.Repository != nil {
 		defer app.Repository.Close()
 	}
+	defer app.CloseTasks()
 
-	lastBlameLine := -1
-	lastBlameFile := ""
 	lastGutterFile := ""
 	lastGutterRepo := ""
 	lastTabFile := ""
@@ -47,8 +47,6 @@ func RunEventLoop(
 	lastCursorLine := -1
 	lastCursorCol := -1
 	lastCursorFile := ""
-	lastBlameRepo := ""
-	blameGen := 0
 
 	syncStatus := func() {
 		app.syncRepositoryObservation()
@@ -111,12 +109,14 @@ func RunEventLoop(
 			if app.PluginManager != nil && filePath != "" {
 				app.PluginManager.DispatchEvent("tab.change", filePath)
 			}
+			app.autoRevealActiveFile()
 		}
 
 		if filePath != lastOutlineFile {
 			lastOutlineFile = filePath
 			lastOutlineLine = line
 			app.EnsureLSPOpen(filePath)
+			app.ScheduleDiagnosticPull(true)
 			app.RefreshSymbols()
 		} else if line != lastOutlineLine {
 			lastOutlineLine = line
@@ -133,43 +133,37 @@ func RunEventLoop(
 				app.PluginManager.DispatchEvent("cursor.change", filePath)
 			}
 		}
-
-		if filePath != lastBlameFile || line != lastBlameLine || repoDir != lastBlameRepo {
-			lastBlameFile = filePath
-			lastBlameLine = line
-			lastBlameRepo = repoDir
-			blameGen++
-			app.Status.SetSegment(view.StatusSegment{ID: "blame", Side: "left", Priority: 200, Text: ""})
-			if repoDir != "" {
-				gen := blameGen
-				blameLine := line + 1
-				blameFile, ok := app.Repository.gitRelativePath(repoDir, filePath)
-				go func() {
-					var info *git.BlameInfo
-					if ok {
-						info = git.BlameLine(repoDir, blameFile, blameLine)
-					}
-					screen.PostEvent(tcell.NewEventInterrupt(&BlameResult{Gen: gen, Info: info}))
-				}()
-			}
-		}
 	}
 
+	// Last mouse position, so redraw can refresh the pointer after a key or
+	// async event opens an overlay or moves a divider. -1 until the first
+	// mouse event: no pointer escape is written before the mouse is seen.
+	mouseX, mouseY := -1, -1
+
 	redraw := func() {
-		cells := make([][]term.Cell, app.Root.Height)
-		for y := range cells {
-			cells[y] = make([]term.Cell, app.Root.Width)
+		// Every event path ends here, including scripted commands.
+		app.SyncFileHandlerTabs()
+		app.SyncEmptyState()
+		app.SyncBlame()
+		cells := renderer.NextFrame(app.Root.Width, app.Root.Height)
+		if app.ImageLayer != nil {
+			app.ImageLayer.Begin()
 		}
 		app.Root.Render(cells)
-		renderer.SetCurrent(cells)
 		if cx, cy, visible := app.Root.CursorPosition(); visible {
 			screen.ShowCursor(cx, cy)
 		} else {
 			screen.HideCursor()
 		}
 		renderer.Render(screen)
+		if app.commitImageLayer(screen) {
+			screen.Show()
+		}
 		// Must run after Render/CursorPosition, else content and cursor read different Term states mid-frame.
 		resizeTerminals(app)
+		if app.Screen != nil && mouseX >= 0 {
+			app.Screen.SetPointerShape(app.pointerShapeAt(mouseX, mouseY))
+		}
 	}
 
 	// Populate the status bar and register file watches for any files opened at
@@ -190,13 +184,13 @@ func RunEventLoop(
 	app.ShowPendingPluginApprovals()
 
 	handleKey := func(tev *tcell.EventKey) {
-		app.cancelHoverTimer()
-		if app.EditorGroup.SignatureHelp != nil {
-			switch tev.Key() {
-			case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,
-				tcell.KeyHome, tcell.KeyEnd, tcell.KeyPgUp, tcell.KeyPgDn:
-				app.DismissSignatureHelp()
-			}
+		app.stopHoverTask()
+		switch tev.Key() {
+		case tcell.KeyUp, tcell.KeyDown, tcell.KeyLeft, tcell.KeyRight,
+			tcell.KeyHome, tcell.KeyEnd, tcell.KeyPgUp, tcell.KeyPgDn:
+			// Also cancels a reply still on its way, which could otherwise
+			// show after navigating past the end of the call.
+			app.DismissSignatureHelp()
 		}
 		slog.Debug("key", "key", tev.Key(), "rune", string(term.KeyRune(tev)), "mod", tev.Modifiers())
 		app.Root.HandleEvent(tev)
@@ -207,9 +201,14 @@ func RunEventLoop(
 
 	handleMouse := func(tev *tcell.EventMouse) {
 		mx, my := tev.Position()
+		mouseX, mouseY = mx, my
 		btn := tev.Buttons()
+		if btn != 0 {
+			app.stopHoverTask()
+			app.DismissSignatureHelp()
+		}
 		slog.Debug("mouse", "x", mx, "y", my, "btn", btn)
-		app.DismissSignatureHelp()
+		app.EditorGroup.SignatureHelp = nil
 		if app.EditorGroup.Hover == nil {
 			if btn == 0 {
 				app.checkMouseHover(mx, my)
@@ -262,29 +261,32 @@ func RunEventLoop(
 			app.Root.SetSize(w, h)
 			resizeTerminals(app)
 			renderer.Clear()
+			app.invalidateImageLayer()
+			app.RefreshImageCellSize()
 			redraw()
 
 		case *tcell.EventInterrupt:
 			var execRequest *execRequestLifecycle
 			var execErr error
+			skipRedraw := false
 			switch v := tev.Data().(type) {
+			case *taskDelivery:
+				v.run()
+			case *highlightStep:
+				// Short steps keep input responsive while a large file catches up;
+				// the frame is redrawn once the deferred lines are ready.
+				if highlight.Step(highlightStepBudget) {
+					screen.PostEvent(tcell.NewEventInterrupt(v))
+					skipRedraw = true
+				}
 			case string:
 				if v != "" {
 					closeTerminal(v)
 				}
-			case *BlameResult:
-				if v.Gen == blameGen && v.Info != nil {
-					app.Status.SetSegment(view.StatusSegment{ID: "blame", Side: "left", Priority: 200, Text: fmt.Sprintf("%s, %s",
-						v.Info.Author, git.FormatRelativeTime(v.Info.Time))})
-				}
 			case *ui.TabDragAutoScrollTick:
 				app.EditorGroup.TabBar.HandleDragAutoScrollTick(v.Generation)
-			case *GitGutterResult:
-				if v.Gen == app.GitGutterGen {
-					app.EditorGroup.SetLineChanges(v.Path, v.Changes)
-				}
-			case *GitGutterTrigger:
-				app.RequestGitGutterForActiveFile()
+			case *ui.EditorDragAutoScrollTick:
+				app.EditorGroup.Editor.HandleDragAutoScrollTick(v.Generation)
 			case *execInputRequest:
 				if v.Lifecycle.claim() {
 					switch event := v.Event.(type) {
@@ -303,37 +305,6 @@ func RunEventLoop(
 					syncStatus()
 					execRequest = v.Lifecycle
 				}
-			case *AutocompleteTrigger:
-				triggerChar := app.charBeforeCursor()
-				isTrigger := triggerChar != "" && (len(app.CompletionTriggers) == 0 || app.isCompletionTrigger(triggerChar))
-				if isTrigger && app.IsAutocompleteActive() {
-					app.DismissAutocomplete()
-				}
-				if !app.IsAutocompleteActive() {
-					prefix := app.currentPrefix()
-					if len(prefix) >= 1 || isTrigger {
-						path := app.EditorGroup.ActiveFilePath()
-						lang := ""
-						if app.EditorGroup.Editor != nil && app.EditorGroup.Editor.Highlighter != nil {
-							lang = app.EditorGroup.Editor.Highlighter.Language()
-						}
-						line, col := app.EditorGroup.ActiveCursor()
-						app.RequestCompletions(path, lang, line, col, triggerChar)
-					}
-				}
-			case *SignatureHelpResult:
-				if v.Label != "" {
-					app.ShowSignatureHelp(v)
-				}
-			case *CompletionResult:
-				if len(v.Items) > 0 {
-					app.CompletionTriggers = v.TriggerChars
-					app.ShowAutocomplete(v.Items, v.LspItems)
-				}
-			case *HoverResult:
-				if v.Text != "" && v.Gen == app.HoverGen {
-					app.ShowHover(v.Text, v.AnchorX, v.AnchorY)
-				}
 			case *LocationResult:
 				if len(v.Locations) > 0 {
 					loc := v.Locations[0]
@@ -343,31 +314,27 @@ func RunEventLoop(
 					app.Root.SetFocus(app.EditorGroup)
 				}
 			case *RenameResult:
-				if v.Edit != nil && len(v.Edit.Changes) > 0 {
-					app.ApplyWorkspaceEdit(v.Edit)
-				}
+				app.ApplyWorkspaceEdit(v.Edit)
+			case *CodeActionResult:
+				app.applyCodeActionEdit(v.Path, v.Edit)
 			case *ReferencesResult:
 				if len(v.Locations) > 0 {
 					app.ShowReferences(v.Locations)
 				} else {
 					app.StatusNotify("No references found")
 				}
-			case *SymbolsResult:
-				if v.Path == app.EditorGroup.ActiveFilePath() {
-					if len(v.Symbols) == 0 && v.Status != "" {
-						app.Symbols.SetStatus(v.Status)
-					} else {
-						app.ApplySymbols(v.Symbols)
-					}
-				}
 			case *FormattingResult:
 				if len(v.Edits) > 0 {
 					app.ApplyTextEdits(v.Edits)
 				}
 			case *DiagnosticsResult:
-				// SetDiagnostics routes through the "lsp" source and fires
-				// OnDiagnosticsChanged, which rebuilds the Diagnostics panel.
-				app.EditorGroup.SetDiagnostics(v.Path, v.Diagnostics)
+				app.EditorGroup.SetDiagnosticsSource(lspDiagnosticsSource(v.Server), v.Path, v.Diagnostics)
+			case *LSPDiagnosticRefresh:
+				app.handleDiagnosticRefresh(v.Server)
+			case *LSPServerStopped:
+				app.handleLSPServerStopped(v)
+			case *LSPServerRestarted:
+				app.handleLSPServerRestarted(v)
 			case *OutputLineResult:
 				app.LogOutput(v.Level, v.Source, v.Message)
 			case *LSPStateChanged:
@@ -404,6 +371,8 @@ func RunEventLoop(
 				app.ApplyDiffOpen(v)
 			case *FileChangedResult:
 				app.HandleFileChanged(v.Path)
+			case *ExplorerDirChangedResult:
+				app.HandleExplorerDirChanged(v.Dir)
 			case *ui.SearchBatch:
 				app.Search.ApplyBatch(v)
 			case *DiffContentResult:
@@ -425,8 +394,8 @@ func RunEventLoop(
 				}
 			case *pluginInstallResult:
 				app.handlePluginInstallResult(v)
-			case *pluginUpdateResult:
-				app.handlePluginUpdateResult(v)
+			case *PluginUpdateResult:
+				app.HandlePluginUpdateResult(v)
 			case *RemoteRegistryResult:
 				app.handleRemoteRegistryResult(v)
 			case *pluginReadmeResult:
@@ -453,7 +422,9 @@ func RunEventLoop(
 					app.StatusNotify(fmt.Sprintf("Opened PR #%d: %s (%d files)", v.Info.Number, v.Info.Title, len(v.Info.Files)))
 				}
 			}
-			redraw()
+			if !skipRedraw {
+				redraw()
+			}
 			if execRequest != nil {
 				execRequest.complete(execErr)
 			}

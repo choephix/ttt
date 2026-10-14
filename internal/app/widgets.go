@@ -1,12 +1,17 @@
 package app
 
 import (
+	"github.com/eugenioenko/ttt/internal/highlight"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/eugenioenko/ttt/internal/asynctask"
 	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/core/fold"
 	"github.com/eugenioenko/ttt/internal/github"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
@@ -83,9 +88,10 @@ func resolveLineColArg(arg string) (FileTarget, bool) {
 	return FileTarget{Path: abs, Line: line, Col: col}, true
 }
 
-func resolveArgs() (ws *workspace.Workspace, openFiles []FileTarget, configFile string, prURLs []string) {
+func resolveArgs(welcomeOnHome bool) (ws *workspace.Workspace, openFiles []FileTarget, configFile string, prURLs []string) {
 	var folders []string
 	var wsFile string
+	welcome := false
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
@@ -119,6 +125,10 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []FileTarget, configFile 
 			continue
 		}
 		if args[i] == "--listen" {
+			continue
+		}
+		if args[i] == "--welcome" {
+			welcome = true
 			continue
 		}
 		if isPRURL(args[i]) {
@@ -165,16 +175,20 @@ func resolveArgs() (ws *workspace.Workspace, openFiles []FileTarget, configFile 
 	}
 
 	// Opening only files intentionally creates no workspace — a folder must be passed explicitly.
-	if len(folders) == 0 && len(prURLs) == 0 && len(openFiles) == 0 {
+	// --welcome, or starting in $HOME with welcome.showOnHome, opens no folder
+	// so the welcome page shows instead.
+	if len(folders) == 0 && len(prURLs) == 0 && len(openFiles) == 0 && !welcome {
 		cwd, _ := os.Getwd()
-		folders = append(folders, cwd)
+		if home, err := os.UserHomeDir(); !welcomeOnHome || err != nil || filepath.Clean(cwd) != filepath.Clean(home) {
+			folders = append(folders, cwd)
+		}
 	}
 	ws = workspace.New(folders)
 	return
 }
 
 func BuildApp(cfg *config.AppConfig, borders *term.BorderSet) (*App, []string, []FileTarget) {
-	ws, openFiles, _, prURLs := resolveArgs()
+	ws, openFiles, _, prURLs := resolveArgs(cfg.Settings.Welcome.ShowOnHome)
 	return BuildAppFromConfig(cfg, borders, ws, openFiles), prURLs, openFiles
 }
 
@@ -202,7 +216,9 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 
 	bracketStyles := ResolveBracketColorStyles(cfg.Theme.Editor.BracketColors)
 
+	highlight.SetTimeLimit(time.Duration(cfg.Settings.Editor.HighlightTimeLimit) * time.Millisecond)
 	editorGroup := ui.NewEditorGroupWidget(borders, cfg.Settings.Editor.TabSize, cfg.Settings.Editor.LineNumbers, cfg.Settings.Editor.GutterStyle)
+	editorGroup.TabBar.Icons = cfg.Settings.Appearance.Icons
 	editorGroup.InsertSpaces = cfg.Settings.Editor.InsertSpaces
 	editorGroup.InsertFinalNewline = cfg.Settings.Editor.InsertFinalNewline
 	editorGroup.ShowTrailingNewline = cfg.Settings.Editor.IsShowTrailingNewlineEnabled()
@@ -214,14 +230,24 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	editorGroup.DiffWordWrap = cfg.Settings.Editor.DiffWordWrap
 	editorGroup.DiffHighContrast = cfg.Settings.Editor.DiffHighContrast
 	editorGroup.DiffCollapsedEmphasis = cfg.Settings.Editor.DiffCollapsedEmphasis
+	editorGroup.DiffSigns = cfg.Settings.Editor.DiffSigns
+	editorGroup.DiffSignsColor = cfg.Settings.Editor.DiffSignsColor
+	editorGroup.DiffGutterHighlight = cfg.Settings.Editor.DiffGutterHighlight
+	editorGroup.DiffColorGutterNumbers = cfg.Settings.Editor.DiffColorGutterNumbers
+	editorGroup.DiffScrollbarGitMarks = cfg.Settings.Editor.DiffScrollbarGitMarks
+	editorGroup.LegacyScrollbarGlyphs = cfg.Settings.Appearance.ScrollbarGlyphs == config.ScrollbarGlyphsLegacy
 	editorGroup.Editor.WordWrap = cfg.Settings.Editor.WordWrap
 	editorGroup.Editor.AutoDedent = cfg.Settings.Editor.IsAutoDedentEnabled()
 	editorGroup.Editor.AutoIndent = cfg.Settings.Editor.IsAutoIndentEnabled()
+	editorGroup.Editor.LegacyScrollbarGlyphs = cfg.Settings.Appearance.ScrollbarGlyphs == config.ScrollbarGlyphsLegacy
+	editorGroup.Editor.ScrollbarGitMarks = cfg.Settings.Editor.IsScrollbarGitMarksEnabled()
 	editorGroup.UndoDeleteCursorStart = cfg.Settings.Editor.UndoDeleteCursorStart
 	editorGroup.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
 	editorGroup.Editor.BracketPairColorization = cfg.Settings.Editor.BracketPairColorization
+	editorGroup.SetImageProtocol(cfg.Settings.Image.Protocol)
 	editorGroup.BracketColorStyles = bracketStyles
 	editorGroup.Editor.BracketColorStyles = bracketStyles
+	grammarErrs := loadGrammarSettings(cfg.Settings.Editor.Grammars)
 	for _, f := range openFiles {
 		editorGroup.OpenFile(f.Path)
 		editorGroup.CommitActiveTab()
@@ -268,23 +294,33 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	search.Debounce.DelayMs = cfg.Settings.Search.Debounce
 	changes := NewChangesPanel(ws.Paths()...)
 	changes.SetFileView(cfg.Settings.Git.FileView)
-	if cfg.Settings.Sidebar.CommitHistoryHeight > 0 {
-		changes.Split.BottomH = cfg.Settings.Sidebar.CommitHistoryHeight
+	changes.SetIcons(cfg.Settings.Appearance.Icons)
+	state := config.LoadState()
+	if h := state.CommitHistoryHeight; h > 0 {
+		changes.Split.BottomH = h
+		changes.Split.BottomRatio = 0
+	} else if h := cfg.Settings.Sidebar.CommitHistoryHeight; h > 0 {
+		changes.Split.BottomH = h
 		changes.Split.BottomRatio = 0
 	}
 	symbols := NewSymbolsPanel()
+	symbols.SetIcons(cfg.Settings.Appearance.Icons)
 
-	explorer := NewNavigationPanel(cfg.Settings.Explorer, ws.Paths()...)
+	explorer := NewNavigationPanel(cfg.Settings.Explorer, cfg.Settings.Appearance.Icons, ws.Paths()...)
 
 	sidebar := ui.NewSidebarWidget()
 	sidebar.AddPanel("explorer", "Explore", explorer.Adapter)
 	sidebar.AddPanel("search", "Find", search)
 	sidebar.AddPanel("changes", "Changes", changes.Adapter)
 	sidebar.AddPanel("outline", "Outline", symbols.Adapter)
-	sidebar.SetPanelOrder(cfg.Settings.Sidebar.PanelOrder)
+	if len(state.SidebarPanelOrder) > 0 {
+		sidebar.SetPanelOrder(state.SidebarPanelOrder)
+	} else {
+		sidebar.SetPanelOrder(cfg.Settings.Sidebar.PanelOrder)
+	}
 	sidebar.Tabs.Config.Reorderable = true
 	hasFolders := len(ws.Paths()) > 0
-	sidebar.Visible = hasFolders
+	sidebar.Visible = hasFolders && !state.SidebarHidden
 	sidebar.Borders = borders
 
 	splitPanel := ui.NewSplitPanelWidget()
@@ -292,8 +328,23 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	splitPanel.Right = contentSplit
 	splitPanel.Borders = borders
 	splitPanel.DividerPos = ui.DefaultSidebarWidth
-	if cfg.Settings.Sidebar.Width > 0 {
+	if state.SidebarWidth >= ui.MinSidebarWidth {
+		splitPanel.DividerPos = state.SidebarWidth
+	} else if cfg.Settings.Sidebar.Width >= ui.MinSidebarWidth {
 		splitPanel.DividerPos = cfg.Settings.Sidebar.Width
+	}
+	panelPos := state.PanelPosition
+	if panelPos == "" {
+		panelPos = cfg.Settings.Panel.Position
+	}
+	if panelPos == "right" {
+		contentSplit.Position = ui.SplitRight
+	}
+	if state.PanelHeight >= ui.MinPanelHeight {
+		contentSplit.BottomH = state.PanelHeight
+	}
+	if state.PanelWidth >= ui.MinPanelWidth {
+		contentSplit.RightW = state.PanelWidth
 	}
 	splitPanel.ShowLeft = sidebar.Visible
 	splitPanel.RightBorderStartY = 2
@@ -328,22 +379,36 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 		Status:              status,
 		Borders:             borders,
 		Settings:            &cfg.Settings,
+		State:               state,
 		Workspace:           ws,
-		Palette:             BuildTerminalPalettePtr(cfg.Theme),
+		Palette:             BuildTerminalPalettePtr(cfg.Theme, WithTransparentBackground(cfg.Settings.Editor.TransparentBackground)),
 		TerminalPanel:       terminalPanel,
 		Problems:            problems,
 		References:          references,
 		Output:              output,
 		DocVersions:         make(map[string]int),
+		lspSent:             make(map[string]<-chan struct{}),
+		lspEpochs:           make(map[string]int),
+		lastPulled:          make(map[string]pullKey),
 		LspNotified:         make(map[string]bool),
 		pluginDetailWidgets: make(map[string]*pluginDetailState),
 	}
+	app.diagPull = NewTask[pulledDiagnostics](app, asynctask.TaskOptions{Delay: pullDiagnosticsDelay})
+	app.diagBackground = make(map[string]*asynctask.Task[[]backgroundPull])
 	app.Repository = NewRepositoryState(changes, ws.Paths())
+	app.Repository.SetExplorer(explorer)
 	app.Repository.SetCurrentChangesHandler(app.ApplyCurrentChanges)
 	app.applyMenuBarVisibility(cfg.Settings.Editor.IsMenuBarVisible())
 	// Rebuild the Diagnostics panel whenever any source (LSP or a plugin)
 	// changes its diagnostics.
 	app.EditorGroup.OnDiagnosticsChanged = app.refreshProblems
+	app.EditorGroup.FileHandler = app.openWithFileHandler
+	app.EditorGroup.OnFileHandled = app.fileHandlerTabOpened
+	app.applyChevrons(cfg.Settings.Appearance)
+	app.loadedGrammars = slices.Clone(cfg.Settings.Editor.Grammars)
+	app.reportGrammarErrors(grammarErrs)
+	editorGroup.FoldTask = NewTask[[]fold.Range](app, asynctask.TaskOptions{})
+	editorGroup.FoldDelay = NewTask[struct{}](app, asynctask.TaskOptions{Delay: ui.FoldRecomputeDelay})
 	return app
 }
 

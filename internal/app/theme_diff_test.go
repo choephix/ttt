@@ -61,3 +61,26 @@ func TestBuildStyleMapUsesResolvedSemanticDiffPairing(t *testing.T) {
 		t.Fatalf("rendered deleted background = %v, want resolved %v", got, want)
 	}
 }
+
+func TestBuildStyleMapIncludesFileIconStyles(t *testing.T) {
+	theme := config.DefaultTheme()
+	theme.FileIcons.Green = config.StyleDef{Fg: "#00aa00"}
+	theme.FileIcons.Magenta = config.StyleDef{Fg: "#aa00aa"}
+	styles := BuildStyleMap(theme)
+	if got := styles[term.StyleFileIconGreen].GetForeground(); got != tcell.GetColor("#00aa00") {
+		t.Fatalf("green file icon foreground = %v", got)
+	}
+	if got := styles[term.StyleFileIconMagenta].GetForeground(); got != tcell.GetColor("#aa00aa") {
+		t.Fatalf("magenta file icon foreground = %v", got)
+	}
+}
+
+func TestBuildStyleMapScrollMarksUseGutterColorForForegroundAndBackground(t *testing.T) {
+	theme := config.DefaultTheme()
+	theme.Diff.GutterModified = config.StyleDef{Fg: "#123456"}
+	style := BuildStyleMap(theme)[term.StyleScrollMarkModified]
+	want := tcell.GetColor("#123456")
+	if style.GetForeground() != want || style.GetBackground() != want {
+		t.Fatalf("scroll mark style = fg %v bg %v, want both %v", style.GetForeground(), style.GetBackground(), want)
+	}
+}

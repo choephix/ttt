@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/eugenioenko/ttt/internal/command"
@@ -12,6 +13,7 @@ import (
 	"github.com/eugenioenko/ttt/internal/core/diff"
 	"github.com/eugenioenko/ttt/internal/markdown"
 	"github.com/eugenioenko/ttt/internal/plugin"
+	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/ui"
 	"github.com/eugenioenko/ttt/internal/view"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -180,13 +182,13 @@ func (a *App) pluginUninstall() {
 }
 
 func (a *App) doPluginUninstall(name string) {
-	a.Sidebar.RemovePanel("plugin." + name)
-	a.BottomPanel.RemovePanel("plugin." + name)
+	a.RemovePluginPanels(name)
 	a.EditorGroup.ClearDiagnosticsSource("plugin:" + name)
 
 	if err := a.PluginManager.Uninstall(name); err != nil {
 		slog.Error("plugin uninstall", "error", err)
 	}
+	a.uninstallPluginGrammars(name)
 
 	a.resetPluginDetailButton(name)
 	if a.PluginsPanel != nil {
@@ -208,42 +210,46 @@ func (a *App) pluginUpdate() {
 		items = append(items, widgets.SelectItem{ID: name, Label: name})
 	}
 
-	a.ShowSelectDialog("Update Plugin", items, func(name string) {
-		go func() {
-			p, needsApproval, err := a.PluginManager.Update(name)
-			a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginUpdateResult{
-				plugin:        p,
-				needsApproval: needsApproval,
-				err:           err,
-				name:          name,
-			}))
-		}()
-	}, nil)
+	a.ShowSelectDialog("Update Plugin", items, a.PluginUpdateByName, nil)
 }
 
-type pluginUpdateResult struct {
-	plugin        *plugin.Plugin
-	needsApproval bool
-	err           error
-	name          string
+type PluginUpdateResult struct {
+	update *plugin.PluginUpdate
+	err    error
 }
 
-func (a *App) handlePluginUpdateResult(result *pluginUpdateResult) {
-	if result.err != nil {
-		a.ShowConfirmDialogEx("Update Failed", result.err.Error(), []string{"Close"}, []func(){
+// HandlePluginUpdateResult swaps the plugin's Lua state, so it runs on the UI goroutine.
+func (a *App) HandlePluginUpdateResult(result *PluginUpdateResult) {
+	var p *plugin.Plugin
+	var needsApproval bool
+	err := result.err
+	if err == nil {
+		old := a.PluginManager.FindPlugin(result.update.Name())
+		p, needsApproval, err = a.PluginManager.ApplyUpdate(result.update)
+		if old != nil && !old.Loaded() {
+			if p != nil && !needsApproval {
+				a.closePluginDrawerAndTabs(old.Name)
+			} else {
+				a.RemovePluginPanels(old.Name)
+			}
+		}
+	}
+	if err != nil {
+		a.ShowConfirmDialogEx("Update Failed", err.Error(), []string{"Close"}, []func(){
 			func() { a.DismissDialog() },
 		})
 		return
 	}
-	if result.needsApproval && result.plugin != nil {
-		a.PendingPluginApprovals = append(a.PendingPluginApprovals, result.plugin)
+	if needsApproval && p != nil {
+		a.PendingPluginApprovals = append(a.PendingPluginApprovals, p)
 		if len(a.PendingPluginApprovals) == 1 {
-			a.ShowPluginApprovalDialog(result.plugin)
+			a.ShowPluginApprovalDialog(p)
 		}
 		return
 	}
-	if !result.needsApproval && result.plugin != nil {
-		a.WirePlugin(result.plugin)
+	if !needsApproval && p != nil {
+		a.WirePlugin(p)
+		a.installPluginGrammars(p)
 	}
 	if a.PluginsPanel != nil {
 		a.PluginsPanel.Refresh()
@@ -258,6 +264,12 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 		kvEntries = append(kvEntries, widgets.KeyValueEntry{
 			Key:   e.Name,
 			Value: e.Value,
+		})
+	}
+	for _, g := range p.Manifest.Grammars {
+		kvEntries = append(kvEntries, widgets.KeyValueEntry{
+			Key:   "Grammar",
+			Value: grammarLabel(g),
 		})
 	}
 
@@ -277,6 +289,7 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 			a.DismissDialog()
 			if err := a.PluginManager.ApproveAndLoad(p); err == nil {
 				a.WirePlugin(p)
+				a.installPluginGrammars(p)
 			}
 			a.updatePluginDetailButtons()
 			if a.PluginsPanel != nil {
@@ -296,22 +309,23 @@ func (a *App) ShowPluginApprovalDialog(p *plugin.Plugin) {
 }
 
 func (a *App) WirePlugin(p *plugin.Plugin) {
+	id := "plugin." + p.Name
+	var sidebar, bottom *plugin.PluginPanelWidget
+	var sidebarTitle, bottomTitle string
 	for _, reg := range a.PluginManager.SidebarPanels {
-		if reg.ID == "plugin."+p.Name {
-			if !a.Sidebar.HasPanel(reg.ID) {
-				a.Sidebar.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
-			}
+		if reg.ID == id {
+			sidebar, sidebarTitle = reg.Widget, reg.Title
 			break
 		}
 	}
 	for _, reg := range a.PluginManager.BottomPanels {
-		if reg.ID == "plugin."+p.Name {
-			if !a.BottomPanel.HasPanel(reg.ID) {
-				a.BottomPanel.AddPanel(reg.ID, reg.Title, ui.NewWidgetAdapter(reg.Widget))
-			}
+		if reg.ID == id {
+			bottom, bottomTitle = reg.Widget, reg.Title
 			break
 		}
 	}
+	a.syncPluginPanel(&a.Sidebar.TabbedPanel, id, sidebarTitle, sidebar)
+	a.syncPluginPanel(&a.BottomPanel.TabbedPanel, id, bottomTitle, bottom)
 	p.RequestRedraw = func() {
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
@@ -465,6 +479,39 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		}
 		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
 	}
+	p.SetBookmark = func(line int, icon rune, style term.Style) {
+		a.EditorGroup.Editor.SetBookmark(line, icon, style)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
+	p.GetBookmark = func(line int) (rune, term.Style, bool) {
+		b, ok := a.EditorGroup.Editor.GetBookmark(line)
+		return b.Icon, b.Style, ok
+	}
+	p.RemoveBookmark = func(line int) {
+		a.EditorGroup.Editor.RemoveBookmark(line)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
+	p.SetAllBookmarks = func(items []plugin.BookmarkItem) {
+		m := make(map[int]ui.Bookmark, len(items))
+		for _, it := range items {
+			m[it.Line] = ui.Bookmark{Icon: it.Icon, Style: it.Style}
+		}
+		a.EditorGroup.Editor.SetAllBookmarks(m)
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
+	p.GetAllBookmarks = func() []plugin.BookmarkItem {
+		all := a.EditorGroup.Editor.GetAllBookmarks()
+		items := make([]plugin.BookmarkItem, 0, len(all))
+		for line, b := range all {
+			items = append(items, plugin.BookmarkItem{Line: line, Icon: b.Icon, Style: b.Style})
+		}
+		slices.SortFunc(items, func(x, y plugin.BookmarkItem) int { return x.Line - y.Line })
+		return items
+	}
+	p.ClearBookmarks = func() {
+		a.EditorGroup.Editor.ClearBookmarks()
+		a.Screen.PostEvent(tcell.NewEventInterrupt(nil))
+	}
 	p.RenderMarkdown = func(text string) []plugin.MarkdownLine {
 		rendered := markdown.Render(text)
 		lines := make([]plugin.MarkdownLine, len(rendered))
@@ -516,6 +563,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		a.captureMenuFocus()
 		menu := ui.NewContextMenuWidget(items, x, y)
 		menu.Borders = a.Borders
+		menu.Icons = a.Settings.Appearance.Icons
 		menu.OnExec = func(cmd string) {
 			a.Root.PopOverlay()
 			a.restoreMenuFocus()
@@ -541,17 +589,21 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 				a.Root.RemoveOverlay(adapter)
 				if a.pluginDrawer == adapter {
 					a.pluginDrawer = nil
+					a.pluginDrawerPanel = nil
 				}
+				panel.Close()
 				a.FocusEditor()
 			},
 		})
 		drawer.SetContent(panel)
 		adapter = a.ShowDrawer(drawer)
 		a.pluginDrawer = adapter
+		a.pluginDrawerPanel = panel
 	}
 	p.CloseDrawer = func() {
 		a.ClosePluginDrawer()
 	}
+	p.Graphics = a.pluginGraphics
 	p.OpenTab = func(id string, panel *plugin.PluginPanelWidget) {
 		a.EditorGroup.OpenPluginTab(id, id, panel)
 	}
@@ -577,6 +629,9 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 
 	a.registerPluginCommandsAndKeys(p)
 	p.FlushPendingDrawer()
+	if len(p.FileHandlers) > 0 {
+		a.EditorGroup.RetryFileHandlers()
+	}
 }
 
 func (a *App) wirePluginLog(p *plugin.Plugin) {
@@ -676,8 +731,7 @@ func (a *App) pluginReload() {
 }
 
 func (a *App) doPluginReload(name string) {
-	a.Sidebar.RemovePanel("plugin." + name)
-	a.BottomPanel.RemovePanel("plugin." + name)
+	a.RemovePluginPanels(name)
 	a.EditorGroup.ClearDiagnosticsSource("plugin:" + name)
 
 	p, err := a.PluginManager.Reload(name)
@@ -695,6 +749,7 @@ func (a *App) doPluginReload(name string) {
 	}
 
 	a.WirePlugin(p)
+	a.installPluginGrammars(p)
 
 	a.Output.AddLine(ui.OutputLine{
 		Time:       time.Now().Format("15:04:05"),
@@ -749,14 +804,10 @@ func (a *App) PluginUninstallByName(name string) {
 }
 
 func (a *App) PluginUpdateByName(name string) {
+	update := a.PluginManager.PrepareUpdate(name)
 	go func() {
-		p, needsApproval, err := a.PluginManager.Update(name)
-		a.Screen.PostEvent(tcell.NewEventInterrupt(&pluginUpdateResult{
-			plugin:        p,
-			needsApproval: needsApproval,
-			err:           err,
-			name:          name,
-		}))
+		err := update.Fetch()
+		a.Screen.PostEvent(tcell.NewEventInterrupt(&PluginUpdateResult{update: update, err: err}))
 	}()
 }
 
@@ -777,6 +828,7 @@ func (a *App) ShowPluginDropdownMenu(entries []widgets.MenuEntry, x, y int) {
 	a.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = a.Borders
+	menu.Icons = a.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		a.Root.PopOverlay()
 		a.restoreMenuFocus()
@@ -842,6 +894,7 @@ func (a *App) ShowPluginRowMenu(name string, enabled bool, x, y int) {
 	}
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = a.Borders
+	menu.Icons = a.Settings.Appearance.Icons
 	restoreFocus := func() {
 		a.Root.PopOverlay()
 		if a.PluginsPanel != nil {
@@ -913,5 +966,69 @@ func (a *App) showNextPluginApproval() {
 func (a *App) ShowPendingPluginApprovals() {
 	if len(a.PendingPluginApprovals) > 0 {
 		a.ShowPluginApprovalDialog(a.PendingPluginApprovals[0])
+	}
+}
+
+// Panel images live in the terminal until released, so a plugin panel is closed whenever it leaves the UI.
+func (a *App) RemovePluginPanels(name string) {
+	id := "plugin." + name
+	for _, tp := range []*ui.TabbedPanel{&a.Sidebar.TabbedPanel, &a.BottomPanel.TabbedPanel} {
+		closePluginPanel(tp.PanelWidget(id))
+		tp.RemovePanel(id)
+	}
+	a.closePluginDrawerAndTabs(name)
+}
+
+func (a *App) closePluginDrawerAndTabs(name string) {
+	if a.pluginDrawerPanel != nil && a.pluginDrawerPanel.PluginName() == name {
+		a.ClosePluginDrawer()
+	}
+	// File-handler tabs are left to SyncFileHandlerTabs, which falls back to the binary card.
+	var tabs []string
+	for i := range a.EditorGroup.TabCount() {
+		path, _ := a.EditorGroup.TabInfo(i)
+		if panel, ok := a.EditorGroup.TabContent(i).(*plugin.PluginPanelWidget); ok && panel.PluginName() == name {
+			if _, handled := a.fileHandlerTabs[path]; !handled {
+				tabs = append(tabs, path)
+			}
+		}
+	}
+	for _, id := range tabs {
+		a.EditorGroup.ClosePluginTab(id)
+	}
+}
+
+func (a *App) syncPluginPanel(tp *ui.TabbedPanel, id, title string, current *plugin.PluginPanelWidget) {
+	switch {
+	case current == nil:
+		if tp.HasPanel(id) {
+			closePluginPanel(tp.PanelWidget(id))
+			tp.RemovePanel(id)
+		}
+	case !tp.HasPanel(id):
+		tp.AddPanel(id, title, ui.NewWidgetAdapter(current))
+	default:
+		a.replaceStalePluginPanel(tp, id, current)
+	}
+}
+
+func (a *App) replaceStalePluginPanel(tp *ui.TabbedPanel, id string, current *plugin.PluginPanelWidget) {
+	old, ok := tp.PanelWidget(id).(*ui.WidgetAdapter)
+	if !ok || old.W == current {
+		return
+	}
+	closePluginPanel(old)
+	replacement := ui.NewWidgetAdapter(current)
+	tp.ReplacePanelWidget(id, replacement)
+	if a.Root.Focused == old {
+		a.Root.SetFocus(replacement)
+	}
+}
+
+func closePluginPanel(w ui.Widget) {
+	if adapter, ok := w.(*ui.WidgetAdapter); ok {
+		if panel, ok := adapter.W.(*plugin.PluginPanelWidget); ok {
+			panel.Close()
+		}
 	}
 }

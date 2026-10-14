@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/eugenioenko/ttt/internal/term"
+	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/gdamore/tcell/v3"
 )
 
@@ -112,6 +113,14 @@ func (tp *TerminalPanelWidget) Count() int {
 	return len(tp.widgets)
 }
 
+func (tp *TerminalPanelWidget) DividerScreenX() int {
+	r := tp.GetRect()
+	if len(tp.widgets) == 0 || r.W <= VerticalTabBarWidth {
+		return -1
+	}
+	return r.X + VerticalTabBarWidth - 2
+}
+
 func (tp *TerminalPanelWidget) syncTabBar() {
 	tp.TabBar.Count = len(tp.widgets)
 	tp.TabBar.Active = tp.active
@@ -151,7 +160,7 @@ func (tp *TerminalPanelWidget) Render(surface Surface) {
 
 func (tp *TerminalPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 	if mev, ok := ev.(*tcell.EventMouse); ok {
-		if mev.Buttons()&tcell.Button1 != 0 {
+		if mev.Buttons()&tcell.Button1 != 0 && !tp.activeOwnsPointer() {
 			mx, _ := mev.Position()
 			r := tp.GetRect()
 			if mx-r.X < VerticalTabBarWidth {
@@ -164,4 +173,9 @@ func (tp *TerminalPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 		return w.HandleEvent(ev)
 	}
 	return EventIgnored
+}
+
+func (tp *TerminalPanelWidget) activeOwnsPointer() bool {
+	owner, ok := tp.ActiveWidget().(widgets.PointerCaptureOwner)
+	return ok && owner.OwnsPointerCapture()
 }

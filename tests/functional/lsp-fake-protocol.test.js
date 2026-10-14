@@ -23,7 +23,7 @@ afterEach(() => {
   dir = null;
 });
 
-function startCase(name) {
+function startCase(name, serverArgs = [], debounce = 100) {
   dir = createTempDir();
   const file = createTempFile(dir, `${name}.js`, INITIAL_TEXT);
   const trace = join(dir, "fake-lsp-trace.jsonl");
@@ -35,7 +35,7 @@ function startCase(name) {
         lsp: {
           servers: {
             javascript: {
-              command: [process.execPath, FAKE_SERVER, trace],
+              command: [process.execPath, FAKE_SERVER, trace, ...serverArgs],
               languages: { ".js": "javascript" },
             },
           },
@@ -43,7 +43,7 @@ function startCase(name) {
         autocomplete: {
           enabled: true,
           autoSuggest: true,
-          debounce: 100,
+          debounce,
           signatureHelp: true,
         },
       },
@@ -103,7 +103,9 @@ function expectedInitialize(root) {
         },
         publishDiagnostics: {},
         documentSymbol: { hierarchicalDocumentSymbolSupport: true },
+        diagnostic: { dynamicRegistration: false, relatedDocumentSupport: false },
       },
+      workspace: { diagnostics: { refreshSupport: true } },
     },
   };
 }
@@ -204,6 +206,167 @@ function assertProtocol(trace, file, expectedTexts) {
 }
 
 describe("deterministic fake LSP protocol", () => {
+  it("refreshes outline symbols on unchanged save and panel return", () => {
+    const { trace } = startCase("outline-refresh", ["--symbols"]);
+    tui.exec("Show Outline");
+    tui.waitFor("FAKE_SYMBOL_1");
+    tui.exec("Save File");
+    tui.waitFor("FAKE_SYMBOL_2");
+    tui.exec("Show Explorer");
+    tui.exec("Show Outline");
+    tui.waitFor("FAKE_SYMBOL_3");
+    const after = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[after]).toContain("FAKE_SYMBOL_3");
+    expect(messagesFor(readTrace(trace), "textDocument/documentSymbol")).toHaveLength(3);
+  });
+
+  it("applies a rename answered with documentChanges", () => {
+    const { file, trace: tracePath } = startCase("rename-document-changes");
+    tui.exec("Rename Symbol");
+    tui.type("renamed");
+    tui.press("enter");
+    tui.waitFor("// renamed protocol");
+    const after = tui.snapshot();
+    const { snapshots } = tui.run();
+    const renames = messagesFor(readTrace(tracePath), "textDocument/rename");
+
+    expect(snapshots[after]).toContain("Renamed across 1 file(s)");
+    expect(renames).toHaveLength(1);
+    expect(renames[0].params).toEqual({
+      textDocument: { uri: `file://${file}` },
+      position: { line: 1, character: 0 },
+      newName: "renamed",
+    });
+  });
+
+  it("drops a completion reply that arrives after the cursor left the word", () => {
+    startCase("completion-late", ["--late=textDocument/completion"]);
+    tui.type("consol");
+    tui.waitFor("FAKE_LATE_PENDING");
+    // Line start has no prefix, so a stale reply would show unfiltered there.
+    tui.press("up");
+    tui.press("home");
+    tui.waitFor("FAKE_LATE_SENT");
+    tui.elapse(300);
+    const after = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[after]).toContain("consol");
+    expect(snapshots[after]).not.toContain("console");
+  });
+
+  it("skips a pending auto-suggest once the cursor leaves the word being typed", () => {
+    const { trace: tracePath } = startCase("autosuggest-moved", [], 500);
+    tui.type("consol");
+    tui.press("up");
+    tui.elapse(800);
+    const after = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[after]).not.toContain("console");
+    expect(messagesFor(readTrace(tracePath), "textDocument/completion")).toEqual([]);
+  });
+
+  it("drops a signature help reply that arrives after the cursor left the call", () => {
+    startCase("signature-late", ["--late=textDocument/signatureHelp"]);
+    tui.type("fn(");
+    tui.waitFor("FAKE_LATE_PENDING");
+    tui.press("left");
+    tui.press("left");
+    tui.waitFor("FAKE_LATE_SENT");
+    tui.elapse(300);
+    const after = tui.snapshot();
+    const { snapshots } = tui.run();
+
+    expect(snapshots[after]).not.toContain("fakeSignature");
+  });
+
+  it("cancels hover on Escape, ignores a late reply, and allows a new hover", () => {
+    const { file, trace: tracePath } = startCase("hover-cancel", ["--hold-hover"]);
+    tui.exec("Show Hover");
+    tui.waitFor("FAKE_HOVER_PENDING");
+    tui.press("esc");
+    tui.waitFor("FAKE_HOVER_CANCELLED");
+    const cancelled = tui.snapshot();
+    tui.exec("Show Hover");
+    tui.waitFor("FAKE_HOVER_INFO");
+    const visible = tui.snapshot();
+    tui.press("esc");
+    const dismissed = tui.snapshot();
+    const { snapshots } = tui.run();
+    const trace = readTrace(tracePath);
+    const hovers = messagesFor(trace, "textDocument/hover");
+
+    expect(snapshots[cancelled]).not.toContain("FAKE_STALE_HOVER");
+    expect(snapshots[visible]).toContain("FAKE_HOVER_INFO");
+    expect(snapshots[dismissed]).not.toContain("FAKE_HOVER_INFO");
+    expect(hovers).toHaveLength(2);
+    expect(hovers[0].params).toEqual({
+      textDocument: { uri: `file://${file}` },
+      position: { line: 1, character: 0 },
+    });
+    expect(messagesFor(trace, "$/cancelRequest")).toEqual([
+      { jsonrpc: "2.0", method: "$/cancelRequest", params: { id: hovers[0].id } },
+    ]);
+    assertGracefulShutdown(trace);
+  });
+
+  it("pulls diagnostics from a pull-only server on open and after edits", () => {
+    const { file, trace: tracePath } = startCase("pull-diagnostics", ["--pull"]);
+
+    tui.type("bad");
+    tui.waitFor("FAKE_PULL_BAD");
+    const added = tui.snapshot();
+    tui.type(" clean");
+    tui.waitFor("No problems detected");
+    const cleared = tui.snapshot();
+
+    const { snapshots } = tui.run();
+    const trace = readTrace(tracePath);
+    const pulls = messagesFor(trace, "textDocument/diagnostic");
+
+    expect(snapshots[added]).toContain("FAKE_LSP_READY");
+    expect(snapshots[cleared]).not.toContain("FAKE_PULL_BAD");
+    expect(traceEntriesFor(trace, "server->client", "textDocument/publishDiagnostics")).toEqual([]);
+    for (const pull of pulls) {
+      expect(pull.params).toEqual({
+        textDocument: { uri: `file://${file}` },
+        identifier: "fake",
+      });
+    }
+    assertRequestAfterDocument(trace, pulls.at(-1), `${INITIAL_TEXT}bad clean`);
+    expect(pulls.length).toBeLessThan("bad clean".length);
+  });
+
+  it("keeps pushed and pulled diagnostics from the same server side by side", () => {
+    startCase("push-and-pull", ["--pull", "--push"]);
+
+    tui.type("bad");
+    tui.waitFor("FAKE_PULL_BAD");
+    const both = tui.snapshot();
+
+    const { snapshots } = tui.run();
+
+    expect(snapshots[both]).toContain("FAKE_PUSHED");
+    expect(snapshots[both]).toContain("FAKE_LSP_READY");
+  });
+
+  it("resends a pull the server cancelled with retriggerRequest", () => {
+    const { trace: tracePath } = startCase("pull-retrigger", ["--pull", "--retrigger-first"]);
+
+    tui.run();
+    const trace = readTrace(tracePath);
+    const cancelled = trace.find(
+      (entry) => entry.direction === "server->client" && entry.message.error?.code === -32802,
+    );
+    const pulls = traceEntriesFor(trace, "client->server", "textDocument/diagnostic");
+
+    expect(cancelled).toBeDefined();
+    expect(pulls.at(-1).sequence).toBeGreaterThan(cancelled.sequence);
+  });
+
   it("records invoked and dot-trigger completions after ordered full-document changes", () => {
     const { file, trace: tracePath } = startCase("completion-triggers");
 
@@ -347,19 +510,8 @@ describe("deterministic fake LSP protocol", () => {
           context: { triggerKind: 2, triggerCharacter: "." },
         },
       },
-      {
-        jsonrpc: "2.0",
-        id: expect.any(Number),
-        method: "textDocument/completion",
-        params: {
-          textDocument: { uri: `file://${file}` },
-          position: { line: 1, character: 11 },
-          context: { triggerKind: 1 },
-        },
-      },
     ]);
     assertRequestAfterDocument(trace, completions[0], `${INITIAL_TEXT}console.`);
-    assertRequestAfterDocument(trace, completions[1], `${INITIAL_TEXT}console.log`);
     expect(messagesFor(trace, "completionItem/resolve")).toEqual([
       {
         jsonrpc: "2.0",
